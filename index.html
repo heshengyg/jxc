@@ -27,6 +27,7 @@
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
         .btn-primary { background: #2d8cf0; color: white; }
         .btn-danger { background: #ff4d4f; color: white; }
+        .btn-default { background: #ccc; color: #333; }
 
         /* 表格 */
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -71,6 +72,7 @@
         <div class="search-bar">
             <button class="btn btn-primary" onclick="openAddForm()">添加商品</button>
             <button class="btn btn-danger" onclick="batchDelete()">批量删除选中项</button>
+            <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
             <select id="searchField">
                 <option value="name">按商品名搜索</option>
                 <option value="supplier">按供应商搜索</option>
@@ -261,6 +263,13 @@ function filterGoods() {
     renderGoods(filtered);
 }
 
+// 重置搜索
+function resetSearch() {
+    document.getElementById('searchKeyword').value = '';
+    document.getElementById('searchField').selectedIndex = 0;
+    filterGoods();
+}
+
 // 渲染商品列表
 function renderGoods(list) {
     const tbody = document.getElementById('goodsList');
@@ -292,7 +301,7 @@ function renderGoods(list) {
 function openAddForm() {
     document.getElementById('formTitle').innerText = '添加商品';
     document.getElementById('editId').value = '';
-    document.getElementById('addForm').querySelectorAll('input, select').forEach(el => el.value = '');
+    document.querySelectorAll('.form-group input, .form-group select').forEach(el => el.value = '');
     document.getElementById('add_input_date').value = new Date().toISOString().split('T')[0];
     document.getElementById('formModal').style.display = 'block';
 }
@@ -342,7 +351,7 @@ async function submitForm() {
         alert('必填项不能为空！'); return;
     }
     if (data.sale_price <= 0) { alert('销售价必须大于0！'); return; }
-    if (data.produce_date && data.expire_date) { alert('生产日期和到期日期不能同时填写！'); return; }
+    if (data.produce_date && data.expire_date) { alert('生产日期和到期日期不能同时填写！！'); return; }
     if ((data.produce_date || data.expire_date) && (!data.shelf_life_num || !data.shelf_life_unit)) {
         alert('填写生产日期/到期日期时，必须同时填写保质期！'); return;
     }
@@ -369,7 +378,7 @@ async function deleteGoods(id) {
     try {
         await supabase.from('goods').delete(id);
         alert('删除成功！');
-        loadGoods();
+        loadGoods(); // 删除后刷新列表
     } catch (err) {
         alert('删除失败：' + err.message);
     }
@@ -392,7 +401,7 @@ async function batchDelete() {
             await supabase.from('goods').delete(id);
         }
         alert('批量删除成功！');
-        loadGoods();
+        loadGoods(); // 删除后刷新列表
     } catch (err) {
         alert('批量删除失败：' + err.message);
     }
