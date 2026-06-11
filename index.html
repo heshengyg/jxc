@@ -232,13 +232,18 @@ function initSupabase() {
                         },
                         body: JSON.stringify(data)
                     });
-                    return { data: await res.json() };
+                    // 不解析响应体，只判断状态码
+                    if (!res.ok) throw new Error("更新失败");
+                    return { success: true };
                 },
                 delete: async function(id) {
-                    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
                         method: "DELETE",
                         headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
                     });
+                    // 不解析响应体，只判断状态码
+                    if (!res.ok) throw new Error("删除失败");
+                    return { success: true };
                 }
             };
         }
@@ -351,7 +356,7 @@ async function submitForm() {
         alert('必填项不能为空！'); return;
     }
     if (data.sale_price <= 0) { alert('销售价必须大于0！'); return; }
-    if (data.produce_date && data.expire_date) { alert('生产日期和到期日期不能同时填写！！'); return; }
+    if (data.produce_date && data.expire_date) { alert('生产日期和到期日期不能同时填写！'); return; }
     if ((data.produce_date || data.expire_date) && (!data.shelf_life_num || !data.shelf_life_unit)) {
         alert('填写生产日期/到期日期时，必须同时填写保质期！'); return;
     }
