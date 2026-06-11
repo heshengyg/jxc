@@ -176,7 +176,7 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化Supabase（用fetch直接请求API）
+// 初始化Supabase（修复写入请求）
 function initSupabase() {
     supabase = {
         from: function(table) {
@@ -205,7 +205,13 @@ function initSupabase() {
                         headers: headers,
                         body: JSON.stringify(data)
                     });
+                    // 打印状态码，方便排错
+                    console.log("提交状态码：", response.status);
                     const resData = await response.json();
+                    // 接口返回错误直接抛出
+                    if (!response.ok) {
+                        throw new Error(resData.message || "数据写入失败");
+                    }
                     return { data: resData };
                 },
                 delete: async function(id) {
@@ -214,17 +220,14 @@ function initSupabase() {
                         "apikey": SUPABASE_ANON_KEY,
                         "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
                     };
-                    await fetch(url, {
-                        method: "DELETE",
-                        headers: headers
-                    });
+                    const response = await fetch(url, { method: "DELETE", headers: headers });
+                    if (!response.ok) throw new Error("删除失败");
                     return { data: [] };
                 }
             };
         }
     };
 }
-
 // 加载商品列表
 async function loadGoods() {
     if (!supabase) {
