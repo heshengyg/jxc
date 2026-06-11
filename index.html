@@ -56,9 +56,9 @@
         th.sortable:hover { background: #e8edf2; }
         .sort-icon { margin-left: 4px; font-size: 12px; }
 
-        /* 隔行变色 + hover高亮 */
-        tbody tr:nth-child(even) { background-color: #fafafa; }
-        tbody tr:hover { background-color: #f0f7ff; }
+        /* 隔行改成浅薄荷绿 */
+        tbody tr:nth-child(even) { background-color: #f0f9f4; }
+        tbody tr:hover { background-color: #e6f7ef; }
 
         .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
         .page-info { color: #666; font-size: 14px; }
@@ -168,17 +168,15 @@
             <table>
                 <thead>
                     <tr>
-                        <!-- 选择列：无排序 -->
                         <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 选择</th>
-                        <!-- 序号列：无排序 -->
                         <th>序号</th>
-                        <!-- 可排序列 -->
                         <th class="sortable" onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
+                        <th>临期天数</th>
                         <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
                         <th>操作</th>
                     </tr>
@@ -249,7 +247,7 @@
             <select id="add_shelf_life_unit">
                 <option value="">无</option>
                 <option value="天">天</option>
-                <option value="月">月</option>
+                <option value="个月">个月</option>
                 <option value="年">年</option>
             </select>
         </div>
@@ -270,9 +268,17 @@ let pageSize = 10;
 let totalPages = 1;
 const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 
-// 排序全局变量
-let sortField = '';
-let sortAsc = true;
+// 临期天数对照表（按保质期天数近似匹配）
+const shelfToExpireDays = [
+    { shelf: 1, expire: 1 },
+    { shelf: 7, expire: 2 },
+    { shelf: 15, expire: 4 },
+    { shelf: 30, expire: 5 },
+    { shelf: 90, expire: 10 },
+    { shelf: 180, expire: 15 },
+    { shelf: 365, expire: 20 },
+    { shelf: 730, expire: 45 }
+];
 
 // 金额格式化函数（后续入库/财务版块通用）
 function formatMoney(num) {
@@ -280,6 +286,40 @@ function formatMoney(num) {
         return '￥0.00';
     }
     return '￥' + Number(num).toFixed(2);
+}
+
+// 计算临期天数
+function calculateExpireDays(shelfLifeNum, shelfLifeUnit) {
+    if (!shelfLifeNum || !shelfLifeUnit) {
+        return '';
+    }
+    let shelfDays = 0;
+    // 换算成总天数
+    switch (shelfLifeUnit) {
+        case '天':
+            shelfDays = shelfLifeNum * 1;
+            break;
+        case '个月':
+            shelfDays = shelfLifeNum * 30;
+            break;
+        case '年':
+            shelfDays = shelfLifeNum * 365;
+            break;
+        default:
+            return '';
+    }
+    // 找最接近的保质期天数对应的临期天数
+    let target = null;
+    for (let i = 0; i < shelfToExpireDays.length; i++) {
+        if (shelfDays <= shelfToExpireDays[i].shelf) {
+            target = shelfToExpireDays[i];
+            break;
+        }
+    }
+    if (!target) {
+        target = shelfToExpireDays[shelfToExpireDays.length - 1];
+    }
+    return `${target.expire}天`;
 }
 
 // 居中消息弹窗
@@ -291,7 +331,7 @@ function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
 }
 
-// 【新增】清除排序，恢复默认顺序（ID倒序，最新录入置顶）
+// 清除排序，恢复默认顺序（ID倒序，最新录入置顶）
 function clearSort(){
     sortField = '';
     sortAsc = true;
@@ -409,6 +449,7 @@ function renderGoods() {
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let warnNum = item.warn_num ?? 0;
         let salePriceFormatted = formatMoney(item.sale_price);
+        let expireDays = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
@@ -419,6 +460,7 @@ function renderGoods() {
             <td>${item.channel || ''}</td>
             <td>${salePriceFormatted}</td>
             <td>${shelfText}</td>
+            <td>${expireDays}</td>
             <td>${warnNum}</td>
             <td>
                 <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
@@ -471,7 +513,7 @@ function changePageSize() {
     renderGoods();
 }
 
-// 全选/反选（已恢复）
+// 全选/反选
 function toggleSelectAll() {
     let allChecked = document.getElementById('selectAll').checked;
     document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = allChecked);
@@ -716,9 +758,10 @@ function importExcel() {
 // 导出Excel
 function exportExcel() {
     let exportData = [];
-    exportData.push(["序号","供应商","商品名称","规格","销售渠道","销售单价","保质期","库存预警阈值"]);
+    exportData.push(["序号","供应商","商品名称","规格","销售渠道","销售单价","保质期","临期天数","库存预警阈值"]);
     filteredGoods.forEach((item, idx) => {
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
+        let expireDays = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         exportData.push([
             idx + 1,
             item.supplier || '',
@@ -727,6 +770,7 @@ function exportExcel() {
             item.channel || '',
             item.sale_price || 0,
             shelf,
+            expireDays,
             item.warn_num || 0
         ]);
     });
