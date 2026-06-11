@@ -140,6 +140,9 @@
             <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
             <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
             <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
+            <!-- 新增：清除排序按钮 -->
+            <button class="btn btn-default" onclick="clearSort()">清除排序</button>
+
             <select id="searchField">
                 <option value="name">按商品名搜索</option>
                 <option value="supplier">按供应商搜索</option>
@@ -263,6 +266,14 @@ function showMsg(text) {
 }
 function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
+}
+
+// 【新增】清除排序，恢复默认顺序（ID倒序，最新录入置顶）
+function clearSort(){
+    sortField = '';
+    sortAsc = true;
+    updateSortIcon();
+    loadGoods();
 }
 
 // 登录登出 & 标签切换
@@ -521,7 +532,7 @@ async function submitForm() {
     try {
         let res;
         if (editId) {
-            // 编辑：仅更新数据，不重新整体排序 → 位置保持不变
+            // ========== 修复点：编辑后实时更新本地数据，立即刷新视图 ==========
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: "PATCH",
                 headers: {
@@ -532,7 +543,15 @@ async function submitForm() {
                 body: JSON.stringify(data)
             });
             if(!res.ok) throw new Error('编辑失败');
+
+            // 本地数组同步更新这条数据，页面立刻生效
+            let idx = allGoods.findIndex(item => Number(item.id) === Number(editId));
+            if(idx > -1){
+                allGoods[idx] = {...allGoods[idx], ...data};
+            }
             showMsg('编辑成功');
+            closeForm();
+            filterGoods(); // 刷新当前列表视图，位置不变
         } else {
             // 新增：重新拉取全量数据 → 自动置顶
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
@@ -547,13 +566,8 @@ async function submitForm() {
             });
             if(!res.ok) throw new Error('新增失败');
             showMsg('新增成功');
-        }
-        closeForm();
-        // 编辑不重载列表（位置不变），新增重载实现置顶
-        if(!editId){
-            loadGoods();
-        }else{
-            filterGoods();
+            closeForm();
+            loadGoods(); // 新增重载实现置顶
         }
     } catch (e) {
         showMsg('操作失败：' + e.message);
@@ -648,7 +662,7 @@ function importExcel() {
             let postData = {
                 supplier, name, spec: spec || null, channel,
                 sale_price: salePrice, warn_num: warnNum,
-                shelf_life_num: shelfNum, shelfUnit: shelfUnit || null
+                shelf_life_num: shelfNum, shelf_life_unit: shelfUnit || null
             };
 
             try {
