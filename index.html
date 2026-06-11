@@ -139,6 +139,7 @@
             <label>保质期：</label>
             <input type="number" id="add_shelf_life_num" placeholder="数字">
             <select id="add_shelf_life_unit">
+                <option value="">请选择</option>
                 <option value="天">天</option>
                 <option value="月">月</option>
                 <option value="年">年</option>
@@ -160,8 +161,6 @@
 const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 
-let supabase = null;
-let currentUser = null;
 let allGoods = []; // 存储所有商品数据，用于筛选
 
 // 账号配置
@@ -175,17 +174,14 @@ function login() {
     const password = document.getElementById('password').value.trim();
     const user = users.find(u => u.user === username && u.pwd === password);
     if (!user) { alert('账号或密码错误'); return; }
-    currentUser = user;
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';
     document.getElementById('roleText').innerText = user.name;
-    initSupabase();
     loadGoods();
 }
 
 // 退出登录
 function logout() {
-    currentUser = null;
     document.getElementById('loginBox').style.display = 'block';
     document.getElementById('mainBox').style.display = 'none';
 }
@@ -198,64 +194,18 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化 Supabase API
-function initSupabase() {
-    supabase = {
-        from: function(table) {
-            return {
-                select: async function() {
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-                        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
-                    });
-                    return { data: await res.json() };
-                },
-                insert: async function(data) {
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-                        method: "POST",
-                        headers: {
-                            "apikey": SUPABASE_ANON_KEY,
-                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                            "Content-Type": "application/json",
-                            "Prefer": "return=representation"
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    return { data: await res.json() };
-                },
-                update: async function(id, data) {
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-                        method: "PATCH",
-                        headers: {
-                            "apikey": SUPABASE_ANON_KEY,
-                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    // 不解析响应体，只判断状态码
-                    if (!res.ok) throw new Error("更新失败");
-                    return { success: true };
-                },
-                delete: async function(id) {
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-                        method: "DELETE",
-                        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
-                    });
-                    // 不解析响应体，只判断状态码
-                    if (!res.ok) throw new Error("删除失败");
-                    return { success: true };
-                }
-            };
-        }
-    };
-}
-
 // 加载商品列表
 async function loadGoods() {
-    const { data, error } = await supabase.from('goods').select();
-    if (error) { alert('加载失败：' + error.message); return; }
-    allGoods = data;
-    filterGoods(); // 渲染并应用筛选
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        if (!res.ok) throw new Error("加载失败");
+        allGoods = await res.json();
+        filterGoods();
+    } catch (err) {
+        alert('加载失败：' + err.message);
+    }
 }
 
 // 筛选商品
@@ -292,7 +242,7 @@ function renderGoods(list) {
             <td>${item.input_date}</td>
             <td>${item.produce_date || '-'}</td>
             <td>${item.expire_date || '-'}</td>
-            <td>${item.shelf_life_num ? item.shelf_life_num + item.shelf_life_unit : '-'}</td>
+            <td>${item.shelf_life_num ? item.shelf_life_num + (item.shelf_life_unit || '') : '-'}</td>
             <td>
                 <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
                 <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
@@ -311,7 +261,7 @@ function openAddForm() {
     document.getElementById('formModal').style.display = 'block';
 }
 
-// 打开编辑商品弹窗
+// 打开编辑商品弹窗（修复：不再自动填充保质期单位默认值）
 function openEditForm(id) {
     const item = allGoods.find(g => g.id === id);
     if (!item) return;
@@ -326,7 +276,7 @@ function openEditForm(id) {
     document.getElementById('add_produce_date').value = item.produce_date || '';
     document.getElementById('add_expire_date').value = item.expire_date || '';
     document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
-    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '天';
+    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || ''; // 关键修复：为空就为空
     document.getElementById('formModal').style.display = 'block';
 }
 
@@ -348,7 +298,7 @@ async function submitForm() {
         produce_date: document.getElementById('add_produce_date').value || null,
         expire_date: document.getElementById('add_expire_date').value || null,
         shelf_life_num: parseInt(document.getElementById('add_shelf_life_num').value) || null,
-        shelf_life_unit: document.getElementById('add_shelf_life_unit').value
+        shelf_life_unit: document.getElementById('add_shelf_life_unit').value || null
     };
 
     // 表单校验（和数据库规则同步）
@@ -364,12 +314,32 @@ async function submitForm() {
 
     try {
         if (id) {
-            await supabase.from('goods').update(id, data);
-            alert('编辑成功！');
+            // 编辑请求
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+                method: "PATCH",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("更新失败");
         } else {
-            await supabase.from('goods').insert(data);
-            alert('添加成功！');
+            // 添加请求
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation"
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("添加失败");
         }
+        alert(id ? '编辑成功！' : '添加成功！');
         closeForm();
         loadGoods();
     } catch (err) {
@@ -381,9 +351,13 @@ async function submitForm() {
 async function deleteGoods(id) {
     if (!confirm('确定删除该商品吗？')) return;
     try {
-        await supabase.from('goods').delete(id);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+            method: "DELETE",
+            headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        if (!res.ok) throw new Error("删除失败");
         alert('删除成功！');
-        loadGoods(); // 删除后刷新列表
+        loadGoods();
     } catch (err) {
         alert('删除失败：' + err.message);
     }
@@ -403,10 +377,14 @@ async function batchDelete() {
 
     try {
         for (const id of selected) {
-            await supabase.from('goods').delete(id);
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+                method: "DELETE",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (!res.ok) throw new Error("删除失败");
         }
         alert('批量删除成功！');
-        loadGoods(); // 删除后刷新列表
+        loadGoods();
     } catch (err) {
         alert('批量删除失败：' + err.message);
     }
