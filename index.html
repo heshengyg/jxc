@@ -12,15 +12,22 @@
         .login-card input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         .login-btn { width: 100%; padding: 12px; background: #2d8cf0; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
         .tip { font-size: 12px; color: #666; margin-top: 15px; text-align: center; }
-        .main-page { display: none; width: 100%; max-width: 1200px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 10px; }
+        .main-page { display: none; width: 100%; max-width: 1400px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 10px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { padding: 10px 16px; border: none; border-radius: 6px; background: #e5efff; cursor: pointer; }
         .tab-btn.active { background: #2d8cf0; color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        table { margin-top:15px; border-collapse: collapse; width:100%; }
+        table { margin-top:15px; border-collapse: collapse; width:100%; font-size:13px; }
         th,td { border:1px solid #ccc; padding:8px; text-align:center; }
+        .form-group { margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .form-group label { width:100px; text-align:right; }
+        .form-group input, .form-group select { padding:8px; border:1px solid #ddd; border-radius:4px; }
+        .btn { padding:8px 16px; border:none; border-radius:4px; cursor:pointer; }
+        .btn-primary { background:#2d8cf0; color:white; }
+        .btn-danger { background:#ff4d4f; color:white; }
+        .form-container { margin:15px 0; padding:15px; border:1px solid #eee; border-radius:6px; }
     </style>
 </head>
 <body>
@@ -46,14 +53,67 @@
     </div>
     <div id="goods" class="tab-content active">
         <h3>商品管理</h3>
-        <button onclick="loadGoods()">刷新商品列表</button>
+        <button class="btn btn-primary" onclick="document.getElementById('addForm').style.display='block'">添加商品</button>
+        <button class="btn" onclick="loadGoods()">刷新商品列表</button>
+
+        <!-- 添加商品表单 -->
+        <div id="addForm" class="form-container" style="display:none;">
+            <h4>添加新商品</h4>
+            <div class="form-group">
+                <label>商品名：</label>
+                <input type="text" id="add_name" required>
+                <label>供应商：</label>
+                <input type="text" id="add_supplier" required>
+                <label>规格：</label>
+                <input type="text" id="add_spec">
+            </div>
+            <div class="form-group">
+                <label>渠道：</label>
+                <select id="add_channel" required>
+                    <option value="线上">线上</option>
+                    <option value="线下">线下</option>
+                </select>
+                <label>销售价：</label>
+                <input type="number" id="add_sale_price" step="0.01" required>
+                <label>录入日期：</label>
+                <input type="date" id="add_input_date" required>
+            </div>
+            <div class="form-group">
+                <label>生产日期：</label>
+                <input type="date" id="add_produce_date">
+                <label>保质期：</label>
+                <input type="number" id="add_shelf_life_num" placeholder="数字">
+                <select id="add_shelf_life_unit">
+                    <option value="天">天</option>
+                    <option value="月">月</option>
+                    <option value="年">年</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>到期日期：</label>
+                <input type="date" id="add_expire_date">
+            </div>
+            <div style="text-align:center; margin-top:10px;">
+                <button class="btn btn-primary" onclick="addGoods()">提交</button>
+                <button class="btn" onclick="document.getElementById('addForm').style.display='none'">取消</button>
+            </div>
+        </div>
+
+        <!-- 商品列表 -->
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>商品名</th>
                     <th>供应商</th>
-                    <th>价格</th>
+                    <th>规格</th>
+                    <th>渠道</th>
+                    <th>销售价</th>
+                    <th>录入日期</th>
+                    <th>生产日期</th>
+                    <th>到期日期</th>
+                    <th>保质期</th>
+                    <th>操作</th>
                 </tr>
             </thead>
             <tbody id="goodsList"></tbody>
@@ -74,7 +134,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 let supabase = null;
 let currentUser = null;
 
-// 账号配置（必须在login函数之前定义）
+// 账号配置
 const users = [
     { user: 'admin', pwd: '123', role: 'admin', name: '管理员' }
 ];
@@ -95,8 +155,10 @@ function login() {
     document.getElementById('mainBox').style.display = 'block';
     document.getElementById('roleText').innerText = user.name;
 
-    // 登录成功后初始化Supabase
+    // 初始化Supabase
     initSupabase();
+    // 加载商品列表
+    loadGoods();
 }
 
 // 退出函数
@@ -114,7 +176,7 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化Supabase（用fetch直接请求API，不依赖SDK）
+// 初始化Supabase（用fetch直接请求API）
 function initSupabase() {
     supabase = {
         from: function(table) {
@@ -129,6 +191,34 @@ function initSupabase() {
                     const response = await fetch(url, { headers });
                     const data = await response.json();
                     return { data: data };
+                },
+                insert: async function(data) {
+                    const url = `${SUPABASE_URL}/rest/v1/${table}`;
+                    const headers = {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    };
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: headers,
+                        body: JSON.stringify(data)
+                    });
+                    const resData = await response.json();
+                    return { data: resData };
+                },
+                delete: async function(id) {
+                    const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`;
+                    const headers = {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+                    };
+                    await fetch(url, {
+                        method: "DELETE",
+                        headers: headers
+                    });
+                    return { data: [] };
                 }
             };
         }
@@ -156,7 +246,14 @@ async function loadGoods() {
                 <td>${item.id}</td>
                 <td>${item.name}</td>
                 <td>${item.supplier}</td>
-                <td>${item.price}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.channel}</td>
+                <td>${item.sale_price}</td>
+                <td>${item.input_date}</td>
+                <td>${item.produce_date || '-'}</td>
+                <td>${item.expire_date || '-'}</td>
+                <td>${item.shelf_life_num ? item.shelf_life_num + item.shelf_life_unit : '-'}</td>
+                <td><button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -165,6 +262,85 @@ async function loadGoods() {
         alert('网络请求失败，请检查网络是否能访问Supabase');
     }
 }
+
+// 添加商品（和数据库规则完全同步的校验）
+async function addGoods() {
+    const name = document.getElementById('add_name').value.trim();
+    const supplier = document.getElementById('add_supplier').value.trim();
+    const spec = document.getElementById('add_spec').value.trim();
+    const channel = document.getElementById('add_channel').value;
+    const sale_price = parseFloat(document.getElementById('add_sale_price').value);
+    const input_date = document.getElementById('add_input_date').value;
+    const produce_date = document.getElementById('add_produce_date').value || null;
+    const shelf_life_num = parseInt(document.getElementById('add_shelf_life_num').value) || null;
+    const shelf_life_unit = document.getElementById('add_shelf_life_unit').value;
+    const expire_date = document.getElementById('add_expire_date').value || null;
+
+    // 1. 基础字段校验
+    if (!name || !supplier || !channel || !sale_price || !input_date) {
+        alert('商品名、供应商、渠道、销售价、录入日期为必填项！');
+        return;
+    }
+    if (sale_price <= 0) {
+        alert('销售价必须大于0！');
+        return;
+    }
+
+    // 2. 生产日期和到期日期互斥校验
+    if (produce_date && expire_date) {
+        alert('生产日期和到期日期不能同时填写！');
+        return;
+    }
+
+    // 3. 填了生产日期/到期日期，保质期必须完整填写
+    if ((produce_date || expire_date) && (!shelf_life_num || !shelf_life_unit)) {
+        alert('填写生产日期或到期日期时，必须同时填写保质期数字和单位！');
+        return;
+    }
+
+    // 4. 保质期数字必须大于0
+    if (shelf_life_num && shelf_life_num <= 0) {
+        alert('保质期数字必须大于0！');
+        return;
+    }
+
+    const newGoods = {
+        name, supplier, spec, channel, sale_price, input_date,
+        produce_date, shelf_life_num, shelf_life_unit, expire_date
+    };
+
+    try {
+        await supabase.from('goods').insert(newGoods);
+        alert('添加成功！');
+        document.getElementById('addForm').style.display = 'none';
+        // 清空表单
+        document.getElementById('addForm').querySelectorAll('input, select').forEach(el => el.value = '');
+        // 刷新列表
+        loadGoods();
+    } catch (err) {
+        console.error(err);
+        alert('添加失败：' + err.message);
+    }
+}
+
+// 删除商品
+async function deleteGoods(id) {
+    if (!confirm('确定要删除这个商品吗？')) return;
+    try {
+        await supabase.from('goods').delete(id);
+        alert('删除成功！');
+        loadGoods();
+    } catch (err) {
+        console.error(err);
+        alert('删除失败：' + err.message);
+    }
+}
+
+// 页面加载时默认设置录入日期为今天
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('add_input_date').value = today;
+});
 </script>
 
 </body>
