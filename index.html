@@ -7,7 +7,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, sans-serif; }
         body { background: #f5f7fa; padding: 20px; }
-        .login-card { width: 360px; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0.1); margin: 100px auto; }
+        .login-card { width: 360px; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 100px auto; }
         .login-card h2 { text-align: center; margin-bottom: 20px; color: #333; }
         .login-card input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         .login-btn { width: 100%; padding: 12px; background: #2d8cf0; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
@@ -21,6 +21,10 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
+        /* 统计条 */
+        .stat-bar { margin-bottom: 10px; color: #666; font-size: 14px; }
+
+        /* 搜索栏 */
         .search-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
         .search-bar select, .search-bar input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
@@ -28,10 +32,21 @@
         .btn-danger { background: #ff4d4f; color: white; }
         .btn-default { background: #ccc; color: #333; }
 
+        /* 表格容器（固定表头、可滚动） */
+        .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background: #f5f7fa; }
+        th { background: #f5f7fa; position: sticky; top: 0; z-index: 1; }
 
+        /* 分页栏 */
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
+        .page-info { color: #666; font-size: 14px; }
+        .page-controls { display: flex; gap: 5px; align-items: center; }
+        .page-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; }
+        .page-btn.active { background: #2d8cf0; color: white; border-color: #2d8cf0; }
+        .page-btn:disabled { background: #eee; cursor: not-allowed; }
+
+        /* 表单弹窗 */
         .form-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
         .form-container { background: white; width: 90%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; }
         .form-group { margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -42,6 +57,7 @@
 </head>
 <body>
 
+<!-- 登录页面 -->
 <div class="login-card" id="loginBox">
     <h2>进销存系统</h2>
     <input type="text" id="username" placeholder="账号" value="admin">
@@ -50,6 +66,7 @@
     <div class="tip">测试账号：admin / 123</div>
 </div>
 
+<!-- 主页面 -->
 <div class="main-page" id="mainBox">
     <div class="header">
         <h2>欢迎，<span id="roleText"></span></h2>
@@ -61,8 +78,13 @@
         <button class="tab-btn" onclick="switchTab('in')">入库管理</button>
     </div>
 
+    <!-- 商品管理 -->
     <div id="goods" class="tab-content active">
         <h3>商品管理</h3>
+        <!-- 统计条 -->
+        <div class="stat-bar">
+            共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
+        </div>
         <div class="search-bar">
             <button class="btn btn-primary" onclick="openAddForm()">添加商品</button>
             <button class="btn btn-danger" onclick="batchDelete()">批量删除选中项</button>
@@ -75,33 +97,56 @@
             <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                    <th>ID</th>
-                    <th>供应商</th>
-                    <th>商品名</th>
-                    <th>规格</th>
-                    <th>渠道</th>
-                    <th>销售价</th>
-                    <th>录入日期</th>
-                    <th>生产日期</th>
-                    <th>到期日期</th>
-                    <th>保质期</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="goodsList"></tbody>
-        </table>
+        <!-- 表格容器（固定表头、可滚动） -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>商品名</th>
+                        <th>规格</th>
+                        <th>渠道</th>
+                        <th>销售价</th>
+                        <th>录入日期</th>
+                        <th>生产日期</th>
+                        <th>到期日期</th>
+                        <th>保质期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="goodsList"></tbody>
+            </table>
+        </div>
+
+        <!-- 分页栏 -->
+        <div class="pagination">
+            <div class="page-info">
+                每页显示 <select id="pageSize" onchange="changePageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="currentPage">1</span> / <span id="totalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="goToPage(1)">首页</button>
+                <button class="page-btn" onclick="prevPage()">上一页</button>
+                <span id="pageNumbers"></span>
+                <button class="page-btn" onclick="nextPage()">下一页</button>
+                <button class="page-btn" onclick="goToPage(totalPages)">末页</button>
+            </div>
+        </div>
     </div>
 
+    <!-- 入库管理 -->
     <div id="in" class="tab-content">
         <h3>入库管理</h3>
         <p>功能开发中...</p>
     </div>
 </div>
 
+<!-- 添加/编辑商品弹窗 -->
 <div class="form-modal" id="formModal">
     <div class="form-container">
         <h4 id="formTitle">添加商品</h4>
@@ -152,6 +197,10 @@
 const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 let allGoods = [];
+let filteredGoods = [];
+let currentPage = 1;
+let pageSize = 10;
+let totalPages = 1;
 
 const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 
@@ -186,6 +235,8 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         allGoods = await res.json();
+        // 更新总数统计
+        document.getElementById('totalCount').textContent = allGoods.length;
         filterGoods();
     } catch (e) {
         alert('加载列表失败：' + e.message);
@@ -195,11 +246,16 @@ async function loadGoods() {
 function filterGoods() {
     let field = document.getElementById('searchField').value;
     let kw = document.getElementById('searchKeyword').value.toLowerCase();
-    let list = allGoods.filter(item => {
+    filteredGoods = allGoods.filter(item => {
         let val = item[field] ?? '';
         return String(val).toLowerCase().includes(kw);
     });
-    renderGoods(list);
+    // 更新搜索结果条数
+    document.getElementById('searchCount').textContent = filteredGoods.length;
+    // 重置到第一页
+    currentPage = 1;
+    renderPagination();
+    renderGoods();
 }
 
 function resetSearch() {
@@ -208,16 +264,20 @@ function resetSearch() {
     filterGoods();
 }
 
-function renderGoods(list) {
+function renderGoods() {
+    let start = (currentPage - 1) * pageSize;
+    let end = start + pageSize;
+    let pageData = filteredGoods.slice(start, end);
+
     let tb = document.getElementById('goodsList');
     tb.innerHTML = '';
-    list.forEach(item => {
+    pageData.forEach((item, index) => {
         let unit = item.shelf_life_unit || '';
         let shelf = item.shelf_life_num ? (item.shelf_life_num + unit) : '-';
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
-            <td>${item.id}</td>
+            <td>${start + index + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.name}</td>
             <td>${item.spec || '-'}</td>
@@ -234,6 +294,58 @@ function renderGoods(list) {
         `;
         tb.appendChild(tr);
     });
+}
+
+function renderPagination() {
+    totalPages = Math.ceil(filteredGoods.length / pageSize) || 1;
+    document.getElementById('currentPage').textContent = currentPage;
+    document.getElementById('totalPages').textContent = totalPages;
+
+    // 生成页码按钮
+    let pageNumbers = document.getElementById('pageNumbers');
+    pageNumbers.innerHTML = '';
+    let maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage + 1 < maxVisible) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        let btn = document.createElement('button');
+        btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+        btn.textContent = i;
+        btn.onclick = () => goToPage(i);
+        pageNumbers.appendChild(btn);
+    }
+
+    // 禁用首尾页按钮
+    document.querySelector('.page-controls button:nth-child(1)').disabled = currentPage === 1;
+    document.querySelector('.page-controls button:nth-child(2)').disabled = currentPage === 1;
+    document.querySelector('.page-controls button:last-child').disabled = currentPage === totalPages;
+    document.querySelector('.page-controls button:nth-child(4)').disabled = currentPage === totalPages;
+}
+
+function goToPage(page) {
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderPagination();
+    renderGoods();
+}
+
+function prevPage() {
+    goToPage(currentPage - 1);
+}
+
+function nextPage() {
+    goToPage(currentPage + 1);
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSize').value);
+    currentPage = 1;
+    renderPagination();
+    renderGoods();
 }
 
 function openAddForm() {
