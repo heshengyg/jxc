@@ -35,17 +35,30 @@
 
         .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th, td { 
+            border: 1px solid #ccc; 
+            padding: 8px; 
+            text-align: center; 
+            white-space: normal; 
+            word-break: break-all;
+        }
         th { 
             background: #f5f7fa; 
             position: sticky; 
             top: 0; 
             z-index: 1;
-            cursor: pointer;
             user-select: none;
+            min-width: 80px;
         }
-        th:hover { background: #e8edf2; }
+        th.sortable {
+            cursor: pointer;
+        }
+        th.sortable:hover { background: #e8edf2; }
         .sort-icon { margin-left: 4px; font-size: 12px; }
+
+        /* 隔行变色 + hover高亮 */
+        tbody tr:nth-child(even) { background-color: #fafafa; }
+        tbody tr:hover { background-color: #f0f7ff; }
 
         .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
         .page-info { color: #666; font-size: 14px; }
@@ -140,7 +153,6 @@
             <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
             <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
             <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
-            <!-- 新增：清除排序按钮 -->
             <button class="btn btn-default" onclick="clearSort()">清除排序</button>
 
             <select id="searchField">
@@ -156,15 +168,18 @@
             <table>
                 <thead>
                     <tr>
-                        <th onclick="sortTable('')">选择 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('index')">序号 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
-                        <th onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
+                        <!-- 选择列：无排序 -->
+                        <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 选择</th>
+                        <!-- 序号列：无排序 -->
+                        <th>序号</th>
+                        <!-- 可排序列 -->
+                        <th class="sortable" onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -259,6 +274,14 @@ const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 let sortField = '';
 let sortAsc = true;
 
+// 金额格式化函数（后续入库/财务版块通用）
+function formatMoney(num) {
+    if (isNaN(num) || num === null || num === undefined) {
+        return '￥0.00';
+    }
+    return '￥' + Number(num).toFixed(2);
+}
+
 // 居中消息弹窗
 function showMsg(text) {
     document.getElementById('msgText').innerText = text;
@@ -337,7 +360,7 @@ function filterGoods() {
     renderGoods();
 }
 
-// 表头排序
+// 表头排序（仅支持指定列）
 function sortTable(field) {
     if (sortField === field) {
         sortAsc = !sortAsc;
@@ -366,9 +389,9 @@ function sortTable(field) {
 }
 // 更新排序箭头
 function updateSortIcon() {
-    let ths = document.querySelectorAll('thead th .sort-icon');
+    let ths = document.querySelectorAll('.sort-icon');
     ths.forEach(icon => icon.innerText = '');
-    let idx = Array.from(document.querySelectorAll('thead th')).findIndex(th => th.getAttribute('onclick')?.includes(sortField));
+    let idx = Array.from(document.querySelectorAll('.sortable')).findIndex(th => th.getAttribute('onclick')?.includes(sortField));
     if(idx > -1){
         ths[idx].innerText = sortAsc ? '↑' : '↓';
     }
@@ -385,6 +408,7 @@ function renderGoods() {
     pageData.forEach((item, index) => {
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let warnNum = item.warn_num ?? 0;
+        let salePriceFormatted = formatMoney(item.sale_price);
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
@@ -393,7 +417,7 @@ function renderGoods() {
             <td>${item.name || ''}</td>
             <td>${item.spec || '-'}</td>
             <td>${item.channel || ''}</td>
-            <td>${item.sale_price || 0}</td>
+            <td>${salePriceFormatted}</td>
             <td>${shelfText}</td>
             <td>${warnNum}</td>
             <td>
@@ -447,10 +471,10 @@ function changePageSize() {
     renderGoods();
 }
 
-// 全选/反选
+// 全选/反选（已恢复）
 function toggleSelectAll() {
-    let all = document.getElementById('selectAll').checked;
-    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = all);
+    let allChecked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = allChecked);
 }
 
 // 打开新增/编辑弹窗
@@ -532,7 +556,7 @@ async function submitForm() {
     try {
         let res;
         if (editId) {
-            // ========== 修复点：编辑后实时更新本地数据，立即刷新视图 ==========
+            // 编辑：本地更新数据，不改变位置
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: "PATCH",
                 headers: {
@@ -544,7 +568,7 @@ async function submitForm() {
             });
             if(!res.ok) throw new Error('编辑失败');
 
-            // 本地数组同步更新这条数据，页面立刻生效
+            // 本地数组同步更新，页面立刻生效
             let idx = allGoods.findIndex(item => Number(item.id) === Number(editId));
             if(idx > -1){
                 allGoods[idx] = {...allGoods[idx], ...data};
@@ -553,7 +577,7 @@ async function submitForm() {
             closeForm();
             filterGoods(); // 刷新当前列表视图，位置不变
         } else {
-            // 新增：重新拉取全量数据 → 自动置顶
+            // 新增：重载实现置顶
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: "POST",
                 headers: {
