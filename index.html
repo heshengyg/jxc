@@ -6,28 +6,40 @@
     <title>进销存系统</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, sans-serif; }
-        body { background: #f5f7fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .login-card { width: 360px; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        body { background: #f5f7fa; padding: 20px; }
+        .login-card { width: 360px; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 100px auto; }
         .login-card h2 { text-align: center; margin-bottom: 20px; color: #333; }
         .login-card input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         .login-btn { width: 100%; padding: 12px; background: #2d8cf0; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
         .tip { font-size: 12px; color: #666; margin-top: 15px; text-align: center; }
-        .main-page { display: none; width: 100%; max-width: 1400px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 10px; }
+
+        .main-page { display: none; max-width: 1600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { padding: 10px 16px; border: none; border-radius: 6px; background: #e5efff; cursor: pointer; }
         .tab-btn.active { background: #2d8cf0; color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        table { margin-top:15px; border-collapse: collapse; width:100%; font-size:13px; }
-        th,td { border:1px solid #ccc; padding:8px; text-align:center; }
-        .form-group { margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-        .form-group label { width:100px; text-align:right; }
-        .form-group input, .form-group select { padding:8px; border:1px solid #ddd; border-radius:4px; }
-        .btn { padding:8px 16px; border:none; border-radius:4px; cursor:pointer; }
-        .btn-primary { background:#2d8cf0; color:white; }
-        .btn-danger { background:#ff4d4f; color:white; }
-        .form-container { margin:15px 0; padding:15px; border:1px solid #eee; border-radius:6px; }
+
+        /* 搜索栏 */
+        .search-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .search-bar select, .search-bar input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #2d8cf0; color: white; }
+        .btn-danger { background: #ff4d4f; color: white; }
+
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background: #f5f7fa; }
+
+        /* 表单弹窗 */
+        .form-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .form-container { background: white; width: 90%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; }
+        .form-group { margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .form-group label { width: 100px; text-align: right; }
+        .form-group input, .form-group select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; min-width: 120px; }
+        .form-actions { text-align: center; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -47,62 +59,30 @@
         <h2>欢迎，<span id="roleText"></span></h2>
         <button onclick="logout()">退出登录</button>
     </div>
+
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('goods')">商品管理</button>
         <button class="tab-btn" onclick="switchTab('in')">入库管理</button>
     </div>
+
+    <!-- 商品管理 -->
     <div id="goods" class="tab-content active">
         <h3>商品管理</h3>
-        <button class="btn btn-primary" onclick="document.getElementById('addForm').style.display='block'">添加商品</button>
-        <button class="btn" onclick="loadGoods()">刷新商品列表</button>
-
-        <!-- 添加商品表单 -->
-        <div id="addForm" class="form-container" style="display:none;">
-            <h4>添加新商品</h4>
-           <div class="form-group">
-    <label>供应商：</label>
-    <input type="text" id="add_supplier" required>
-    <label>商品名：</label>
-    <input type="text" id="add_name" required>
-    <label>规格：</label>
-    <input type="text" id="add_spec">
-</div>
-            <div class="form-group">
-                <label>渠道：</label>
-                <select id="add_channel" required>
-                    <option value="线上">线上</option>
-                    <option value="线下">线下</option>
-                </select>
-                <label>销售价：</label>
-                <input type="number" id="add_sale_price" step="0.01" required>
-                <label>录入日期：</label>
-                <input type="date" id="add_input_date" required>
-            </div>
-            <div class="form-group">
-                <label>生产日期：</label>
-                <input type="date" id="add_produce_date">
-                <label>保质期：</label>
-                <input type="number" id="add_shelf_life_num" placeholder="数字">
-                <select id="add_shelf_life_unit">
-                    <option value="天">天</option>
-                    <option value="月">月</option>
-                    <option value="年">年</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>到期日期：</label>
-                <input type="date" id="add_expire_date">
-            </div>
-            <div style="text-align:center; margin-top:10px;">
-                <button class="btn btn-primary" onclick="addGoods()">提交</button>
-                <button class="btn" onclick="document.getElementById('addForm').style.display='none'">取消</button>
-            </div>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openAddForm()">添加商品</button>
+            <button class="btn btn-danger" onclick="batchDelete()">批量删除选中项</button>
+            <select id="searchField">
+                <option value="name">按商品名搜索</option>
+                <option value="supplier">按供应商搜索</option>
+                <option value="channel">按渠道搜索</option>
+            </select>
+            <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
         </div>
 
-        <!-- 商品列表 -->
         <table>
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
                     <th>ID</th>
                     <th>供应商</th>
                     <th>商品名</th>
@@ -119,52 +99,92 @@
             <tbody id="goodsList"></tbody>
         </table>
     </div>
+
+    <!-- 入库管理 -->
     <div id="in" class="tab-content">
         <h3>入库管理</h3>
         <p>功能开发中...</p>
     </div>
 </div>
 
+<!-- 添加/编辑商品弹窗 -->
+<div class="form-modal" id="formModal">
+    <div class="form-container">
+        <h4 id="formTitle">添加商品</h4>
+        <input type="hidden" id="editId">
+        <div class="form-group">
+            <label>供应商：</label>
+            <input type="text" id="add_supplier" required>
+            <label>商品名：</label>
+            <input type="text" id="add_name" required>
+            <label>规格：</label>
+            <input type="text" id="add_spec">
+        </div>
+        <div class="form-group">
+            <label>渠道：</label>
+            <select id="add_channel" required>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            <label>销售价：</label>
+            <input type="number" id="add_sale_price" step="0.01" required>
+            <label>录入日期：</label>
+            <input type="date" id="add_input_date" required>
+        </div>
+        <div class="form-group">
+            <label>生产日期：</label>
+            <input type="date" id="add_produce_date">
+            <label>保质期：</label>
+            <input type="number" id="add_shelf_life_num" placeholder="数字">
+            <select id="add_shelf_life_unit">
+                <option value="天">天</option>
+                <option value="月">月</option>
+                <option value="年">年</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>到期日期：</label>
+            <input type="date" id="add_expire_date">
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="submitForm()">提交</button>
+            <button class="btn" onclick="closeForm()">取消</button>
+        </div>
+    </div>
+</div>
+
 <script>
-// ========= 这里只改你的Supabase信息 =========
+// ========= Supabase 配置 =========
 const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 
-// 全局变量
 let supabase = null;
 let currentUser = null;
+let allGoods = []; // 存储所有商品数据，用于筛选
 
 // 账号配置
 const users = [
     { user: 'admin', pwd: '123', role: 'admin', name: '管理员' }
 ];
 
-// 登录函数
+// 登录
 function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
     const user = users.find(u => u.user === username && u.pwd === password);
-    
-    if (!user) {
-        alert('账号或密码错误');
-        return;
-    }
-    
+    if (!user) { alert('账号或密码错误'); return; }
     currentUser = user;
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';
     document.getElementById('roleText').innerText = user.name;
-
-    // 初始化Supabase
     initSupabase();
-    // 加载商品列表
     loadGoods();
 }
 
-// 退出函数
+// 退出登录
 function logout() {
     currentUser = null;
-    document.getElementById('loginBox').style.display = 'flex';
+    document.getElementById('loginBox').style.display = 'block';
     document.getElementById('mainBox').style.display = 'none';
 }
 
@@ -176,166 +196,205 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化Supabase（修复写入请求）
+// 初始化 Supabase API
 function initSupabase() {
     supabase = {
         from: function(table) {
             return {
                 select: async function() {
-                    const url = `${SUPABASE_URL}/rest/v1/${table}`;
-                    const headers = {
-                        "apikey": SUPABASE_ANON_KEY,
-                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                        "Accept": "application/json"
-                    };
-                    const response = await fetch(url, { headers });
-                    const data = await response.json();
-                    return { data: data };
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+                    });
+                    return { data: await res.json() };
                 },
                 insert: async function(data) {
-                    const url = `${SUPABASE_URL}/rest/v1/${table}`;
-                    const headers = {
-                        "apikey": SUPABASE_ANON_KEY,
-                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                        "Content-Type": "application/json",
-                        "Prefer": "return=representation"
-                    };
-                    const response = await fetch(url, {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
                         method: "POST",
-                        headers: headers,
+                        headers: {
+                            "apikey": SUPABASE_ANON_KEY,
+                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation"
+                        },
                         body: JSON.stringify(data)
                     });
-                    // 打印状态码，方便排错
-                    console.log("提交状态码：", response.status);
-                    const resData = await response.json();
-                    // 接口返回错误直接抛出
-                    if (!response.ok) {
-                        throw new Error(resData.message || "数据写入失败");
-                    }
-                    return { data: resData };
+                    return { data: await res.json() };
+                },
+                update: async function(id, data) {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+                        method: "PATCH",
+                        headers: {
+                            "apikey": SUPABASE_ANON_KEY,
+                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    return { data: await res.json() };
                 },
                 delete: async function(id) {
-                    const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`;
-                    const headers = {
-                        "apikey": SUPABASE_ANON_KEY,
-                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-                    };
-                    const response = await fetch(url, { method: "DELETE", headers: headers });
-                    if (!response.ok) throw new Error("删除失败");
-                    return { data: [] };
+                    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+                        method: "DELETE",
+                        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
+                    });
                 }
             };
         }
     };
 }
+
 // 加载商品列表
 async function loadGoods() {
-    if (!supabase) {
-        alert('数据库未连接，请先登录');
-        return;
-    }
-    try {
-        const { data, error } = await supabase.from('goods').select();
-        if (error) {
-            console.error(error);
-            alert('读取数据失败：' + error.message);
-            return;
-        }
-        const tbody = document.getElementById('goodsList');
-        tbody.innerHTML = '';
-        data.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.id}</td>
-                <td>${item.supplier}</td>
-                <td>${item.name}</td>
-                <td>${item.spec || '-'}</td>
-                <td>${item.channel}</td>
-                <td>${item.sale_price}</td>
-                <td>${item.input_date}</td>
-                <td>${item.produce_date || '-'}</td>
-                <td>${item.expire_date || '-'}</td>
-                <td>${item.shelf_life_num ? item.shelf_life_num + item.shelf_life_unit : '-'}</td>
-                <td><button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    } catch (err) {
-        console.error(err);
-        alert('网络请求失败，请检查网络是否能访问Supabase');
-    }
+    const { data, error } = await supabase.from('goods').select();
+    if (error) { alert('加载失败：' + error.message); return; }
+    allGoods = data;
+    filterGoods(); // 渲染并应用筛选
 }
 
-// 添加商品（和数据库规则完全同步的校验）
-async function addGoods() {
-    const name = document.getElementById('add_name').value.trim();
-    const supplier = document.getElementById('add_supplier').value.trim();
-    const spec = document.getElementById('add_spec').value.trim();
-    const channel = document.getElementById('add_channel').value;
-    const sale_price = parseFloat(document.getElementById('add_sale_price').value);
-    const input_date = document.getElementById('add_input_date').value;
-    const produce_date = document.getElementById('add_produce_date').value || null;
-    const shelf_life_num = parseInt(document.getElementById('add_shelf_life_num').value) || null;
-    const shelf_life_unit = document.getElementById('add_shelf_life_unit').value;
-    const expire_date = document.getElementById('add_expire_date').value || null;
+// 筛选商品
+function filterGoods() {
+    const field = document.getElementById('searchField').value;
+    const keyword = document.getElementById('searchKeyword').value.toLowerCase();
+    const filtered = allGoods.filter(item => 
+        item[field]?.toString().toLowerCase().includes(keyword)
+    );
+    renderGoods(filtered);
+}
 
-    // 1. 基础字段校验
-    if (!name || !supplier || !channel || !sale_price || !input_date) {
-        alert('商品名、供应商、渠道、销售价、录入日期为必填项！');
-        return;
-    }
-    if (sale_price <= 0) {
-        alert('销售价必须大于0！');
-        return;
-    }
+// 渲染商品列表
+function renderGoods(list) {
+    const tbody = document.getElementById('goodsList');
+    tbody.innerHTML = '';
+    list.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
+            <td>${item.id}</td>
+            <td>${item.supplier}</td>
+            <td>${item.name}</td>
+            <td>${item.spec || '-'}</td>
+            <td>${item.channel}</td>
+            <td>${item.sale_price}</td>
+            <td>${item.input_date}</td>
+            <td>${item.produce_date || '-'}</td>
+            <td>${item.expire_date || '-'}</td>
+            <td>${item.shelf_life_num ? item.shelf_life_num + item.shelf_life_unit : '-'}</td>
+            <td>
+                <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
 
-    // 2. 生产日期和到期日期互斥校验
-    if (produce_date && expire_date) {
-        alert('生产日期和到期日期不能同时填写！');
-        return;
-    }
+// 打开添加商品弹窗
+function openAddForm() {
+    document.getElementById('formTitle').innerText = '添加商品';
+    document.getElementById('editId').value = '';
+    document.getElementById('addForm').querySelectorAll('input, select').forEach(el => el.value = '');
+    document.getElementById('add_input_date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('formModal').style.display = 'block';
+}
 
-    // 3. 填了生产日期/到期日期，保质期必须完整填写
-    if ((produce_date || expire_date) && (!shelf_life_num || !shelf_life_unit)) {
-        alert('填写生产日期或到期日期时，必须同时填写保质期数字和单位！');
-        return;
-    }
+// 打开编辑商品弹窗
+function openEditForm(id) {
+    const item = allGoods.find(g => g.id === id);
+    if (!item) return;
+    document.getElementById('formTitle').innerText = '编辑商品';
+    document.getElementById('editId').value = id;
+    document.getElementById('add_supplier').value = item.supplier;
+    document.getElementById('add_name').value = item.name;
+    document.getElementById('add_spec').value = item.spec || '';
+    document.getElementById('add_channel').value = item.channel;
+    document.getElementById('add_sale_price').value = item.sale_price;
+    document.getElementById('add_input_date').value = item.input_date;
+    document.getElementById('add_produce_date').value = item.produce_date || '';
+    document.getElementById('add_expire_date').value = item.expire_date || '';
+    document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
+    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '天';
+    document.getElementById('formModal').style.display = 'block';
+}
 
-    // 4. 保质期数字必须大于0
-    if (shelf_life_num && shelf_life_num <= 0) {
-        alert('保质期数字必须大于0！');
-        return;
-    }
+// 关闭弹窗
+function closeForm() {
+    document.getElementById('formModal').style.display = 'none';
+}
 
-    const newGoods = {
-        name, supplier, spec, channel, sale_price, input_date,
-        produce_date, shelf_life_num, shelf_life_unit, expire_date
+// 提交表单（添加/编辑）
+async function submitForm() {
+    const id = document.getElementById('editId').value;
+    const data = {
+        supplier: document.getElementById('add_supplier').value.trim(),
+        name: document.getElementById('add_name').value.trim(),
+        spec: document.getElementById('add_spec').value.trim(),
+        channel: document.getElementById('add_channel').value,
+        sale_price: parseFloat(document.getElementById('add_sale_price').value),
+        input_date: document.getElementById('add_input_date').value,
+        produce_date: document.getElementById('add_produce_date').value || null,
+        expire_date: document.getElementById('add_expire_date').value || null,
+        shelf_life_num: parseInt(document.getElementById('add_shelf_life_num').value) || null,
+        shelf_life_unit: document.getElementById('add_shelf_life_unit').value
     };
 
+    // 表单校验（和数据库规则同步）
+    if (!data.supplier || !data.name || !data.channel || !data.sale_price || !data.input_date) {
+        alert('必填项不能为空！'); return;
+    }
+    if (data.sale_price <= 0) { alert('销售价必须大于0！'); return; }
+    if (data.produce_date && data.expire_date) { alert('生产日期和到期日期不能同时填写！'); return; }
+    if ((data.produce_date || data.expire_date) && (!data.shelf_life_num || !data.shelf_life_unit)) {
+        alert('填写生产日期/到期日期时，必须同时填写保质期！'); return;
+    }
+    if (data.shelf_life_num && data.shelf_life_num <= 0) { alert('保质期数字必须大于0！'); return; }
+
     try {
-        await supabase.from('goods').insert(newGoods);
-        alert('添加成功！');
-        document.getElementById('addForm').style.display = 'none';
-        // 清空表单
-        document.getElementById('addForm').querySelectorAll('input, select').forEach(el => el.value = '');
-        // 刷新列表
+        if (id) {
+            await supabase.from('goods').update(id, data);
+            alert('编辑成功！');
+        } else {
+            await supabase.from('goods').insert(data);
+            alert('添加成功！');
+        }
+        closeForm();
         loadGoods();
     } catch (err) {
-        console.error(err);
-        alert('添加失败：' + err.message);
+        alert('操作失败：' + err.message);
     }
 }
 
-// 删除商品
+// 删除单个商品
 async function deleteGoods(id) {
-    if (!confirm('确定要删除这个商品吗？')) return;
+    if (!confirm('确定删除该商品吗？')) return;
     try {
         await supabase.from('goods').delete(id);
         alert('删除成功！');
         loadGoods();
     } catch (err) {
-        console.error(err);
         alert('删除失败：' + err.message);
+    }
+}
+
+// 全选/取消全选
+function toggleSelectAll() {
+    const checkAll = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = checkAll);
+}
+
+// 批量删除
+async function batchDelete() {
+    const selected = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) { alert('请选择要删除的商品！'); return; }
+    if (!confirm(`确定删除选中的 ${selected.length} 个商品吗？`)) return;
+
+    try {
+        for (const id of selected) {
+            await supabase.from('goods').delete(id);
+        }
+        alert('批量删除成功！');
+        loadGoods();
+    } catch (err) {
+        alert('批量删除失败：' + err.message);
     }
 }
 
@@ -345,6 +404,5 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add_input_date').value = today;
 });
 </script>
-
 </body>
 </html>
