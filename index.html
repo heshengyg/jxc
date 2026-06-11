@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>进销存系统</title>
+    <!-- Excel 解析库 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, sans-serif; }
         body { background: #f5f7fa; padding: 20px; }
@@ -26,6 +28,8 @@
         .search-bar select, .search-bar input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
         .btn-primary { background: #2d8cf0; color: white; }
+        .btn-success { background: #00b42a; color: white; }
+        .btn-warning { background: #ff7d00; color: white; }
         .btn-danger { background: #ff4d4f; color: white; }
         .btn-default { background: #ccc; color: #333; }
 
@@ -33,7 +37,6 @@
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: #f5f7fa; position: sticky; top: 0; z-index: 1; }
-        .warn-text { color: #f5222d; font-weight: bold; }
 
         .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
         .page-info { color: #666; font-size: 14px; }
@@ -43,14 +46,18 @@
         .page-btn:disabled { background: #eee; cursor: not-allowed; }
 
         .form-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .form-container { background: white; width: 90%; max-width: 680px; margin: 50px auto; padding: 20px; border-radius: 8px; }
+        .form-container { background: white; width: 90%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; }
         .form-group { margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .form-group label { width: 100px; text-align: right; }
         .form-group input, .form-group select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; min-width: 120px; }
         .form-actions { text-align: center; margin-top: 15px; }
+
+        #fileInput { display: none; }
     </style>
 </head>
 <body>
+<!-- 隐藏文件上传控件 -->
+<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="importExcel()">
 
 <div class="login-card" id="loginBox">
     <h2>进销存系统</h2>
@@ -69,17 +76,21 @@
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('goods')">商品管理</button>
         <button class="tab-btn" onclick="switchTab('in')">入库管理</button>
+        <button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
     </div>
 
+    <!-- 商品管理模块 -->
     <div id="goods" class="tab-content active">
-        <h3>商品管理</h3>
+        <h3>商品基础信息管理</h3>
         <div class="stat-bar">
             共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
         </div>
         <div class="search-bar">
-            <button class="btn btn-primary" onclick="openAddForm()">添加商品</button>
-            <button class="btn btn-danger" onclick="batchDelete()">批量删除选中项</button>
-            <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
+            <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
+            <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
+            <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
+            <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
             <select id="searchField">
                 <option value="name">按商品名搜索</option>
                 <option value="supplier">按供应商搜索</option>
@@ -95,15 +106,12 @@
                         <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
                         <th>序号</th>
                         <th>供应商</th>
-                        <th>商品名</th>
+                        <th>商品名称</th>
                         <th>规格</th>
-                        <th>渠道</th>
-                        <th>销售价</th>
-                        <th>录入日期</th>
-                        <th>生产日期</th>
-                        <th>到期日期</th>
+                        <th>销售渠道</th>
+                        <th>销售单价</th>
                         <th>保质期</th>
-                        <th>库存预警</th>
+                        <th>库存预警阈值</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -129,52 +137,53 @@
         </div>
     </div>
 
+    <!-- 入库管理 -->
     <div id="in" class="tab-content">
         <h3>入库管理</h3>
-        <p>功能开发中...</p>
+        <p>功能开发中（生产日期、到期日期、批次等在此维护）</p>
+    </div>
+
+    <!-- 库存查看（预警状态在此展示） -->
+    <div id="stockView" class="tab-content">
+        <h3>库存查看</h3>
+        <p>功能开发中（库存数量 & 库存预警状态在此展示）</p>
     </div>
 </div>
 
+<!-- 新增/编辑商品弹窗 -->
 <div class="form-modal" id="formModal">
     <div class="form-container">
-        <h4 id="formTitle">添加商品</h4>
+        <h4 id="formTitle">新增商品</h4>
         <input type="hidden" id="editId">
         <div class="form-group">
             <label>供应商：</label>
             <input type="text" id="add_supplier" required>
-            <label>商品名：</label>
+            <label>商品名称：</label>
             <input type="text" id="add_name" required>
             <label>规格：</label>
             <input type="text" id="add_spec">
         </div>
         <div class="form-group">
-            <label>渠道：</label>
+            <label>销售渠道：</label>
             <select id="add_channel" required>
                 <option value="线上">线上</option>
                 <option value="线下">线下</option>
             </select>
-            <label>销售价：</label>
-            <input type="number" id="add_sale_price" step="0.01" required>
-            <label>录入日期：</label>
-            <input type="date" id="add_input_date" required>
+            <label>销售单价：</label>
+            <input type="number" id="add_sale_price" step="0.01" min="0" required>
+            <label>预警阈值：</label>
+            <input type="number" id="add_warn_num" min="0" placeholder="库存预警数量">
         </div>
         <div class="form-group">
-            <label>生产日期：</label>
-            <input type="date" id="add_produce_date">
-            <label>保质期：</label>
-            <input type="number" id="add_shelf_life_num" placeholder="数字">
+            <label>保质期时长：</label>
+            <input type="number" id="add_shelf_life_num" min="0" placeholder="留空表示无保质期">
+            <label>保质期单位：</label>
             <select id="add_shelf_life_unit">
                 <option value="">无</option>
                 <option value="天">天</option>
                 <option value="月">月</option>
                 <option value="年">年</option>
             </select>
-        </div>
-        <div class="form-group">
-            <label>到期日期：</label>
-            <input type="date" id="add_expire_date">
-            <label>预警阈值：</label>
-            <input type="number" id="add_warn_num" min="0" placeholder="库存低于此数触发预警">
         </div>
         <div class="form-actions">
             <button class="btn btn-primary" onclick="submitForm()">提交</button>
@@ -191,9 +200,9 @@ let filteredGoods = [];
 let currentPage = 1;
 let pageSize = 10;
 let totalPages = 1;
-
 const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 
+// 登录登出 & 标签切换
 function login() {
     let u = document.getElementById('username').value.trim();
     let p = document.getElementById('password').value.trim();
@@ -205,12 +214,10 @@ function login() {
     document.getElementById('mainBox').style.display = 'block';
     loadGoods();
 }
-
 function logout() {
     document.getElementById('loginBox').style.display = 'block';
     document.getElementById('mainBox').style.display = 'none';
 }
-
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
@@ -218,6 +225,7 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
+// 加载商品数据
 async function loadGoods() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
@@ -232,6 +240,7 @@ async function loadGoods() {
     }
 }
 
+// 搜索过滤
 function filterGoods() {
     let field = document.getElementById('searchField').value;
     let kw = document.getElementById('searchKeyword').value.toLowerCase();
@@ -245,47 +254,28 @@ function filterGoods() {
     renderGoods();
 }
 
-function resetSearch() {
-    document.getElementById('searchKeyword').value = '';
-    document.getElementById('searchField').selectedIndex = 0;
-    filterGoods();
-}
-
+// 渲染商品表格
 function renderGoods() {
     let start = (currentPage - 1) * pageSize;
     let end = start + pageSize;
     let pageData = filteredGoods.slice(start, end);
-
     let tb = document.getElementById('goodsList');
     tb.innerHTML = '';
+
     pageData.forEach((item, index) => {
-        let unit = item.shelf_life_unit || '';
-        let shelf = item.shelf_life_num ? (item.shelf_life_num + unit) : '-';
-
-        // 库存预警判断（stock 由出入库自动更新）
-        let stock = Number(item.stock) || 0;
-        let warn = Number(item.warn_num) || 0;
-        let warnHtml = '';
-        if (warn > 0 && stock <= warn) {
-            warnHtml = `<span class="warn-text">库存预警(当前:${stock})</span>`;
-        } else {
-            warnHtml = `正常(当前:${stock})`;
-        }
-
+        let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
+        let warnNum = item.warn_num ?? 0;
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
             <td>${start + index + 1}</td>
-            <td>${item.supplier}</td>
-            <td>${item.name}</td>
+            <td>${item.supplier || ''}</td>
+            <td>${item.name || ''}</td>
             <td>${item.spec || '-'}</td>
-            <td>${item.channel}</td>
-            <td>${item.sale_price}</td>
-            <td>${item.input_date}</td>
-            <td>${item.produce_date || '-'}</td>
-            <td>${item.expire_date || '-'}</td>
-            <td>${shelf}</td>
-            <td>${warnHtml}</td>
+            <td>${item.channel || ''}</td>
+            <td>${item.sale_price || 0}</td>
+            <td>${shelfText}</td>
+            <td>${warnNum}</td>
             <td>
                 <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
                 <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
@@ -295,6 +285,7 @@ function renderGoods() {
     });
 }
 
+// 分页渲染
 function renderPagination() {
     totalPages = Math.ceil(filteredGoods.length / pageSize) || 1;
     document.getElementById('currentPage').textContent = currentPage;
@@ -308,7 +299,6 @@ function renderPagination() {
     if (endPage - startPage + 1 < maxVisible) {
         startPage = Math.max(1, endPage - maxVisible + 1);
     }
-
     for (let i = startPage; i <= endPage; i++) {
         let btn = document.createElement('button');
         btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
@@ -319,25 +309,17 @@ function renderPagination() {
 
     document.querySelector('.page-controls button:nth-child(1)').disabled = currentPage === 1;
     document.querySelector('.page-controls button:nth-child(2)').disabled = currentPage === 1;
-    document.querySelector('.page-controls button:last-child').disabled = currentPage === totalPages;
     document.querySelector('.page-controls button:nth-child(4)').disabled = currentPage === totalPages;
+    document.querySelector('.page-controls button:last-child').disabled = currentPage === totalPages;
 }
-
 function goToPage(page) {
     if (page < 1 || page > totalPages) return;
     currentPage = page;
     renderPagination();
     renderGoods();
 }
-
-function prevPage() {
-    goToPage(currentPage - 1);
-}
-
-function nextPage() {
-    goToPage(currentPage + 1);
-}
-
+function prevPage() { goToPage(currentPage - 1); }
+function nextPage() { goToPage(currentPage + 1); }
 function changePageSize() {
     pageSize = parseInt(document.getElementById('pageSize').value);
     currentPage = 1;
@@ -345,14 +327,19 @@ function changePageSize() {
     renderGoods();
 }
 
-function openAddForm() {
-    document.getElementById('formTitle').innerText = '添加商品';
-    document.getElementById('editId').value = '';
-    document.querySelectorAll('.form-group input,.form-group select').forEach(el => el.value = '');
-    document.getElementById('add_input_date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('formModal').style.display = 'block';
+// 全选/反选
+function toggleSelectAll() {
+    let all = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = all);
 }
 
+// 打开新增/编辑弹窗
+function openAddForm() {
+    document.getElementById('formTitle').innerText = '新增商品';
+    document.getElementById('editId').value = '';
+    document.querySelectorAll('.form-group input,.form-group select').forEach(el => el.value = '');
+    document.getElementById('formModal').style.display = 'block';
+}
 function openEditForm(id) {
     let item = allGoods.find(x => x.id === id);
     if (!item) return;
@@ -363,60 +350,73 @@ function openEditForm(id) {
     document.getElementById('add_spec').value = item.spec || '';
     document.getElementById('add_channel').value = item.channel || '线上';
     document.getElementById('add_sale_price').value = item.sale_price || '';
-    document.getElementById('add_input_date').value = item.input_date || '';
-    document.getElementById('add_produce_date').value = item.produce_date || '';
-    document.getElementById('add_expire_date').value = item.expire_date || '';
-    document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
-    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
-    // 仅回显预警阈值
     document.getElementById('add_warn_num').value = item.warn_num ?? '';
+    document.getElementById('add_shelf_life_num').value = item.shelf_life_num ?? '';
+    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
     document.getElementById('formModal').style.display = 'block';
 }
-
 function closeForm() {
     document.getElementById('formModal').style.display = 'none';
 }
 
+// 重复校验：供应商 + 商品名 + 规格
+function isDuplicate(supplier, name, spec, editId) {
+    return allGoods.some(item => {
+        // 编辑时排除自身
+        if (editId && Number(item.id) === Number(editId)) return false;
+        let s1 = (item.supplier || '').trim();
+        let n1 = (item.name || '').trim();
+        let sp1 = (item.spec || '').trim();
+        let s2 = supplier.trim();
+        let n2 = name.trim();
+        let sp2 = spec.trim();
+        return s1 === s2 && n1 === n2 && sp1 === sp2;
+    });
+}
+
+// 提交表单（新增/编辑）
 async function submitForm() {
     let editId = document.getElementById('editId').value;
-    let data = {
-        supplier: document.getElementById('add_supplier').value.trim(),
-        name: document.getElementById('add_name').value.trim(),
-        spec: document.getElementById('add_spec').value.trim() || null,
-        channel: document.getElementById('add_channel').value,
-        sale_price: parseFloat(document.getElementById('add_sale_price').value),
-        input_date: document.getElementById('add_input_date').value,
-        produce_date: document.getElementById('add_produce_date').value || null,
-        expire_date: document.getElementById('add_expire_date').value || null,
-        shelf_life_num: parseInt(document.getElementById('add_shelf_life_num').value) || null,
-        shelf_life_unit: document.getElementById('add_shelf_life_unit').value || null,
-        warn_num: parseInt(document.getElementById('add_warn_num').value) || null
-    };
+    let supplier = document.getElementById('add_supplier').value;
+    let name = document.getElementById('add_name').value;
+    let spec = document.getElementById('add_spec').value;
+    let channel = document.getElementById('add_channel').value;
+    let salePrice = document.getElementById('add_sale_price').value;
+    let warnNum = document.getElementById('add_warn_num').value;
+    let shelfNum = document.getElementById('add_shelf_life_num').value;
+    let shelfUnit = document.getElementById('add_shelf_life_unit').value;
 
-    if (!data.supplier || !data.name || !data.channel || !data.sale_price || !data.input_date) {
-        alert('必填项不能为空');
+    // 基础校验
+    if (!supplier || !name || !channel || !salePrice) {
+        alert('供应商、商品名称、销售渠道、销售单价为必填项！');
         return;
     }
-    if (data.sale_price <= 0) {
-        alert('销售价必须大于0');
+    if (Number(salePrice) <= 0) {
+        alert('销售单价必须大于0！');
         return;
     }
-    if (data.produce_date && data.expire_date) {
-        alert('生产日期和到期日期不能同时填写');
+
+    // 重复校验
+    if (isDuplicate(supplier, name, spec, editId)) {
+        alert('该供应商下已存在同名同规格商品，请勿重复录入！');
         return;
     }
-    if ((data.produce_date || data.expire_date) && (!data.shelf_life_num || !data.shelf_life_unit)) {
-        alert('填生产日期/到期日期时，保质期必须完整填写');
-        return;
-    }
-    if (data.shelf_life_num && data.shelf_life_num <= 0) {
-        alert('保质期数字必须大于0');
-        return;
-    }
+
+    let data = {
+        supplier: supplier.trim(),
+        name: name.trim(),
+        spec: spec.trim() || null,
+        channel: channel,
+        sale_price: parseFloat(salePrice),
+        warn_num: warnNum ? parseInt(warnNum) : null,
+        shelf_life_num: shelfNum ? parseInt(shelfNum) : null,
+        shelf_life_unit: shelfUnit || null
+    };
 
     try {
         let res;
         if (editId) {
+            // 编辑
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: "PATCH",
                 headers: {
@@ -427,6 +427,7 @@ async function submitForm() {
                 body: JSON.stringify(data)
             });
         } else {
+            // 新增
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: "POST",
                 headers: {
@@ -438,8 +439,8 @@ async function submitForm() {
                 body: JSON.stringify(data)
             });
         }
-        if (!res.ok) throw new Error('接口返回异常');
-        alert(editId ? '编辑成功' : '添加成功');
+        if (!res.ok) throw new Error('提交失败');
+        alert(editId ? '编辑成功' : '新增成功');
         closeForm();
         loadGoods();
     } catch (e) {
@@ -447,14 +448,15 @@ async function submitForm() {
     }
 }
 
+// 删除单条
 async function deleteGoods(id) {
-    if (!confirm('确定删除？')) return;
+    if (!confirm('确定删除该商品？')) return;
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
             method: "DELETE",
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        if (!res.ok) throw new Error('删除接口异常');
+        if (!res.ok) throw new Error('删除失败');
         alert('删除成功');
         loadGoods();
     } catch (e) {
@@ -462,36 +464,135 @@ async function deleteGoods(id) {
     }
 }
 
-function toggleSelectAll() {
-    let all = document.getElementById('selectAll').checked;
-    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = all);
-}
-
+// 批量删除
 async function batchDelete() {
-    let arr = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value);
-    if (arr.length === 0) {
-        alert('请先选择商品');
+    let ids = [];
+    document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+        ids.push(cb.value);
+    });
+    if (ids.length === 0) {
+        alert('请先选择要删除的商品！');
         return;
     }
-    if (!confirm(`确定删除选中 ${arr.length} 条？`)) return;
+    if (!confirm(`确定批量删除选中 ${ids.length} 条商品？`)) return;
     try {
-        for (let id of arr) {
-            let res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+        for (let id of ids) {
+            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
                 method: "DELETE",
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
-            if (!res.ok) throw new Error('部分删除失败');
         }
         alert('批量删除成功');
         loadGoods();
     } catch (e) {
-        alert('批量删除失败：' + e.message);
+        alert('批量删除失败');
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    let today = new Date().toISOString().split('T')[0];
-    document.getElementById('add_input_date').value = today;
+// 下载导入模板
+function downloadTemplate() {
+    const header = ["供应商","商品名称","规格","销售渠道","销售单价","库存预警阈值","保质期时长","保质期单位"];
+    const ws = XLSX.utils.aoa_to_sheet([header]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "商品模板");
+    XLSX.writeFile(wb, "商品导入模板.xlsx");
+}
+
+// 批量导入Excel
+function importExcel() {
+    let file = document.getElementById('fileInput').files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = async function(e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: 'array' });
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (rows.length < 2) {
+            alert('模板无有效数据！');
+            return;
+        }
+        let failCount = 0, successCount = 0;
+        // 跳过表头
+        for (let i = 1; i < rows.length; i++) {
+            let row = rows[i];
+            let supplier = String(row[0] || '').trim();
+            let name = String(row[1] || '').trim();
+            let spec = String(row[2] || '').trim();
+            let channel = String(row[3] || '').trim();
+            let salePrice = parseFloat(row[4]) || 0;
+            let warnNum = row[5] ? parseInt(row[5]) : null;
+            let shelfNum = row[6] ? parseInt(row[6]) : null;
+            let shelfUnit = String(row[7] || '').trim();
+
+            if (!supplier || !name || !channel || salePrice <= 0) {
+                failCount++;
+                continue;
+            }
+            // 导入重复校验
+            if (isDuplicate(supplier, name, spec, '')) {
+                failCount++;
+                continue;
+            }
+
+            let postData = {
+                supplier, name, spec: spec || null, channel,
+                sale_price: salePrice, warn_num: warnNum,
+                shelf_life_num: shelfNum, shelf_life_unit: shelfUnit || null
+            };
+
+            try {
+                let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+                    method: "POST",
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    body: JSON.stringify(postData)
+                });
+                if (res.ok) successCount++;
+                else failCount++;
+            } catch {
+                failCount++;
+            }
+        }
+        alert(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`);
+        loadGoods();
+    };
+    reader.readAsArrayBuffer(file);
+    document.getElementById('fileInput').value = '';
+}
+
+// 导出Excel
+function exportExcel() {
+    let exportData = [];
+    // 表头
+    exportData.push(["序号","供应商","商品名称","规格","销售渠道","销售单价","保质期","库存预警阈值"]);
+    // 表格数据
+    filteredGoods.forEach((item, idx) => {
+        let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
+        exportData.push([
+            idx + 1,
+            item.supplier || '',
+            item.name || '',
+            item.spec || '',
+            item.channel || '',
+            item.sale_price || 0,
+            shelf,
+            item.warn_num || 0
+        ]);
+    });
+    let ws = XLSX.utils.aoa_to_sheet(exportData);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "商品列表");
+    XLSX.writeFile(wb, "商品列表.xlsx");
+}
+
+// 页面初始化
+document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('fileInput').value = '';
 });
 </script>
 </body>
