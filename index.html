@@ -21,10 +21,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* 统计条 */
         .stat-bar { margin-bottom: 10px; color: #666; font-size: 14px; }
-
-        /* 搜索栏 */
         .search-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
         .search-bar select, .search-bar input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
@@ -32,13 +29,12 @@
         .btn-danger { background: #ff4d4f; color: white; }
         .btn-default { background: #ccc; color: #333; }
 
-        /* 表格容器（固定表头、可滚动） */
         .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: #f5f7fa; position: sticky; top: 0; z-index: 1; }
+        .warn-text { color: #f5222d; font-weight: bold; }
 
-        /* 分页栏 */
         .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
         .page-info { color: #666; font-size: 14px; }
         .page-controls { display: flex; gap: 5px; align-items: center; }
@@ -46,9 +42,8 @@
         .page-btn.active { background: #2d8cf0; color: white; border-color: #2d8cf0; }
         .page-btn:disabled { background: #eee; cursor: not-allowed; }
 
-        /* 表单弹窗 */
         .form-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .form-container { background: white; width: 90%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; }
+        .form-container { background: white; width: 90%; max-width: 680px; margin: 50px auto; padding: 20px; border-radius: 8px; }
         .form-group { margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .form-group label { width: 100px; text-align: right; }
         .form-group input, .form-group select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; min-width: 120px; }
@@ -57,7 +52,6 @@
 </head>
 <body>
 
-<!-- 登录页面 -->
 <div class="login-card" id="loginBox">
     <h2>进销存系统</h2>
     <input type="text" id="username" placeholder="账号" value="admin">
@@ -66,7 +60,6 @@
     <div class="tip">测试账号：admin / 123</div>
 </div>
 
-<!-- 主页面 -->
 <div class="main-page" id="mainBox">
     <div class="header">
         <h2>欢迎，<span id="roleText"></span></h2>
@@ -78,10 +71,8 @@
         <button class="tab-btn" onclick="switchTab('in')">入库管理</button>
     </div>
 
-    <!-- 商品管理 -->
     <div id="goods" class="tab-content active">
         <h3>商品管理</h3>
-        <!-- 统计条 -->
         <div class="stat-bar">
             共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
         </div>
@@ -97,7 +88,6 @@
             <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
         </div>
 
-        <!-- 表格容器（固定表头、可滚动） -->
         <div class="table-container">
             <table>
                 <thead>
@@ -113,6 +103,7 @@
                         <th>生产日期</th>
                         <th>到期日期</th>
                         <th>保质期</th>
+                        <th>库存预警</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -120,7 +111,6 @@
             </table>
         </div>
 
-        <!-- 分页栏 -->
         <div class="pagination">
             <div class="page-info">
                 每页显示 <select id="pageSize" onchange="changePageSize()">
@@ -139,14 +129,12 @@
         </div>
     </div>
 
-    <!-- 入库管理 -->
     <div id="in" class="tab-content">
         <h3>入库管理</h3>
         <p>功能开发中...</p>
     </div>
 </div>
 
-<!-- 添加/编辑商品弹窗 -->
 <div class="form-modal" id="formModal">
     <div class="form-container">
         <h4 id="formTitle">添加商品</h4>
@@ -185,6 +173,10 @@
         <div class="form-group">
             <label>到期日期：</label>
             <input type="date" id="add_expire_date">
+            <label>当前库存：</label>
+            <input type="number" id="add_stock" min="0" placeholder="库存数量">
+            <label>预警阈值：</label>
+            <input type="number" id="add_warn_num" min="0" placeholder="低于此数预警">
         </div>
         <div class="form-actions">
             <button class="btn btn-primary" onclick="submitForm()">提交</button>
@@ -235,7 +227,6 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         allGoods = await res.json();
-        // 更新总数统计
         document.getElementById('totalCount').textContent = allGoods.length;
         filterGoods();
     } catch (e) {
@@ -250,9 +241,7 @@ function filterGoods() {
         let val = item[field] ?? '';
         return String(val).toLowerCase().includes(kw);
     });
-    // 更新搜索结果条数
     document.getElementById('searchCount').textContent = filteredGoods.length;
-    // 重置到第一页
     currentPage = 1;
     renderPagination();
     renderGoods();
@@ -274,6 +263,17 @@ function renderGoods() {
     pageData.forEach((item, index) => {
         let unit = item.shelf_life_unit || '';
         let shelf = item.shelf_life_num ? (item.shelf_life_num + unit) : '-';
+
+        // 库存预警判断
+        let stock = Number(item.stock) || 0;
+        let warn = Number(item.warn_num) || 0;
+        let warnHtml = '';
+        if(warn > 0 && stock <= warn){
+            warnHtml = `<span class="warn-text">库存预警(${stock})</span>`;
+        }else{
+            warnHtml = stock;
+        }
+
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
@@ -287,6 +287,7 @@ function renderGoods() {
             <td>${item.produce_date || '-'}</td>
             <td>${item.expire_date || '-'}</td>
             <td>${shelf}</td>
+            <td>${warnHtml}</td>
             <td>
                 <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
                 <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
@@ -301,7 +302,6 @@ function renderPagination() {
     document.getElementById('currentPage').textContent = currentPage;
     document.getElementById('totalPages').textContent = totalPages;
 
-    // 生成页码按钮
     let pageNumbers = document.getElementById('pageNumbers');
     pageNumbers.innerHTML = '';
     let maxVisible = 5;
@@ -319,7 +319,6 @@ function renderPagination() {
         pageNumbers.appendChild(btn);
     }
 
-    // 禁用首尾页按钮
     document.querySelector('.page-controls button:nth-child(1)').disabled = currentPage === 1;
     document.querySelector('.page-controls button:nth-child(2)').disabled = currentPage === 1;
     document.querySelector('.page-controls button:last-child').disabled = currentPage === totalPages;
@@ -371,6 +370,9 @@ function openEditForm(id) {
     document.getElementById('add_expire_date').value = item.expire_date || '';
     document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
     document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
+    // 库存 & 预警阈值
+    document.getElementById('add_stock').value = item.stock ?? '';
+    document.getElementById('add_warn_num').value = item.warn_num ?? '';
     document.getElementById('formModal').style.display = 'block';
 }
 
@@ -390,7 +392,9 @@ async function submitForm() {
         produce_date: document.getElementById('add_produce_date').value || null,
         expire_date: document.getElementById('add_expire_date').value || null,
         shelf_life_num: parseInt(document.getElementById('add_shelf_life_num').value) || null,
-        shelf_life_unit: document.getElementById('add_shelf_life_unit').value || null
+        shelf_life_unit: document.getElementById('add_shelf_life_unit').value || null,
+        stock: parseInt(document.getElementById('add_stock').value) || null,
+        warn_num: parseInt(document.getElementById('add_warn_num').value) || null
     };
 
     if (!data.supplier || !data.name || !data.channel || !data.sale_price || !data.input_date) {
@@ -417,7 +421,6 @@ async function submitForm() {
     try {
         let res;
         if (editId) {
-            // 编辑
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: "PATCH",
                 headers: {
@@ -428,7 +431,6 @@ async function submitForm() {
                 body: JSON.stringify(data)
             });
         } else {
-            // 新增
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: "POST",
                 headers: {
