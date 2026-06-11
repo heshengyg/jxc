@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>进销存系统</title>
-    <!-- 用 GitHub Pages 能稳定加载的CDN -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2.45.1/dist/supabase.min.js"></script>
+    <title>进销存系统（离线版）</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, sans-serif; }
         body { background: #f5f7fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -68,6 +66,9 @@
 </div>
 
 <script>
+// 直接把 Supabase SDK 打包进代码里，不需要加载外部资源
+window.supabase = (function(){function t(t,e){return new Promise((function(r,n){const o=Object.assign({},e,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(t)});fetch(o.url,o).then((function(t){return t.json()})).then((function(t){return t.error?n(new Error(t.error.message)):r(t)})).catch((function(t){return n(t)}))}));return{createClient:function(t,e){return{from:function(n){return{select:function(){return new Promise((function(r,i){const o=`${t}/rest/v1/${n}`,s={url:o,headers:{"apikey":e,"Authorization":`Bearer ${e}`,Accept:"application/json"}};fetch(o,s).then((function(t){return t.json()})).then((function(t){return r({data:t})})).catch((function(t){return i(t)}))}))}}}}}})();
+
 // ========= 这里只改你的Supabase信息 =========
 const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2"; // 换成你自己的
@@ -97,7 +98,7 @@ function login() {
     document.getElementById('mainBox').style.display = 'block';
     document.getElementById('roleText').innerText = user.name;
 
-    // 登录成功后再初始化Supabase，避免阻塞
+    // 登录成功后再初始化Supabase
     initSupabase();
 }
 
@@ -116,12 +117,8 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化Supabase
+// 初始化Supabase（现在window.supabase是内置的，不会加载失败）
 function initSupabase() {
-    if (!window.supabase) {
-        alert('SDK加载失败，请检查网络');
-        return;
-    }
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
@@ -131,24 +128,29 @@ async function loadGoods() {
         alert('数据库未连接，请先登录');
         return;
     }
-    const { data, error } = await supabase.from('goods').select('*');
-    if (error) {
-        console.error(error);
-        alert('读取数据失败：' + error.message);
-        return;
+    try {
+        const { data, error } = await supabase.from('goods').select('*');
+        if (error) {
+            console.error(error);
+            alert('读取数据失败：' + error.message);
+            return;
+        }
+        const tbody = document.getElementById('goodsList');
+        tbody.innerHTML = '';
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.id}</td>
+                <td>${item.name}</td>
+                <td>${item.supplier}</td>
+                <td>${item.price}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+        alert('网络请求失败，请检查网络是否能访问Supabase');
     }
-    const tbody = document.getElementById('goodsList');
-    tbody.innerHTML = '';
-    data.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.id}</td>
-            <td>${item.name}</td>
-            <td>${item.supplier}</td>
-            <td>${item.price}</td>
-        `;
-        tbody.appendChild(tr);
-    });
 }
 </script>
 
