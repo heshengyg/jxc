@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>进销存系统</title>
+    <!-- 用 GitHub Pages 能稳定加载的CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2.45.1/dist/supabase.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, sans-serif; }
         body { background: #f5f7fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -65,18 +67,21 @@
     </div>
 </div>
 
-<!-- 用可用的CDN地址 -->
-<script src="https://unpkg.com/@supabase/supabase-js@2.45.1/dist/supabase.min.js"></script>
-
 <script>
-// 基础账号配置（优先执行，保证登录可用）
+// ========= 这里只改你的Supabase信息 =========
+const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2"; // 换成你自己的
+
+// 全局变量
+let supabase = null;
+let currentUser = null;
+
+// 账号配置（必须在login函数之前定义）
 const users = [
     { user: 'admin', pwd: '123', role: 'admin', name: '管理员' }
 ];
-let currentUser = null;
-let supabase = null;
 
-// 登录函数（纯前端，不受SDK影响）
+// 登录函数
 function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -92,8 +97,8 @@ function login() {
     document.getElementById('mainBox').style.display = 'block';
     document.getElementById('roleText').innerText = user.name;
 
-    // 登录完成后，延迟初始化数据库连接
-    setTimeout(initSupabase, 300);
+    // 登录成功后再初始化Supabase，避免阻塞
+    initSupabase();
 }
 
 // 退出函数
@@ -111,29 +116,25 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 初始化Supabase（容错处理，加载失败也不报错）
+// 初始化Supabase
 function initSupabase() {
     if (!window.supabase) {
-        alert('SDK加载失败，无法读取数据，请检查网络');
+        alert('SDK加载失败，请检查网络');
         return;
     }
-    // ========= 替换成你自己的地址和密钥 =========
-    const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
-
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// 加载商品列表（增加判断，无连接直接提示）
+// 加载商品列表
 async function loadGoods() {
     if (!supabase) {
-        alert('数据库未连接，请稍等或刷新页面重试');
+        alert('数据库未连接，请先登录');
         return;
     }
     const { data, error } = await supabase.from('goods').select('*');
     if (error) {
         console.error(error);
-        alert('读取数据失败');
+        alert('读取数据失败：' + error.message);
         return;
     }
     const tbody = document.getElementById('goodsList');
