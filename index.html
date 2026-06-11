@@ -36,7 +36,16 @@
         .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background: #f5f7fa; position: sticky; top: 0; z-index: 1; }
+        th { 
+            background: #f5f7fa; 
+            position: sticky; 
+            top: 0; 
+            z-index: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background: #e8edf2; }
+        .sort-icon { margin-left: 4px; font-size: 12px; }
 
         .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
         .page-info { color: #666; font-size: 14px; }
@@ -53,11 +62,51 @@
         .form-actions { text-align: center; margin-top: 15px; }
 
         #fileInput { display: none; }
+
+        /* 居中消息弹窗 */
+        .msg-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 9999;
+        }
+        .msg-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .msg-box p { margin-bottom: 15px; font-size: 14px; color: #333; }
+        .msg-box button {
+            padding: 6px 20px;
+            border: none;
+            background: #2d8cf0;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 <!-- 隐藏文件上传控件 -->
 <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="importExcel()">
+
+<!-- 全局居中消息弹窗 -->
+<div class="msg-modal" id="msgModal">
+    <div class="msg-box">
+        <p id="msgText"></p>
+        <button onclick="closeMsg()">确定</button>
+    </div>
+</div>
 
 <div class="login-card" id="loginBox">
     <h2>进销存系统</h2>
@@ -97,21 +146,22 @@
                 <option value="channel">按渠道搜索</option>
             </select>
             <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
+            <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
         </div>
 
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                        <th>序号</th>
-                        <th>供应商</th>
-                        <th>商品名称</th>
-                        <th>规格</th>
-                        <th>销售渠道</th>
-                        <th>销售单价</th>
-                        <th>保质期</th>
-                        <th>库存预警阈值</th>
+                        <th onclick="sortTable('')">选择 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('index')">序号 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
+                        <th onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -202,12 +252,25 @@ let pageSize = 10;
 let totalPages = 1;
 const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 
+// 排序全局变量
+let sortField = '';
+let sortAsc = true;
+
+// 居中消息弹窗
+function showMsg(text) {
+    document.getElementById('msgText').innerText = text;
+    document.getElementById('msgModal').style.display = 'block';
+}
+function closeMsg() {
+    document.getElementById('msgModal').style.display = 'none';
+}
+
 // 登录登出 & 标签切换
 function login() {
     let u = document.getElementById('username').value.trim();
     let p = document.getElementById('password').value.trim();
     if (!users.find(x => x.user === u && x.pwd === p)) {
-        alert('账号密码错误');
+        showMsg('账号密码错误');
         return;
     }
     document.getElementById('loginBox').style.display = 'none';
@@ -225,19 +288,28 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// 加载商品数据
+// 加载商品数据（新增置顶逻辑）
 async function loadGoods() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error('读取失败');
-        allGoods = await res.json();
+        let list = await res.json();
+        // 新数据置顶：按id倒序，最新id在最上方
+        allGoods = list.sort((a,b) => b.id - a.id);
         document.getElementById('totalCount').textContent = allGoods.length;
         filterGoods();
     } catch (e) {
-        alert('加载列表失败：' + e.message);
+        showMsg('加载列表失败：' + e.message);
     }
+}
+
+// 重置搜索
+function resetSearch() {
+    document.getElementById('searchKeyword').value = '';
+    document.getElementById('searchField').selectedIndex = 0;
+    filterGoods();
 }
 
 // 搜索过滤
@@ -252,6 +324,43 @@ function filterGoods() {
     currentPage = 1;
     renderPagination();
     renderGoods();
+}
+
+// 表头排序
+function sortTable(field) {
+    if (sortField === field) {
+        sortAsc = !sortAsc;
+    } else {
+        sortField = field;
+        sortAsc = true;
+    }
+    // 执行排序
+    filteredGoods.sort((a, b) => {
+        let valA = a[sortField] ?? '';
+        let valB = b[sortField] ?? '';
+        // 数字处理
+        if (['sale_price','warn_num','shelf_life_num'].includes(sortField)) {
+            valA = Number(valA) || 0;
+            valB = Number(valB) || 0;
+            return sortAsc ? valA - valB : valB - valA;
+        }
+        // 文本处理
+        if (valA < valB) return sortAsc ? -1 : 1;
+        if (valA > valB) return sortAsc ? 1 : -1;
+        return 0;
+    });
+    // 更新排序图标
+    updateSortIcon();
+    renderGoods();
+}
+// 更新排序箭头
+function updateSortIcon() {
+    let ths = document.querySelectorAll('thead th .sort-icon');
+    ths.forEach(icon => icon.innerText = '');
+    let idx = Array.from(document.querySelectorAll('thead th')).findIndex(th => th.getAttribute('onclick')?.includes(sortField));
+    if(idx > -1){
+        ths[idx].innerText = sortAsc ? '↑' : '↓';
+    }
 }
 
 // 渲染商品表格
@@ -362,7 +471,6 @@ function closeForm() {
 // 重复校验：供应商 + 商品名 + 规格
 function isDuplicate(supplier, name, spec, editId) {
     return allGoods.some(item => {
-        // 编辑时排除自身
         if (editId && Number(item.id) === Number(editId)) return false;
         let s1 = (item.supplier || '').trim();
         let n1 = (item.name || '').trim();
@@ -386,19 +494,16 @@ async function submitForm() {
     let shelfNum = document.getElementById('add_shelf_life_num').value;
     let shelfUnit = document.getElementById('add_shelf_life_unit').value;
 
-    // 基础校验
     if (!supplier || !name || !channel || !salePrice) {
-        alert('供应商、商品名称、销售渠道、销售单价为必填项！');
+        showMsg('供应商、商品名称、销售渠道、销售单价为必填项！');
         return;
     }
     if (Number(salePrice) <= 0) {
-        alert('销售单价必须大于0！');
+        showMsg('销售单价必须大于0！');
         return;
     }
-
-    // 重复校验
     if (isDuplicate(supplier, name, spec, editId)) {
-        alert('该供应商下已存在同名同规格商品，请勿重复录入！');
+        showMsg('该供应商下已存在同名同规格商品，请勿重复录入！');
         return;
     }
 
@@ -416,7 +521,7 @@ async function submitForm() {
     try {
         let res;
         if (editId) {
-            // 编辑
+            // 编辑：仅更新数据，不重新整体排序 → 位置保持不变
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: "PATCH",
                 headers: {
@@ -426,8 +531,10 @@ async function submitForm() {
                 },
                 body: JSON.stringify(data)
             });
+            if(!res.ok) throw new Error('编辑失败');
+            showMsg('编辑成功');
         } else {
-            // 新增
+            // 新增：重新拉取全量数据 → 自动置顶
             res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: "POST",
                 headers: {
@@ -438,13 +545,18 @@ async function submitForm() {
                 },
                 body: JSON.stringify(data)
             });
+            if(!res.ok) throw new Error('新增失败');
+            showMsg('新增成功');
         }
-        if (!res.ok) throw new Error('提交失败');
-        alert(editId ? '编辑成功' : '新增成功');
         closeForm();
-        loadGoods();
+        // 编辑不重载列表（位置不变），新增重载实现置顶
+        if(!editId){
+            loadGoods();
+        }else{
+            filterGoods();
+        }
     } catch (e) {
-        alert('操作失败：' + e.message);
+        showMsg('操作失败：' + e.message);
     }
 }
 
@@ -457,10 +569,10 @@ async function deleteGoods(id) {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error('删除失败');
-        alert('删除成功');
+        showMsg('删除成功');
         loadGoods();
     } catch (e) {
-        alert('删除失败：' + e.message);
+        showMsg('删除失败：' + e.message);
     }
 }
 
@@ -471,7 +583,7 @@ async function batchDelete() {
         ids.push(cb.value);
     });
     if (ids.length === 0) {
-        alert('请先选择要删除的商品！');
+        showMsg('请先选择要删除的商品！');
         return;
     }
     if (!confirm(`确定批量删除选中 ${ids.length} 条商品？`)) return;
@@ -482,10 +594,10 @@ async function batchDelete() {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
         }
-        alert('批量删除成功');
+        showMsg('批量删除成功');
         loadGoods();
     } catch (e) {
-        alert('批量删除失败');
+        showMsg('批量删除失败');
     }
 }
 
@@ -509,11 +621,10 @@ function importExcel() {
         let sheet = workbook.Sheets[workbook.SheetNames[0]];
         let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
         if (rows.length < 2) {
-            alert('模板无有效数据！');
+            showMsg('模板无有效数据！');
             return;
         }
         let failCount = 0, successCount = 0;
-        // 跳过表头
         for (let i = 1; i < rows.length; i++) {
             let row = rows[i];
             let supplier = String(row[0] || '').trim();
@@ -529,7 +640,6 @@ function importExcel() {
                 failCount++;
                 continue;
             }
-            // 导入重复校验
             if (isDuplicate(supplier, name, spec, '')) {
                 failCount++;
                 continue;
@@ -538,7 +648,7 @@ function importExcel() {
             let postData = {
                 supplier, name, spec: spec || null, channel,
                 sale_price: salePrice, warn_num: warnNum,
-                shelf_life_num: shelfNum, shelf_life_unit: shelfUnit || null
+                shelf_life_num: shelfNum, shelfUnit: shelfUnit || null
             };
 
             try {
@@ -558,7 +668,7 @@ function importExcel() {
                 failCount++;
             }
         }
-        alert(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`);
+        showMsg(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`);
         loadGoods();
     };
     reader.readAsArrayBuffer(file);
@@ -568,9 +678,7 @@ function importExcel() {
 // 导出Excel
 function exportExcel() {
     let exportData = [];
-    // 表头
     exportData.push(["序号","供应商","商品名称","规格","销售渠道","销售单价","保质期","库存预警阈值"]);
-    // 表格数据
     filteredGoods.forEach((item, idx) => {
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         exportData.push([
