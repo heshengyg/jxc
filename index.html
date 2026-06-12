@@ -696,7 +696,7 @@ function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
 
-// 提交入库单据
+// 提交入库单据（修正版，完全匹配你的数据库表结构）
 async function submitStockIn(){
     let supplier = document.getElementById('inSupplier').value;
     let goodsId = document.getElementById('inGoodsName').value;
@@ -719,15 +719,23 @@ async function submitStockIn(){
     if(inPrice === '' || isNaN(+inPrice)) return showMsg('请填写入库单价');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // 日期互斥校验（都空或只填一个都允许，不能同时填）
+    // 日期互斥校验：不能同时填写，都空/只填一个允许
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
 
+    // ========== 修正后的 postData，字段与你的表完全一致 ==========
     let postData = {
-        supplier, goodsName, spec, settleType,
-        sale_price: salePrice, in_price: +inPrice, in_num: +inNum,
-        record_date: recordDate, produce_date: produceDate||null, expire_date: expireDate||null
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: spec || null, // 兼容空值，避免非空报错
+        settleType: settleType,
+        sale_price: salePrice,
+        in_price: +inPrice, // 补上你表中缺失的字段
+        in_num: +inNum,
+        record_date: recordDate,
+        produce_date: produceDate || null,
+        expire_date: expireDate || null
     };
 
     try {
@@ -741,16 +749,22 @@ async function submitStockIn(){
             },
             body:JSON.stringify(postData)
         });
-        if(!res.ok) throw new Error('提交失败');
+
+        // 打印后端返回的错误详情，方便调试
+        if(!res.ok) {
+            let err = await res.json();
+            console.error('入库提交错误详情:', err);
+            throw new Error('提交失败');
+        }
+
         showMsg('入库成功');
         closeStockInForm();
         loadStockIn();
     } catch (e) {
-        console.error(e);
+        console.error('入库提交失败:', e);
         showMsg('入库提交失败：' + e.message);
     }
 }
-
 // 加载入库数据
 async function loadStockIn(){
     try{
