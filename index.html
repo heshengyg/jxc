@@ -268,13 +268,14 @@
     </div>
 </div>
 
-<!-- JS 加载顺序不能乱 -->
+<!-- JS 加载顺序严格固定 -->
 <script src="./js/config.js"></script>
 <script src="./js/common.js"></script>
 <script src="./js/login.js"></script>
 <script src="./js/goods.js"></script>
 <script src="./js/stockin.js"></script>
 
+<!-- 仅保留页面初始化原生代码 -->
 <script>
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';

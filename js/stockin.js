@@ -1,19 +1,10 @@
-// ==============================================
-// 入库管理模块 - 终极无错版
-// ==============================================
-
-// 全局变量（仅声明一次！）
-let allStockIn = [];
-let filteredStockIn = [];
-let inCurrentPage = 1, inPageSize = 10, inTotalPages = 1;
-let inSortField = '', inSortAsc = true;
-
+// ===================== 入库模块 - 纯业务函数 =====================
 // 刷新入库列表
 function refreshStockIn(){
     loadStockIn();
 }
 
-// 供应商下拉搜索
+// 供应商下拉
 function showSupList(){
     currSupplierList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
     renderSupplierList(currSupplierList);
@@ -57,7 +48,7 @@ function loadGoodsBySupplier(supplier){
     document.getElementById('inPrice').disabled = false;
 }
 
-// 商品下拉搜索
+// 商品下拉
 function showGoodsList(){
     renderGoodsSelectList(currGoodsList);
     document.getElementById('goodsListBox').style.display = 'block';
@@ -114,12 +105,11 @@ function lockProduceDate(){
     if(e) document.getElementById('inProduceDate').value = '';
 }
 
-// 添加入库按钮绑定的函数
+// 打开添加入库弹窗
 function openStockInForm(id=null){
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
 
-    // 重置表单
     document.getElementById('supSearchInput').value = '';
     document.getElementById('goodsSearchInput').value = '';
     document.getElementById('curSelectGoodsId').value = '';
@@ -133,7 +123,6 @@ function openStockInForm(id=null){
     document.getElementById('inProduceDate').value = '';
     document.getElementById('inExpireDate').value = '';
 
-    // 编辑模式回填数据
     if(id){
         let item = allStockIn.find(x=>x.id === id);
         if(!item) return;
@@ -158,7 +147,7 @@ function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
 
-// 提交入库表单
+// 提交入库
 async function submitStockIn(){
     let editId = document.getElementById('inEditId').value;
     let supplier = document.getElementById('supSearchInput').value.trim();
@@ -240,7 +229,7 @@ async function submitStockIn(){
     }
 }
 
-// 入库下载模板
+// 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
@@ -249,7 +238,7 @@ function downloadStockInTemplate(){
     XLSX.writeFile(wb, "入库导入模板.xlsx");
 }
 
-// 入库导出Excel
+// 导出Excel
 function exportStockInExcel(){
     if(filteredStockIn.length === 0){
         showMsg("暂无数据可导出");
@@ -274,7 +263,7 @@ function exportStockInExcel(){
     XLSX.writeFile(wb, "入库记录.xlsx");
 }
 
-// 批量导入入库
+// Excel导入
 async function importStockInExcel() {
     let file = document.getElementById('fileInput').files[0];
     if (!file) return;
@@ -354,7 +343,7 @@ async function loadStockIn() {
     }
 }
 
-// 入库列表搜索
+// 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
     let kw = document.getElementById('inSearchKeyword').value.toLowerCase();
@@ -365,9 +354,9 @@ function filterStockIn() {
     renderStockIn();
 }
 
-// 入库列表排序
+// 列表排序
 function inSortTable(field) {
-    inSortField = (inSortField === field) ? field : field;
+    inSortField = field;
     inSortAsc = (inSortField === field) ? !inSortAsc : true;
     filteredStockIn.sort((a,b)=>{
         let va=a[inSortField]||'', vb=b[inSortField]||'';
@@ -386,7 +375,7 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格
+// 渲染表格
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
@@ -418,7 +407,7 @@ function renderStockIn() {
     });
 }
 
-// 入库分页
+// 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
     document.getElementById('inCurrentPage').textContent = inCurrentPage;
@@ -442,11 +431,13 @@ function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
 function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); renderStockIn(); }
 
+// 全选
 function inToggleSelectAll(){
     let all = document.getElementById('inSelectAll').checked;
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.checked=all);
 }
 
+// 单条删除
 async function deleteStockIn(id){
     if(!confirm('确定删除？'))return;
     try{
@@ -459,6 +450,7 @@ async function deleteStockIn(id){
     }catch(e){ showMsg('删除失败'); }
 }
 
+// 批量删除
 async function batchDeleteStockIn(){
     let ids = [];
     document.querySelectorAll('.in-item-checkbox:checked').forEach(cb=>ids.push(cb.value));
@@ -474,10 +466,10 @@ async function batchDeleteStockIn(){
     loadStockIn();
 }
 
+// 清空排序、重置搜索
 function clearInSort(){
     inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();
 }
-
 function resetInSearch() {
     document.getElementById('inSearchKeyword').value = '';
     document.getElementById('inSearchField').selectedIndex = 0;
