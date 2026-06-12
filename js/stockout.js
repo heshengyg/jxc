@@ -175,21 +175,21 @@ async function submitStockOut(){
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
-    // 组装提交数据（关键：outDetail直接传数组，不要JSON.stringify）
-    let postData = {
-        supplier: supplier,
-        goodsName: goodsName,
-        spec: spec,
-        settleType: settleType,
-        outPrice: outPrice,
-        salePrice: salePrice,
-        outNum: outNum,
-        outAmount: outAmount,
-        saleAmount: saleAmount,
-        recordDate: recordDate,
-        inRecordId: linkInId, // 只存第一个批次的ID，不再参与扣减
-        outDetail: outDetail // 直接传数组，由Supabase自动转为JSONB
-    };
+ // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
+let postData = {
+    supplier: supplier,
+    goodsName: goodsName,
+    spec: spec,
+    settleType: settleType,
+    outPrice: outPrice,
+    salePrice: salePrice,
+    outNum: outNum,
+    outAmount: outAmount,
+    saleAmount: saleAmount,
+    recordDate: recordDate,
+    inRecordId: linkInId,
+    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
+};
 
     try {
         let res;

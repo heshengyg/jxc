@@ -110,14 +110,14 @@ function getStockBatchList(supplier, goodsName) {
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
- // 3. 统计每个批次已出库总量（关键修复：解析outDetail里的所有扣减明细）
+// 统计每个批次已出库总量（关键修复：解析JSON字符串）
 Object.values(batchMap).forEach(batch => {
     let outTotal = 0;
     allStockOut.forEach(out => {
         if (out.supplier === supplier && out.goodsName === goodsName) {
             // 优先解析outDetail里的明细（新出库记录）
             if(out.outDetail){
-                let detailList = JSON.parse(out.outDetail);
+                let detailList = JSON.parse(out.outDetail); // 解析JSON字符串
                 detailList.forEach(detail => {
                     let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
                     if(isInBatch){
