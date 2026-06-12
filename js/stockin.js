@@ -375,12 +375,16 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染表格
+// 渲染入库表格（修复批次库存/总库存）
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); tb.innerHTML = '';
     pageData.forEach((item,idx)=>{
+        // 计算当前批次库存
+        let batchRemain = Math.max(0, Number(item.in_num) - (allStockOut.filter(out => out.inRecordId === item.id).reduce((sum, out) => sum + Number(out.outNum), 0)));
+        // 计算该商品总库存
+        let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
         let html = `
             <tr>
@@ -393,8 +397,8 @@ function renderStockIn() {
                 <td>${formatMoney(item.in_price)}</td>
                 <td>${item.in_num}</td>
                 <td>${amount}</td>
-                <td>-</td>
-                <td>-</td>
+                <td>${batchRemain}</td>
+                <td>${totalStock}</td>
                 <td>${item.produce_date||''}</td>
                 <td>${item.expire_date||''}</td>
                 <td>
@@ -406,7 +410,6 @@ function renderStockIn() {
         tb.innerHTML += html;
     });
 }
-
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;

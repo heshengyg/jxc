@@ -97,11 +97,10 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 自动带出总库存
+    // 自动带出总库存（这里是关键，修复之前的逻辑）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
-
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;

@@ -76,7 +76,7 @@ document.addEventListener('click', function(e){
     }
 });
 
-// ========== 核心公共方法：计算【批次库存 + 先进先出可出库批次】 ==========
+// ===================== 公共工具函数：库存计算 =====================
 /**
  * 根据 供应商+商品名 获取所有有效入库批次（已扣减出库）
  * 排序规则：生产日期优先升序 → 到期日期升序（先进先出）
@@ -89,18 +89,19 @@ function getStockBatchList(supplier, goodsName) {
     let inList = allStockIn.filter(item => 
         item.supplier === supplier && item.goodsName === goodsName
     );
-    // 2. 统计每个入库批次 已出库总量
+    // 2. 统计每个入库批次 已出库总量（注意：out表里的inRecordId对应入库记录的id）
     let batchOutMap = {};
     allStockOut.forEach(out => {
         if(out.supplier === supplier && out.goodsName === goodsName){
-            if(!batchOutMap[out.inRecordId]) batchOutMap[out.inRecordId] = 0;
-            batchOutMap[out.inRecordId] += Number(out.outNum);
+            let inId = out.inRecordId; // 这里是关键：out表的关联字段
+            if(!batchOutMap[inId]) batchOutMap[inId] = 0;
+            batchOutMap[inId] += Number(out.outNum);
         }
     });
     // 3. 计算单批次剩余库存
     let batchList = inList.map(inItem => {
         let outTotal = batchOutMap[inItem.id] || 0;
-        let remain = Math.max(0, Number(inItem.inNum) - outTotal);
+        let remain = Math.max(0, Number(inItem.in_num) - outTotal);
         return {
             ...inItem,
             batchRemain: remain
