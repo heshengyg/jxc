@@ -375,15 +375,18 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（修复合并批次库存显示）
+// 渲染入库表格（修复DOM不存在报错）
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); 
-    if(!tb) return;
+    if (!tb) {
+        console.error('找不到入库列表DOM元素 #stockInList');
+        return; // 找不到元素直接返回，不执行渲染
+    }
     tb.innerHTML = '';
 
-    // 先获取当前页面所有商品的批次列表，避免重复计算
+    // 缓存批次列表，避免重复计算
     let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
     let batchCache = {};
     goodsSet.forEach(key => {
@@ -391,10 +394,8 @@ function renderStockIn() {
         batchCache[key] = getStockBatchList(supplier, goodsName);
     });
 
-    pageData.forEach((item,idx)=>{
-        // 从缓存里取批次列表
+    pageData.forEach((item, idx) => {
         let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
-        // 找到当前入库记录所属的批次
         let batch = batchList.find(b => 
             b.inRecords.some(inItem => inItem.id === item.id)
         );
@@ -404,18 +405,18 @@ function renderStockIn() {
         let html = `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
-                <td>${start+idx+1}</td>
-                <td>${item.supplier||''}</td>
-                <td>${item.goodsName||''}</td>
-                <td>${item.spec||'-'}</td>
-                <td>${item.settleType||''}</td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.goodsName || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.settleType || ''}</td>
                 <td>${formatMoney(item.in_price)}</td>
                 <td>${item.in_num}</td>
                 <td>${amount}</td>
                 <td>${batchRemain}</td>
                 <td>${totalStock}</td>
-                <td>${item.produce_date||''}</td>
-                <td>${item.expire_date||''}</td>
+                <td>${item.produce_date || ''}</td>
+                <td>${item.expire_date || ''}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>

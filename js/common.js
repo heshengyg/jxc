@@ -90,7 +90,6 @@ function getStockBatchList(supplier, goodsName) {
     // 2. 按批次合并：key = 供应商+商品名+规格+生产日期+到期日期
     let batchMap = {};
     inList.forEach(inItem => {
-        // 批次唯一标识
         let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
@@ -101,52 +100,58 @@ function getStockBatchList(supplier, goodsName) {
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
-                inRecords: [], // 该批次下的所有入库记录
+                inRecords: [],
                 totalInNum: 0,
                 batchRemain: 0
             };
         }
-        batchMap[batchKey].inRecords.push(inItem); // 这里存完整入库对象，方便后续扣减
+        batchMap[batchKey].inRecords.push(inItem);
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
-// 统计每个批次已出库总量（关键修复：解析JSON字符串）
-Object.values(batchMap).forEach(batch => {
-    let outTotal = 0;
-    allStockOut.forEach(out => {
-        if (out.supplier === supplier && out.goodsName === goodsName) {
-            // 优先解析outDetail里的明细（新出库记录）
-            if(out.outDetail){
-                let detailList = JSON.parse(out.outDetail); // 解析JSON字符串
-                detailList.forEach(detail => {
-                    let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
-                    if(isInBatch){
-                        outTotal += Number(detail.useNum);
+    // 3. 统计每个批次已出库总量（关键修复：解析JSON字符串）
+    Object.values(batchMap).forEach(batch => {
+        let outTotal = 0;
+        allStockOut.forEach(out => {
+            if (out.supplier === supplier && out.goodsName === goodsName) {
+                if (out.outDetail) {
+                    try {
+                        // 先判断outDetail是不是字符串，如果是则解析
+                        let detailList = typeof out.outDetail === 'string' 
+                            ? JSON.parse(out.outDetail) 
+                            : out.outDetail;
+                        if (Array.isArray(detailList)) {
+                            detailList.forEach(detail => {
+                                let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
+                                if (isInBatch) {
+                                    outTotal += Number(detail.useNum);
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('解析outDetail失败', out.outDetail, e);
                     }
-                });
-            } else {
-                // 兼容旧版出库记录（只有inRecordId）
-                let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
-                if(isInBatch){
-                    outTotal += Number(out.outNum);
+                } else if (out.inRecordId) {
+                    // 兼容旧版出库记录
+                    let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
+                    if (isInBatch) {
+                        outTotal += Number(out.outNum);
+                    }
                 }
             }
-        }
+        });
+        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
     });
-    batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
-});
 
     // 4. 过滤库存为0的批次，并按先进先出排序
     let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
     batchList.sort((a, b) => {
-        // 优先按生产日期
-        if(a.produce_date && b.produce_date){
+        if (a.produce_date && b.produce_date) {
             return new Date(a.produce_date) - new Date(b.produce_date);
         }
-        if(a.produce_date) return -1;
-        if(b.produce_date) return 1;
-        // 无生产日期按到期日期
-        if(a.expire_date && b.expire_date){
+        if (a.produce_date) return -1;
+        if (b.produce_date) return 1;
+        if (a.expire_date && b.expire_date) {
             return new Date(a.expire_date) - new Date(b.expire_date);
         }
         return 0;
