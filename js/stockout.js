@@ -132,7 +132,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（终极修复版：支持跨批次扣减，明细存入数据库）
+// 提交出库（终极修复版）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -156,11 +156,11 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细（包含所有批次的入库记录ID和扣减数量）
+    // 先进先出计算扣减明细
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 计算出库单价（取第一个扣减的入库记录单价）
+    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
@@ -175,7 +175,7 @@ async function submitStockOut(){
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
-    // 组装提交数据（包含所有扣减明细）
+    // 组装提交数据（关键：outDetail直接传数组，不要JSON.stringify）
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -187,8 +187,8 @@ async function submitStockOut(){
         outAmount: outAmount,
         saleAmount: saleAmount,
         recordDate: recordDate,
-        inRecordId: linkInId,
-        outDetail: JSON.stringify(outDetail) // 存入所有扣减明细
+        inRecordId: linkInId, // 只存第一个批次的ID，不再参与扣减
+        outDetail: outDetail // 直接传数组，由Supabase自动转为JSONB
     };
 
     try {
@@ -230,6 +230,7 @@ async function submitStockOut(){
         showMsg('出库提交失败：' + e.message);
     }
 }
+
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
