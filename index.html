@@ -696,57 +696,7 @@ function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
 
-// 提交入库单据
-async function submitStockIn(){
-    let supplier = document.getElementById('inSupplier').value;
-    let goodsId = document.getElementById('inGoodsName').value;
-    let goodsName = document.getElementById('inGoodsName').selectedOptions[0].text;
-    let spec = document.getElementById('inSpec').value;
-    let settleType = document.getElementById('inSettleType').value;
-    let salePrice = document.getElementById('inSalePrice').replace('￥','');
-    let inNum = document.getElementById('inNum').value;
-    let inPrice = document.getElementById('inPrice').value;
-    let recordDate = document.getElementById('inRecordDate').value;
-    let produceDate = document.getElementById('inProduceDate').value;
-    let expireDate = document.getElementById('inExpireDate').value;
-
-    // 基础校验
-    if(!supplier) return showMsg('请选择供应商');
-    if(!goodsId) return showMsg('请选择商品');
-    if(!inNum || +inNum < 1) return showMsg('入库数量必须大于0');
-    if(inPrice === '' || isNaN(+inPrice)) return showMsg('请填写入库单价');
-    if(!recordDate) return showMsg('请选择录入日期');
-
-    // ========== 修正后的日期互斥校验 ==========
-    if (produceDate && expireDate) {
-        return showMsg('生产日期和到期日期不能同时填写');
-    }
-
-    let postData = {
-        supplier, goodsName, spec, settleType,
-        sale_price: +salePrice, in_price: +inPrice, in_num: +inNum,
-        record_date: recordDate, produce_date: produceDate||null, expire_date: expireDate||null
-    };
-
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`,{
-            method:'POST',
-            headers:{
-                apikey:SUPABASE_KEY,
-                Authorization:`Bearer ${SUPABASE_KEY}`,
-                'Content-Type':'application/json',
-                'Prefer':'return=representation'
-            },
-            body:JSON.stringify(postData)
-        });
-        if(!res.ok) throw new Error('提交失败');
-        showMsg('入库成功');
-        closeStockInForm();
-        loadStockIn();
-    } catch (e) {
-        showMsg('入库提交失败');
-    }
-}
+function submitStockIn()
 // 加载入库数据
 async function loadStockIn(){
     try{
