@@ -382,13 +382,23 @@ function renderStockIn() {
     let tb = document.getElementById('stockInList'); 
     if(!tb) return;
     tb.innerHTML = '';
+
+    // 先获取当前页面所有商品的批次列表，避免重复计算
+    let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
+    let batchCache = {};
+    goodsSet.forEach(key => {
+        let [supplier, goodsName] = key.split('_');
+        batchCache[key] = getStockBatchList(supplier, goodsName);
+    });
+
     pageData.forEach((item,idx)=>{
-        // 1. 计算该商品的所有批次
-        let batchList = getStockBatchList(item.supplier, item.goodsName);
-        // 2. 找到当前入库记录所属的批次
-        let batch = batchList.find(b => b.inRecords.includes(item.id));
+        // 从缓存里取批次列表
+        let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
+        // 找到当前入库记录所属的批次
+        let batch = batchList.find(b => 
+            b.inRecords.some(inItem => inItem.id === item.id)
+        );
         let batchRemain = batch ? batch.batchRemain : 0;
-        // 3. 计算该商品总库存
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
         let html = `

@@ -76,7 +76,7 @@ document.addEventListener('click', function(e){
     }
 });
 
-// ===================== 公共工具函数：库存计算 =====================
+// ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
  * 按【供应商+商品名+规格+生产日期/到期日期】合并批次库存
  * 先进先出排序：生产日期早 > 到期日期早
@@ -101,11 +101,12 @@ function getStockBatchList(supplier, goodsName) {
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
-                inRecords: [], // 该批次下的所有入库记录ID
-                totalInNum: 0
+                inRecords: [], // 该批次下的所有入库记录
+                totalInNum: 0,
+                batchRemain: 0
             };
         }
-        batchMap[batchKey].inRecords.push(inItem.id);
+        batchMap[batchKey].inRecords.push(inItem); // 这里存完整入库对象，方便后续扣减
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
@@ -113,8 +114,12 @@ function getStockBatchList(supplier, goodsName) {
     Object.values(batchMap).forEach(batch => {
         let outTotal = 0;
         allStockOut.forEach(out => {
-            if (out.supplier === supplier && out.goodsName === goodsName && batch.inRecords.includes(out.inRecordId)) {
-                outTotal += Number(out.outNum);
+            if (out.supplier === supplier && out.goodsName === goodsName) {
+                // 检查出库记录的inRecordId是否属于当前批次
+                let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
+                if (isInBatch) {
+                    outTotal += Number(out.outNum);
+                }
             }
         });
         batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
@@ -157,27 +162,28 @@ function calcFIFOOut(supplier, goodsName, outNum) {
 
     for(let batch of batchList){
         if(remainOut <= 0) break;
-        let useNum = Math.min(batch.batchRemain, remainOut);
-        // 分配扣减到该批次下的入库记录（优先扣减最早的入库记录）
-        let batchInRecords = batch.inRecords.map(id => allStockIn.find(inItem => inItem.id === id));
-        batchInRecords.sort((a, b) => a.id - b.id); // 按入库记录ID排序（先进先出）
+        // 当前批次可扣减数量
+        let useFromBatch = Math.min(batch.batchRemain, remainOut);
+        // 批次内按入库记录ID排序（先进先出）
+        let sortedInRecords = [...batch.inRecords].sort((a, b) => a.id - b.id);
 
-        let batchRemainUse = useNum;
-        for(let inItem of batchInRecords){
-            if(batchRemainUse <= 0) break;
-            // 该入库记录的剩余库存
-            let outTotalForIn = allStockOut.filter(out => out.inRecordId === inItem.id).reduce((sum, out) => sum + Number(out.outNum), 0);
+        // 分配扣减到批次内的入库记录
+        for(let inItem of sortedInRecords){
+            if(remainOut <= 0) break;
+            // 计算该入库记录的剩余库存
+            let outTotalForIn = allStockOut
+                .filter(out => out.inRecordId === inItem.id)
+                .reduce((sum, out) => sum + Number(out.outNum), 0);
             let inRemain = Math.max(0, Number(inItem.in_num) - outTotalForIn);
             if(inRemain <= 0) continue;
 
-            let useForThisIn = Math.min(inRemain, batchRemainUse);
+            let useForThisIn = Math.min(inRemain, remainOut);
             outDetail.push({
                 inRecordId: inItem.id,
                 useNum: useForThisIn
             });
-            batchRemainUse -= useForThisIn;
+            remainOut -= useForThisIn;
         }
-        remainOut -= useNum;
     }
     return outDetail;
 }
