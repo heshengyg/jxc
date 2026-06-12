@@ -37,6 +37,8 @@
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('goods')">商品管理</button>
         <button class="tab-btn" onclick="switchTab('stockIn')">入库管理</button>
+        <!-- 新增：出库标签页 -->
+        <button class="tab-btn" onclick="switchTab('stockOut')">出库管理</button>
         <button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
     </div>
 
@@ -169,10 +171,116 @@
         </div>
     </div>
 
+    <!-- ========== 新增：出库管理模块 ========== -->
+    <div id="stockOut" class="tab-content">
+        <h3>出库管理</h3>
+        <div class="stat-bar">
+            共 <span id="outTotalCount">0</span> 条出库记录，当前搜索结果 <span id="outSearchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openStockOutForm()">添加出库</button>
+            <button class="btn btn-success" onclick="downloadStockOutTemplate()">下载出库模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入出库</button>
+            <button class="btn btn-default" onclick="exportStockOutExcel()">导出出库记录</button>
+            <button class="btn btn-danger" onclick="batchDeleteStockOut()">批量删除</button>
+            <button class="btn btn-default" onclick="refreshStockOut()">刷新列表</button>
+            <button class="btn btn-default" onclick="clearOutSort()">清除排序</button>
+
+            <select id="outSearchField">
+                <option value="supplier">按供应商搜索</option>
+                <option value="goodsName">按商品名搜索</option>
+            </select>
+            <input type="text" id="outSearchKeyword" placeholder="输入关键词" oninput="filterStockOut()">
+            <button class="btn btn-default" onclick="resetOutSearch()">重置搜索</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="outSelectAll" onchange="outToggleSelectAll()"> 选择</th>
+                        <th>序号</th>
+                        <th class="sortable" onclick="outSortTable('supplier')">供应商 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('goodsName')">商品名 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('spec')">规格 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('settleType')">结算方式 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('outPrice')">出库单价 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('salePrice')">销售单价 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('outNum')">出库数量 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('outAmount')">出库金额 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('saleAmount')">销售金额 <span class="outSortIcon"></span></th>
+                        <th class="sortable" onclick="outSortTable('recordDate')">录入日期 <span class="outSortIcon"></span></th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="stockOutList"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <div class="page-info">
+                每页显示 <select id="outPageSize" onchange="changeOutPageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="outCurrentPage">1</span> / <span id="outTotalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="outGoToPage(1)">首页</button>
+                <button class="page-btn" onclick="outPrevPage()">上一页</button>
+                <span id="outPageNumbers"></span>
+                <button class="page-btn" onclick="outNextPage()">下一页</button>
+                <button class="page-btn" onclick="outGoToPage(outTotalPages)">末页</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 库存查看 -->
     <div id="stockView" class="tab-content">
         <h3>库存查看</h3>
         <p>功能开发中</p>
+    </div>
+</div>
+
+<!-- 出库弹窗 -->
+<div class="form-modal" id="stockOutModal">
+    <div class="form-container">
+        <h4 id="stockOutFormTitle">添加出库单据</h4>
+        <input type="hidden" id="outEditId">
+        <div class="form-group">
+            <label>供应商：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="outSupSearchInput" placeholder="搜索/选择供应商" onfocus="showOutSupList()" oninput="filterOutSupList()">
+                <div class="search-select-list" id="outSupListBox"></div>
+            </div>
+
+            <label>商品名称：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="outGoodsSearchInput" placeholder="搜索/选择商品" onfocus="showOutGoodsList()" oninput="filterOutGoodsList()">
+                <div class="search-select-list" id="outGoodsListBox"></div>
+            </div>
+            <input type="hidden" id="outCurGoodsId">
+        </div>
+        <div class="form-group">
+            <label>规格：</label>
+            <input type="text" id="outSpec" readonly placeholder="自动带出">
+            <label>结算方式：</label>
+            <input type="text" id="outSettleType" readonly placeholder="自动带出">
+            <label>销售单价(快照)：</label>
+            <input type="text" id="outSalePrice" readonly placeholder="自动带出">
+        </div>
+        <div class="form-group">
+            <label>当前总库存：</label>
+            <input type="text" id="totalStockNum" readonly placeholder="自动带出">
+            <label>出库数量：</label>
+            <input type="number" id="outNum" min="1" placeholder="必填" oninput="checkStockNum()">
+            <label>录入日期：</label>
+            <input type="date" id="outRecordDate">
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="submitStockOut()">提交</button>
+            <button class="btn" onclick="closeStockOutForm()">取消</button>
+        </div>
     </div>
 </div>
 
@@ -274,6 +382,8 @@
 <script src="./js/login.js"></script>
 <script src="./js/goods.js"></script>
 <script src="./js/stockin.js"></script>
+<!-- 新增：出库JS -->
+<script src="./js/stockout.js"></script>
 
 <!-- 仅保留页面初始化原生代码 -->
 <script>
