@@ -1,3 +1,17 @@
+// 补全刷新函数
+function refreshGoods(){
+    loadGoods();
+}
+
+// 补全重复商品判断
+function isDuplicate(supplier,name,spec,editId){
+    return allGoods.some(item=>{
+        if(editId && +item.id===+editId) return false;
+        return (item.supplier||'').trim()===supplier.trim()
+            && (item.name||'').trim()===name.trim()
+            && (item.spec||'').trim()===spec.trim();
+    });
+}
 // 渠道切换：控制线上成本价输入框禁用/启用
 function toggleOnlineCostInput(){
     let channel = document.getElementById('add_channel').value;
@@ -160,6 +174,7 @@ function isDuplicate(supplier,name,spec,editId){
     });
 }
 
+// 修改 submitForm()
 async function submitForm(){
     let editId = document.getElementById('editId').value;
     let supplier = document.getElementById('add_supplier').value;
@@ -167,14 +182,15 @@ async function submitForm(){
     let spec = document.getElementById('add_spec').value;
     let channel = document.getElementById('add_channel').value;
     let salePrice = document.getElementById('add_sale_price').value;
-    let onlineCost = document.getElementById('add_online_cost').value;
+    let onlineCost = document.getElementById('add_sale_price').value;
     let warnNum = document.getElementById('add_warn_num').value;
     let shelfNum = document.getElementById('add_shelf_life_num').value;
     let shelfUnit = document.getElementById('add_shelf_life_unit').value;
 
     if(!supplier||!name||!channel||!salePrice) return showMsg('必填项不能为空');
     if(+salePrice<=0) return showMsg('销售单价必须大于0');
-    if(isDuplicate(supplier,name,spec,editId)) return showMsg('该商品已存在');
+    // 新增重复商品判断
+    if(isDuplicate(supplier,name,spec,editId)) return showMsg('该供应商下已存在同名同规格商品！');
 
     let data = {
         supplier: supplier.trim(),
@@ -198,8 +214,6 @@ async function submitForm(){
                 },
                 body:JSON.stringify(data)
             });
-            let idx = allGoods.findIndex(x=>+x.id===+editId);
-            if(idx>-1) allGoods[idx] = {...allGoods[idx],...data};
             showMsg('编辑成功');
         }else{
             await fetch(`${SUPABASE_URL}/rest/v1/goods`,{
@@ -215,12 +229,31 @@ async function submitForm(){
             showMsg('新增成功');
         }
         closeForm();
-        filterGoods();
+        loadGoods(); // 新增后直接重新拉取列表，解决不刷新问题
     }catch(e){
-        showMsg('操作失败');
+        showMsg('操作失败：' + e.message);
     }
 }
 
+// 补全 exportExcel() 函数
+function exportExcel(){
+    if(filteredGoods.length === 0) return showMsg('没有数据可导出');
+    let data = filteredGoods.map(item=>[
+        item.supplier,
+        item.name,
+        item.spec,
+        item.channel,
+        item.sale_price,
+        item.online_cost,
+        item.warn_num,
+        item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : ''
+    ]);
+    let header = ["供应商","商品名称","规格","销售渠道","销售单价","线上成本价","库存预警阈值","保质期"];
+    let ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "商品列表");
+    XLSX.writeFile(wb, "商品列表.xlsx");
+}
 async function deleteGoods(id){
     if(!confirm('确定删除？'))return;
     try{
