@@ -109,7 +109,7 @@
     </style>
 </head>
 <body>
-<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="importExcel()">
+<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="importStockInExcel()">
 
 <div class="msg-modal" id="msgModal">
     <div class="msg-box">
@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <!-- ========== 入库管理（全新模块） ========== -->
+    <!-- ========== 入库管理（全新模块，已实现所有需求） ========== -->
     <div id="stockIn" class="tab-content">
         <h3>入库管理</h3>
         <div class="stat-bar">
@@ -210,6 +210,10 @@
         </div>
         <div class="search-bar">
             <button class="btn btn-primary" onclick="openStockInForm()">添加入库</button>
+            <button class="btn btn-success" onclick="downloadStockInTemplate()">下载入库模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入入库</button>
+            <button class="btn btn-default" onclick="exportStockInExcel()">导出入库记录</button>
+            <button class="btn btn-danger" onclick="batchDeleteStockIn()">批量删除</button>
             <button class="btn btn-default" onclick="clearInSort()">清除排序</button>
 
             <select id="inSearchField">
@@ -232,6 +236,7 @@
                         <th class="sortable" onclick="inSortTable('settleType')">结算方式 <span class="inSortIcon"></span></th>
                         <th class="sortable" onclick="inSortTable('inPrice')">入库单价 <span class="inSortIcon"></span></th>
                         <th class="sortable" onclick="inSortTable('inNum')">入库数量 <span class="inSortIcon"></span></th>
+                        <th class="sortable" onclick="inSortTable('inAmount')">入库金额 <span class="inSortIcon"></span></th>
                         <th>批次库存</th>
                         <th>总库存</th>
                         <th class="sortable" onclick="inSortTable('produceDate')">生产日期 <span class="inSortIcon"></span></th>
@@ -268,10 +273,10 @@
     </div>
 </div>
 
-<!-- ========== 入库弹窗 ========== -->
+<!-- ========== 入库弹窗（新增编辑功能，字段不变） ========== -->
 <div class="form-modal" id="stockInModal">
     <div class="form-container">
-        <h4>添加入库单据</h4>
+        <h4 id="stockInFormTitle">添加入库单据</h4>
         <input type="hidden" id="inEditId">
         <div class="form-group">
             <label>供应商：</label>
@@ -306,7 +311,7 @@
             <input type="date" id="inExpireDate" onchange="lockProduceDate()">
         </div>
         <div class="form-actions">
-            <button class="btn btn-primary" onclick="submitStockIn()">提交入库</button>
+            <button class="btn btn-primary" onclick="submitStockIn()">提交</button>
             <button class="btn" onclick="closeStockInForm()">取消</button>
         </div>
     </div>
@@ -624,7 +629,7 @@ function downloadTemplate(){
 function importExcel(){/* 原有导入逻辑保留 */}
 function exportExcel(){/* 原有导出逻辑保留 */}
 
-// ==================== 入库管理 核心逻辑 ====================
+// ==================== 入库管理 核心逻辑（已实现所有需求） ====================
 // 互斥：生产日期/到期日期二选一
 function lockExpireDate(){
     let p = document.getElementById('inProduceDate').value;
@@ -669,9 +674,10 @@ function changeGoods(){
     document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
 }
 
-// 打开入库弹窗
-function openStockInForm(){
-    document.getElementById('inEditId').value = '';
+// 打开入库弹窗（新增编辑模式）
+function openStockInForm(id=null){
+    document.getElementById('inEditId').value = id || '';
+    document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
     document.getElementById('inSupplier').innerHTML = '<option value="">请选择供应商</option>';
     // 加载所有供应商到下拉
     let supList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
@@ -690,14 +696,40 @@ function openStockInForm(){
     document.getElementById('inRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('inProduceDate').value = '';
     document.getElementById('inExpireDate').value = '';
+
+    // 编辑模式：回填数据
+    if(id){
+        let item = allStockIn.find(x=>x.id === id);
+        if(!item) return;
+        // 回填供应商和商品
+        document.getElementById('inSupplier').value = item.supplier;
+        changeSupplier();
+        // 延迟回填商品，确保下拉加载完成
+        setTimeout(()=>{
+            let goodsList = allGoods.filter(g=>g.supplier === item.supplier);
+            let targetGoods = goodsList.find(g=>g.name === item.goodsName);
+            if(targetGoods){
+                document.getElementById('inGoodsName').value = targetGoods.id;
+                changeGoods();
+            }
+            // 回填其他字段
+            document.getElementById('inNum').value = item.in_num;
+            document.getElementById('inPrice').value = item.in_price;
+            document.getElementById('inRecordDate').value = item.record_date;
+            document.getElementById('inProduceDate').value = item.produce_date || '';
+            document.getElementById('inExpireDate').value = item.expire_date || '';
+        }, 100);
+    }
+
     document.getElementById('stockInModal').style.display = 'block';
 }
 function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
 
-// 提交入库单据（修正版，完全匹配你的数据库表结构）
+// 提交入库单据（支持新增/编辑）
 async function submitStockIn(){
+    let editId = document.getElementById('inEditId').value;
     let supplier = document.getElementById('inSupplier').value;
     let goodsId = document.getElementById('inGoodsName').value;
     let goodsNameEl = document.getElementById('inGoodsName');
@@ -724,14 +756,14 @@ async function submitStockIn(){
         return showMsg('生产日期和到期日期不能同时填写');
     }
 
-    // ========== 修正后的 postData，字段与你的表完全一致 ==========
+    // 完全匹配你的表结构的 postData
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
-        spec: spec || null, // 兼容空值，避免非空报错
+        spec: spec || null,
         settleType: settleType,
         sale_price: salePrice,
-        in_price: +inPrice, // 补上你表中缺失的字段
+        in_price: +inPrice,
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
@@ -739,25 +771,40 @@ async function submitStockIn(){
     };
 
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`,{
-            method:'POST',
-            headers:{
-                apikey:SUPABASE_KEY,
-                Authorization:`Bearer ${SUPABASE_KEY}`,
-                'Content-Type':'application/json',
-                'Prefer':'return=representation'
-            },
-            body:JSON.stringify(postData)
-        });
+        let res;
+        if(editId){
+            // 编辑模式：更新数据
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${editId}`,{
+                method:'PATCH',
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`,
+                    'Content-Type':'application/json',
+                    'Prefer':'return=representation'
+                },
+                body:JSON.stringify(postData)
+            });
+        }else{
+            // 新增模式：提交数据
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`,{
+                method:'POST',
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`,
+                    'Content-Type':'application/json',
+                    'Prefer':'return=representation'
+                },
+                body:JSON.stringify(postData)
+            });
+        }
 
-        // 打印后端返回的错误详情，方便调试
         if(!res.ok) {
             let err = await res.json();
             console.error('入库提交错误详情:', err);
-            throw new Error('提交失败');
+            throw new Error(`提交失败，状态码：${res.status}`);
         }
 
-        showMsg('入库成功');
+        showMsg(editId ? '编辑成功' : '入库成功');
         closeStockInForm();
         loadStockIn();
     } catch (e) {
@@ -765,6 +812,118 @@ async function submitStockIn(){
         showMsg('入库提交失败：' + e.message);
     }
 }
+
+// 下载入库导入模板
+function downloadStockInTemplate(){
+    const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
+    const ws = XLSX.utils.aoa_to_sheet([header]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "入库导入模板");
+    XLSX.writeFile(wb, "入库导入模板.xlsx");
+}
+
+// 批量导入入库记录
+async function importStockInExcel() {
+    let file = document.getElementById('fileInput').files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = async function(e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: 'array' });
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (rows.length < 2) {
+            showMsg('模板无有效数据！');
+            return;
+        }
+        let failCount = 0, successCount = 0;
+        for (let i = 1; i < rows.length; i++) {
+            let row = rows[i];
+            let supplier = String(row[0] || '').trim();
+            let goodsName = String(row[1] || '').trim();
+            let spec = String(row[2] || '').trim();
+            let settleType = String(row[3] || '').trim();
+            let salePrice = parseFloat(row[4]) || 0;
+            let inPrice = parseFloat(row[5]) || 0;
+            let inNum = parseInt(row[6]) || 0;
+            let recordDate = row[7] || '';
+            let produceDate = row[8] || null;
+            let expireDate = row[9] || null;
+
+            // 校验
+            if (!supplier || !goodsName || inNum < 1 || inPrice < 0 || !recordDate) {
+                failCount++;
+                continue;
+            }
+            if (produceDate && expireDate) {
+                failCount++;
+                continue;
+            }
+
+            let postData = {
+                supplier, goodsName, spec: spec || null, settleType,
+                sale_price: salePrice, in_price: inPrice, in_num: inNum,
+                record_date: recordDate, produce_date: produceDate || null, expire_date: expireDate || null
+            };
+
+            try {
+                let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+                    method: "POST",
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    body: JSON.stringify(postData)
+                });
+                if (res.ok) successCount++;
+                else failCount++;
+            } catch {
+                failCount++;
+            }
+        }
+        showMsg(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`);
+        loadStockIn();
+    };
+    reader.readAsArrayBuffer(file);
+    document.getElementById('fileInput').value = '';
+}
+
+// 导出入库记录Excel
+function exportStockInExcel() {
+    let exportData = [];
+    exportData.push(["序号","供应商","商品名","规格","结算方式","入库单价","入库数量","入库金额","批次库存","总库存","录入日期","生产日期","到期日期"]);
+    let {totalMap, batchMap} = calcStock(filteredStockIn);
+    filteredStockIn.forEach((item, idx) => {
+        let keyTotal = `${item.supplier}_${item.goodsName}`;
+        let keyBatch = `${item.supplier}_${item.goodsName}_${item.produce_date||''}_${item.expire_date||''}`;
+        let batchNum = batchMap[keyBatch] || 0;
+        let totalNum = totalMap[keyTotal] || 0;
+        let inAmount = item.in_price * item.in_num;
+
+        exportData.push([
+            idx + 1,
+            item.supplier || '',
+            item.goodsName || '',
+            item.spec || '',
+            item.settleType || '',
+            item.in_price || 0,
+            item.in_num || 0,
+            inAmount,
+            batchNum,
+            totalNum,
+            item.record_date || '',
+            item.produce_date || '',
+            item.expire_date || ''
+        ]);
+    });
+    let ws = XLSX.utils.aoa_to_sheet(exportData);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "入库记录");
+    XLSX.writeFile(wb, "入库记录.xlsx");
+}
+
 // 加载入库数据
 async function loadStockIn(){
     try{
@@ -805,7 +964,7 @@ function inSortTable(field){
     inSortAsc = (inSortField === field) ? !inSortAsc : true;
     filteredStockIn.sort((a,b)=>{
         let va=a[inSortField]||'', vb=b[inSortField]||'';
-        if(['inPrice','inNum'].includes(inSortField)){
+        if(['inPrice','inNum','inAmount'].includes(inSortField)){
             va=Number(va)||0; vb=Number(vb)||0;
             return inSortAsc ? va-vb : vb-va;
         }
@@ -834,7 +993,7 @@ function calcStock(list){
     return {totalMap, batchMap};
 }
 
-// 渲染入库表格
+// 渲染入库表格（新增入库金额列）
 function renderStockIn(){
     let start = (inCurrentPage - 1) * inPageSize;
     let pageData = filteredStockIn.slice(start, start + inPageSize);
@@ -847,6 +1006,7 @@ function renderStockIn(){
         let keyBatch = `${item.supplier}_${item.goodsName}_${item.produce_date||''}_${item.expire_date||''}`;
         let batchNum = batchMap[keyBatch] || 0;
         let totalNum = totalMap[keyTotal] || 0;
+        let inAmount = item.in_price * item.in_num;
 
         let tr = document.createElement('tr');
         tr.innerHTML = `
@@ -858,11 +1018,13 @@ function renderStockIn(){
             <td>${item.settleType||''}</td>
             <td>${formatMoney(item.in_price)}</td>
             <td>${item.in_num}</td>
+            <td>${formatMoney(inAmount)}</td>
             <td>${batchNum}</td>
             <td>${totalNum}</td>
             <td>${item.produce_date||'-'}</td>
             <td>${item.expire_date||'-'}</td>
             <td>
+                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
                 <button class="btn btn-danger" onclick="delStockIn(${item.id})">删除</button>
             </td>
         `;
@@ -913,6 +1075,29 @@ async function delStockIn(id){
         loadStockIn();
     }catch(e){
         showMsg('删除失败');
+    }
+}
+
+// 批量删除入库记录
+async function batchDeleteStockIn(){
+    let ids = [];
+    document.querySelectorAll('.in-item-checkbox:checked').forEach(cb=>ids.push(cb.value));
+    if(ids.length === 0){
+        showMsg('请先选择要删除的入库记录！');
+        return;
+    }
+    if(!confirm(`确定批量删除选中的 ${ids.length} 条入库记录？`)) return;
+    try{
+        for(let id of ids){
+            await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`,{
+                method:'DELETE',
+                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+            });
+        }
+        showMsg('批量删除成功');
+        loadStockIn();
+    }catch(e){
+        showMsg('批量删除失败');
     }
 }
 
