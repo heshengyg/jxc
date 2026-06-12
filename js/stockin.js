@@ -375,11 +375,13 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（修复批次库存/总库存）
+// 渲染入库表格（修复批次库存/总库存，兼容DOM不存在的情况）
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
-    let tb = document.getElementById('stockInList'); tb.innerHTML = '';
+    let tb = document.getElementById('stockInList'); 
+    if(!tb) return; // 防止DOM不存在报错
+    tb.innerHTML = '';
     pageData.forEach((item,idx)=>{
         // 计算当前批次库存
         let batchRemain = Math.max(0, Number(item.in_num) - (allStockOut.filter(out => out.inRecordId === item.id).reduce((sum, out) => sum + Number(out.outNum), 0)));

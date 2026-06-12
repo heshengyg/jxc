@@ -132,13 +132,13 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（核心：库存校验 + 先进先出扣减）
+// 提交出库（修复版，确保字段格式合法）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
-    let spec = document.getElementById('outSpec').value;
-    let settleType = document.getElementById('outSettleType').value;
+    let spec = document.getElementById('outSpec').value || '';
+    let settleType = document.getElementById('outSettleType').value || '';
     let salePriceText = document.getElementById('outSalePrice').value;
     let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
     let outNum = Number(document.getElementById('outNum').value) || 0;
@@ -169,17 +169,24 @@ async function submitStockOut(){
     if(settleType === '线上'){
         outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
     }else{
-        outPrice = linkInItem ? Number(linkInItem.inPrice) : 0;
+        outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
-    // 计算金额
-    let outAmount = outPrice * outNum;
-    let saleAmount = salePrice * outNum;
+    // 计算金额（强制转为数字，避免NaN）
+    let outAmount = Number((outPrice * outNum).toFixed(2));
+    let saleAmount = Number((salePrice * outNum).toFixed(2));
 
     let postData = {
-        supplier, goodsName, spec, settleType,
-        outPrice, salePrice, outNum,
-        outAmount, saleAmount, recordDate,
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: spec,
+        settleType: settleType,
+        outPrice: outPrice,
+        salePrice: salePrice,
+        outNum: outNum,
+        outAmount: outAmount,
+        saleAmount: saleAmount,
+        recordDate: recordDate,
         inRecordId: linkInId
     };
 
@@ -208,17 +215,22 @@ async function submitStockOut(){
                 body:JSON.stringify(postData)
             });
         }
-        if(!res.ok) throw new Error('请求异常');
+        if(!res.ok) {
+            // 打印错误详情，方便排查
+            let err = await res.json();
+            console.error('出库提交错误详情：', err);
+            throw new Error(`请求异常：${JSON.stringify(err)}`);
+        }
         showMsg(editId ? '编辑出库成功' : '出库提交成功');
         closeStockOutForm();
         loadStockOut();
         // 刷新入库批次库存显示
         loadStockIn();
     } catch (e) {
+        console.error('出库提交失败', e);
         showMsg('出库提交失败：' + e.message);
     }
 }
-
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
