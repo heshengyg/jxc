@@ -375,17 +375,20 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（修复批次库存/总库存，兼容DOM不存在的情况）
+// 渲染入库表格（修复合并批次库存显示）
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); 
-    if(!tb) return; // 防止DOM不存在报错
+    if(!tb) return;
     tb.innerHTML = '';
     pageData.forEach((item,idx)=>{
-        // 计算当前批次库存
-        let batchRemain = Math.max(0, Number(item.in_num) - (allStockOut.filter(out => out.inRecordId === item.id).reduce((sum, out) => sum + Number(out.outNum), 0)));
-        // 计算该商品总库存
+        // 1. 计算该商品的所有批次
+        let batchList = getStockBatchList(item.supplier, item.goodsName);
+        // 2. 找到当前入库记录所属的批次
+        let batch = batchList.find(b => b.inRecords.includes(item.id));
+        let batchRemain = batch ? batch.batchRemain : 0;
+        // 3. 计算该商品总库存
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
         let html = `

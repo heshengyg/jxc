@@ -132,7 +132,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（修复版，确保字段格式合法）
+// 提交出库（修复版，适配合并批次扣减）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -216,7 +216,6 @@ async function submitStockOut(){
             });
         }
         if(!res.ok) {
-            // 打印错误详情，方便排查
             let err = await res.json();
             console.error('出库提交错误详情：', err);
             throw new Error(`请求异常：${JSON.stringify(err)}`);

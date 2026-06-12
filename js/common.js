@@ -78,46 +78,58 @@ document.addEventListener('click', function(e){
 
 // ===================== 公共工具函数：库存计算 =====================
 /**
- * 根据 供应商+商品名 获取所有有效入库批次（已扣减出库）
- * 排序规则：生产日期优先升序 → 到期日期升序（先进先出）
- * @param {string} supplier 供应商
- * @param {string} goodsName 商品名
- * @returns {Array} 排序后的批次列表
+ * 按【供应商+商品名+规格+生产日期/到期日期】合并批次库存
+ * 先进先出排序：生产日期早 > 到期日期早
  */
 function getStockBatchList(supplier, goodsName) {
     // 1. 筛选对应商品所有入库记录
     let inList = allStockIn.filter(item => 
         item.supplier === supplier && item.goodsName === goodsName
     );
-    // 2. 统计每个入库批次 已出库总量（注意：out表里的inRecordId对应入库记录的id）
-    let batchOutMap = {};
-    allStockOut.forEach(out => {
-        if(out.supplier === supplier && out.goodsName === goodsName){
-            let inId = out.inRecordId; // 这里是关键：out表的关联字段
-            if(!batchOutMap[inId]) batchOutMap[inId] = 0;
-            batchOutMap[inId] += Number(out.outNum);
-        }
-    });
-    // 3. 计算单批次剩余库存
-    let batchList = inList.map(inItem => {
-        let outTotal = batchOutMap[inItem.id] || 0;
-        let remain = Math.max(0, Number(inItem.in_num) - outTotal);
-        return {
-            ...inItem,
-            batchRemain: remain
-        };
-    }).filter(b => b.batchRemain > 0); // 过滤库存为0的批次
 
-    // 4. 先进先出排序：生产日期早 → 到期日期早
+    // 2. 按批次合并：key = 供应商+商品名+规格+生产日期+到期日期
+    let batchMap = {};
+    inList.forEach(inItem => {
+        // 批次唯一标识
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
+        
+        if (!batchMap[batchKey]) {
+            batchMap[batchKey] = {
+                supplier: inItem.supplier,
+                goodsName: inItem.goodsName,
+                spec: inItem.spec,
+                settleType: inItem.settleType,
+                produce_date: inItem.produce_date,
+                expire_date: inItem.expire_date,
+                inRecords: [], // 该批次下的所有入库记录ID
+                totalInNum: 0
+            };
+        }
+        batchMap[batchKey].inRecords.push(inItem.id);
+        batchMap[batchKey].totalInNum += Number(inItem.in_num);
+    });
+
+    // 3. 统计每个批次已出库总量
+    Object.values(batchMap).forEach(batch => {
+        let outTotal = 0;
+        allStockOut.forEach(out => {
+            if (out.supplier === supplier && out.goodsName === goodsName && batch.inRecords.includes(out.inRecordId)) {
+                outTotal += Number(out.outNum);
+            }
+        });
+        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
+    });
+
+    // 4. 过滤库存为0的批次，并按先进先出排序
+    let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
     batchList.sort((a, b) => {
         // 优先按生产日期
         if(a.produce_date && b.produce_date){
             return new Date(a.produce_date) - new Date(b.produce_date);
         }
-        // 有生产日期排在前面
         if(a.produce_date) return -1;
         if(b.produce_date) return 1;
-        // 无生产日期 按到期日期
+        // 无生产日期按到期日期
         if(a.expire_date && b.expire_date){
             return new Date(a.expire_date) - new Date(b.expire_date);
         }
@@ -135,11 +147,8 @@ function getTotalStockNum(supplier, goodsName) {
 }
 
 /**
- * 执行出库扣减（逐批次先进先出）
- * @param {string} supplier 供应商
- * @param {string} goodsName 商品名
- * @param {number} outNum 本次出库数量
- * @returns {Array} 扣减明细(批次ID+对应出库数量)
+ * 执行出库扣减（按合并批次先进先出）
+ * 扣减规则：先扣减最早批次，批次库存用完再扣下一批次
  */
 function calcFIFOOut(supplier, goodsName, outNum) {
     let batchList = getStockBatchList(supplier, goodsName);
@@ -149,10 +158,25 @@ function calcFIFOOut(supplier, goodsName, outNum) {
     for(let batch of batchList){
         if(remainOut <= 0) break;
         let useNum = Math.min(batch.batchRemain, remainOut);
-        outDetail.push({
-            inRecordId: batch.id,
-            useNum: useNum
-        });
+        // 分配扣减到该批次下的入库记录（优先扣减最早的入库记录）
+        let batchInRecords = batch.inRecords.map(id => allStockIn.find(inItem => inItem.id === id));
+        batchInRecords.sort((a, b) => a.id - b.id); // 按入库记录ID排序（先进先出）
+
+        let batchRemainUse = useNum;
+        for(let inItem of batchInRecords){
+            if(batchRemainUse <= 0) break;
+            // 该入库记录的剩余库存
+            let outTotalForIn = allStockOut.filter(out => out.inRecordId === inItem.id).reduce((sum, out) => sum + Number(out.outNum), 0);
+            let inRemain = Math.max(0, Number(inItem.in_num) - outTotalForIn);
+            if(inRemain <= 0) continue;
+
+            let useForThisIn = Math.min(inRemain, batchRemainUse);
+            outDetail.push({
+                inRecordId: inItem.id,
+                useNum: useForThisIn
+            });
+            batchRemainUse -= useForThisIn;
+        }
         remainOut -= useNum;
     }
     return outDetail;
