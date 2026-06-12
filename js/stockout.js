@@ -132,7 +132,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（修复版，适配合并批次扣减）
+// 提交出库（终极修复版：支持跨批次扣减，明细存入数据库）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -156,15 +156,14 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减批次
+    // 先进先出计算扣减明细（包含所有批次的入库记录ID和扣减数量）
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 取出第一个扣减批次作为关联入库单
+    // 计算出库单价（取第一个扣减的入库记录单价）
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
-    // 出库单价规则：线上=线上成本价  / 线下=入库单价
     let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
     if(settleType === '线上'){
         outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
@@ -172,10 +171,11 @@ async function submitStockOut(){
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
-    // 计算金额（强制转为数字，避免NaN）
+    // 计算金额
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
+    // 组装提交数据（包含所有扣减明细）
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -187,7 +187,8 @@ async function submitStockOut(){
         outAmount: outAmount,
         saleAmount: saleAmount,
         recordDate: recordDate,
-        inRecordId: linkInId
+        inRecordId: linkInId,
+        outDetail: JSON.stringify(outDetail) // 存入所有扣减明细
     };
 
     try {
@@ -223,8 +224,7 @@ async function submitStockOut(){
         showMsg(editId ? '编辑出库成功' : '出库提交成功');
         closeStockOutForm();
         loadStockOut();
-        // 刷新入库批次库存显示
-        loadStockIn();
+        loadStockIn(); // 刷新入库批次库存
     } catch (e) {
         console.error('出库提交失败', e);
         showMsg('出库提交失败：' + e.message);
