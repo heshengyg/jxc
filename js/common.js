@@ -110,20 +110,31 @@ function getStockBatchList(supplier, goodsName) {
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
-    // 3. 统计每个批次已出库总量
-    Object.values(batchMap).forEach(batch => {
-        let outTotal = 0;
-        allStockOut.forEach(out => {
-            if (out.supplier === supplier && out.goodsName === goodsName) {
-                // 检查出库记录的inRecordId是否属于当前批次
+ // 3. 统计每个批次已出库总量（关键修复：解析outDetail里的所有扣减明细）
+Object.values(batchMap).forEach(batch => {
+    let outTotal = 0;
+    allStockOut.forEach(out => {
+        if (out.supplier === supplier && out.goodsName === goodsName) {
+            // 优先解析outDetail里的明细（新出库记录）
+            if(out.outDetail){
+                let detailList = JSON.parse(out.outDetail);
+                detailList.forEach(detail => {
+                    let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
+                    if(isInBatch){
+                        outTotal += Number(detail.useNum);
+                    }
+                });
+            } else {
+                // 兼容旧版出库记录（只有inRecordId）
                 let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
-                if (isInBatch) {
+                if(isInBatch){
                     outTotal += Number(out.outNum);
                 }
             }
-        });
-        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
+        }
     });
+    batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
+});
 
     // 4. 过滤库存为0的批次，并按先进先出排序
     let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
