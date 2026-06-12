@@ -44,6 +44,7 @@ th {
 th.sortable { cursor: pointer; }
 th.sortable:hover { background: #e8edf2; }
 .sort-icon { margin-left: 4px; font-size: 12px; }
+.inSortIcon { margin-left: 4px; font-size: 12px; }
 
 tbody tr:nth-child(even) { background-color: #f0f9f4; }
 tbody tr:hover { background-color: #e6f7ef; }

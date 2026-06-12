@@ -1,3 +1,8 @@
+// 入库列表刷新
+function refreshStockIn(){
+    loadStockIn();
+}
+
 // 供应商下拉搜索
 function showSupList(){
     currSupplierList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
@@ -99,6 +104,7 @@ function lockProduceDate(){
     if(e) document.getElementById('inProduceDate').value = '';
 }
 
+// 打开入库弹窗（添加入库按钮绑定此函数）
 function openStockInForm(id=null){
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
@@ -221,6 +227,7 @@ async function submitStockIn(){
     }
 }
 
+// 入库下载模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
@@ -229,140 +236,14 @@ function downloadStockInTemplate(){
     XLSX.writeFile(wb, "入库导入模板.xlsx");
 }
 
-async function importStockInExcel() {
-    let file = document.getElementById('fileInput').files[0];
-    if (!file) return;
-    let reader = new FileReader();
-    reader.onload = async function(e) {
-        let data = new Uint8Array(e.target.result);
-        let workbook = XLSX.read(data, { type: 'array' });
-        let sheet = workbook.Sheets[workbook.SheetNames[0]];
-        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        if (rows.length < 2) {
-            showMsg('模板无有效数据！');
-            return;
-        }
-        let failCount = 0, successCount = 0;
-        for (let i = 1; i < rows.length; i++) {
-            let row = rows[i];
-            let supplier = String(row[0] || '').trim();
-            let goodsName = String(row[1] || '').trim();
-            let spec = String(row[2] || '').trim();
-            let settleType = String(row[3] || '').trim();
-            let salePrice = parseFloat(row[4]) || 0;
-            let inPrice = parseFloat(row[5]) || 0;
-            let inNum = parseInt(row[6]) || 0;
-            let recordDate = row[7] || '';
-            let produceDate = row[8] || null;
-            let expireDate = row[9] || null;
-
-            if (!supplier || !goodsName || inNum < 1 || !recordDate) { failCount++; continue; }
-            if (produceDate && expireDate) { failCount++; continue; }
-            if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
-            if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
-// 补全刷新函数
-function refreshStockIn(){
-    loadStockIn();
-}
-
-// 补全 exportStockInExcel() 函数
+// 入库导出
 function exportStockInExcel(){
-    if(filteredStockIn.length === 0) return showMsg('没有数据可导出');
-    let data = filteredStockIn.map(item=>[
-        item.supplier,
-        item.goodsName,
-        item.spec,
-        item.settleType,
-        item.sale_price,
-        item.in_price,
-        item.in_num,
-        item.record_date,
-        item.produce_date,
-        item.expire_date
-    ]);
-    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
-    let ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "入库记录");
-    XLSX.writeFile(wb, "入库记录.xlsx");
-}
-
-// 补全 importStockInExcel() 函数（之前截断了）
-async function importStockInExcel() {
-    let file = document.getElementById('fileInput').files[0];
-    if (!file) return;
-    let reader = new FileReader();
-    reader.onload = async function(e) {
-        let data = new Uint8Array(e.target.result);
-        let workbook = XLSX.read(data, { type: 'array' });
-        let sheet = workbook.Sheets[workbook.SheetNames[0]];
-        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        if (rows.length < 2) {
-            showMsg('模板无有效数据！');
-            return;
-        }
-        let failCount = 0, successCount = 0;
-        for (let i = 1; i < rows.length; i++) {
-            let row = rows[i];
-            let supplier = String(row[0] || '').trim();
-            let goodsName = String(row[1] || '').trim();
-            let spec = String(row[2] || '').trim();
-            let settleType = String(row[3] || '').trim();
-            let salePrice = parseFloat(row[4]) || 0;
-            let inPrice = parseFloat(row[5]) || 0;
-            let inNum = parseInt(row[6]) || 0;
-            let recordDate = row[7] || '';
-            let produceDate = row[8] || null;
-            let expireDate = row[9] || null;
-
-            if (!supplier || !goodsName || inNum < 1 || !recordDate) { failCount++; continue; }
-            if (produceDate && expireDate) { failCount++; continue; }
-            if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
-            if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
-
-            let postData = {
-                supplier, goodsName, spec, settleType,
-                sale_price: salePrice,
-                in_price: settleType === '线上' ? 0 : inPrice,
-                in_num: inNum,
-                record_date: recordDate,
-                produce_date: produceDate,
-                expire_date: expireDate
-            };
-
-            try {
-                await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
-                    method: 'POST',
-                    headers: {
-                        apikey: SUPABASE_KEY,
-                        Authorization: `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(postData)
-                });
-                successCount++;
-            } catch (e) {
-                failCount++;
-            }
-        }
-        showMsg(`导入完成：成功${successCount}条，失败${failCount}条`);
-        loadStockIn();
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-// 确保 loadStockIn() 函数完整
-async function loadStockIn() {
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        if (!res.ok) throw new Error('读取失败');
-        let list = await res.json();
-        allStockIn = list.sort((a,b) => b.id - a.id);
-        document.getElementById('inTotalCount').textContent = allStockIn.length;
-        filterStockIn();
-    } catch (e) {
-        showMsg('加载入库记录失败：' + e.message);
+    if(filteredStockIn.length === 0){
+        showMsg("暂无数据可导出");
+        return;
     }
-}
+    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
+    let expData = filteredStockIn.map(item=>[
+        item.supplier||"",
+        item.goodsName||"",
+        item.spec||"",

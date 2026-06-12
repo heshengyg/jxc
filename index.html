@@ -8,7 +8,9 @@
     <script src="./lib/xlsx.full.min.js"></script>
 </head>
 <body>
+<!-- 隐藏文件选择框 -->
 <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="importStockInExcel()" hidden>
+
 <div class="msg-modal" id="msgModal">
     <div class="msg-box">
         <p id="msgText"></p>
@@ -38,29 +40,30 @@
         <button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
     </div>
 
-<!-- 商品管理区域 -->
-<div id="goods" class="tab-content active">
-    <h3>商品基础信息管理</h3>
-    <div class="stat-bar">
-        共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
-    </div>
-    <div class="search-bar">
-        <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
-        <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
-        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
-        <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
-        <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
-        <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button> <!-- 新增刷新按钮 -->
-        <button class="btn btn-default" onclick="clearSort()">清除排序</button>
+    <!-- 商品管理 -->
+    <div id="goods" class="tab-content active">
+        <h3>商品基础信息管理</h3>
+        <div class="stat-bar">
+            共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
+            <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
+            <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
+            <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
+            <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button>
+            <button class="btn btn-default" onclick="clearSort()">清除排序</button>
 
-        <select id="searchField">
-            <option value="name">按商品名搜索</option>
-            <option value="supplier">按供应商搜索</option>
-            <option value="channel">按渠道搜索</option>
-        </select>
-        <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
-        <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
-    </div>
+            <select id="searchField">
+                <option value="name">按商品名搜索</option>
+                <option value="supplier">按供应商搜索</option>
+                <option value="channel">按渠道搜索</option>
+            </select>
+            <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
+            <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
+        </div>
+
         <div class="table-container">
             <table>
                 <thead>
@@ -101,28 +104,28 @@
         </div>
     </div>
 
-<!-- 入库管理区域 -->
-<div id="stockIn" class="tab-content">
-    <h3>入库管理</h3>
-    <div class="stat-bar">
-        共 <span id="inTotalCount">0</span> 条入库记录，当前搜索结果 <span id="inSearchCount">0</span> 条
-    </div>
-    <div class="search-bar">
-        <button class="btn btn-primary" onclick="openStockInForm()">添加入库</button>
-        <button class="btn btn-success" onclick="downloadStockInTemplate()">下载入库模板</button>
-        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入入库</button>
-        <button class="btn btn-default" onclick="exportStockInExcel()">导出入库记录</button>
-        <button class="btn btn-danger" onclick="batchDeleteStockIn()">批量删除</button>
-        <button class="btn btn-default" onclick="refreshStockIn()">刷新列表</button> <!-- 新增刷新按钮 -->
-        <button class="btn btn-default" onclick="clearInSort()">清除排序</button>
+    <!-- 入库管理 -->
+    <div id="stockIn" class="tab-content">
+        <h3>入库管理</h3>
+        <div class="stat-bar">
+            共 <span id="inTotalCount">0</span> 条入库记录，当前搜索结果 <span id="inSearchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openStockInForm()">添加入库</button>
+            <button class="btn btn-success" onclick="downloadStockInTemplate()">下载入库模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入入库</button>
+            <button class="btn btn-default" onclick="exportStockInExcel()">导出入库记录</button>
+            <button class="btn btn-danger" onclick="batchDeleteStockIn()">批量删除</button>
+            <button class="btn btn-default" onclick="refreshStockIn()">刷新列表</button>
+            <button class="btn btn-default" onclick="clearInSort()">清除排序</button>
 
-        <select id="inSearchField">
-            <option value="supplier">按供应商搜索</option>
-            <option value="goodsName">按商品名搜索</option>
-        </select>
-        <input type="text" id="inSearchKeyword" placeholder="输入关键词" oninput="filterStockIn()">
-        <button class="btn btn-default" onclick="resetInSearch()">重置搜索</button>
-    </div>
+            <select id="inSearchField">
+                <option value="supplier">按供应商搜索</option>
+                <option value="goodsName">按商品名搜索</option>
+            </select>
+            <input type="text" id="inSearchKeyword" placeholder="输入关键词" oninput="filterStockIn()">
+            <button class="btn btn-default" onclick="resetInSearch()">重置搜索</button>
+        </div>
 
         <div class="table-container">
             <table>
