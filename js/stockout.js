@@ -181,35 +181,39 @@ async function submitStockOut() {
         return;
     }
 
-    // 1. 仅校验【商品总库存】
-    let totalStock = getTotalStockNum(supplier, goodsName);
-    if (totalStock < outNum) {
-        showMsg(`库存不足！当前可用库存：${totalStock}`);
-        return;
-    }
-
-    // 2. 编辑模式：先逻辑归还原出库数量（总库存/批次库存自动回加）
+    // ========== 1. 编辑专属：先归还旧库存（核心修复点） ==========
     if (outEditId) {
-        let oldOutRecord = allStockOut.find(o => o.id === outEditId);
-        if(oldOutRecord){
-            // 无需操作数据库，删除/更新本条记录后，库存计算自动归还
+        // 找到当前正在编辑的旧出库记录
+        const oldRecord = allStockOut.find(item => item.id === outEditId);
+        if (oldRecord) {
+            // 逻辑归还：前端计算时，先剔除本条旧数据，等价于库存加回
+            allStockOut = allStockOut.filter(item => item.id !== outEditId);
         }
     }
 
-    // 3. 筛选当前商品所有入库批次 → 按【生产日期升序（最早优先）】
+    // ========== 2. 计算当前商品【总库存】，只做总库存校验 ==========
+    let totalStock = getTotalStockNum(supplier, goodsName);
+    if (totalStock < outNum) {
+        showMsg(`库存不足！当前可用库存：${totalStock}`);
+        // 编辑场景：校验失败，恢复旧数据
+        if(outEditId) loadStockOut();
+        return;
+    }
+
+    // ========== 3. 筛选批次 + 按生产日期升序（最早批次优先） ==========
     let batches = allStockIn
         .filter(inItem => inItem.supplier === supplier && inItem.goodsName === goodsName)
         .sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
 
     if (batches.length === 0) {
         showMsg('该商品暂无入库记录，无法出库');
+        if(outEditId) loadStockOut();
         return;
     }
 
-    // 4. 找到第一个有剩余库存的批次
+    // ========== 4. 找到第一个有剩余库存的批次 ==========
     let targetBatch = null;
     for (const batch of batches) {
-        // 计算当前批次已出库总和
         let batchOutTotal = allStockOut
             .filter(o => o.inRecordId === batch.id)
             .reduce((sum, o) => sum + (Number(o.outNum) || 0), 0);
@@ -223,10 +227,11 @@ async function submitStockOut() {
 
     if (!targetBatch) {
         showMsg('该商品暂无可用批次库存，无法出库');
+        if(outEditId) loadStockOut();
         return;
     }
 
-    // 5. 组装数据 → 严格匹配你 stock_out 表原有驼峰字段
+    // ========== 5. 组装出库数据（字段完全沿用原有驼峰） ==========
     const outData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -242,11 +247,11 @@ async function submitStockOut() {
         outDetail: []
     };
 
-    // 6. 提交接口
+    // ========== 6. 提交接口 ==========
     try {
         let res;
         if(outEditId){
-            // 编辑：更新原有记录
+            // 编辑：更新记录
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${outEditId}`,{
                 method:'PATCH',
                 headers:{
@@ -258,7 +263,7 @@ async function submitStockOut() {
                 body:JSON.stringify(outData)
             });
         }else{
-            // 新增：新建出库记录
+            // 新增：插入记录
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
                 method:'POST',
                 headers:{
@@ -279,14 +284,16 @@ async function submitStockOut() {
 
         showMsg(outEditId ? '编辑出库成功' : '新增出库成功');
         closeStockOutForm();
+        // 全局刷新出库+入库，前端计算库存自动更新
         refreshStockOut();
-        loadStockIn(); // 刷新入库 → 批次库存、总库存实时更新
+        loadStockIn();
     } catch (e) {
         console.error('出库提交失败：', e);
         showMsg('出库提交失败，请检查网络或数据');
+        // 异常回滚数据
+        if(outEditId) loadStockOut();
     }
 }
-
 // 导出、导入模板
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
