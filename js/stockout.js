@@ -89,15 +89,19 @@ function renderOutGoodsList(list){
     });
 }
 
-// 选择商品，自动带出字段 + 加载总库存
+// 选择商品，自动带出字段 + 加载总库存（仅修改这一处）
 function selectOutGoods(goods){
     let sup = document.getElementById('outSupSearchInput').value;
     document.getElementById('outGoodsSearchInput').value = goods.name;
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
-    document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 自动带出总库存（这里是关键，修复之前的逻辑）
+    // ========== 改动点：直接从商品基础库读取最新销售单价 ==========
+    let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
+    let salePrice = baseGoods ? Number(baseGoods.sale_price) : 0;
+    document.getElementById('outSalePrice').value = formatMoney(salePrice);
+
+    // 自动带出总库存（原逻辑不变）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
