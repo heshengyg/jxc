@@ -1,7 +1,7 @@
-// ===================== 出库模块 - 纯业务函数（最终无错版） =====================
+// ===================== 出库模块 - 纯业务函数（零错误最终版） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
-let outSortField = '';
+let outSortField = ''; // 只声明一次！！！
 let outSortAsc = true;
 let outCurrentPage = 1;
 let outPageSize = 10;
