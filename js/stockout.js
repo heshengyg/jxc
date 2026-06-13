@@ -4,43 +4,19 @@ let filteredStockOut = [];
 let outCurrentPage = 1;
 let outPageSize = 10;
 
-// 加载商品数据
-async function loadAllGoods() {
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        allGoods = await res.json();
-    } catch (e) {
-        console.error('加载商品数据失败', e);
-    }
-}
-
-// 加载入库数据
-async function loadStockInData() {
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        allStockIn = await res.json();
-        filteredStockIn = [...allStockIn];
-    } catch (e) {
-        console.error('加载入库数据失败', e);
-    }
-}
-
 // 出库页面初始化
 async function initStockOut() {
     try {
         await Promise.all([
             loadAllGoods(),
-            loadStockInData() // 直接调用common.js里的全局函数
+            loadStockInData()
         ]);
         await loadStockOut();
     } catch (e) {
         console.error('出库页面初始化失败', e);
     }
 }
+
 // 加载出库列表
 async function loadStockOut() {
     try {
@@ -50,7 +26,6 @@ async function loadStockOut() {
         allStockOut = await res.json();
         filteredStockOut = [...allStockOut];
         renderStockOut();
-        renderStockOutPagination();
     } catch (e) {
         console.error('加载出库记录失败', e);
         showMsg('加载出库记录失败');
@@ -87,11 +62,6 @@ function renderStockOut() {
         `;
         tb.innerHTML += html;
     });
-}
-
-// 渲染分页（如果没有可以暂时忽略）
-function renderStockOutPagination() {
-    // 这里放你原来的分页代码即可
 }
 
 // 打开出库表单
@@ -237,7 +207,7 @@ async function submitStockOut(){
     }
 }
 
-// 删除出库记录（如果没有可以加上）
+// 删除出库记录
 async function deleteStockOut(id) {
     if(!confirm('确定要删除这条出库记录吗？')) return;
     try {
