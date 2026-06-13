@@ -397,15 +397,27 @@ function switchTab(tabName) {
     });
     document.getElementById(tabName).classList.add('active');
 
-    // 切到出库页面，预加载入库数据，解决下拉空白
-    if (tabName === 'stockOut') {
-        if (typeof loadStockIn === "function") {
-            loadStockIn();
-        }
+    // 切换标签自动加载对应列表数据
+    switch(tabName){
+        case 'goods':
+            if(typeof refreshGoods === "function") refreshGoods();
+            break;
+        case 'stockIn':
+            if(typeof refreshStockIn === "function") refreshStockIn();
+            break;
+        case 'stockOut':
+            if(typeof refreshStockOut === "function") refreshStockOut();
+            // 切到出库预加载入库数据，解决下拉空白
+            if (typeof loadStockIn === "function") {
+                loadStockIn();
+            }
+            break;
+        case 'stockView':
+            break;
     }
 }
 
-// 页面初始化：清空文件选择框（合并成一个，去除重复）
+// 页面初始化：清空文件选择框
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value = '';
 });
