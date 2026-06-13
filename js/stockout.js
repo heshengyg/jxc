@@ -1,13 +1,6 @@
-// ===================== 出库模块 - 纯业务函数（零错误最终版） =====================
+// ===================== 出库模块 - 纯业务函数 =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
-let outSortField = ''; // 只声明一次！！！
-let outSortAsc = true;
-let outCurrentPage = 1;
-let outPageSize = 10;
-let outTotalPages = 1;
-let filteredStockOut = [];
-let allStockOut = [];
 
 // 刷新出库列表
 function refreshStockOut(){
@@ -104,6 +97,7 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
+    // 自动带出总库存（这里是关键，修复之前的逻辑）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -117,7 +111,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗（已修复编辑回填）
+// 打开添加/编辑出库弹窗
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -133,32 +127,13 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    // 编辑数据回填（和入库逻辑一致，延迟执行）
-    if(id){
-        let item = allStockOut.find(x => x.id === id);
-        if(!item) return;
-        document.getElementById('outSupSearchInput').value = item.supplier;
-        loadOutGoodsBySupplier(item.supplier);
-
-        setTimeout(()=>{
-            let targetGoods = outCurrGoodsList.find(g => g.name === item.goodsName);
-            if(targetGoods){
-                selectOutGoods(targetGoods);
-                document.getElementById('outNum').value = item.outNum;
-                document.getElementById('outRecordDate').value = item.recordDate || '';
-            }
-        }, 100);
-    }
-
     document.getElementById('stockOutModal').style.display = 'block';
 }
-
-// 关闭出库弹窗
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库
+// 提交出库（终极修复版）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -182,38 +157,40 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出扣减明细
+    // 先进先出计算扣减明细
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
+    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
     let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-
     if(settleType === '线上'){
         outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
     }else{
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
+    // 计算金额
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
-    let postData = {
-        supplier: supplier,
-        goodsName: goodsName,
-        spec: spec,
-        settleType: settleType,
-        outPrice: outPrice,
-        salePrice: salePrice,
-        outNum: outNum,
-        outAmount: outAmount,
-        saleAmount: saleAmount,
-        recordDate: recordDate,
-        inRecordId: linkInId,
-        outDetail: JSON.stringify(outDetail)
-    };
+ // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
+let postData = {
+    supplier: supplier,
+    goodsName: goodsName,
+    spec: spec,
+    settleType: settleType,
+    outPrice: outPrice,
+    salePrice: salePrice,
+    outNum: outNum,
+    outAmount: outAmount,
+    saleAmount: saleAmount,
+    recordDate: recordDate,
+    inRecordId: linkInId,
+    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
+};
 
     try {
         let res;
@@ -240,17 +217,22 @@ async function submitStockOut(){
                 body:JSON.stringify(postData)
             });
         }
-        if(!res.ok) throw new Error('请求异常');
+        if(!res.ok) {
+            let err = await res.json();
+            console.error('出库提交错误详情：', err);
+            throw new Error(`请求异常：${JSON.stringify(err)}`);
+        }
         showMsg(editId ? '编辑出库成功' : '出库提交成功');
         closeStockOutForm();
         loadStockOut();
-        loadStockIn();
+        loadStockIn(); // 刷新入库批次库存
     } catch (e) {
-        showMsg('出库提交失败');
+        console.error('出库提交失败', e);
+        showMsg('出库提交失败：' + e.message);
     }
 }
 
-// 下载导入模板
+// 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
@@ -258,8 +240,6 @@ function downloadStockOutTemplate(){
     XLSX.utils.book_append_sheet(wb, ws, "出库导入模板");
     XLSX.writeFile(wb, "出库导入模板.xlsx");
 }
-
-// 导出Excel
 function exportStockOutExcel(){
     if(filteredStockOut.length === 0){
         showMsg("暂无数据可导出");
@@ -304,7 +284,7 @@ function filterStockOut() {
     renderStockOut();
 }
 
-// 列表排序
+// 排序
 function outSortTable(field) {
     outSortField = field;
     outSortAsc = (outSortField === field) ? !outSortAsc : true;
@@ -318,40 +298,32 @@ function outSortTable(field) {
     });
     updateOutSortIcon(); renderStockOut();
 }
-
 function updateOutSortIcon() {
     document.querySelectorAll('.outSortIcon').forEach(i=>i.innerText='');
     let idx = Array.from(document.querySelectorAll('.sortable')).findIndex(th=>th.onclick?.toString().includes(outSortField));
     if(idx>-1) document.querySelectorAll('.outSortIcon')[idx].innerText = outSortAsc?'↑':'↓';
 }
 
-// 渲染出库表格
+// 渲染表格
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
     let pageData = filteredStockOut.slice(start, start+outPageSize);
-    let tb = document.getElementById('stockOutList'); 
-    if (!tb) {
-        console.error('找不到出库列表DOM元素 #stockOutList');
-        return;
-    }
-    tb.innerHTML = '';
-
-    pageData.forEach((item, idx) => {
-        let amount = formatMoney((item.outPrice || 0) * item.outNum);
+    let tb = document.getElementById('stockOutList'); tb.innerHTML = '';
+    pageData.forEach((item,idx)=>{
         let html = `
             <tr>
                 <td><input type="checkbox" class="out-item-checkbox" value="${item.id}"></td>
-                <td>${start + idx + 1}</td>
-                <td>${item.supplier || ''}</td>
-                <td>${item.goodsName || ''}</td>
-                <td>${item.spec || '-'}</td>
-                <td>${item.settleType || ''}</td>
+                <td>${start+idx+1}</td>
+                <td>${item.supplier||''}</td>
+                <td>${item.goodsName||''}</td>
+                <td>${item.spec||'-'}</td>
+                <td>${item.settleType||''}</td>
                 <td>${formatMoney(item.outPrice)}</td>
                 <td>${formatMoney(item.salePrice)}</td>
-                <td>${item.outNum || 0}</td>
-                <td>${amount}</td>
+                <td>${item.outNum||0}</td>
+                <td>${formatMoney(item.outAmount)}</td>
                 <td>${formatMoney(item.saleAmount)}</td>
-                <td>${item.recordDate || ''}</td>
+                <td>${item.recordDate||''}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openStockOutForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockOut(${item.id})">删除</button>
@@ -362,7 +334,7 @@ function renderStockOut() {
     });
 }
 
-// 分页渲染
+// 分页
 function renderOutPagination() {
     outTotalPages = Math.ceil(filteredStockOut.length/outPageSize)||1;
     document.getElementById('outCurrentPage').textContent = outCurrentPage;
@@ -380,7 +352,6 @@ function renderOutPagination() {
     btns[3].disabled = outCurrentPage===outTotalPages;
     btns[4].disabled = outCurrentPage===outTotalPages;
 }
-
 function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }
 function outNextPage(){ outGoToPage(outCurrentPage+1); }
