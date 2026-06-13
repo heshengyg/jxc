@@ -1,234 +1,233 @@
-// ===================== 出库管理模块（最终版） =====================
+// ========== 出库管理 stockout.js 【适配 config.js 全局配置】 ==========
 let allStockOut = [];
 let filteredStockOut = [];
 let outCurrentPage = 1;
 let outPageSize = 10;
 
-// 出库页面初始化
-async function initStockOut() {
+/**
+ * 出库页面初始化：切换标签时执行，预加载商品+入库数据
+ * 解决：直接进出库页下拉空白
+ */
+async function initStockOutPage() {
     try {
-        await Promise.all([
-            loadAllGoods(),
-            loadStockInData()
-        ]);
+        if (typeof loadAllGoods === "function") await loadAllGoods();
+        if (typeof loadStockInData === "function") await loadStockInData();
         await loadStockOut();
-    } catch (e) {
-        console.error('出库页面初始化失败', e);
+    } catch (err) {
+        console.error("出库初始化失败：", err);
     }
 }
 
-// 加载出库列表
+/**
+ * 加载出库列表数据
+ */
 async function loadStockOut() {
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
         });
         allStockOut = await res.json();
         filteredStockOut = [...allStockOut];
         renderStockOut();
-    } catch (e) {
-        console.error('加载出库记录失败', e);
-        showMsg('加载出库记录失败');
+    } catch (err) {
+        console.error("加载出库数据失败：", err);
+        showMsg("加载出库列表失败");
     }
 }
 
-// 渲染出库列表
+/**
+ * 渲染出库表格
+ */
 function renderStockOut() {
-    let start = (outCurrentPage-1)*outPageSize;
-    let pageData = filteredStockOut.slice(start, start+outPageSize);
-    let tb = document.getElementById('stockOutList');
-    if(!tb) return;
-    tb.innerHTML = '';
+    const start = (outCurrentPage - 1) * outPageSize;
+    const pageData = filteredStockOut.slice(start, start + outPageSize);
+    const table = document.getElementById("stockOutList");
+    if (!table) return;
+
+    table.innerHTML = "";
     pageData.forEach((item, idx) => {
-        let html = `
+        table.innerHTML += `
             <tr>
                 <td><input type="checkbox" class="out-item-checkbox" value="${item.id}"></td>
-                <td>${start+idx+1}</td>
-                <td>${item.supplier||''}</td>
-                <td>${item.goodsName||''}</td>
-                <td>${item.spec||''}</td>
-                <td>${item.settleType||''}</td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ""}</td>
+                <td>${item.goodsName || ""}</td>
+                <td>${item.spec || ""}</td>
+                <td>${item.settleType || ""}</td>
                 <td>${formatMoney(item.outPrice)}</td>
                 <td>${formatMoney(item.salePrice)}</td>
                 <td>${item.outNum}</td>
                 <td>${formatMoney(item.outAmount)}</td>
                 <td>${formatMoney(item.saleAmount)}</td>
-                <td>${item.recordDate||''}</td>
+                <td>${item.recordDate || ""}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openStockOutForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockOut(${item.id})">删除</button>
                 </td>
             </tr>
         `;
-        tb.innerHTML += html;
     });
 }
 
-// 打开出库表单
+/**
+ * 打开出库弹窗 + 编辑数据回填
+ * 解决：编辑表单空白
+ */
 function openStockOutForm(editId = null) {
-    let modal = document.getElementById('outFormModal');
-    if(!modal) {
-        console.error('找不到出库弹窗DOM元素 #outFormModal');
-        showMsg('弹窗加载失败，请刷新页面重试');
+    const modal = document.getElementById("outFormModal");
+    const editInput = document.getElementById("outEditId");
+    if (!modal || !editInput) {
+        showMsg("页面元素缺失，请刷新");
         return;
     }
 
-    modal.style.display = 'block';
-    document.getElementById('outEditId').value = editId || '';
+    modal.style.display = "block";
+    editInput.value = editId || "";
 
     // 清空表单
-    document.getElementById('outSupSearchInput').value = '';
-    document.getElementById('outGoodsSearchInput').value = '';
-    document.getElementById('outSpec').value = '自动带出';
-    document.getElementById('outSettleType').value = '自动带出';
-    document.getElementById('outSalePrice').value = '自动带出';
-    document.getElementById('totalStockNum').value = '0';
-    document.getElementById('outNum').value = '';
-    document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+    document.getElementById("outSupSearchInput").value = "";
+    document.getElementById("outGoodsSearchInput").value = "";
+    document.getElementById("outSpec").value = "";
+    document.getElementById("outSettleType").value = "";
+    document.getElementById("outSalePrice").value = "";
+    document.getElementById("outNum").value = "";
+    document.getElementById("outRecordDate").value = new Date().toISOString().split("T")[0];
+    document.getElementById("totalStockNum").value = "0";
 
-    // 编辑模式填充数据
+    // 编辑模式回填数据
     if (editId) {
-        let editData = allStockOut.find(out => out.id === editId);
-        if (!editData) {
-            showMsg('未找到该出库记录');
-            closeStockOutForm();
-            return;
-        }
+        const editData = allStockOut.find(d => d.id === editId);
+        if (!editData) return;
 
-        document.getElementById('outSupSearchInput').value = editData.supplier || '';
-        document.getElementById('outGoodsSearchInput').value = editData.goodsName || '';
-        document.getElementById('outSpec').value = editData.spec || '自动带出';
-        document.getElementById('outSettleType').value = editData.settleType || '自动带出';
-        document.getElementById('outSalePrice').value = editData.salePrice ? formatMoney(editData.salePrice) : '自动带出';
-        document.getElementById('outNum').value = editData.outNum || '';
-        document.getElementById('outRecordDate').value = editData.recordDate ? editData.recordDate.replace(/-/g, '/') : new Date().toISOString().split('T')[0].replace(/-/g, '/');
+        document.getElementById("outSupSearchInput").value = editData.supplier || "";
+        document.getElementById("outGoodsSearchInput").value = editData.goodsName || "";
+        document.getElementById("outSpec").value = editData.spec || "";
+        document.getElementById("outSettleType").value = editData.settleType || "";
+        document.getElementById("outSalePrice").value = editData.salePrice || "";
+        document.getElementById("outNum").value = editData.outNum || "";
+        document.getElementById("outRecordDate").value = editData.recordDate || "";
 
-        let totalStock = getTotalStockNum(editData.supplier, editData.goodsName);
-        document.getElementById('totalStockNum').value = totalStock;
+        const stock = getTotalStockNum(editData.supplier, editData.goodsName);
+        document.getElementById("totalStockNum").value = stock;
     }
 }
 
-// 关闭出库表单
+/**
+ * 关闭出库弹窗
+ */
 function closeStockOutForm() {
-    let modal = document.getElementById('outFormModal');
-    if(modal) modal.style.display = 'none';
+    const modal = document.getElementById("outFormModal");
+    if (modal) modal.style.display = "none";
 }
 
-// 提交出库
-async function submitStockOut(){
-    let editId = document.getElementById('outEditId').value;
-    let supplier = document.getElementById('outSupSearchInput').value.trim();
-    let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
-    let spec = document.getElementById('outSpec').value || '';
-    let settleType = document.getElementById('outSettleType').value || '';
-    let salePriceText = document.getElementById('outSalePrice').value;
-    let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
-    let outNum = Number(document.getElementById('outNum').value) || 0;
-    let recordDate = document.getElementById('outRecordDate').value;
+/**
+ * 提交出库（新增/编辑）
+ */
+async function submitStockOut() {
+    const editId = document.getElementById("outEditId").value;
+    const supplier = document.getElementById("outSupSearchInput").value.trim();
+    const goodsName = document.getElementById("outGoodsSearchInput").value.trim();
+    const spec = document.getElementById("outSpec").value || "";
+    const settleType = document.getElementById("outSettleType").value || "";
+    let salePrice = parseFloat(document.getElementById("outSalePrice").value.replace("￥", "")) || 0;
+    const outNum = Number(document.getElementById("outNum").value) || 0;
+    const recordDate = document.getElementById("outRecordDate").value;
 
-    if(!supplier) return showMsg('请选择供应商');
-    if(!goodsName) return showMsg('请选择商品');
-    if(outNum < 1) return showMsg('出库数量必须大于0');
-    if(!recordDate) return showMsg('请选择录入日期');
+    // 基础校验
+    if (!supplier) return showMsg("请选择供应商");
+    if (!goodsName) return showMsg("请选择商品");
+    if (outNum < 1) return showMsg("出库数量必须大于0");
+    if (!recordDate) return showMsg("请选择日期");
 
-    let totalStock = getTotalStockNum(supplier, goodsName);
-    if(outNum > totalStock){
-        return showMsg(`库存不足！当前可用库存：${totalStock}`);
-    }
+    const totalStock = getTotalStockNum(supplier, goodsName);
+    if (outNum > totalStock) return showMsg(`库存不足，可用：${totalStock}`);
 
-    let outDetail = calcFIFOOut(supplier, goodsName, outNum);
-    if(outDetail.length === 0) return showMsg('无可用库存批次');
+    const outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    if (!outDetail.length) return showMsg("无可用库存");
 
-    let linkInId = outDetail[0].inRecordId;
-    let linkInItem = allStockIn.find(x => x.id === linkInId);
+    const linkInId = outDetail[0].inRecordId;
+    const linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
-    let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-    if(settleType === '线上'){
+
+    const goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+    if (settleType === "线上") {
         outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
-    }else{
+    } else {
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
-    let outAmount = Number((outPrice * outNum).toFixed(2));
-    let saleAmount = Number((salePrice * outNum).toFixed(2));
+    const outAmount = Number((outPrice * outNum).toFixed(2));
+    const saleAmount = Number((salePrice * outNum).toFixed(2));
 
-    let postData = {
-        supplier: supplier,
-        goodsName: goodsName,
-        spec: spec,
-        settleType: settleType,
-        outPrice: outPrice,
-        salePrice: salePrice,
-        outNum: outNum,
-        outAmount: outAmount,
-        saleAmount: saleAmount,
-        recordDate: recordDate,
-        inRecordId: linkInId,
+    const postData = {
+        supplier, goodsName, spec, settleType,
+        outPrice, salePrice, outNum, outAmount, saleAmount,
+        recordDate, inRecordId: linkInId,
         outDetail: JSON.stringify(outDetail)
     };
 
     try {
         let res;
-        if(editId){
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${editId}`,{
-                method:'PATCH',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
+        if (editId) {
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${editId}`, {
+                method: "PATCH",
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation"
                 },
-                body:JSON.stringify(postData)
+                body: JSON.stringify(postData)
             });
-        }else{
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
-                method:'POST',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
+        } else {
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+                method: "POST",
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation"
                 },
-                body:JSON.stringify(postData)
+                body: JSON.stringify(postData)
             });
         }
-        if(!res.ok) {
-            let err = await res.json();
-            console.error('出库提交错误详情：', err);
-            throw new Error(`请求异常：${JSON.stringify(err)}`);
-        }
-        showMsg(editId ? '编辑出库成功' : '出库提交成功');
+
+        if (!res.ok) throw await res.json();
+        showMsg(editId ? "编辑出库成功" : "新增出库成功");
         closeStockOutForm();
         loadStockOut();
         loadStockInData();
-    } catch (e) {
-        console.error('出库提交失败', e);
-        showMsg('出库提交失败：' + e.message);
+    } catch (err) {
+        console.error("提交失败：", err);
+        showMsg("提交出库失败");
     }
 }
 
-// 删除出库记录
+/**
+ * 删除出库记录
+ */
 async function deleteStockOut(id) {
-    if(!confirm('确定要删除这条出库记录吗？')) return;
+    if (!confirm("确定删除该记录？")) return;
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`,{
-            method:'DELETE',
-            headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`, {
+            method: "DELETE",
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
         });
-        if(res.ok){
-            showMsg('删除成功');
+        if (res.ok) {
+            showMsg("删除成功");
             loadStockOut();
             loadStockInData();
-        }else{
-            showMsg('删除失败');
+        } else {
+            showMsg("删除失败");
         }
-    } catch (e) {
-        console.error('删除出库记录失败', e);
-        showMsg('删除失败');
+    } catch (err) {
+        console.error("删除失败：", err);
+        showMsg("删除失败");
     }
 }
-
-// 页面加载时初始化出库模块
-document.addEventListener('DOMContentLoaded', function() {
-    initStockOut();
-});
