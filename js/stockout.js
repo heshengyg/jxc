@@ -1,6 +1,11 @@
-// ===================== 出库模块 - 纯业务函数 =====================
+// ===================== 出库模块 - 纯业务函数（修复版） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
+let outSortField = '';
+let outSortAsc = true;
+let outCurrentPage = 1;
+let outPageSize = 10;
+let outTotalPages = 1;
 
 // 刷新出库列表
 function refreshStockOut(){
@@ -97,7 +102,7 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 自动带出总库存（这里是关键，修复之前的逻辑）
+    // 自动带出总库存
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -127,39 +132,32 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    // ===================== 新增：编辑数据回填逻辑 =====================
+    // 编辑模式数据回填
     if(id){
-        // 根据ID找到对应的出库单
-        let editData = allStockOut.find(item => item.id === id);
-        if(editData){
-            // 回填供应商，并加载对应商品列表
-            document.getElementById('outSupSearchInput').value = editData.supplier || '';
-            loadOutGoodsBySupplier(editData.supplier);
-
-            // 回填商品及所有字段
-            document.getElementById('outGoodsSearchInput').value = editData.goodsName || '';
-            document.getElementById('outSpec').value = editData.spec || '';
-            document.getElementById('outSettleType').value = editData.settleType || '';
-            document.getElementById('outSalePrice').value = formatMoney(editData.salePrice || 0);
-            document.getElementById('outNum').value = editData.outNum || '';
-            document.getElementById('outRecordDate').value = editData.recordDate || '';
-
-            // 回填当前库存
-            let stock = getTotalStockNum(editData.supplier, editData.goodsName);
+        let editRow = allStockOut.find(item => item.id === id);
+        if(editRow){
+            document.getElementById('outSupSearchInput').value = editRow.supplier || '';
+            loadOutGoodsBySupplier(editRow.supplier);
+            document.getElementById('outGoodsSearchInput').value = editRow.goodsName || '';
+            document.getElementById('outSpec').value = editRow.spec || '';
+            document.getElementById('outSettleType').value = editRow.settleType || '';
+            document.getElementById('outSalePrice').value = formatMoney(editRow.salePrice || 0);
+            document.getElementById('outNum').value = editRow.outNum || '';
+            document.getElementById('outRecordDate').value = editRow.recordDate || '';
+            let stock = getTotalStockNum(editRow.supplier, editRow.goodsName);
             document.getElementById('totalStockNum').value = stock;
         }
     }
 
-// 关闭出库弹窗
-function closeStockOutForm(){
-    document.getElementById('stockOutModal').style.display = 'none';
-}
-    // =================================================================
-
     document.getElementById('stockOutModal').style.display = 'block';
 }
 
-// 提交出库（终极修复版）
+// 【关键】关闭出库弹窗（必须存在，否则提交/取消按钮失效）
+function closeStockOutForm(){
+    document.getElementById('stockOutModal').style.display = 'none';
+}
+
+// 提交出库（修复版）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -187,7 +185,7 @@ async function submitStockOut(){
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
+    // 取第一个扣减的入库记录ID
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
@@ -202,21 +200,21 @@ async function submitStockOut(){
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
- // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
-let postData = {
-    supplier: supplier,
-    goodsName: goodsName,
-    spec: spec,
-    settleType: settleType,
-    outPrice: outPrice,
-    salePrice: salePrice,
-    outNum: outNum,
-    outAmount: outAmount,
-    saleAmount: saleAmount,
-    recordDate: recordDate,
-    inRecordId: linkInId,
-    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
-};
+    // 组装提交数据
+    let postData = {
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: spec,
+        settleType: settleType,
+        outPrice: outPrice,
+        salePrice: salePrice,
+        outNum: outNum,
+        outAmount: outAmount,
+        saleAmount: saleAmount,
+        recordDate: recordDate,
+        inRecordId: linkInId,
+        outDetail: JSON.stringify(outDetail)
+    };
 
     try {
         let res;
@@ -428,14 +426,4 @@ function resetOutSearch() {
     document.getElementById('outSearchKeyword').value = '';
     document.getElementById('outSearchField').selectedIndex = 0;
     filterStockOut();
-}
-
-// ========= 新增：出库页面初始化（预加载入库数据，解决下拉空白） =========
-async function initStockOutPage() {
-    // 调用common.js里的加载入库数据方法
-    if(typeof loadStockIn === "function"){
-        await loadStockIn();
-    }
-    // 加载出库列表
-    await loadStockOut();
 }
