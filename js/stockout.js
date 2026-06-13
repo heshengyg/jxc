@@ -111,10 +111,10 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗
-function openStockOutForm(id=null){
-    document.getElementById('outEditId').value = id || '';
-    document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
+// 打开新增出库弹窗（已移除编辑逻辑，仅保留新增）
+function openStockOutForm(){
+    document.getElementById('outEditId').value = '';
+    document.getElementById('stockOutFormTitle').innerText = '添加出库单据';
 
     // 重置表单
     document.getElementById('outSupSearchInput').value = '';
@@ -133,9 +133,8 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（终极修复版）
+// 提交出库（终极修复版，移除编辑PATCH逻辑，仅保留新增POST）
 async function submitStockOut(){
-    let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
     let spec = document.getElementById('outSpec').value || '';
@@ -176,53 +175,39 @@ async function submitStockOut(){
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
- // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
-let postData = {
-    supplier: supplier,
-    goodsName: goodsName,
-    spec: spec,
-    settleType: settleType,
-    outPrice: outPrice,
-    salePrice: salePrice,
-    outNum: outNum,
-    outAmount: outAmount,
-    saleAmount: saleAmount,
-    recordDate: recordDate,
-    inRecordId: linkInId,
-    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
-};
+    // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
+    let postData = {
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: spec,
+        settleType: settleType,
+        outPrice: outPrice,
+        salePrice: salePrice,
+        outNum: outNum,
+        outAmount: outAmount,
+        saleAmount: saleAmount,
+        recordDate: recordDate,
+        inRecordId: linkInId,
+        outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
+    };
 
     try {
-        let res;
-        if(editId){
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${editId}`,{
-                method:'PATCH',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
-                body:JSON.stringify(postData)
-            });
-        }else{
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
-                method:'POST',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
-                body:JSON.stringify(postData)
-            });
-        }
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
+            method:'POST',
+            headers:{
+                apikey:SUPABASE_KEY,
+                Authorization:`Bearer ${SUPABASE_KEY}`,
+                'Content-Type':'application/json',
+                'Prefer':'return=representation'
+            },
+            body:JSON.stringify(postData)
+        });
         if(!res.ok) {
             let err = await res.json();
             console.error('出库提交错误详情：', err);
             throw new Error(`请求异常：${JSON.stringify(err)}`);
         }
-        showMsg(editId ? '编辑出库成功' : '出库提交成功');
+        showMsg('出库提交成功');
         closeStockOutForm();
         loadStockOut();
         loadStockIn(); // 刷新入库批次库存
@@ -304,7 +289,7 @@ function updateOutSortIcon() {
     if(idx>-1) document.querySelectorAll('.outSortIcon')[idx].innerText = outSortAsc?'↑':'↓';
 }
 
-// 渲染表格
+// 渲染表格（已删除编辑按钮，仅保留删除按钮）
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
     let pageData = filteredStockOut.slice(start, start+outPageSize);
@@ -325,7 +310,6 @@ function renderStockOut() {
                 <td>${formatMoney(item.saleAmount)}</td>
                 <td>${item.recordDate||''}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="openStockOutForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockOut(${item.id})">删除</button>
                 </td>
             </tr>
