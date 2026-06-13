@@ -3,16 +3,20 @@ let outCurrGoodsList = [];
 
 // 新增：根据供应商+商品名，取生产日期最早、有库存的入库批次
 function getFirstAvailableBatch(supplier, goodsName) {
-    console.log("=== 开始查找批次 ===");
-    console.log("参数：supplier=" + supplier + ", goodsName=" + goodsName);
+    // 1. 找到所有同供应商、同商品的入库批次
+    let allBatches = allStockIn.filter(item => {
+        return item.supplier === supplier.trim()
+            && item.goodsName === goodsName.trim();
+    });
 
-    // 1. 兼容库存字段名（batchStock / stock / currentStock）
-    function getStockValue(item) {
-        const stockVal = Number(item.batchStock || item.stock || item.currentStock || 0);
-        console.log("批次 " + item.id + " 库存值：" + stockVal);
-        return stockVal;
-    }
+    if (allBatches.length === 0) return null;
 
+    // 2. 按生产日期升序（取最早批次）
+    allBatches.sort((a, b) => new Date(a.produce_date) - new Date(b.produce_date));
+
+    // 3. 直接返回最早批次，不管它的 batchStock 值，提交时再扣减
+    return allBatches[0];
+}
     // 2. 筛选：同供应商、同商品、库存>0
     let batchList = allStockIn.filter(item => {
         const matchSupplier = (item.supplier || "").trim() === (supplier || "").trim();
@@ -195,14 +199,11 @@ function closeStockOutForm(){
 
 // 提交出库 —— 编辑归还旧库存 + 提交时取最早批次扣减
 async function submitStockOut() {
-    console.log("=== 提交出库开始 ===");
     const outEditId = document.getElementById('outEditId').value;
     const supplier = document.getElementById('outSupSearchInput').value.trim();
     const goodsName = document.getElementById('outGoodsSearchInput').value.trim();
     const outNum = Number(document.getElementById('outNum').value);
     const recordDate = document.getElementById('outRecordDate').value;
-
-    console.log("参数：supplier=" + supplier + ", goodsName=" + goodsName + ", outNum=" + outNum);
 
     // 基础校验
     if (!supplier || !goodsName) {
@@ -218,44 +219,35 @@ async function submitStockOut() {
         return;
     }
 
-    // 编辑：先归还旧库存
+    // 编辑模式：先归还旧库存
     if (outEditId) {
-        console.log("编辑模式，先归还旧库存");
         let outItem = allStockOut.find(x => x.id === outEditId);
-        if (!outItem) {
-            showMsg('出库记录不存在');
-            return;
-        }
-        let oldOutNum = Number(outItem.outNum);
-        let oldBatchId = outItem.stockInId;
-
-        let oldBatch = allStockIn.find(x => x.id === oldBatchId);
-        if (oldBatch) {
-            const stockKey = "batchStock" in oldBatch ? "batchStock" : ("stock" in oldBatch ? "stock" : "currentStock");
-            oldBatch[stockKey] = Number(oldBatch[stockKey]) + oldOutNum;
-            console.log("已归还库存到批次 " + oldBatchId + "，当前库存：" + oldBatch[stockKey]);
+        if (outItem) {
+            let oldOutNum = Number(outItem.outNum);
+            let oldBatchId = outItem.stockInId;
+            let oldBatch = allStockIn.find(x => x.id === oldBatchId);
+            if (oldBatch) {
+                oldBatch.batchStock = (Number(oldBatch.batchStock) || 0) + oldOutNum;
+            }
         }
     }
 
     // 找最早批次
     let targetBatch = getFirstAvailableBatch(supplier, goodsName);
-
     if (!targetBatch) {
-        console.log("❌ 未找到可用批次，提交失败");
-        showMsg('该商品暂无可用库存，无法出库');
+        showMsg('该商品暂无入库记录，无法出库');
         return;
     }
 
-    // 库存校验
-    const stockKey = "batchStock" in targetBatch ? "batchStock" : ("stock" in targetBatch ? "stock" : "currentStock");
-    if (Number(targetBatch[stockKey]) < outNum) {
-        showMsg('当前最早批次库存不足，请减少出库数量');
+    // 校验库存（用理论库存）
+    let totalStock = getTotalStockNum(supplier, goodsName);
+    if (totalStock < outNum) {
+        showMsg('库存不足！当前可用库存：' + totalStock);
         return;
     }
 
     // 扣减库存
-    targetBatch[stockKey] = Number(targetBatch[stockKey]) - outNum;
-    console.log("✅ 扣减库存成功，批次 " + targetBatch.id + " 剩余库存：" + targetBatch[stockKey]);
+    targetBatch.batchStock = (Number(targetBatch.batchStock) || 0) - outNum;
 
     // 组装出库数据
     const outData = {
@@ -288,8 +280,8 @@ async function submitStockOut() {
     saveStockInData();
     refreshStockOut();
     closeStockOutForm();
-    console.log("=== 提交出库结束 ===");
 }
+
 // 导出/导入/模板、分页、排序、删除
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
