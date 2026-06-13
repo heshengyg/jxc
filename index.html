@@ -387,10 +387,6 @@
 
 <!-- 仅保留页面初始化原生代码 -->
 <script>
-document.addEventListener('DOMContentLoaded',function(){
-    document.getElementById('fileInput').value='';
-});
-<script>
 function switchTab(tabName) {
     // 切换标签样式
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -401,7 +397,7 @@ function switchTab(tabName) {
     });
     document.getElementById(tabName).classList.add('active');
 
-    // 关键：切到出库页面，预加载入库数据，解决下拉空白
+    // 切到出库页面，预加载入库数据，解决下拉空白
     if (tabName === 'stockOut') {
         if (typeof loadStockIn === "function") {
             loadStockIn();
@@ -409,8 +405,9 @@ function switchTab(tabName) {
     }
 }
 
+// 页面初始化：清空文件选择框（合并成一个，去除重复）
 document.addEventListener('DOMContentLoaded',function(){
-    document.getElementById('fileInput').value='';
+    document.getElementById('fileInput').value = '';
 });
 </script>
 </body>
