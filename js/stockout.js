@@ -111,7 +111,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗
+// 打开添加/编辑出库弹窗（已补充编辑回填）
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -127,10 +127,31 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
+    // ===================== 新增：编辑数据回填逻辑 =====================
+    if(id){
+        // 根据ID找到对应的出库单
+        let editData = allStockOut.find(item => item.id === id);
+        if(editData){
+            // 回填供应商，并加载对应商品列表
+            document.getElementById('outSupSearchInput').value = editData.supplier || '';
+            loadOutGoodsBySupplier(editData.supplier);
+
+            // 回填商品及所有字段
+            document.getElementById('outGoodsSearchInput').value = editData.goodsName || '';
+            document.getElementById('outSpec').value = editData.spec || '';
+            document.getElementById('outSettleType').value = editData.settleType || '';
+            document.getElementById('outSalePrice').value = formatMoney(editData.salePrice || 0);
+            document.getElementById('outNum').value = editData.outNum || '';
+            document.getElementById('outRecordDate').value = editData.recordDate || '';
+
+            // 回填当前库存
+            let stock = getTotalStockNum(editData.supplier, editData.goodsName);
+            document.getElementById('totalStockNum').value = stock;
+        }
+    }
+    // =================================================================
+
     document.getElementById('stockOutModal').style.display = 'block';
-}
-function closeStockOutForm(){
-    document.getElementById('stockOutModal').style.display = 'none';
 }
 
 // 提交出库（终极修复版）
@@ -402,4 +423,14 @@ function resetOutSearch() {
     document.getElementById('outSearchKeyword').value = '';
     document.getElementById('outSearchField').selectedIndex = 0;
     filterStockOut();
+}
+
+// ========= 新增：出库页面初始化（预加载入库数据，解决下拉空白） =========
+async function initStockOutPage() {
+    // 调用common.js里的加载入库数据方法
+    if(typeof loadStockIn === "function"){
+        await loadStockIn();
+    }
+    // 加载出库列表
+    await loadStockOut();
 }
