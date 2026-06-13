@@ -182,13 +182,22 @@ async function submitStockIn(){
         return showMsg('生产日期和到期日期不能同时填写');
     }
 
+    // ========== 【唯一改动1】线上取商品档案的线上成本价，线下取手动输入单价 ==========
+    let targetGoods = allGoods.find(g => g.id == goodsId);
+    let finalInPrice = 0;
+    if(settleType === '线上'){
+        finalInPrice = targetGoods ? Number(targetGoods.online_cost) : 0;
+    }else{
+        finalInPrice = +inPrice;
+    }
+
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
         spec: spec || null,
         settleType: settleType,
         sale_price: salePrice,
-        in_price: settleType === '线上' ? 0 : +inPrice,
+        in_price: finalInPrice,  // 使用计算后的最终单价
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
@@ -296,10 +305,19 @@ async function importStockInExcel() {
             if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
             if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
 
+            // ========== 【唯一改动2】导入逻辑同步规则：线上取商品线上成本价 ==========
+            let targetGoods = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+            let finalInPrice = 0;
+            if(settleType === '线上'){
+                finalInPrice = targetGoods ? Number(targetGoods.online_cost) : 0;
+            }else{
+                finalInPrice = inPrice;
+            }
+
             let postData = {
                 supplier, goodsName, spec, settleType,
                 sale_price: salePrice,
-                in_price: settleType === '线上' ? 0 : inPrice,
+                in_price: finalInPrice,
                 in_num: inNum,
                 record_date: recordDate,
                 produce_date: produceDate,
@@ -472,7 +490,10 @@ async function deleteStockIn(id){
 // 批量删除
 async function batchDeleteStockIn(){
     let ids = [];
-    document.querySelectorAll('.in-item-checkbox:checked').forEach(cb=>ids.push(cb.value));
+    document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.value);
+    document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
+        if(cb.checked) ids.push(cb.value);
+    });
     if(ids.length===0) return showMsg('请选择数据');
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
