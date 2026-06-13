@@ -242,6 +242,7 @@ async function submitStockOut(){
         closeStockOutForm();
         loadStockOut();
         loadStockIn();
+        filterStockIn(); // 新增：自动刷新入库列表
     } catch (e) {
         console.error('出库提交失败', e);
         showMsg('出库提交失败：' + e.message);
@@ -390,6 +391,7 @@ async function deleteStockOut(id){
         showMsg('删除成功');
         loadStockOut();
         loadStockIn();
+        filterStockIn(); // 新增：自动刷新入库列表
     }catch(e){ showMsg('删除失败'); }
 }
 
@@ -408,6 +410,7 @@ async function batchDeleteStockOut(){
     showMsg('批量删除成功');
     loadStockOut();
     loadStockIn();
+    filterStockIn(); // 新增：自动刷新入库列表
 }
 
 // 清空排序、重置搜索
@@ -419,3 +422,8 @@ function resetOutSearch() {
     document.getElementById('outSearchField').selectedIndex = 0;
     filterStockOut();
 }
+
+// 页面DOM加载完成，自动加载出库列表（解决进入出库不自动刷新）
+document.addEventListener('DOMContentLoaded', function(){
+    loadStockOut();
+});
