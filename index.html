@@ -390,27 +390,28 @@
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
 });
-</script>
-<!-- 补全标签切换函数 + 进出库自动预加载数据 -->
 <script>
 function switchTab(tabName) {
-    // 1. 切换标签样式
+    // 切换标签样式
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-
-    // 2. 切换内容区域显示
+    // 切换内容区
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById(tabName).classList.add('active');
 
-    // ========== 关键：切换到【出库管理】自动加载入库数据，解决下拉空白 ==========
+    // 关键：切到出库页面，预加载入库数据，解决下拉空白
     if (tabName === 'stockOut') {
-        // 预加载入库数据 + 出库列表
-        if (typeof loadStockIn === "function") loadStockIn();
-        if (typeof loadStockOut === "function") loadStockOut();
+        if (typeof loadStockIn === "function") {
+            loadStockIn();
+        }
     }
 }
+
+document.addEventListener('DOMContentLoaded',function(){
+    document.getElementById('fileInput').value='';
+});
 </script>
 </body>
 </html>

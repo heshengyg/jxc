@@ -115,7 +115,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗（对标入库：增加 setTimeout 延迟回填）
+// 打开添加/编辑出库弹窗（增加编辑回填，对标入库逻辑）
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -131,14 +131,15 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    // 编辑回填（和入库逻辑一致：延迟执行）
+    // ========== 新增：编辑数据回填（和入库逻辑一致，延迟执行） ==========
     if(id){
         let item = allStockOut.find(x => x.id === id);
         if(!item) return;
+        // 先回填供应商
         document.getElementById('outSupSearchInput').value = item.supplier;
         loadOutGoodsBySupplier(item.supplier);
 
-        // 关键：延迟执行，和入库保持一致，解决异步加载问题
+        // 延迟等待商品列表加载完成，再回填商品及字段
         setTimeout(()=>{
             let targetGoods = outCurrGoodsList.find(g => g.name === item.goodsName);
             if(targetGoods){
@@ -146,12 +147,12 @@ function openStockOutForm(id=null){
                 document.getElementById('outNum').value = item.outNum;
                 document.getElementById('outRecordDate').value = item.recordDate || '';
             }
-        },100);
+        }, 100);
     }
+    // =================================================================
 
     document.getElementById('stockOutModal').style.display = 'block';
 }
-
 // 关闭出库弹窗（和入库 closeStockInForm 写法完全一致）
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
