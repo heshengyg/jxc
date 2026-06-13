@@ -1,12 +1,10 @@
-// ===================== 出库管理模块（修复版） =====================
-
-// 全局变量
+// ===================== 出库管理模块（最终版） =====================
 let allStockOut = [];
 let filteredStockOut = [];
 let outCurrentPage = 1;
 let outPageSize = 10;
 
-// 1. 加载商品数据（如果你的项目里没有loadAllGoods，就加上这个）
+// 加载商品数据
 async function loadAllGoods() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
@@ -18,7 +16,7 @@ async function loadAllGoods() {
     }
 }
 
-// 2. 加载入库数据（如果你的项目里没有loadStockInData，就加上这个）
+// 加载入库数据
 async function loadStockInData() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
@@ -31,22 +29,19 @@ async function loadStockInData() {
     }
 }
 
-// 3. 出库页面初始化（修复版）
+// 出库页面初始化
 async function initStockOut() {
     try {
-        // 先加载商品和入库数据，保证下拉列表有数据
         await Promise.all([
             loadAllGoods(),
-            loadStockInData()
+            loadStockInData() // 直接调用common.js里的全局函数
         ]);
-        // 再加载出库列表
         await loadStockOut();
     } catch (e) {
         console.error('出库页面初始化失败', e);
     }
 }
-
-// 4. 加载出库列表
+// 加载出库列表
 async function loadStockOut() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
@@ -62,7 +57,7 @@ async function loadStockOut() {
     }
 }
 
-// 5. 渲染出库列表（示例）
+// 渲染出库列表
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
     let pageData = filteredStockOut.slice(start, start+outPageSize);
@@ -94,9 +89,13 @@ function renderStockOut() {
     });
 }
 
-// 6. 打开出库表单（修复版：解决style报错和编辑数据填充）
+// 渲染分页（如果没有可以暂时忽略）
+function renderStockOutPagination() {
+    // 这里放你原来的分页代码即可
+}
+
+// 打开出库表单
 function openStockOutForm(editId = null) {
-    // 先检查弹窗DOM是否存在
     let modal = document.getElementById('outFormModal');
     if(!modal) {
         console.error('找不到出库弹窗DOM元素 #outFormModal');
@@ -104,7 +103,6 @@ function openStockOutForm(editId = null) {
         return;
     }
 
-    // 显示弹窗
     modal.style.display = 'block';
     document.getElementById('outEditId').value = editId || '';
 
@@ -118,7 +116,7 @@ function openStockOutForm(editId = null) {
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0].replace(/-/g, '/');
 
-    // 编辑模式：填充旧数据
+    // 编辑模式填充数据
     if (editId) {
         let editData = allStockOut.find(out => out.id === editId);
         if (!editData) {
@@ -135,19 +133,18 @@ function openStockOutForm(editId = null) {
         document.getElementById('outNum').value = editData.outNum || '';
         document.getElementById('outRecordDate').value = editData.recordDate ? editData.recordDate.replace(/-/g, '/') : new Date().toISOString().split('T')[0].replace(/-/g, '/');
 
-        // 自动带出总库存
         let totalStock = getTotalStockNum(editData.supplier, editData.goodsName);
         document.getElementById('totalStockNum').value = totalStock;
     }
 }
 
-// 7. 关闭出库表单
+// 关闭出库表单
 function closeStockOutForm() {
     let modal = document.getElementById('outFormModal');
     if(modal) modal.style.display = 'none';
 }
 
-// 8. 提交出库（之前的修复版）
+// 提交出库
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -233,14 +230,35 @@ async function submitStockOut(){
         showMsg(editId ? '编辑出库成功' : '出库提交成功');
         closeStockOutForm();
         loadStockOut();
-        loadStockInData(); // 刷新入库数据
+        loadStockInData();
     } catch (e) {
         console.error('出库提交失败', e);
         showMsg('出库提交失败：' + e.message);
     }
 }
 
-// 9. 页面加载时初始化出库模块
+// 删除出库记录（如果没有可以加上）
+async function deleteStockOut(id) {
+    if(!confirm('确定要删除这条出库记录吗？')) return;
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`,{
+            method:'DELETE',
+            headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+        });
+        if(res.ok){
+            showMsg('删除成功');
+            loadStockOut();
+            loadStockInData();
+        }else{
+            showMsg('删除失败');
+        }
+    } catch (e) {
+        console.error('删除出库记录失败', e);
+        showMsg('删除失败');
+    }
+}
+
+// 页面加载时初始化出库模块
 document.addEventListener('DOMContentLoaded', function() {
     initStockOut();
 });
