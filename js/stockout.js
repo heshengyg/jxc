@@ -1,6 +1,26 @@
+
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
 
+// 【关键】获取当前商品【最早可用批次】（按生产日期优先，之前能正常扣库存的核心函数）
+function getFirstAvailableBatch(supplier, goodsId) {
+    // 筛选该供应商+商品的所有入库批次
+    let batches = allStockIn.filter(item => 
+        item.supplier === supplier && 
+        (goodsId ? item.goodsId === goodsId : true)
+    );
+
+    // 按生产日期升序（最早的排在前面）
+    batches.sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
+
+    // 找到第一个有剩余库存的批次
+    for (let batch of batches) {
+        if (Number(batch.batchStock) > 0) {
+            return batch;
+        }
+    }
+    return null;
+}
 // 刷新出库列表
 function refreshStockOut(){
     loadStockOut();
