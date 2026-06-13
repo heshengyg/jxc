@@ -1,4 +1,4 @@
-// ===================== 出库模块 - 纯业务函数（修复版） =====================
+// ===================== 出库模块 - 纯业务函数（对标入库可用版本） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
 let outSortField = '';
@@ -102,7 +102,6 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 自动带出总库存
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -116,7 +115,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗（已补充编辑回填）
+// 打开添加/编辑出库弹窗（对标入库：增加 setTimeout 延迟回填）
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -132,32 +131,33 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    // 编辑模式数据回填
+    // 编辑回填（和入库逻辑一致：延迟执行）
     if(id){
-        let editRow = allStockOut.find(item => item.id === id);
-        if(editRow){
-            document.getElementById('outSupSearchInput').value = editRow.supplier || '';
-            loadOutGoodsBySupplier(editRow.supplier);
-            document.getElementById('outGoodsSearchInput').value = editRow.goodsName || '';
-            document.getElementById('outSpec').value = editRow.spec || '';
-            document.getElementById('outSettleType').value = editRow.settleType || '';
-            document.getElementById('outSalePrice').value = formatMoney(editRow.salePrice || 0);
-            document.getElementById('outNum').value = editRow.outNum || '';
-            document.getElementById('outRecordDate').value = editRow.recordDate || '';
-            let stock = getTotalStockNum(editRow.supplier, editRow.goodsName);
-            document.getElementById('totalStockNum').value = stock;
-        }
+        let item = allStockOut.find(x => x.id === id);
+        if(!item) return;
+        document.getElementById('outSupSearchInput').value = item.supplier;
+        loadOutGoodsBySupplier(item.supplier);
+
+        // 关键：延迟执行，和入库保持一致，解决异步加载问题
+        setTimeout(()=>{
+            let targetGoods = outCurrGoodsList.find(g => g.name === item.goodsName);
+            if(targetGoods){
+                selectOutGoods(targetGoods);
+                document.getElementById('outNum').value = item.outNum;
+                document.getElementById('outRecordDate').value = item.recordDate || '';
+            }
+        },100);
     }
 
     document.getElementById('stockOutModal').style.display = 'block';
 }
 
-// 【关键】关闭出库弹窗（必须存在，否则提交/取消按钮失效）
+// 关闭出库弹窗（和入库 closeStockInForm 写法完全一致）
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（修复版）
+// 提交出库（完全对标入库 submitStockIn 结构、请求、提示）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -169,7 +169,7 @@ async function submitStockOut(){
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
 
-    // 基础校验
+    // 基础校验（和入库风格统一）
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
@@ -181,22 +181,21 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细
+    // 先进先出扣减明细
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 取第一个扣减的入库记录ID
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
     let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+
     if(settleType === '线上'){
         outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
     }else{
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
-    // 计算金额
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
@@ -241,22 +240,19 @@ async function submitStockOut(){
                 body:JSON.stringify(postData)
             });
         }
-        if(!res.ok) {
-            let err = await res.json();
-            console.error('出库提交错误详情：', err);
-            throw new Error(`请求异常：${JSON.stringify(err)}`);
-        }
-        showMsg(editId ? '编辑出库成功' : '出库提交成功');
+        if(!res.ok) throw new Error('请求异常');
+
+        // 提示 + 关弹窗 + 刷新列表（和入库完全一致）
+        showMsg(editId ? '编辑成功' : '出库成功');
         closeStockOutForm();
         loadStockOut();
-        loadStockIn(); // 刷新入库批次库存
+        loadStockIn();
     } catch (e) {
-        console.error('出库提交失败', e);
-        showMsg('出库提交失败：' + e.message);
+        showMsg('出库提交失败');
     }
 }
 
-// 导出/导入/模板、分页、排序、删除 等通用功能
+// 导出/导入模板
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
