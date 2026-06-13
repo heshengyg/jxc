@@ -149,6 +149,11 @@ function openStockOutForm(id=null){
             document.getElementById('totalStockNum').value = stock;
         }
     }
+
+// 关闭出库弹窗
+function closeStockOutForm(){
+    document.getElementById('stockOutModal').style.display = 'none';
+}
     // =================================================================
 
     document.getElementById('stockOutModal').style.display = 'block';
