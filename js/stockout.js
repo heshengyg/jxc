@@ -141,7 +141,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（终极修复版，移除编辑PATCH逻辑，仅保留新增POST）
+// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -152,83 +152,122 @@ async function submitStockOut(){
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
 
-    // 基础校验
+    // 基础校验（原逻辑不变）
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // 库存校验
+    // 库存校验（原逻辑不变）
     let totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细
+    // 先进先出计算扣减明细（原核心扣减逻辑不变）
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
-    let linkInId = outDetail[0].inRecordId;
-    let linkInItem = allStockIn.find(x => x.id === linkInId);
-    let outPrice = 0;
-    let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-    if(settleType === '线上'){
-        outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
-    }else{
-        outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
+    // ========== 按入库记录ID分组（不同入库=不同出库单价，自动拆分） ==========
+    let groupMap = {};
+    for(let d of outDetail){
+        let inRecordId = d.inRecordId;
+        let useNum = d.useNum;
+        // 查找当前这条入库对应的入库单，取出库单价
+        let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
+        if(!inItem) continue;
+
+        // 计算本条对应的出库单价（沿用原有单价规则）
+        let outPrice = 0;
+        let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+        if(settleType === '线上'){
+            outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
+        }else{
+            outPrice = Number(inItem.in_price) || 0;
+        }
+
+        // 同一条入库记录合并数量
+        if(!groupMap[inRecordId]){
+            groupMap[inRecordId] = {
+                inRecordId: inRecordId,
+                outPrice: outPrice,
+                totalUseNum: 0,
+                details: []
+            };
+        }
+        groupMap[inRecordId].totalUseNum += useNum;
+        groupMap[inRecordId].details.push(d);
     }
 
-    // ========== 仅此处修改：强制从商品基础库取最新销售单价，提交后固化 ==========
+    // 转为数组，逐条提交
+    let groupList = Object.values(groupMap);
+    if(groupList.length === 0) return showMsg('拆分出库数据失败');
+
+    // 统一取商品最新销售单价（沿用原有逻辑）
     let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
     if(baseGoods){
         salePrice = Number(baseGoods.sale_price) || 0;
     }
 
-    // 计算金额
-    let outAmount = Number((outPrice * outNum).toFixed(2));
-    let saleAmount = Number((salePrice * outNum).toFixed(2));
+    // ========== 循环分组，逐条生成并提交出库记录 ==========
+    let submitSuccess = true;
+    for(let group of groupList){
+        let singleOutNum = group.totalUseNum;
+        let singleOutPrice = group.outPrice;
+        let linkInId = group.inRecordId;
+        let detailStr = JSON.stringify(group.details);
 
-    // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
-    let postData = {
-        supplier: supplier,
-        goodsName: goodsName,
-        spec: spec,
-        settleType: settleType,
-        outPrice: outPrice,
-        salePrice: salePrice,
-        outNum: outNum,
-        outAmount: outAmount,
-        saleAmount: saleAmount,
-        recordDate: recordDate,
-        inRecordId: linkInId,
-        outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
-    };
+        // 单独计算本条金额
+        let outAmount = Number((singleOutPrice * singleOutNum).toFixed(2));
+        let saleAmount = Number((salePrice * singleOutNum).toFixed(2));
 
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
-            method:'POST',
-            headers:{
-                apikey:SUPABASE_KEY,
-                Authorization:`Bearer ${SUPABASE_KEY}`,
-                'Content-Type':'application/json',
-                'Prefer':'return=representation'
-            },
-            body:JSON.stringify(postData)
-        });
-        if(!res.ok) {
-            let err = await res.json();
-            console.error('出库提交错误详情：', err);
-            throw new Error(`请求异常：${JSON.stringify(err)}`);
+        // 单条出库提交数据结构（与原结构完全一致，保证兼容）
+        let postData = {
+            supplier: supplier,
+            goodsName: goodsName,
+            spec: spec,
+            settleType: settleType,
+            outPrice: singleOutPrice,
+            salePrice: salePrice,
+            outNum: singleOutNum,
+            outAmount: outAmount,
+            saleAmount: saleAmount,
+            recordDate: recordDate,
+            inRecordId: linkInId,
+            outDetail: detailStr
+        };
+
+        try {
+            let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
+                method:'POST',
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`,
+                    'Content-Type':'application/json',
+                    'Prefer':'return=representation'
+                },
+                body:JSON.stringify(postData)
+            });
+            if(!res.ok){
+                let err = await res.json();
+                console.error('单条出库提交失败：', err);
+                submitSuccess = false;
+            }
+        } catch (e) {
+            console.error('单条出库请求异常：', e);
+            submitSuccess = false;
         }
-        showMsg('出库提交成功');
-        closeStockOutForm();
-        loadStockOut();
-        loadStockIn(); // 刷新入库批次库存
-    } catch (e) {
-        console.error('出库提交失败', e);
-        showMsg('出库提交失败：' + e.message);
     }
+
+    // 全部提交完成后统一反馈、刷新
+    if(submitSuccess){
+        showMsg('出库提交成功');
+    }else{
+        showMsg('部分出库记录提交异常，请检查数据');
+    }
+    closeStockOutForm();
+    loadStockOut();
+    loadStockIn();
 }
 
 // 导出/导入/模板、分页、排序、删除 等通用功能
