@@ -1,7 +1,7 @@
-// ===================== 出库模块 - 纯业务函数（零错误最终版） =====================
+// ===================== 出库模块 - 纯业务函数（与入库代码1:1对齐，零错误版） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
-let outSortField = ''; // 只声明一次！！！
+let outSortField = ''; // 只声明一次！和入库的 inSortField 写法一致
 let outSortAsc = true;
 let outCurrentPage = 1;
 let outPageSize = 10;
@@ -117,7 +117,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗（已修复编辑回填）
+// 打开添加/编辑出库弹窗（和入库逻辑完全一致）
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -153,12 +153,12 @@ function openStockOutForm(id=null){
     document.getElementById('stockOutModal').style.display = 'block';
 }
 
-// 关闭出库弹窗
+// 关闭出库弹窗（和入库 closeStockInForm 写法完全一致）
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库
+// 提交出库（和入库 submitStockIn 结构、请求、提示完全一致）
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -304,7 +304,7 @@ function filterStockOut() {
     renderStockOut();
 }
 
-// 排序
+// 列表排序
 function outSortTable(field) {
     outSortField = field;
     outSortAsc = (outSortField === field) ? !outSortAsc : true;
@@ -325,26 +325,33 @@ function updateOutSortIcon() {
     if(idx>-1) document.querySelectorAll('.outSortIcon')[idx].innerText = outSortAsc?'↑':'↓';
 }
 
-// 渲染表格
+// 渲染出库表格
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
     let pageData = filteredStockOut.slice(start, start+outPageSize);
-    let tb = document.getElementById('stockOutList'); tb.innerHTML = '';
-    pageData.forEach((item,idx)=>{
+    let tb = document.getElementById('stockOutList'); 
+    if (!tb) {
+        console.error('找不到出库列表DOM元素 #stockOutList');
+        return;
+    }
+    tb.innerHTML = '';
+
+    pageData.forEach((item, idx) => {
+        let amount = formatMoney((item.outPrice || 0) * item.outNum);
         let html = `
             <tr>
                 <td><input type="checkbox" class="out-item-checkbox" value="${item.id}"></td>
-                <td>${start+idx+1}</td>
-                <td>${item.supplier||''}</td>
-                <td>${item.goodsName||''}</td>
-                <td>${item.spec||'-'}</td>
-                <td>${item.settleType||''}</td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.goodsName || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.settleType || ''}</td>
                 <td>${formatMoney(item.outPrice)}</td>
                 <td>${formatMoney(item.salePrice)}</td>
-                <td>${item.outNum||0}</td>
-                <td>${formatMoney(item.outAmount)}</td>
+                <td>${item.outNum || 0}</td>
+                <td>${amount}</td>
                 <td>${formatMoney(item.saleAmount)}</td>
-                <td>${item.recordDate||''}</td>
+                <td>${item.recordDate || ''}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openStockOutForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockOut(${item.id})">删除</button>
@@ -355,7 +362,7 @@ function renderStockOut() {
     });
 }
 
-// 分页
+// 分页渲染
 function renderOutPagination() {
     outTotalPages = Math.ceil(filteredStockOut.length/outPageSize)||1;
     document.getElementById('outCurrentPage').textContent = outCurrentPage;
@@ -373,6 +380,7 @@ function renderOutPagination() {
     btns[3].disabled = outCurrentPage===outTotalPages;
     btns[4].disabled = outCurrentPage===outTotalPages;
 }
+
 function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }
 function outNextPage(){ outGoToPage(outCurrentPage+1); }
