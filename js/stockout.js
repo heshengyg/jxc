@@ -314,12 +314,34 @@ function outSortTable(field) {
     });
     updateOutSortIcon(); renderStockOut();
 }
-function updateOutSortIcon() {
-    document.querySelectorAll('.outSortIcon').forEach(i=>i.innerText='');
-    let idx = Array.from(document.querySelectorAll('.sortable')).findIndex(th=>th.onclick?.toString().includes(outSortField));
-    if(idx>-1) document.querySelectorAll('.outSortIcon')[idx].innerText = outSortAsc?'↑':'↓';
+// 排序
+function outSortTable(field) {
+    outSortField = field;
+    outSortAsc = (outSortField === field) ? !outSortAsc : true;
+    filteredStockOut.sort((a,b)=>{
+        let va=a[outSortField]||'', vb=b[outSortField]||'';
+        if(['outPrice','outNum','outAmount','saleAmount','salePrice'].includes(outSortField)){
+            va=Number(va)||0; vb=Number(vb)||0;
+            return outSortAsc ? va-vb : vb-va;
+        }
+        return outSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    updateOutSortIcon();
+    renderStockOut();
 }
 
+// 修复：安全更新排序图标
+function updateOutSortIcon() {
+    const icons = document.querySelectorAll('.outSortIcon');
+    icons.forEach(i => i.innerText = '');
+
+    const sortables = document.querySelectorAll('.sortable');
+    const idx = Array.from(sortables).findIndex(th => th.onclick?.toString().includes(outSortField));
+
+    if (idx > -1 && icons[idx]) {
+        icons[idx].innerText = outSortAsc ? '↑' : '↓';
+    }
+}
 // 渲染表格
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
