@@ -1,3 +1,4 @@
+// ===================== 出库模块 - 纯业务函数 =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
 
@@ -37,7 +38,7 @@ function renderOutSupList(list){
     });
 }
 
-// 根据供应商加载对应商品（完全按你原来的逻辑，不新增字段）
+// 根据供应商加载对应商品
 function loadOutGoodsBySupplier(supplier){
     let goodsArr = [...new Set(allStockIn
         .filter(item => item.supplier === supplier)
@@ -88,15 +89,15 @@ function renderOutGoodsList(list){
     });
 }
 
-// 选择商品（只修复outCurGoodsId赋值，其他完全不动）
+// 选择商品，自动带出字段 + 加载总库存
 function selectOutGoods(goods){
     let sup = document.getElementById('outSupSearchInput').value;
     document.getElementById('outGoodsSearchInput').value = goods.name;
-    document.getElementById('outCurGoodsId').value = goods.name;
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
+    // 自动带出总库存（这里是关键，修复之前的逻辑）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -115,6 +116,7 @@ function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
 
+    // 重置表单
     document.getElementById('outSupSearchInput').value = '';
     document.getElementById('outGoodsSearchInput').value = '';
     document.getElementById('outCurGoodsId').value = '';
@@ -125,115 +127,112 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    if(id){
-        let item = allStockOut.find(x => x.id === id);
-        if(item){
-            document.getElementById('outSupSearchInput').value = item.supplier;
-            loadOutGoodsBySupplier(item.supplier);
-            setTimeout(()=>{
-                let targetGoods = outCurrGoodsList.find(g => g.name === item.goodsName);
-                if(targetGoods){
-                    selectOutGoods(targetGoods);
-                    document.getElementById('outNum').value = item.outNum;
-                    document.getElementById('outRecordDate').value = item.recordDate || '';
-                }
-            },100);
-        }
-    }
-
     document.getElementById('stockOutModal').style.display = 'block';
 }
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（完全恢复你原来的逻辑，删除所有我乱加的saveXXX和批次校验）
-async function submitStockOut() {
-    const outEditId = document.getElementById('outEditId').value;
-    const supplier = document.getElementById('outSupSearchInput').value.trim();
-    const goodsName = document.getElementById('outGoodsSearchInput').value.trim();
-    const goodsId = document.getElementById('outCurGoodsId').value;
-    const outNum = Number(document.getElementById('outNum').value);
-    const recordDate = document.getElementById('outRecordDate').value;
+// 提交出库（终极修复版）
+async function submitStockOut(){
+    let editId = document.getElementById('outEditId').value;
+    let supplier = document.getElementById('outSupSearchInput').value.trim();
+    let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
+    let spec = document.getElementById('outSpec').value || '';
+    let settleType = document.getElementById('outSettleType').value || '';
+    let salePriceText = document.getElementById('outSalePrice').value;
+    let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
+    let outNum = Number(document.getElementById('outNum').value) || 0;
+    let recordDate = document.getElementById('outRecordDate').value;
 
     // 基础校验
-    if (!supplier || !goodsName || !goodsId) {
-        showMsg('请选择供应商和商品');
-        return;
-    }
-    if (isNaN(outNum) || outNum < 1) {
-        showMsg('出库数量必须大于0');
-        return;
-    }
-    if (!recordDate) {
-        showMsg('请选择录入日期');
-        return;
+    if(!supplier) return showMsg('请选择供应商');
+    if(!goodsName) return showMsg('请选择商品');
+    if(outNum < 1) return showMsg('出库数量必须大于0');
+    if(!recordDate) return showMsg('请选择录入日期');
+
+    // 库存校验
+    let totalStock = getTotalStockNum(supplier, goodsName);
+    if(outNum > totalStock){
+        return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 1. 按你原来的方式，查找该商品的所有批次，按生产日期排序
-    let batches = allStockIn
-        .filter(item => item.supplier === supplier && item.goodsName === goodsName)
-        .sort((a,b) => new Date(a.produce_date || '') - new Date(b.produce_date || ''));
+    // 先进先出计算扣减明细
+    let outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    let remaining = outNum;
-    for (let batch of batches) {
-        let available = batch.batchStock || batch.in_num;
-        if (available <= 0) continue;
+    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
+    let linkInId = outDetail[0].inRecordId;
+    let linkInItem = allStockIn.find(x => x.id === linkInId);
+    let outPrice = 0;
+    let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+    if(settleType === '线上'){
+        outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
+    }else{
+        outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
+    }
 
-        if (remaining <= available) {
-            // 扣减当前批次库存
-            batch.batchStock = available - remaining;
-            remaining = 0;
-            break;
-        } else {
-            // 扣减整个批次
-            batch.batchStock = 0;
-            remaining -= available;
+    // 计算金额
+    let outAmount = Number((outPrice * outNum).toFixed(2));
+    let saleAmount = Number((salePrice * outNum).toFixed(2));
+
+ // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
+let postData = {
+    supplier: supplier,
+    goodsName: goodsName,
+    spec: spec,
+    settleType: settleType,
+    outPrice: outPrice,
+    salePrice: salePrice,
+    outNum: outNum,
+    outAmount: outAmount,
+    saleAmount: saleAmount,
+    recordDate: recordDate,
+    inRecordId: linkInId,
+    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
+};
+
+    try {
+        let res;
+        if(editId){
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${editId}`,{
+                method:'PATCH',
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`,
+                    'Content-Type':'application/json',
+                    'Prefer':'return=representation'
+                },
+                body:JSON.stringify(postData)
+            });
+        }else{
+            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
+                method:'POST',
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`,
+                    'Content-Type':'application/json',
+                    'Prefer':'return=representation'
+                },
+                body:JSON.stringify(postData)
+            });
         }
-    }
-
-    if (remaining > 0) {
-        showMsg('库存不足，无法出库');
-        return;
-    }
-
-    // 2. 组装出库数据（按你原来的结构）
-    const outData = {
-        id: outEditId ? Number(outEditId) : Date.now(),
-        supplier: supplier,
-        goodsName: goodsName,
-        goodsId: goodsId,
-        spec: document.getElementById('outSpec').value,
-        settleType: document.getElementById('outSettleType').value,
-        outPrice: Number(batches[0].inPrice || batches[0].in_price),
-        salePrice: Number(document.getElementById('outSalePrice').value),
-        outNum: outNum,
-        outAmount: (Number(batches[0].inPrice || batches[0].in_price) * outNum).toFixed(2),
-        saleAmount: (Number(document.getElementById('outSalePrice').value) * outNum).toFixed(2),
-        recordDate: recordDate,
-        stockInId: batches[0].id
-    };
-
-    // 3. 保存数据（按你原来的方式，不调用不存在的saveXXX函数）
-    if (outEditId) {
-        let idx = allStockOut.findIndex(x => x.id === Number(outEditId));
-        if (idx > -1) {
-            allStockOut[idx] = { ...allStockOut[idx], ...outData };
+        if(!res.ok) {
+            let err = await res.json();
+            console.error('出库提交错误详情：', err);
+            throw new Error(`请求异常：${JSON.stringify(err)}`);
         }
-        showMsg('编辑出库成功');
-    } else {
-        allStockOut.push(outData);
-        showMsg('新增出库成功');
+        showMsg(editId ? '编辑出库成功' : '出库提交成功');
+        closeStockOutForm();
+        loadStockOut();
+        loadStockIn(); // 刷新入库批次库存
+    } catch (e) {
+        console.error('出库提交失败', e);
+        showMsg('出库提交失败：' + e.message);
     }
-
-    // 4. 只调用你原有的loadStockOut和loadStockIn，不做额外操作
-    refreshStockOut();
-    loadStockIn();
-    filterStockIn();
-    closeStockOutForm();
 }
 
-// 导出/导入/模板、分页、排序、删除（完全保留你原来的代码）
+// 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
@@ -328,7 +327,8 @@ function renderStockOut() {
                 <td>
                     <button class="btn btn-primary" onclick="openStockOutForm(${item.id})">编辑</button>
                     <button class="btn btn-danger" onclick="deleteStockOut(${item.id})">删除</button>
-            </td>
+                </td>
+            </tr>
         `;
         tb.innerHTML += html;
     });
@@ -374,7 +374,6 @@ async function deleteStockOut(id){
         showMsg('删除成功');
         loadStockOut();
         loadStockIn();
-        filterStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
 
@@ -393,7 +392,6 @@ async function batchDeleteStockOut(){
     showMsg('批量删除成功');
     loadStockOut();
     loadStockIn();
-    filterStockIn();
 }
 
 // 清空排序、重置搜索
@@ -405,7 +403,3 @@ function resetOutSearch() {
     document.getElementById('outSearchField').selectedIndex = 0;
     filterStockOut();
 }
-
-document.addEventListener('DOMContentLoaded', function(){
-    loadStockOut();
-});
