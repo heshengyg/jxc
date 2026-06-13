@@ -1,5 +1,18 @@
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
+// 全局：加载最新出库数据（给库存计算提供数据源）
+async function refreshAllStockOutData() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        allStockOut = await res.json();
+        return true;
+    } catch (e) {
+        console.error("拉取出库数据失败", e);
+        return false;
+    }
+}
 
 // 刷新出库列表
 function refreshStockOut(){
@@ -167,7 +180,7 @@ async function submitStockOut() {
     const outNum = Number(document.getElementById('outNum').value);
     const recordDate = document.getElementById('outRecordDate').value;
 
-    // 基础非空校验
+    // 基础校验
     if (!supplier || !goodsName) {
         showMsg('请选择供应商和商品');
         return;
@@ -181,44 +194,55 @@ async function submitStockOut() {
         return;
     }
 
-    // ========== 1. 编辑专属：先归还旧库存（核心修复点） ==========
-    if (outEditId) {
-        // 找到当前正在编辑的旧出库记录
-        const oldRecord = allStockOut.find(item => item.id === outEditId);
-        if (oldRecord) {
-            // 逻辑归还：前端计算时，先剔除本条旧数据，等价于库存加回
-            allStockOut = allStockOut.filter(item => item.id !== outEditId);
+    const isEdit = !!outEditId;
+
+    // ========== 编辑场景：先删除旧记录，归还库存 ==========
+    if (isEdit) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${outEditId}`, {
+                method: 'DELETE',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+        } catch (e) {
+            showMsg('编辑失败，无法移除原有记录');
+            return;
         }
     }
 
-    // ========== 2. 计算当前商品【总库存】，只做总库存校验 ==========
-    let totalStock = getTotalStockNum(supplier, goodsName);
-    if (totalStock < outNum) {
-        showMsg(`库存不足！当前可用库存：${totalStock}`);
-        // 编辑场景：校验失败，恢复旧数据
-        if(outEditId) loadStockOut();
+    // ========== 拉取最新出库数据（关键：库存计算数据源更新） ==========
+    const pullOk = await refreshAllStockOutData();
+    if (!pullOk) {
+        showMsg('加载出库数据失败');
         return;
     }
 
-    // ========== 3. 筛选批次 + 按生产日期升序（最早批次优先） ==========
-    let batches = allStockIn
+    // ========== 校验：仅判断 出库数量 ≤ 商品总库存 ==========
+    const totalStock = getTotalStockNum(supplier, goodsName);
+    if (totalStock < outNum) {
+        showMsg(`库存不足！当前可用库存：${totalStock}`);
+        return;
+    }
+
+    // ========== 按【生产日期升序】取最早批次优先出库 ==========
+    const batches = allStockIn
         .filter(inItem => inItem.supplier === supplier && inItem.goodsName === goodsName)
         .sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
 
     if (batches.length === 0) {
         showMsg('该商品暂无入库记录，无法出库');
-        if(outEditId) loadStockOut();
         return;
     }
 
-    // ========== 4. 找到第一个有剩余库存的批次 ==========
+    // 找到第一个有剩余库存的批次
     let targetBatch = null;
     for (const batch of batches) {
-        let batchOutTotal = allStockOut
+        const batchOutSum = allStockOut
             .filter(o => o.inRecordId === batch.id)
             .reduce((sum, o) => sum + (Number(o.outNum) || 0), 0);
-        let batchRemain = Number(batch.in_num) - batchOutTotal;
-
+        const batchRemain = Number(batch.in_num) - batchOutSum;
         if (batchRemain > 0) {
             targetBatch = batch;
             break;
@@ -227,11 +251,10 @@ async function submitStockOut() {
 
     if (!targetBatch) {
         showMsg('该商品暂无可用批次库存，无法出库');
-        if(outEditId) loadStockOut();
         return;
     }
 
-    // ========== 5. 组装出库数据（字段完全沿用原有驼峰） ==========
+    // ========== 组装出库数据（沿用你原有驼峰字段） ==========
     const outData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -247,53 +270,44 @@ async function submitStockOut() {
         outDetail: []
     };
 
-    // ========== 6. 提交接口 ==========
+    // ========== 提交新出库记录 ==========
     try {
-        let res;
-        if(outEditId){
-            // 编辑：更新记录
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${outEditId}`,{
-                method:'PATCH',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
-                body:JSON.stringify(outData)
-            });
-        }else{
-            // 新增：插入记录
-            res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
-                method:'POST',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
-                body:JSON.stringify(outData)
-            });
-        }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(outData)
+        });
 
-        if(!res.ok){
+        if (!res.ok) {
             const err = await res.json();
-            console.error('接口报错：', err);
-            throw new Error('数据提交异常');
+            console.error("接口错误", err);
+            throw new Error("提交异常");
         }
 
-        showMsg(outEditId ? '编辑出库成功' : '新增出库成功');
+        showMsg(isEdit ? '编辑出库成功' : '新增出库成功');
         closeStockOutForm();
-        // 全局刷新出库+入库，前端计算库存自动更新
+
+        // 1. 刷新出库列表页面
+        await refreshAllStockOutData();
         refreshStockOut();
+
+        // 2. 【核心】触发入库列表全刷新 → 自动重算批次库存/总库存
         loadStockIn();
+
     } catch (e) {
-        console.error('出库提交失败：', e);
-        showMsg('出库提交失败，请检查网络或数据');
-        // 异常回滚数据
-        if(outEditId) loadStockOut();
+        console.error(e);
+        showMsg('出库提交失败');
+        // 异常兜底刷新
+        refreshAllStockOutData();
+        loadStockIn();
     }
 }
+
 // 导出、导入模板
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
@@ -443,11 +457,14 @@ async function deleteStockOut(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        loadStockOut();
+        // 刷新出库数据 + 刷新入库（库存恢复）
+        await refreshAllStockOutData();
+        refreshStockOut();
         loadStockIn();
-    }catch(e){ showMsg('删除失败'); }
+    }catch(e){ 
+        showMsg('删除失败');
+    }
 }
-
 // 批量删除
 async function batchDeleteStockOut(){
     let ids = [];
@@ -455,13 +472,17 @@ async function batchDeleteStockOut(){
     if(ids.length===0) return showMsg('请选择数据');
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`);
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`,{
+            method:'DELETE',
+            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+        });
     }
     showMsg('批量删除成功');
-    loadStockOut();
+    // 刷新数据源 + 入库库存
+    await refreshAllStockOutData();
+    refreshStockOut();
     loadStockIn();
 }
-
 // 重置搜索、清空排序
 function clearOutSort(){
     outSortField = ''; outSortAsc = true; updateOutSortIcon(); loadStockOut();
