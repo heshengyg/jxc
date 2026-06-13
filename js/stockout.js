@@ -1,4 +1,4 @@
-// ===================== 出库模块 - 纯业务函数 =====================
+// ===================== 出库模块 - 基于你原有可用代码修复（无新增let变量，不报错） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
 
@@ -97,7 +97,6 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 自动带出总库存（这里是关键，修复之前的逻辑）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -111,7 +110,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗
+// 【重点修复】打开添加/编辑出库弹窗 → 解决编辑数据为空
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -127,13 +126,33 @@ function openStockOutForm(id=null){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
+    // 编辑模式：回填数据（修复编辑为空）
+    if(id){
+        let item = allStockOut.find(x => x.id === id);
+        if(item){
+            // 先回填供应商
+            document.getElementById('outSupSearchInput').value = item.supplier;
+            // 根据供应商加载商品列表
+            loadOutGoodsBySupplier(item.supplier);
+            // 延迟回填商品及其他字段
+            setTimeout(()=>{
+                let targetGoods = outCurrGoodsList.find(g => g.name === item.goodsName);
+                if(targetGoods){
+                    selectOutGoods(targetGoods);
+                    document.getElementById('outNum').value = item.outNum;
+                    document.getElementById('outRecordDate').value = item.recordDate || '';
+                }
+            },100);
+        }
+    }
+
     document.getElementById('stockOutModal').style.display = 'block';
 }
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（终极修复版）
+// 提交出库
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -161,7 +180,6 @@ async function submitStockOut(){
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 取第一个扣减的入库记录ID（只用于显示，不再参与扣减逻辑）
     let linkInId = outDetail[0].inRecordId;
     let linkInItem = allStockIn.find(x => x.id === linkInId);
     let outPrice = 0;
@@ -172,25 +190,23 @@ async function submitStockOut(){
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
-    // 计算金额
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
 
- // 组装提交数据（关键修复：outDetail必须转成JSON字符串）
-let postData = {
-    supplier: supplier,
-    goodsName: goodsName,
-    spec: spec,
-    settleType: settleType,
-    outPrice: outPrice,
-    salePrice: salePrice,
-    outNum: outNum,
-    outAmount: outAmount,
-    saleAmount: saleAmount,
-    recordDate: recordDate,
-    inRecordId: linkInId,
-    outDetail: JSON.stringify(outDetail) // 强制转成JSON字符串！
-};
+    let postData = {
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: spec,
+        settleType: settleType,
+        outPrice: outPrice,
+        salePrice: salePrice,
+        outNum: outNum,
+        outAmount: outAmount,
+        saleAmount: saleAmount,
+        recordDate: recordDate,
+        inRecordId: linkInId,
+        outDetail: JSON.stringify(outDetail)
+    };
 
     try {
         let res;
@@ -225,14 +241,14 @@ let postData = {
         showMsg(editId ? '编辑出库成功' : '出库提交成功');
         closeStockOutForm();
         loadStockOut();
-        loadStockIn(); // 刷新入库批次库存
+        loadStockIn();
     } catch (e) {
         console.error('出库提交失败', e);
         showMsg('出库提交失败：' + e.message);
     }
 }
 
-// 导出/导入/模板、分页、排序、删除 等通用功能
+// 导出/导入/模板、分页、排序、删除
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
