@@ -1,7 +1,7 @@
-// ===================== 出库模块 - 纯业务函数（与入库代码1:1对齐，零错误版） =====================
+// ===================== 出库模块 - 纯业务函数（零错误最终版） =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
-let outSortField = ''; // 只声明一次！和入库的 inSortField 写法一致
+let outSortField = ''; // 只声明一次！！！
 let outSortAsc = true;
 let outCurrentPage = 1;
 let outPageSize = 10;
@@ -117,7 +117,7 @@ function checkStockNum(){
     }
 }
 
-// 打开添加/编辑出库弹窗（和入库逻辑完全一致）
+// 打开添加/编辑出库弹窗（已修复编辑回填）
 function openStockOutForm(id=null){
     document.getElementById('outEditId').value = id || '';
     document.getElementById('stockOutFormTitle').innerText = id ? '编辑出库单据' : '添加出库单据';
@@ -153,12 +153,12 @@ function openStockOutForm(id=null){
     document.getElementById('stockOutModal').style.display = 'block';
 }
 
-// 关闭出库弹窗（和入库 closeStockInForm 写法完全一致）
+// 关闭出库弹窗
 function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（和入库 submitStockIn 结构、请求、提示完全一致）
+// 提交出库
 async function submitStockOut(){
     let editId = document.getElementById('outEditId').value;
     let supplier = document.getElementById('outSupSearchInput').value.trim();
