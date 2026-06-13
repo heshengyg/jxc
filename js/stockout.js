@@ -92,7 +92,7 @@ function renderOutGoodsList(list){
     });
 }
 
-// 选择商品，自动带出字段 + 显示总库存（和入库逻辑一致）
+// 选择商品，自动带出字段 + 显示总库存
 function selectOutGoods(goods){
     let sup = document.getElementById('outSupSearchInput').value;
     document.getElementById('outGoodsSearchInput').value = goods.name;
@@ -100,7 +100,6 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
-    // 用入库模块的 getTotalStockNum 函数计算总库存
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -151,7 +150,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 核心：提交出库（完全按你的逻辑：编辑先归还，再扣最早批次）
+// 核心：提交出库（修复了getBatchStock依赖，和入库逻辑完全一致）
 async function submitStockOut() {
     const outEditId = document.getElementById('outEditId').value;
     const supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -173,16 +172,14 @@ async function submitStockOut() {
         return;
     }
 
-    // 编辑模式：先把旧数量归还到原批次
-    if (outEditId) {
-        let outItem = allStockOut.find(x => x.id === outEditId);
-        if (outItem) {
-            let oldOutNum = Number(outItem.outNum);
-            // 这里只是逻辑上的归还，因为批次库存是动态计算的，不用修改入库表，只要后续扣减逻辑走新批次即可
-        }
+    // 校验总库存（和弹窗显示一致）
+    let totalStock = getTotalStockNum(supplier, goodsName);
+    if (totalStock < outNum) {
+        showMsg(`库存不足！当前可用库存：${totalStock}`);
+        return;
     }
 
-    // 1. 按「生产日期最早」排序，找到该商品的所有入库批次
+    // 1. 找到该商品的所有入库批次，按生产日期升序（最早的在前面）
     let batches = allStockIn.filter(item => 
         item.supplier === supplier && item.goodsName === goodsName
     ).sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
@@ -192,10 +189,15 @@ async function submitStockOut() {
         return;
     }
 
-    // 2. 找到第一个还有剩余库存的批次（按你的入库模块逻辑计算批次库存）
+    // 2. 找到第一个还有剩余库存的批次（按入库逻辑计算批次库存）
     let targetBatch = null;
     for (let batch of batches) {
-        let batchStock = getBatchStock(batch.id); // 复用入库模块的批次库存计算逻辑
+        // 计算该批次剩余库存：入库数量 - 该批次已出库数量
+        let batchOutNum = allStockOut
+            .filter(o => o.stockInId === batch.id)
+            .reduce((sum, o) => sum + Number(o.outNum), 0);
+        let batchStock = Number(batch.in_num) - batchOutNum;
+
         if (batchStock > 0) {
             targetBatch = batch;
             break;
@@ -208,7 +210,11 @@ async function submitStockOut() {
     }
 
     // 3. 校验批次库存是否足够
-    let batchStock = getBatchStock(targetBatch.id);
+    let batchOutNum = allStockOut
+        .filter(o => o.stockInId === targetBatch.id)
+        .reduce((sum, o) => sum + Number(o.outNum), 0);
+    let batchStock = Number(targetBatch.in_num) - batchOutNum;
+
     if (batchStock < outNum) {
         showMsg(`当前最早批次库存不足！该批次剩余：${batchStock}`);
         return;
@@ -226,7 +232,7 @@ async function submitStockOut() {
         outAmount: (Number(targetBatch.in_price || 0) * outNum).toFixed(2),
         saleAmount: (Number(document.getElementById('outSalePrice').value) * outNum).toFixed(2),
         recordDate: recordDate,
-        stockInId: targetBatch.id // 绑定到当前最早批次
+        stockInId: targetBatch.id
     };
 
     // 5. 保存出库记录
@@ -262,8 +268,7 @@ async function submitStockOut() {
         showMsg(outEditId ? '编辑出库成功' : '新增出库成功');
         closeStockOutForm();
         refreshStockOut();
-        // 刷新入库列表，让批次库存重新计算
-        loadStockIn();
+        loadStockIn(); // 刷新入库列表，更新批次库存显示
     } catch (e) {
         console.error(e);
         showMsg('出库提交失败：' + e.message);
