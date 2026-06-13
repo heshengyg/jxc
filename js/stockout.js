@@ -3,16 +3,44 @@ let outCurrGoodsList = [];
 
 // 新增：根据供应商+商品名，取生产日期最早、有库存的入库批次
 function getFirstAvailableBatch(supplier, goodsName) {
+    console.log("=== 开始查找批次 ===");
+    console.log("参数：supplier=" + supplier + ", goodsName=" + goodsName);
+
+    // 1. 兼容库存字段名（batchStock / stock / currentStock）
+    function getStockValue(item) {
+        const stockVal = Number(item.batchStock || item.stock || item.currentStock || 0);
+        console.log("批次 " + item.id + " 库存值：" + stockVal);
+        return stockVal;
+    }
+
+    // 2. 筛选：同供应商、同商品、库存>0
     let batchList = allStockIn.filter(item => {
-        return item.supplier === supplier
-            && item.goodsName === goodsName
-            && Number(item.batchStock) > 0;
+        const matchSupplier = (item.supplier || "").trim() === (supplier || "").trim();
+        const matchGoodsName = (item.goodsName || "").trim() === (goodsName || "").trim();
+        const hasStock = getStockValue(item) > 0;
+
+        console.log("批次 " + item.id + "：供应商匹配=" + matchSupplier + "，商品名匹配=" + matchGoodsName + "，库存>0=" + hasStock);
+        return matchSupplier && matchGoodsName && hasStock;
     });
-    if (batchList.length === 0) return null;
-    batchList.sort((a, b) => new Date(a.produce_date) - new Date(b.produce_date));
+
+    console.log("筛选后批次列表：", batchList);
+
+    if (batchList.length === 0) {
+        console.log("❌ 未找到任何可用批次");
+        return null;
+    }
+
+    // 3. 按生产日期排序
+    batchList.sort((a, b) => {
+        let dateA = new Date(a.produce_date || a.produceDate || a.produce_date_str || 0);
+        let dateB = new Date(b.produce_date || b.produceDate || b.produce_date_str || 0);
+        console.log("排序：批次" + a.id + "日期=" + dateA + " vs 批次" + b.id + "日期=" + dateB);
+        return dateA - dateB;
+    });
+
+    console.log("✅ 最终选择批次：", batchList[0]);
     return batchList[0];
 }
-
 // 刷新出库列表
 function refreshStockOut(){
     loadStockOut();
@@ -167,12 +195,16 @@ function closeStockOutForm(){
 
 // 提交出库 —— 编辑归还旧库存 + 提交时取最早批次扣减
 async function submitStockOut() {
+    console.log("=== 提交出库开始 ===");
     const outEditId = document.getElementById('outEditId').value;
     const supplier = document.getElementById('outSupSearchInput').value.trim();
     const goodsName = document.getElementById('outGoodsSearchInput').value.trim();
     const outNum = Number(document.getElementById('outNum').value);
     const recordDate = document.getElementById('outRecordDate').value;
 
+    console.log("参数：supplier=" + supplier + ", goodsName=" + goodsName + ", outNum=" + outNum);
+
+    // 基础校验
     if (!supplier || !goodsName) {
         showMsg('请选择供应商和商品');
         return;
@@ -188,6 +220,7 @@ async function submitStockOut() {
 
     // 编辑：先归还旧库存
     if (outEditId) {
+        console.log("编辑模式，先归还旧库存");
         let outItem = allStockOut.find(x => x.id === outEditId);
         if (!outItem) {
             showMsg('出库记录不存在');
@@ -198,33 +231,42 @@ async function submitStockOut() {
 
         let oldBatch = allStockIn.find(x => x.id === oldBatchId);
         if (oldBatch) {
-            oldBatch.batchStock = Number(oldBatch.batchStock) + oldOutNum;
+            const stockKey = "batchStock" in oldBatch ? "batchStock" : ("stock" in oldBatch ? "stock" : "currentStock");
+            oldBatch[stockKey] = Number(oldBatch[stockKey]) + oldOutNum;
+            console.log("已归还库存到批次 " + oldBatchId + "，当前库存：" + oldBatch[stockKey]);
         }
     }
 
-    // 统一：新增/编辑都找最早批次
+    // 找最早批次
     let targetBatch = getFirstAvailableBatch(supplier, goodsName);
 
     if (!targetBatch) {
+        console.log("❌ 未找到可用批次，提交失败");
         showMsg('该商品暂无可用库存，无法出库');
         return;
     }
-    if (Number(targetBatch.batchStock) < outNum) {
+
+    // 库存校验
+    const stockKey = "batchStock" in targetBatch ? "batchStock" : ("stock" in targetBatch ? "stock" : "currentStock");
+    if (Number(targetBatch[stockKey]) < outNum) {
         showMsg('当前最早批次库存不足，请减少出库数量');
         return;
     }
 
-    targetBatch.batchStock = Number(targetBatch.batchStock) - outNum;
+    // 扣减库存
+    targetBatch[stockKey] = Number(targetBatch[stockKey]) - outNum;
+    console.log("✅ 扣减库存成功，批次 " + targetBatch.id + " 剩余库存：" + targetBatch[stockKey]);
 
+    // 组装出库数据
     const outData = {
         supplier: supplier,
         goodsName: goodsName,
         spec: document.getElementById('outSpec').value,
         settleType: document.getElementById('outSettleType').value,
-        outPrice: Number(targetBatch.inPrice),
+        outPrice: Number(targetBatch.inPrice || targetBatch.in_price || 0),
         salePrice: Number(document.getElementById('outSalePrice').value),
         outNum: outNum,
-        outAmount: (Number(targetBatch.inPrice) * outNum).toFixed(2),
+        outAmount: (Number(targetBatch.inPrice || targetBatch.in_price || 0) * outNum).toFixed(2),
         saleAmount: (Number(document.getElementById('outSalePrice').value) * outNum).toFixed(2),
         recordDate: recordDate,
         stockInId: targetBatch.id
@@ -246,8 +288,8 @@ async function submitStockOut() {
     saveStockInData();
     refreshStockOut();
     closeStockOutForm();
+    console.log("=== 提交出库结束 ===");
 }
-
 // 导出/导入/模板、分页、排序、删除
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
@@ -332,14 +374,31 @@ function outSortTable(field) {
 
 // 修复：安全更新排序图标
 function updateOutSortIcon() {
-    const icons = document.querySelectorAll('.outSortIcon');
-    icons.forEach(i => i.innerText = '');
+    try {
+        // 1. 清空所有排序图标
+        const icons = document.querySelectorAll('.outSortIcon');
+        if (icons && icons.length > 0) {
+            icons.forEach(i => {
+                if (i && i.innerText !== undefined) {
+                    i.innerText = '';
+                }
+            });
+        }
 
-    const sortables = document.querySelectorAll('.sortable');
-    const idx = Array.from(sortables).findIndex(th => th.onclick?.toString().includes(outSortField));
+        // 2. 找到当前排序字段对应的按钮
+        const sortables = document.querySelectorAll('.sortable');
+        if (!sortables || sortables.length === 0) return;
 
-    if (idx > -1 && icons[idx]) {
-        icons[idx].innerText = outSortAsc ? '↑' : '↓';
+        const idx = Array.from(sortables).findIndex(th => {
+            return th && th.onclick?.toString().includes(outSortField);
+        });
+
+        // 3. 安全设置图标
+        if (idx > -1 && icons && icons[idx]) {
+            icons[idx].innerText = outSortAsc ? '↑' : '↓';
+        }
+    } catch (e) {
+        console.warn("updateOutSortIcon 执行异常：", e);
     }
 }
 // 渲染表格
