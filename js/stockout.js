@@ -2,25 +2,31 @@
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
 
-// 【关键】获取当前商品【最早可用批次】（按生产日期优先，之前能正常扣库存的核心函数）
-function getFirstAvailableBatch(supplier, goodsId) {
+function getFirstAvailableBatch(supplier, goodsName) {
     // 筛选该供应商+商品的所有入库批次
     let batches = allStockIn.filter(item => 
         item.supplier === supplier && 
-        (goodsId ? item.goodsId === goodsId : true)
+        item.goodsName === goodsName
     );
 
     // 按生产日期升序（最早的排在前面）
     batches.sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
 
-    // 找到第一个有剩余库存的批次
+    // 遍历批次，计算每个批次的实际剩余库存
     for (let batch of batches) {
-        if (Number(batch.batchStock) > 0) {
+        // 计算该批次的已出库数量
+        let batchOutTotal = allStockOut
+            .filter(o => o.stockInId === batch.id)
+            .reduce((sum, o) => sum + (Number(o.outNum) || 0), 0);
+        let batchRemain = Number(batch.in_num) - batchOutTotal;
+
+        if (batchRemain > 0) {
             return batch;
         }
     }
     return null;
 }
+
 // 刷新出库列表
 function refreshStockOut(){
     loadStockOut();
@@ -176,15 +182,14 @@ async function submitStockOut() {
     const outEditId = document.getElementById('outEditId').value;
     const supplier = document.getElementById('outSupSearchInput').value.trim();
     const goodsName = document.getElementById('outGoodsSearchInput').value.trim();
-    const goodsId = document.getElementById('outCurGoodsId').value;
     const outNum = Number(document.getElementById('outNum').value);
     const recordDate = document.getElementById('outRecordDate').value;
 
     // 基础校验
-  if (!supplier || !goodsName) {
-    showMsg('请选择供应商和商品');
-    return;
-}
+    if (!supplier || !goodsName) {
+        showMsg('请选择供应商和商品');
+        return;
+    }
     if (isNaN(outNum) || outNum < 1) {
         showMsg('出库数量必须大于0');
         return;
@@ -194,71 +199,81 @@ async function submitStockOut() {
         return;
     }
 
-    // 编辑场景：先归还原出库数量（还给原批次）
+    // 校验总库存
+    let totalStock = getTotalStockNum(supplier, goodsName);
+    if (totalStock < outNum) {
+        showMsg(`库存不足！当前可用库存：${totalStock}`);
+        return;
+    }
+
+    // 编辑场景：先删除旧记录，归还库存
     if (outEditId) {
-        let oldOutItem = allStockOut.find(x => x.id === outEditId);
-        if (oldOutItem) {
-            let revertNum = Number(oldOutItem.outNum);
-            let revertBatchId = oldOutItem.stockInId;
-            // 库存归还：加回原批次 batchStock
-            let revertBatch = allStockIn.find(b => b.id === revertBatchId);
-            if (revertBatch) {
-                revertBatch.batchStock = Number(revertBatch.batchStock) + revertNum;
-            }
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${outEditId}`, {
+                method: 'DELETE',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+        } catch (e) {
+            showMsg('编辑失败，无法移除原有记录');
+            return;
         }
     }
 
-    // 获取当前商品【最早可用批次】（原有逻辑不变）
-    let targetBatch = getFirstAvailableBatch(supplier, goodsId);
+    // 获取当前商品最早可用批次
+    let targetBatch = getFirstAvailableBatch(supplier, goodsName);
     if (!targetBatch) {
         showMsg('该商品暂无可用库存，无法出库');
         return;
     }
-    if (Number(targetBatch.batchStock) < outNum) {
-        showMsg('当前最早批次库存不足，请减少出库数量');
-        return;
-    }
 
-    // 正常扣减当前批次库存（原有扣库存逻辑保留）
-    targetBatch.batchStock = Number(targetBatch.batchStock) - outNum;
-
-    // 组装出库数据（字段完全沿用原版，保证销售单价/金额正常）
+    // 组装出库数据
     const outData = {
         supplier: supplier,
         goodsName: goodsName,
-        goodsId: goodsId,
-        spec: document.getElementById('outSpec').value,
-        settleType: document.getElementById('outSettleType').value,
-        outPrice: Number(targetBatch.inPrice),
-        salePrice: Number(document.getElementById('outSalePrice').value),
+        spec: document.getElementById('outSpec').value || null,
+        settleType: document.getElementById('outSettleType').value || null,
+        outPrice: Number(targetBatch.in_price || 0),
+        salePrice: Number(document.getElementById('outSalePrice').value || 0),
         outNum: outNum,
-        outAmount: (Number(targetBatch.inPrice) * outNum).toFixed(2),
-        saleAmount: (Number(document.getElementById('outSalePrice').value) * outNum).toFixed(2),
+        outAmount: (Number(targetBatch.in_price || 0) * outNum).toFixed(2),
+        saleAmount: (Number(document.getElementById('outSalePrice').value || 0) * outNum).toFixed(2),
         recordDate: recordDate,
         stockInId: targetBatch.id
     };
 
-    // 新增 / 编辑 本地数组处理
-    if (outEditId) {
-        let idx = allStockOut.findIndex(x => x.id === outEditId);
-        if (idx > -1) {
-            allStockOut[idx] = { ...allStockOut[idx], ...outData };
+    // 提交新出库记录
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(outData)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            console.error("接口错误", err);
+            throw new Error("提交异常");
         }
-        showMsg('编辑出库成功');
-    } else {
-        outData.id = createId();
-        allStockOut.push(outData);
-        showMsg('新增出库成功');
+
+        showMsg(outEditId ? '编辑出库成功' : '新增出库成功');
+        closeStockOutForm();
+
+        // 刷新数据
+        await loadStockOut();
+        loadStockIn();
+
+    } catch (e) {
+        console.error(e);
+        showMsg('出库提交失败');
     }
-
-    // 持久化 + 双端刷新（出库+入库，库存实时同步）
-    saveStockOutData();
-    saveStockInData();
-    refreshStockOut();
-    loadStockIn();
-    filterStockIn();
-
-    closeStockOutForm();
 }
 // =========================================================================================
 
