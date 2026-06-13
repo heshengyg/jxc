@@ -171,6 +171,12 @@ async function submitStockOut(){
         outPrice = linkInItem ? Number(linkInItem.in_price) : 0;
     }
 
+    // ========== 仅此处修改：强制从商品基础库取最新销售单价，提交后固化 ==========
+    let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+    if(baseGoods){
+        salePrice = Number(baseGoods.sale_price) || 0;
+    }
+
     // 计算金额
     let outAmount = Number((outPrice * outNum).toFixed(2));
     let saleAmount = Number((salePrice * outNum).toFixed(2));
