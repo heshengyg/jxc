@@ -8,7 +8,11 @@ function refreshStockOut(){
 }
 
 // 供应商下拉
-function showOutSupList(){
+// 修改为（增加异步判断）
+async function showOutSupList(){
+    if(!allStockIn || allStockIn.length === 0){
+        await loadStockIn();
+    }
     outCurrSupplierList = [...new Set(allStockIn.map(item=>item.supplier).filter(s=>s))];
     renderOutSupList(outCurrSupplierList);
     document.getElementById('outSupListBox').style.display = 'block';

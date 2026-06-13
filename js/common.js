@@ -61,8 +61,11 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
     if (tabId === 'stockIn') loadStockIn();
-    // 切换到出库自动加载数据
-    if (tabId === 'stockOut') loadStockOut();
+    // 切换到出库：先加载入库数据，再加载出库数据
+    if (tabId === 'stockOut') {
+        loadStockIn();
+        loadStockOut();
+    }
 }
 
 // 点击空白关闭下拉框
