@@ -76,6 +76,19 @@ document.addEventListener('click', function(e){
     }
 });
 
+// 在 common.js 或 stockin.js 里添加
+async function loadStockInData() {
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        allStockIn = await res.json();
+        filteredStockIn = [...allStockIn];
+    } catch (e) {
+        console.error('加载入库数据失败', e);
+    }
+}
+
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
  * 按【供应商+商品名+规格+生产日期/到期日期】合并批次库存
