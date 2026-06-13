@@ -96,6 +96,9 @@ function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outSalePrice').value = formatMoney(goods.salePrice);
 
+    // 【关键修复】给 outCurGoodsId 赋值，解决校验不通过问题
+    document.getElementById('outCurGoodsId').value = goods.name;
+
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -158,10 +161,10 @@ async function submitStockOut() {
     const recordDate = document.getElementById('outRecordDate').value;
 
     // 基础校验
-    if (!supplier || !goodsName || !goodsId) {
-        showMsg('请选择供应商和商品');
-        return;
-    }
+  if (!supplier || !goodsName) {
+    showMsg('请选择供应商和商品');
+    return;
+}
     if (isNaN(outNum) || outNum < 1) {
         showMsg('出库数量必须大于0');
         return;
