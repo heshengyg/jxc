@@ -178,6 +178,7 @@ async function submitStockOut() {
     const outNum = Number(document.getElementById('outNum').value);
     const recordDate = document.getElementById('outRecordDate').value;
 
+    // 基础校验
     if (!supplier || !goodsName) {
         showMsg('请选择供应商和商品');
         return;
@@ -191,12 +192,14 @@ async function submitStockOut() {
         return;
     }
 
+    // 先校验总库存（实时计算）
     let totalStock = getTotalStockNum(supplier, goodsName);
     if (totalStock < outNum) {
         showMsg(`库存不足！当前可用库存：${totalStock}`);
         return;
     }
 
+    // 编辑：先删除旧出库记录
     if (outEditId) {
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${outEditId}`, {
@@ -212,6 +215,69 @@ async function submitStockOut() {
         }
     }
 
+    // 获取最早可出库批次（纯计算，不修改入库数据）
+    function getFirstAvailableBatch(sup, gName) {
+        let batches = allStockIn
+            .filter(item => item.supplier === sup && item.goodsName === gName)
+            .sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
+        
+        for (let b of batches) {
+            if (getBatchRemain(b) > 0) return b;
+        }
+        return null;
+    }
+
+    let targetBatch = getFirstAvailableBatch(supplier, goodsName);
+    if (!targetBatch) {
+        showMsg('该商品暂无可用库存，无法出库');
+        return;
+    }
+
+    // 组装出库数据（完全沿用你数据库原有字段，无篡改）
+    const outData = {
+        supplier: supplier,
+        goodsName: goodsName,
+        spec: document.getElementById('outSpec').value || null,
+        settleType: document.getElementById('outSettleType').value || null,
+        outPrice: Number(targetBatch.in_price || 0),
+        salePrice: Number(document.getElementById('outSalePrice').value || 0),
+        outNum: outNum,
+        outAmount: (Number(targetBatch.in_price || 0) * outNum).toFixed(2),
+        saleAmount: (Number(document.getElementById('outSalePrice').value || 0) * outNum).toFixed(2),
+        recordDate: recordDate,
+        inRecordId: targetBatch.id,
+        outDetail: []
+    };
+
+    // 提交新出库到数据库
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(outData)
+        });
+
+        if (!res.ok) throw new Error('提交失败');
+
+        showMsg(outEditId ? '编辑出库成功' : '新增出库成功');
+        closeStockOutForm();
+
+        // ========== 【核心修复：强制全量刷新两个数据源】 ==========
+        // 1. 重新拉取最新出库数据
+        await loadStockOut();
+        // 2. 重新拉取最新入库数据 + 入库列表重渲染（自动计算库存）
+        await loadStockIn();
+
+    } catch (e) {
+        console.error(e);
+        showMsg('出库提交失败');
+    }
+}
     let targetBatch = getFirstAvailableBatch(supplier, goodsName);
     if (!targetBatch) {
         showMsg('该商品暂无可用库存，无法出库');
@@ -404,11 +470,11 @@ async function deleteStockOut(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        loadStockOut();
-        loadStockIn();
+        // 刷新数据源 → 入库自动重算库存
+        await loadStockOut();
+        await loadStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
-
 // 批量删除
 async function batchDeleteStockOut(){
     let ids = [];
@@ -422,8 +488,9 @@ async function batchDeleteStockOut(){
         });
     }
     showMsg('批量删除成功');
-    loadStockOut();
-    loadStockIn();
+    // 刷新数据源 → 入库自动重算库存
+    await loadStockOut();
+    await loadStockIn();
 }
 
 // 清空排序、重置搜索
