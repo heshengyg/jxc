@@ -141,7 +141,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
+// 提交出库（按【批次】拆分出库记录，原有校验、扣减、提交逻辑全部不变）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -168,16 +168,24 @@ async function submitStockOut(){
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // ========== 按入库记录ID分组（不同入库=不同出库单价，自动拆分） ==========
-    let groupMap = {};
+    // ========== 【核心修改】按 批次 分组，而非入库记录ID ==========
+    let batchList = getStockBatchList(supplier, goodsName);
+    let batchGroupMap = {};
+
     for(let d of outDetail){
         let inRecordId = d.inRecordId;
         let useNum = d.useNum;
-        // 查找当前这条入库对应的入库单，取出库单价
         let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
         if(!inItem) continue;
 
-        // 计算本条对应的出库单价（沿用原有单价规则）
+        // 找到当前入库记录所属批次
+        let currBatch = batchList.find(batch => batch.inRecords.some(rec => rec.id === inRecordId));
+        if(!currBatch) continue;
+
+        // 生成本批次唯一标识
+        let batchKey = `${currBatch.supplier}_${currBatch.goodsName}_${currBatch.spec}_${currBatch.produce_date||''}_${currBatch.expire_date||''}`;
+
+        // 计算出库单价（沿用原有规则不变）
         let outPrice = 0;
         let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
         if(settleType === '线上'){
@@ -186,21 +194,21 @@ async function submitStockOut(){
             outPrice = Number(inItem.in_price) || 0;
         }
 
-        // 同一条入库记录合并数量
-        if(!groupMap[inRecordId]){
-            groupMap[inRecordId] = {
-                inRecordId: inRecordId,
+        // 按批次聚合
+        if(!batchGroupMap[batchKey]){
+            batchGroupMap[batchKey] = {
                 outPrice: outPrice,
                 totalUseNum: 0,
-                details: []
+                details: [],
+                linkInId: inRecordId
             };
         }
-        groupMap[inRecordId].totalUseNum += useNum;
-        groupMap[inRecordId].details.push(d);
+        batchGroupMap[batchKey].totalUseNum += useNum;
+        batchGroupMap[batchKey].details.push(d);
     }
 
-    // 转为数组，逐条提交
-    let groupList = Object.values(groupMap);
+    // 转为数组，一个批次 = 一条出库记录
+    let groupList = Object.values(batchGroupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
 
     // 统一取商品最新销售单价（沿用原有逻辑）
@@ -214,7 +222,7 @@ async function submitStockOut(){
     for(let group of groupList){
         let singleOutNum = group.totalUseNum;
         let singleOutPrice = group.outPrice;
-        let linkInId = group.inRecordId;
+        let linkInId = group.linkInId;
         let detailStr = JSON.stringify(group.details);
 
         // 单独计算本条金额
@@ -387,7 +395,7 @@ function renderOutPagination() {
     btns[0].disabled = outCurrentPage===1;
     btns[1].disabled = outCurrentPage===1;
     btns[3].disabled = outCurrentPage===outTotalPages;
-    btns[4].disabled = outCurrentPage===outTotalPages;
+    btns[4].disabled = outTotalPages;
 }
 function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }
