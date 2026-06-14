@@ -1,4 +1,15 @@
 // ===================== 入库模块 - 纯业务函数 =====================
+
+/**
+ * 校验当前入库ID是否被出库引用
+ * @param {number|string} inId 入库单ID
+ * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
+ */
+function checkInUsedByOut(inId) {
+    if (!inId) return false;
+    return allStockOut.some(outItem => Number(outItem.inRecordId) === Number(inId));
+}
+
 // 刷新入库列表
 function refreshStockIn(){
     loadStockIn();
@@ -107,6 +118,12 @@ function lockProduceDate(){
 
 // 打开添加入库弹窗
 function openStockInForm(id=null){
+    // 编辑前校验：已被出库引用则禁止编辑
+    if (id && checkInUsedByOut(id)) {
+        showMsg('该入库记录已生成出库单据，禁止编辑！');
+        return;
+    }
+
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
 
@@ -393,7 +410,7 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（修复DOM不存在报错）
+// 渲染入库表格（修复DOM不存在报错 + 已引用出库则按钮置灰）
 function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
@@ -420,6 +437,22 @@ function renderStockIn() {
         let batchRemain = batch ? batch.batchRemain : 0;
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
+
+        // 判断是否被出库引用，控制按钮状态
+        let isUsed = checkInUsedByOut(item.id);
+        let btnHtml = '';
+        if(isUsed){
+            btnHtml = `
+                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+            `;
+        }else{
+            btnHtml = `
+                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+            `;
+        }
+
         let html = `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
@@ -436,8 +469,7 @@ function renderStockIn() {
                 <td>${item.produce_date || ''}</td>
                 <td>${item.expire_date || ''}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+                    ${btnHtml}
                 </td>
             </tr>
         `;
@@ -476,6 +508,11 @@ function inToggleSelectAll(){
 
 // 单条删除
 async function deleteStockIn(id){
+    // 删除前校验：已被出库引用禁止删除
+    if (checkInUsedByOut(id)) {
+        showMsg('该入库记录已生成出库单据，禁止删除！');
+        return;
+    }
     if(!confirm('确定删除？'))return;
     try{
         await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`,{
@@ -490,11 +527,18 @@ async function deleteStockIn(id){
 // 批量删除
 async function batchDeleteStockIn(){
     let ids = [];
-    document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.value);
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
         if(cb.checked) ids.push(cb.value);
     });
     if(ids.length===0) return showMsg('请选择数据');
+
+    // 批量校验：存在已引用单据则整体拦截
+    let usedIds = ids.filter(id => checkInUsedByOut(id));
+    if (usedIds.length > 0) {
+        showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法批量删除！`);
+        return;
+    }
+
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
         await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`,{
