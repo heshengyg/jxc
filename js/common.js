@@ -54,39 +54,17 @@ function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
 }
 
-// 标签页切换（已修复：切页自动同步商品限制状态）
-async function switchTab(tabId) {
+// 标签页切换
+function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
-
-    // 切换到商品模块：刷新商品（预加载入库数据，限制立即生效）
-    if (tabId === 'goods') {
-        if (typeof refreshGoods === 'function') {
-            await refreshGoods();
-        }
-    }
-
-    // 切换到入库模块
-    if (tabId === 'stockIn') {
-        loadStockIn();
-        setTimeout(() => {
-            if (typeof refreshGoods === 'function') {
-                refreshGoods();
-            }
-        }, 100);
-    }
-
-    // 切换到出库模块
+    if (tabId === 'stockIn') loadStockIn();
+    // 切换到出库：先加载入库数据，再加载出库数据
     if (tabId === 'stockOut') {
         loadStockIn();
         loadStockOut();
-        setTimeout(() => {
-            if (typeof refreshGoods === 'function') {
-                refreshGoods();
-            }
-        }, 100);
     }
 }
 
