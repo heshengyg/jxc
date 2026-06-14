@@ -1,3 +1,17 @@
+// 新增：判断该商品是否存在被出库引用的入库记录（参照 in.js 逻辑）
+function checkGoodsUsedByOut(supplier, goodsName, spec) {
+    // 找到该商品所有入库记录
+    let relatedInList = allStockIn.filter(inItem => 
+        inItem.supplier === supplier &&
+        inItem.goodsName === goodsName &&
+        inItem.spec === spec
+    );
+    // 任意一条入库被出库引用，即判定为已占用
+    return relatedInList.some(inItem => 
+        allStockOut.some(outItem => Number(outItem.inRecordId) === Number(inItem.id))
+    );
+}
+
 // 刷新商品列表
 function refreshGoods(){
     loadGoods();
@@ -78,9 +92,26 @@ function renderGoods() {
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let onlineCost = formatMoney(item.online_cost);
+        
+        // 判断是否被出库引用
+        let isUsed = checkGoodsUsedByOut(item.supplier, item.name, item.spec);
+        let btnHtml = '';
+        if(isUsed){
+            // 按钮置灰禁用，样式完全参照 in.js
+            btnHtml = `
+                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+            `;
+        }else{
+            btnHtml = `
+                <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
+            `;
+        }
+
         let html = `
             <tr>
-                <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
+                <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
                 <td>${start+idx+1}</td>
                 <td>${item.supplier||''}</td>
                 <td>${item.name||''}</td>
@@ -92,8 +123,7 @@ function renderGoods() {
                 <td>${expire}</td>
                 <td>${item.warn_num||0}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
+                    ${btnHtml}
                 </td>
             </tr>
         `;
@@ -132,7 +162,10 @@ function toggleSelectAll(){
 function openAddForm(){
     document.getElementById('formTitle').innerText='新增商品';
     document.getElementById('editId').value='';
-    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>el.value='');
+    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>{
+        el.value='';
+        el.disabled = false;
+    });
     toggleOnlineCostInput();
     document.getElementById('formModal').style.display='block';
 }
@@ -151,6 +184,21 @@ function openEditForm(id){
     document.getElementById('add_shelf_life_num').value=item.shelf_life_num||'';
     document.getElementById('add_shelf_life_unit').value=item.shelf_life_unit||'';
     toggleOnlineCostInput();
+
+    // 先恢复所有输入框可编辑
+    document.querySelectorAll('#formModal input, #formModal select').forEach(el=>{
+        el.disabled = false;
+    });
+
+    // 检测是否被出库引用，锁定固有属性：供应商、商品名、规格、结算方式(channel)
+    let isUsed = checkGoodsUsedByOut(item.supplier, item.name, item.spec);
+    if(isUsed){
+        document.getElementById('add_supplier').disabled = true;
+        document.getElementById('add_name').disabled = true;
+        document.getElementById('add_spec').disabled = true;
+        document.getElementById('add_channel').disabled = true;
+    }
+
     document.getElementById('formModal').style.display='block';
 }
 
@@ -226,6 +274,11 @@ async function submitForm(){
 }
 
 async function deleteGoods(id){
+    let item = allGoods.find(g => g.id === id);
+    if(item && checkGoodsUsedByOut(item.supplier, item.name, item.spec)){
+        showMsg('该商品已有关联出库单据，禁止删除！');
+        return;
+    }
     if(!confirm('确定删除？'))return;
     try{
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`,{
@@ -241,6 +294,21 @@ async function batchDelete(){
     let ids = [];
     document.querySelectorAll('.item-checkbox:checked').forEach(cb=>ids.push(cb.value));
     if(ids.length===0) return showMsg('请选择数据');
+
+    // 批量校验：存在关联出库则禁止批量删除
+    let hasUsed = false;
+    for(let id of ids){
+        let item = allGoods.find(g => g.id === id);
+        if(item && checkGoodsUsedByOut(item.supplier, item.name, item.spec)){
+            hasUsed = true;
+            break;
+        }
+    }
+    if(hasUsed){
+        showMsg('选中商品中存在关联出库单据的数据，无法批量删除！');
+        return;
+    }
+
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`,{
