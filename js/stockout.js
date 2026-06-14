@@ -311,6 +311,11 @@ async function loadStockOut() {
     }
 }
 
+// 出库数据加载完成后，同步刷新商品状态
+if(typeof refreshGoods === "function"){
+    refreshGoods();
+}
+
 // 搜索筛选
 function filterStockOut() {
     let field = document.getElementById('outSearchField').value;

@@ -13,8 +13,24 @@ function goodsHasStockIn(goodsId) {
     );
 }
 
+// 预加载入库数据（商品页面初始化调用，保证校验数据就绪）
+async function preLoadStockInData() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (res.ok) {
+            allStockIn = await res.json();
+        }
+    } catch (e) {
+        console.log("入库数据预加载失败", e);
+    }
+}
+
 // 刷新商品列表
-function refreshGoods(){
+async function refreshGoods(){
+    // 先加载入库数据，再刷新列表
+    await preLoadStockInData();
     loadGoods();
 }
 
@@ -151,7 +167,11 @@ function toggleSelectAll(){
 function openAddForm(){
     document.getElementById('formTitle').innerText='新增商品';
     document.getElementById('editId').value='';
-    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>el.value='');
+    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>{
+        el.value='';
+        el.disabled = false;
+        el.style.backgroundColor = '';
+    });
     toggleOnlineCostInput();
     document.getElementById('formModal').style.display='block';
 }
@@ -178,13 +198,16 @@ function openEditForm(id){
         'add_spec',
         'add_channel'
     ];
+    // 先统一重置状态，再按需禁用
+    document.querySelectorAll('#formModal input, #formModal select').forEach(el=>{
+        el.disabled = false;
+        el.style.backgroundColor = '';
+    });
     lockFields.forEach(fieldId => {
         const el = document.getElementById(fieldId);
         el.disabled = isUsed;
         if(isUsed){
             el.style.backgroundColor = '#f5f5f5';
-        }else{
-            el.style.backgroundColor = '';
         }
     });
 
@@ -267,7 +290,8 @@ async function submitForm(){
             showMsg('新增成功');
         }
         closeForm();
-        loadGoods(); // 提交后重新加载列表
+        // 保存后刷新列表，同步按钮状态
+        await refreshGoods();
     }catch(e){
         showMsg('操作失败');
     }
@@ -285,13 +309,13 @@ async function deleteGoods(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        loadGoods();
+        await refreshGoods();
     }catch(e){ showMsg('删除失败'); }
 }
 
 async function batchDelete(){
     let ids = [];
-    document.querySelectorAll('.item-checkbox:checked').forEach(cb=>ids.push(cb.value));
+    document.querySelectorAll('.item-checkbox').forEach(cb=>ids.push(cb.value));
     if(ids.length===0) return showMsg('请选择数据');
     if(!confirm(`确定删除${ids.length}条？`))return;
 
@@ -312,7 +336,7 @@ async function batchDelete(){
     }else{
         showMsg('批量删除成功');
     }
-    loadGoods();
+    await refreshGoods();
 }
 
 // 商品下载模板
