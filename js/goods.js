@@ -1,14 +1,9 @@
-// 新增：判断该商品是否存在被出库引用的入库记录（参照 in.js 逻辑）
-function checkGoodsUsedByOut(supplier, goodsName, spec) {
-    // 找到该商品所有入库记录
-    let relatedInList = allStockIn.filter(inItem => 
+// 新增：判断当前商品是否被入库记录引用
+function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
+    return allStockIn.some(inItem =>
         inItem.supplier === supplier &&
         inItem.goodsName === goodsName &&
         inItem.spec === spec
-    );
-    // 任意一条入库被出库引用，即判定为已占用
-    return relatedInList.some(inItem => 
-        allStockOut.some(outItem => Number(outItem.inRecordId) === Number(inItem.id))
     );
 }
 
@@ -92,22 +87,12 @@ function renderGoods() {
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let onlineCost = formatMoney(item.online_cost);
-        
-        // 判断是否被出库引用
-        let isUsed = checkGoodsUsedByOut(item.supplier, item.name, item.spec);
-        let btnHtml = '';
-        if(isUsed){
-            // 按钮置灰禁用，样式完全参照 in.js
-            btnHtml = `
-                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
-            `;
-        }else{
-            btnHtml = `
-                <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
-            `;
-        }
+        // 判断是否被入库引用
+        let isUsed = checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+        // 编辑按钮始终可用，删除按钮参照in.js样式置灰
+        let delBtn = isUsed 
+            ? `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`
+            : `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
 
         let html = `
             <tr>
@@ -123,7 +108,8 @@ function renderGoods() {
                 <td>${expire}</td>
                 <td>${item.warn_num||0}</td>
                 <td>
-                    ${btnHtml}
+                    <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
+                    ${delBtn}
                 </td>
             </tr>
         `;
@@ -162,10 +148,7 @@ function toggleSelectAll(){
 function openAddForm(){
     document.getElementById('formTitle').innerText='新增商品';
     document.getElementById('editId').value='';
-    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>{
-        el.value='';
-        el.disabled = false;
-    });
+    document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>el.value='');
     toggleOnlineCostInput();
     document.getElementById('formModal').style.display='block';
 }
@@ -190,8 +173,8 @@ function openEditForm(id){
         el.disabled = false;
     });
 
-    // 检测是否被出库引用，锁定固有属性：供应商、商品名、规格、结算方式(channel)
-    let isUsed = checkGoodsUsedByOut(item.supplier, item.name, item.spec);
+    // 被入库引用，锁定四项字段
+    let isUsed = checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
     if(isUsed){
         document.getElementById('add_supplier').disabled = true;
         document.getElementById('add_name').disabled = true;
@@ -275,8 +258,9 @@ async function submitForm(){
 
 async function deleteGoods(id){
     let item = allGoods.find(g => g.id === id);
-    if(item && checkGoodsUsedByOut(item.supplier, item.name, item.spec)){
-        showMsg('该商品已有关联出库单据，禁止删除！');
+    // 校验是否被入库引用
+    if(item && checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
+        showMsg('该商品已存在入库记录，禁止删除！');
         return;
     }
     if(!confirm('确定删除？'))return;
@@ -295,17 +279,17 @@ async function batchDelete(){
     document.querySelectorAll('.item-checkbox:checked').forEach(cb=>ids.push(cb.value));
     if(ids.length===0) return showMsg('请选择数据');
 
-    // 批量校验：存在关联出库则禁止批量删除
+    // 批量校验是否存在已入库商品
     let hasUsed = false;
     for(let id of ids){
         let item = allGoods.find(g => g.id === id);
-        if(item && checkGoodsUsedByOut(item.supplier, item.name, item.spec)){
+        if(item && checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
             hasUsed = true;
             break;
         }
     }
     if(hasUsed){
-        showMsg('选中商品中存在关联出库单据的数据，无法批量删除！');
+        showMsg('选中商品中存在已录入入库单据的数据，无法批量删除！');
         return;
     }
 
