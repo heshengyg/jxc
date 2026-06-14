@@ -84,6 +84,7 @@ document.addEventListener('click', function(e){
 /**
  * 按【供应商+商品名+规格+入库单价+生产日期/到期日期】合并批次库存
  * 先进先出排序：生产日期早 > 到期日期早
+ * 同生产/到期：按批次最早入库记录ID升序（先录入先出库）
  */
 function getStockBatchList(supplier, goodsName) {
     // 1. 筛选对应商品所有入库记录
@@ -148,19 +149,31 @@ function getStockBatchList(supplier, goodsName) {
         batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
     });
 
-    // 4. 过滤库存为0的批次，并按先进先出排序
+    // 4. 过滤库存为0的批次
     let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
+
+    // ========== 核心修改：先按生产/到期排序，同日期再按【批次最早入库ID升序】 ==========
     batchList.sort((a, b) => {
+        // 第一优先级：生产日期
         if (a.produce_date && b.produce_date) {
-            return new Date(a.produce_date) - new Date(b.produce_date);
+            let pdDiff = new Date(a.produce_date) - new Date(b.produce_date);
+            if (pdDiff !== 0) return pdDiff;
         }
         if (a.produce_date) return -1;
         if (b.produce_date) return 1;
+
+        // 第二优先级：到期日期
         if (a.expire_date && b.expire_date) {
-            return new Date(a.expire_date) - new Date(b.expire_date);
+            let edDiff = new Date(a.expire_date) - new Date(b.expire_date);
+            if (edDiff !== 0) return edDiff;
         }
-        return 0;
+
+        // 第三优先级：生产/到期完全相同时 → 取批次内第一条入库ID，升序（先录入先出库）
+        let aFirstId = a.inRecords[0] ? Number(a.inRecords[0].id) : 0;
+        let bFirstId = b.inRecords[0] ? Number(b.inRecords[0].id) : 0;
+        return aFirstId - bFirstId;
     });
+
     return batchList;
 }
 
