@@ -82,7 +82,7 @@ document.addEventListener('click', function(e){
 
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
- * 按【供应商+商品名+规格+生产日期/到期日期】合并批次库存
+ * 按【供应商+商品名+规格+入库单价+生产日期/到期日期】合并批次库存
  * 先进先出排序：生产日期早 > 到期日期早
  */
 function getStockBatchList(supplier, goodsName) {
@@ -91,10 +91,11 @@ function getStockBatchList(supplier, goodsName) {
         item.supplier === supplier && item.goodsName === goodsName
     );
 
-    // 2. 按批次合并：key = 供应商+商品名+规格+生产日期+到期日期
+    // 2. 按批次合并：key = 供应商+商品名+规格+入库单价+生产日期+到期日期
     let batchMap = {};
     inList.forEach(inItem => {
-        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
+        // 【唯一修改处】新增 in_price 进入批次唯一标识
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
             batchMap[batchKey] = {
