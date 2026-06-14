@@ -1,3 +1,18 @@
+/**
+ * 判断当前商品是否已存在入库记录（被引用）
+ * @param {number} goodsId 商品ID
+ * @returns {boolean} true=已被引用(不可删/限制编辑)
+ */
+function goodsHasStockIn(goodsId) {
+    const goods = allGoods.find(g => g.id === goodsId);
+    if (!goods) return false;
+    return allStockIn.some(inItem =>
+        inItem.supplier === goods.supplier &&
+        inItem.goodsName === goods.name &&
+        inItem.spec === goods.spec
+    );
+}
+
 // 刷新商品列表
 function refreshGoods(){
     loadGoods();
@@ -78,9 +93,13 @@ function renderGoods() {
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let onlineCost = formatMoney(item.online_cost);
+        const isUsed = goodsHasStockIn(item.id);
+        const editBtnDisabled = isUsed ? 'disabled' : '';
+        const delBtnDisabled = isUsed ? 'disabled' : '';
+
         let html = `
             <tr>
-                <td><input type="checkbox" class="item-checkbox" value="${item.id}"></td>
+                <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${delBtnDisabled}></td>
                 <td>${start+idx+1}</td>
                 <td>${item.supplier||''}</td>
                 <td>${item.name||''}</td>
@@ -92,8 +111,8 @@ function renderGoods() {
                 <td>${expire}</td>
                 <td>${item.warn_num||0}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>
+                    <button class="btn btn-primary" onclick="openEditForm(${item.id})" ${editBtnDisabled}>编辑</button>
+                    <button class="btn btn-danger" onclick="deleteGoods(${item.id})" ${delBtnDisabled}>删除</button>
                 </td>
             </tr>
         `;
@@ -151,6 +170,24 @@ function openEditForm(id){
     document.getElementById('add_shelf_life_num').value=item.shelf_life_num||'';
     document.getElementById('add_shelf_life_unit').value=item.shelf_life_unit||'';
     toggleOnlineCostInput();
+
+    const isUsed = goodsHasStockIn(id);
+    const lockFields = [
+        'add_supplier',
+        'add_name',
+        'add_spec',
+        'add_channel'
+    ];
+    lockFields.forEach(fieldId => {
+        const el = document.getElementById(fieldId);
+        el.disabled = isUsed;
+        if(isUsed){
+            el.style.backgroundColor = '#f5f5f5';
+        }else{
+            el.style.backgroundColor = '';
+        }
+    });
+
     document.getElementById('formModal').style.display='block';
 }
 
@@ -181,6 +218,17 @@ async function submitForm(){
     if(!supplier||!name||!channel||!salePrice) return showMsg('必填项不能为空');
     if(+salePrice<=0) return showMsg('销售单价必须大于0');
     if(isDuplicate(supplier,name,spec,editId)) return showMsg('该供应商下已存在同名同规格商品！');
+
+    // 二次校验：已引用商品禁止修改锁定字段
+    if(editId){
+        const goods = allGoods.find(g => g.id === Number(editId));
+        const isUsed = goodsHasStockIn(Number(editId));
+        if(isUsed){
+            if(goods.supplier !== supplier || goods.name !== name || goods.spec !== spec || goods.channel !== channel){
+                return showMsg('该商品已被入库引用，禁止修改供应商、商品名、规格、销售渠道！');
+            }
+        }
+    }
 
     let data = {
         supplier: supplier.trim(),
@@ -226,6 +274,10 @@ async function submitForm(){
 }
 
 async function deleteGoods(id){
+    if(goodsHasStockIn(id)){
+        showMsg('该商品已存在入库记录，禁止删除！');
+        return;
+    }
     if(!confirm('确定删除？'))return;
     try{
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`,{
@@ -242,13 +294,24 @@ async function batchDelete(){
     document.querySelectorAll('.item-checkbox:checked').forEach(cb=>ids.push(cb.value));
     if(ids.length===0) return showMsg('请选择数据');
     if(!confirm(`确定删除${ids.length}条？`))return;
+
+    let hasUsed = false;
     for(let id of ids){
+        if(goodsHasStockIn(Number(id))){
+            hasUsed = true;
+            continue;
+        }
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`,{
             method:'DELETE',
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
     }
-    showMsg('批量删除成功');
+
+    if(hasUsed){
+        showMsg('部分商品已存在入库记录，已跳过禁止删除项！');
+    }else{
+        showMsg('批量删除成功');
+    }
     loadGoods();
 }
 
