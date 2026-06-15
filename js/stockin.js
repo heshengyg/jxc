@@ -1,6 +1,6 @@
 // ===================== 入库模块 - 纯业务函数 =====================
 /**
- * 校验当前入库ID是否被出库引用（已改为后端RPC校验，不再依赖前端allStockOut）
+ * 校验当前入库ID是否被出库引用（已改为后端RPC校验）
  * @param {number|string} inId 入库单ID
  * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
  */
@@ -19,11 +19,12 @@ async function checkInUsedByOut(inId) {
             })
         });
         const result = await res.json();
-        // 强约束：只识别布尔值，其余全部判定为【未引用】，避免全锁
-        return result === true;
+        // 修复：Supabase RPC 返回布尔值时，格式为 [布尔值]，取数组第一个元素
+        const realValue = Array.isArray(result) ? result[0] : result;
+        return realValue === true;
     } catch (err) {
         console.error("后端校验出错：", err);
-        // 网络/接口异常 → 放行，不锁行
+        // 异常时放行，避免全部锁死
         return false;
     }
 }
