@@ -445,7 +445,7 @@ async function renderStockIn() {
     }
     tb.innerHTML = '';
 
-    // 缓存批次列表，避免重复计算
+    // 缓存批次列表，避免重复计算（原有逻辑完全保留）
     let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
     let batchCache = {};
     goodsSet.forEach(key => {
@@ -453,6 +453,17 @@ async function renderStockIn() {
         batchCache[key] = getStockBatchList(supplier, goodsName);
     });
 
+    // ========== 核心修复：并行批量校验，不在循环内串行await ==========
+    // 1. 构建【ID → 校验结果】映射
+    const checkMap = new Map();
+    // 2. 并行发起所有校验请求（不阻塞渲染）
+    const checkTasks = pageData.map(item => checkInUsedByOut(item.id).then(res => {
+        checkMap.set(item.id, res);
+    }));
+    // 等待全部校验完成
+    await Promise.all(checkTasks);
+
+    // 3. 正常循环渲染DOM（无网络请求，不再阻塞）
     for(let idx = 0; idx < pageData.length; idx++){
         const item = pageData[idx];
         let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
@@ -462,7 +473,8 @@ async function renderStockIn() {
         let batchRemain = batch ? batch.batchRemain : 0;
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
-        let isUsed = await checkInUsedByOut(item.id);
+        // 从映射中读取预校验结果
+        let isUsed = checkMap.get(item.id) || false;
         let btnHtml = '';
         if(isUsed){
             btnHtml = `
