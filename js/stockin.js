@@ -419,6 +419,7 @@ function updateInSortIcon() {
 }
 
 // 渲染入库表格（库存逻辑完全保留 + 后端ID校验）
+// 渲染入库表格（修复按钮HTML结构，库存逻辑完全保留 + 后端ID校验）
 async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
@@ -451,6 +452,8 @@ async function renderStockIn() {
         let amount = formatMoney((item.in_price || 0) * item.in_num);
         let isUsed = idUsedMap[item.id];
         let btnHtml = '';
+        
+        // 修复点：完整拼接HTML标签，保证每个按钮都正确闭合
         if(isUsed){
             btnHtml = `
                 <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
@@ -459,9 +462,10 @@ async function renderStockIn() {
         }else{
             btnHtml = `
                 <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">
+                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
             `;
         }
+
         let html = `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
@@ -485,7 +489,6 @@ async function renderStockIn() {
         tb.innerHTML += html;
     });
 }
-
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
