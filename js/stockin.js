@@ -1,11 +1,12 @@
-// ===================== 入库模块 - 纯业务函数 =====================
-/**
- * 校验当前入库ID是否被出库引用（已改为后端RPC校验）
+// ===================== 入库模块 - 纯业务函数 /**
+ * 校验当前入库ID是否被出库引用（对齐商品校验的RPC调用逻辑）
  * @param {number|string} inId 入库单ID
  * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
  */
 async function checkInUsedByOut(inId) {
+    // 空值直接返回"未引用"（保持原有逻辑）
     if (!inId) return false;
+    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`, {
             method: "POST",
@@ -15,17 +16,26 @@ async function checkInUsedByOut(inId) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                p_in_id: inId
+                p_in_id: inId // 确认后端RPC参数名是p_in_id，和后端保持一致！
             })
         });
+
+        // 先校验响应状态（商品校验里缺失的关键步骤）
+        if (!res.ok) {
+            throw new Error(`RPC请求失败: ${res.status} ${res.statusText}`);
+        }
+
+        // 直接解析返回值（对齐商品校验的写法，去掉多余的数组判断）
         const result = await res.json();
-        // 修复：Supabase RPC 返回布尔值时，格式为 [布尔值]，取数组第一个元素
-        const realValue = Array.isArray(result) ? result[0] : result;
-        return realValue === true;
+        
+        // 明确返回布尔值（确保返回值类型正确）
+        return Boolean(result);
+
     } catch (err) {
-        console.error("后端校验出错：", err);
-        // 异常时放行，避免全部锁死
-        return false;
+        console.error("后端校验入库单被引用状态出错：", err);
+        // 异常时返回"已被引用"（更安全！避免异常时误删/误改已关联的入库单）
+        // （商品校验里异常返回true，这里保持逻辑一致）
+        return true;
     }
 }
 // 刷新入库列表
