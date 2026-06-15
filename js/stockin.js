@@ -203,7 +203,7 @@ async function submitStockIn(){
     let inPrice = document.getElementById('inPrice').value;
     let recordDate = document.getElementById('inRecordDate').value;
     let produceDate = document.getElementById('inProduceDate').value;
-    let expireDate = document.getElementById('inExpireDate').value;
+    let expireDate = document.getElementById('inExpireDate').value; // 这里是正确的变量名
 
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName || !goodsId) return showMsg('请选择商品');
@@ -243,7 +243,7 @@ async function submitStockIn(){
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
-        expire_date: expire_date || null
+        expire_date: expireDate || null // 这里是修复点，变量名和上面定义的expireDate保持一致
     };
 
     try {
@@ -276,10 +276,10 @@ async function submitStockIn(){
         closeStockInForm();
         loadStockIn();
     } catch (e) {
-        showMsg('入库提交失败');
+        console.error(e); // 加上console.error方便你调试
+        showMsg('入库提交失败：' + e.message);
     }
 }
-
 // 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
