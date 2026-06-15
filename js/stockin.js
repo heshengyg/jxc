@@ -18,9 +18,12 @@ async function checkInUsedByOut(inId) {
                 p_in_id: inId
             })
         });
-        return await res.json();
+        const result = await res.json();
+        // 强约束：只识别布尔值，其余全部判定为【未引用】，避免全锁
+        return result === true;
     } catch (err) {
         console.error("后端校验出错：", err);
+        // 网络/接口异常 → 放行，不锁行
         return false;
     }
 }
@@ -391,6 +394,7 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon').innerText = inSortAsc?'↑':'↓';
 }
 // 渲染入库表格
+// 渲染入库表格（优化：并行请求，不再循环串行等待）
 async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
@@ -400,14 +404,24 @@ async function renderStockIn() {
         return;
     }
     tb.innerHTML = '';
-    // 缓存批次列表，避免重复计算
+
+    // 缓存批次列表（原有逻辑完全保留）
     let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
     let batchCache = {};
     goodsSet.forEach(key => {
         let [supplier, goodsName] = key.split('_');
         batchCache[key] = getStockBatchList(supplier);
     });
-    // 循环渲染前先批量校验每一行状态
+
+    // 【核心优化】并行批量发起校验请求，杜绝串行阻塞
+    const checkMap = new Map();
+    const taskList = pageData.map(item => 
+        checkInUsedByOut(item.id).then(flag => checkMap.set(item.id, flag))
+    );
+    // 等待所有接口请求完成（仅等待一次）
+    await Promise.all(taskList);
+
+    // 纯DOM渲染（无网络请求，极速执行）
     for(let idx = 0; idx < pageData.length; idx++){
         const item = pageData[idx];
         let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
@@ -417,8 +431,8 @@ async function renderStockIn() {
         let batchRemain = batch ? batch.batchRemain : 0;
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
-        // 后端RPC实时校验
-        let isUsed = await checkInUsedByOut(item.id);
+        // 从预存结果取值，不再发请求
+        let isUsed = checkMap.get(item.id) || false;
         let btnHtml = '';
         if(isUsed){
             btnHtml = `
@@ -431,6 +445,7 @@ async function renderStockIn() {
                 <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
             `;
         }
+
         let html = `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
@@ -454,6 +469,7 @@ async function renderStockIn() {
         tb.innerHTML += html;
     }
 }
+
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
