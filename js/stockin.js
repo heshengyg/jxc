@@ -1,30 +1,28 @@
-// ===================== 入库模块 - 纯业务函数 async function checkInUsedByOut(inId) {
+// ===================== 入库模块 - 纯业务函数 async function async function checkInUsedByOut(inId) {
     if (!inId) return false;
     try {
-        // 构建正确的请求URL和头
+        // 直接使用你config.js里定义的变量
         const url = `${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`;
         const headers = new Headers();
         headers.append("Content-Type", "application/json");
         headers.append("apikey", SUPABASE_KEY);
         headers.append("Authorization", `Bearer ${SUPABASE_KEY}`);
-        headers.append("Prefer", "return=representation"); // 关键！解决300重定向
+        headers.append("Prefer", "return=representation"); // 解决300重定向问题
 
-        // 发送请求
         const response = await fetch(url, {
             method: "POST",
             headers: headers,
             body: JSON.stringify({
-                "p_in_id": Number(inId) // 参数名必须和SQL函数完全一致
+                "p_in_id": Number(inId) // 参数名和SQL函数完全一致
             })
         });
 
-        // 状态码300+ 都视为请求失败
         if (!response.ok) {
             throw new Error(`RPC请求失败，状态码：${response.status}`);
         }
 
-        // Supabase RPC默认返回数组，比如 [true] 或 [false]
         const result = await response.json();
+        // Supabase RPC默认返回数组，比如 [true] 或 [false]
         const isUsed = Array.isArray(result) ? result[0] : result;
         return isUsed === true;
 
