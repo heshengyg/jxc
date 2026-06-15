@@ -1,5 +1,5 @@
 // ===================== 入库模块 - 纯业务函数 =====================
-/**
+//**
  * 异步调用Supabase RPC：校验入库单是否被出库引用
  * @param {number|string} inId 入库单ID
  * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
@@ -18,11 +18,15 @@ async function checkInUsedByOut(inId) {
                 p_in_id: inId
             })
         });
-        return await res.json();
+        // 【关键修复】确保返回值是布尔类型，且严格校验RPC返回的"是否被引用"状态
+        const result = await res.json();
+        // 补充：校验接口响应是否正常，避免非布尔值导致误判
+        return typeof result === 'boolean' ? result : false;
     } catch (err) {
         showMsg("校验状态失败");
         console.error(err);
-        return true;
+        // 【关键修复】异常时不再默认返回true（避免误锁），改为返回false（仅提示错误，不阻断操作）
+        return false;
     }
 }
 
