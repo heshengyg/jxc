@@ -1,30 +1,40 @@
-// ===================== 入库模块 - 纯业务函数 =====================
-
-/**
- * 校验当前入库ID是否被出库引用（改为后端接口校验）
+// ===================== 入库模块 - 纯业务函数 /**
+ * 校验当前入库ID是否被出库引用（纯RPC调用，无额外接口）
  * @param {number|string} inId 入库单ID
  * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
  */
 async function checkInUsedByOut(inId) {
     if (!inId) return false;
     try {
-        // 调用后端接口校验入库ID是否被出库引用
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/check_stock_in_used?in_id=eq.${inId}`, {
-            method: 'GET',
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-            }
+        // 调用我们之前创建的RPC函数 check_in_used_by_out
+        const url = `${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`;
+        const headers = new Headers();
+        headers.append("Content-Type", "application/json");
+        headers.append("apikey", SUPABASE_KEY);
+        headers.append("Authorization", `Bearer ${SUPABASE_KEY}`);
+        headers.append("Prefer", "return=representation"); // 解决300重定向
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({
+                "p_in_id": Number(inId) // 参数名必须和SQL函数完全一致
+            })
         });
-        if (!res.ok) throw new Error('校验接口请求失败');
-        const data = await res.json();
-        // 后端返回 { isUsed: true/false } 格式，根据实际返回调整
-        return data.isUsed || false;
-    } catch (e) {
-        console.error('校验入库ID是否被引用失败：', e);
-        // 异常时默认视为已引用，避免误操作
-        return true;
+
+        if (!response.ok) {
+            throw new Error(`RPC请求失败，状态码：${response.status}`);
+        }
+
+        // Supabase RPC默认返回数组，比如 [true] 或 [false]
+        const result = await response.json();
+        const isUsed = Array.isArray(result) ? result[0] : result;
+        return isUsed === true;
+
+    } catch (err) {
+        console.error("入库出库校验失败：", err);
+        // 异常兜底：放行，防止全部按钮不可用
+        return false;
     }
 }
 
