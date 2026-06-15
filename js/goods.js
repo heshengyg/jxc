@@ -1,10 +1,25 @@
-// 新增：判断当前商品是否被入库记录引用
-function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
-    return allStockIn.some(inItem =>
-        inItem.supplier === supplier &&
-        inItem.goodsName === goodsName &&
-        inItem.spec === spec
-    );
+// 异步调用Supabase RPC：校验商品是否存在入库记录
+async function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_goods_stock_in`, {
+            method: "POST",
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                p_supplier: supplier,
+                p_goods_name: goodsName,
+                p_spec: spec
+            })
+        });
+        return await res.json();
+    } catch (err) {
+        showMsg("校验状态失败");
+        console.error(err);
+        return true;
+    }
 }
 
 // 刷新商品列表
@@ -79,21 +94,20 @@ function updateSortIcon() {
     if(idx>-1) document.querySelectorAll('.sort-icon')[idx].innerText = sortAsc?'↑':'↓';
 }
 
-function renderGoods() {
+async function renderGoods() {
     let start = (currentPage-1)*pageSize;
     let pageData = filteredGoods.slice(start, start+pageSize);
     let tb = document.getElementById('goodsList'); tb.innerHTML = '';
-    pageData.forEach((item,idx)=>{
+    for(let idx = 0; idx < pageData.length; idx++){
+        const item = pageData[idx];
         let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
         let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let onlineCost = formatMoney(item.online_cost);
-        // 判断是否被入库引用
-        let isUsed = checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+        let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
         // 编辑按钮始终可用，删除按钮参照in.js样式置灰
         let delBtn = isUsed 
             ? `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`
             : `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
-
         let html = `
             <tr>
                 <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
@@ -114,7 +128,7 @@ function renderGoods() {
             </tr>
         `;
         tb.innerHTML += html;
-    });
+    }
 }
 
 function renderPagination() {
@@ -153,7 +167,7 @@ function openAddForm(){
     document.getElementById('formModal').style.display='block';
 }
 
-function openEditForm(id){
+async function openEditForm(id){
     let item = allGoods.find(x=>x.id===id); if(!item)return;
     document.getElementById('formTitle').innerText='编辑商品';
     document.getElementById('editId').value=id;
@@ -167,21 +181,18 @@ function openEditForm(id){
     document.getElementById('add_shelf_life_num').value=item.shelf_life_num||'';
     document.getElementById('add_shelf_life_unit').value=item.shelf_life_unit||'';
     toggleOnlineCostInput();
-
     // 先恢复所有输入框可编辑
     document.querySelectorAll('#formModal input, #formModal select').forEach(el=>{
         el.disabled = false;
     });
-
     // 被入库引用，锁定四项字段
-    let isUsed = checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+    let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
     if(isUsed){
         document.getElementById('add_supplier').disabled = true;
         document.getElementById('add_name').disabled = true;
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_channel').disabled = true;
     }
-
     document.getElementById('formModal').style.display='block';
 }
 
@@ -208,11 +219,9 @@ async function submitForm(){
     let warnNum = document.getElementById('add_warn_num').value;
     let shelfNum = document.getElementById('add_shelf_life_num').value;
     let shelfUnit = document.getElementById('add_shelf_life_unit').value;
-
     if(!supplier||!name||!channel||!salePrice) return showMsg('必填项不能为空');
     if(+salePrice<=0) return showMsg('销售单价必须大于0');
-    if(isDuplicate(supplier,name,spec,editId)) return showMsg('该供应商下已存在同名同规格商品！');
-
+    if(isDuplicate(supplier,name,editId)) return showMsg('该供应商下已存在同名同规格商品！');
     let data = {
         supplier: supplier.trim(),
         name: name.trim(),
@@ -259,7 +268,7 @@ async function submitForm(){
 async function deleteGoods(id){
     let item = allGoods.find(g => g.id === id);
     // 校验是否被入库引用
-    if(item && checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
+    if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
         showMsg('该商品已存在入库记录，禁止删除！');
         return;
     }
@@ -276,14 +285,13 @@ async function deleteGoods(id){
 
 async function batchDelete(){
     let ids = [];
-    document.querySelectorAll('.item-checkbox:checked').forEach(cb=>ids.push(cb.value));
+    document.querySelectorAll('.item-checkbox').forEach(cb=>ids.push(cb.value));
     if(ids.length===0) return showMsg('请选择数据');
-
     // 批量校验是否存在已入库商品
     let hasUsed = false;
     for(let id of ids){
         let item = allGoods.find(g => g.id === id);
-        if(item && checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
+        if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
             hasUsed = true;
             break;
         }
@@ -292,7 +300,6 @@ async function batchDelete(){
         showMsg('选中商品中存在已录入入库单据的数据，无法批量删除！');
         return;
     }
-
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`,{
