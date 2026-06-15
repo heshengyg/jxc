@@ -198,23 +198,27 @@ async function submitStockIn(){
     let recordDate = document.getElementById('inRecordDate').value;
     let produceDate = document.getElementById('inProduceDate').value;
     let expireDate = document.getElementById('inExpireDate').value;
+
+    // 基础校验
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName || !goodsId) return showMsg('请选择商品');
     if(!inNum || +inNum < 1) return showMsg('入库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
     if(settleType === '线下'){
-        if(inPrice === '' || isNaN(+inPrice) || +inPrice < 0){
-            return showMsg('线下商品必须填写入库单价');
+        if(inPrice === '' || isNaN(+inPrice) || +inPrice <= 0){
+            return showMsg('线下商品必须填写大于0的入库单价');
         }
     }
     if(settleType === '线上'){
         if(inPrice !== '' && +inPrice > 0){
-            return showMsg('线上商品不允许填写入库单价');
+            return showMsg('线上商品无需填写入库单价');
         }
     }
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
+
+    // 计算最终入库单价
     let targetGoods = allGoods.find(g => g.id == goodsId);
     let finalInPrice = 0;
     if(settleType === '线上'){
@@ -222,52 +226,68 @@ async function submitStockIn(){
     }else{
         finalInPrice = +inPrice;
     }
-    let postData = {
+
+    // 处理日期格式
+    const postData = {
         supplier: supplier,
         goodsName: goodsName,
-        spec: spec || null,
+        spec: spec || '',
         settleType: settleType,
         sale_price: salePrice,
         in_price: finalInPrice,
         in_num: +inNum,
         record_date: recordDate,
-        produce_date: produceDate || null,
-        expire_date: expireDate || null
+        produce_date: produceDate || '',
+        expire_date: expireDate || ''
     };
+
+    console.log('提交的入库数据:', postData);
+
     try {
         let res;
+        const headers = {
+            apikey:SUPABASE_KEY,
+            Authorization:`Bearer ${SUPABASE_KEY}`,
+            'Content-Type':'application/json',
+            'Prefer':'return=representation'
+        };
         if(editId){
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${editId}`,{
                 method:'PATCH',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
+                headers,
                 body:JSON.stringify(postData)
             });
         }else{
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`,{
                 method:'POST',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
+                headers,
                 body:JSON.stringify(postData)
             });
         }
-        if(!res.ok) throw new Error('请求异常');
-        showMsg(editId ? '编辑成功' : '入库成功');
-        closeStockIn();
-        loadStockIn();
+
+        // 200/201 状态码都视为成功
+        if(res.status >= 200 && res.status < 300){
+            // 尝试解析响应体（有些接口可能不返回数据）
+            try {
+                await res.json();
+            } catch (parseErr) {
+                console.log('接口无返回数据，视为提交成功');
+            }
+
+            showMsg(editId ? '编辑成功' : '入库成功');
+            closeStockInForm();
+            loadStockIn();
+        } else {
+            // 非2xx状态码，再处理错误
+            const errInfo = await res.json();
+            console.error('入库接口返回错误:', errInfo);
+            throw new Error(errInfo.message || '数据提交失败');
+        }
     } catch (e) {
-        showMsg('入库提交失败');
+        console.error('入库提交异常:', e);
+        showMsg('入库提交失败: ' + e.message);
     }
 }
-
 // 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
