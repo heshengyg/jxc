@@ -1,34 +1,36 @@
-// ===================== 入库模块 - 纯业务函数 =====================
-/**
- * 【已改造：后端RPC校验】
- * 调用Supabase RPC函数，根据入库ID比对出库表inRecordId
- * 仅查询数据库现存出库记录，出库物理删除后自动解除限制
- * @param {number|string} inId 入库单ID
- * @returns {boolean} true=已被出库引用(禁用)  false=未引用(可用)
- */
-async function checkInUsedByOut(inId) {
+// ===================== 入库模块 - 纯业务函数 async function checkInUsedByOut(inId) {
     if (!inId) return false;
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`, {
+        // 构建正确的请求URL和头
+        const url = `${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`;
+        const headers = new Headers();
+        headers.append("Content-Type", "application/json");
+        headers.append("apikey", SUPABASE_KEY);
+        headers.append("Authorization", `Bearer ${SUPABASE_KEY}`);
+        headers.append("Prefer", "return=representation"); // 关键！解决300重定向
+
+        // 发送请求
+        const response = await fetch(url, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_KEY, // 这里要写对变量名，注意大小写！
-                "Authorization": `Bearer ${SUPABASE_KEY}`
-            },
+            headers: headers,
             body: JSON.stringify({
-                "p_in_id": Number(inId) // 确保参数名和函数定义完全一致
+                "p_in_id": Number(inId) // 参数名必须和SQL函数完全一致
             })
         });
+
+        // 状态码300+ 都视为请求失败
         if (!response.ok) {
             throw new Error(`RPC请求失败，状态码：${response.status}`);
         }
+
+        // Supabase RPC默认返回数组，比如 [true] 或 [false]
         const result = await response.json();
-        // Supabase的RPC默认返回数组，比如 [true]
         const isUsed = Array.isArray(result) ? result[0] : result;
         return isUsed === true;
+
     } catch (err) {
         console.error("入库出库校验失败：", err);
+        // 异常兜底：放行，防止全部按钮不可用
         return false;
     }
 }
