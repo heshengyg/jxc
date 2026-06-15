@@ -1,9 +1,7 @@
-// ===================== 入库模块 - 纯业务函数 =====================
-
-/**
- * 【后端RPC校验】入库单是否被出库引用（和goods模块写法完全对齐）
- * @param {number|string} inId 入库单ID
- * @returns {boolean} true=已被引用(禁止操作) false=未引用(可操作)
+// ===================== 入库模块 - 纯业务函数 /**
+ * 校验入库单是否被出库引用（后端RPC实时校验，对齐goods.js写法）
+ * @param {number|string} inId 入库表真实ID
+ * @returns {boolean} true=已引用(禁用操作)  false=未引用(允许操作)
  */
 async function checkInUsedByOut(inId) {
     if (!inId) return false;
@@ -14,24 +12,22 @@ async function checkInUsedByOut(inId) {
                 apikey: SUPABASE_KEY,
                 Authorization: `Bearer ${SUPABASE_KEY}`,
                 "Content-Type": "application/json",
-                // 加上这一行，和商品模块保持一致，解决权限/返回格式问题
                 "Prefer": "return=representation"
             },
             body: JSON.stringify({
                 p_in_id: inId
             })
         });
-
-        if (!res.ok) {
-            throw new Error(`RPC请求失败: ${res.status} ${res.statusText}`);
-        }
-
-        // 直接返回RPC结果，和商品模块写法完全一致
-        return await res.json();
+        // 解析Supabase RPC数组格式结果，取出真实布尔值
+        const resultArr = await res.json();
+        // 兼容数组/纯布尔两种返回格式
+        const realResult = Array.isArray(resultArr) ? resultArr[0] : resultArr;
+        // 强制转为标准布尔值
+        return !!realResult;
     } catch (err) {
-        console.error("校验入库单状态失败：", err);
-        // 把showMsg移到catch外面，避免循环弹窗
-        return false;
+        console.error("入库引用校验失败：", err);
+        // 异常兜底：禁止操作，保护数据安全（和goods逻辑对齐）
+        return true;
     }
 }
 
