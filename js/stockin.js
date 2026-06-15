@@ -1,18 +1,36 @@
 // ===================== 入库模块 - 纯业务函数 =====================
 
 /**
- * 校验当前入库ID是否被出库引用
+ * 校验当前入库ID是否被出库引用（改为后端接口校验）
  * @param {number|string} inId 入库单ID
- * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
+ * @returns {Promise<boolean>} true=已被引用(禁止操作)  false=未引用(可操作)
  */
-function checkInUsedByOut(inId) {
+async function checkInUsedByOut(inId) {
     if (!inId) return false;
-    return allStockOut.some(outItem => Number(outItem.inRecordId) === Number(inId));
+    try {
+        // 调用后端接口：查询是否有出库单关联该入库ID
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?inRecordId=eq.${inId}`, {
+            method: 'GET',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!res.ok) throw new Error('校验接口请求失败');
+        const outList = await res.json();
+        // 只要存在关联的出库记录，就返回true（禁止操作）
+        return outList.length > 0;
+    } catch (e) {
+        console.error('校验入库单是否被引用失败：', e);
+        // 异常时默认返回true（禁止操作，避免误删/误改）
+        return true;
+    }
 }
 
-// 刷新入库列表（核心修复：强制重新拉取最新数据，包含库存信息）
+// 刷新入库列表
 function refreshStockIn(){
-    loadStockIn(true); // 传入强制刷新标识
+    loadStockIn();
 }
 
 // 供应商下拉
@@ -116,12 +134,15 @@ function lockProduceDate(){
     if(e) document.getElementById('inProduceDate').value = '';
 }
 
-// 打开添加入库弹窗
-function openStockInForm(id=null){
+// 打开添加入库弹窗（改为异步校验）
+async function openStockInForm(id=null){
     // 编辑前校验：已被出库引用则禁止编辑
-    if (id && checkInUsedByOut(id)) {
-        showMsg('该入库记录已生成出库单据，禁止编辑！');
-        return;
+    if (id) {
+        const isUsed = await checkInUsedByOut(id);
+        if (isUsed) {
+            showMsg('该入库记录已生成出库单据，禁止编辑！');
+            return;
+        }
     }
 
     document.getElementById('inEditId').value = id || '';
@@ -199,7 +220,7 @@ async function submitStockIn(){
         return showMsg('生产日期和到期日期不能同时填写');
     }
 
-    // 线上取商品档案的线上成本价，线下取手动输入单价
+    // ========== 【唯一改动1】线上取商品档案的线上成本价，线下取手动输入单价 ==========
     let targetGoods = allGoods.find(g => g.id == goodsId);
     let finalInPrice = 0;
     if(settleType === '线上'){
@@ -249,7 +270,7 @@ async function submitStockIn(){
         if(!res.ok) throw new Error('请求异常');
         showMsg(editId ? '编辑成功' : '入库成功');
         closeStockInForm();
-        refreshStockIn(); // 改用修复后的刷新函数
+        loadStockIn();
     } catch (e) {
         showMsg('入库提交失败');
     }
@@ -322,7 +343,7 @@ async function importStockInExcel() {
             if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
             if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
 
-            // 导入逻辑同步规则：线上取商品线上成本价
+            // ========== 【唯一改动2】导入逻辑同步规则：线上取商品线上成本价 ==========
             let targetGoods = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
             let finalInPrice = 0;
             if(settleType === '线上'){
@@ -357,21 +378,15 @@ async function importStockInExcel() {
             }
         }
         showMsg(`导入完成：成功${successCount}条，失败${failCount}条`);
-        refreshStockIn(); // 改用修复后的刷新函数
+        loadStockIn();
     };
     reader.readAsArrayBuffer(file);
 }
 
-// 加载入库列表（新增强制刷新参数，确保每次拉取最新数据）
-async function loadStockIn(forceRefresh = false) {
+// 加载入库列表
+async function loadStockIn() {
     try {
-        // 加随机参数避免缓存，强制拉取最新数据
-        let url = `${SUPABASE_URL}/rest/v1/stock_in`;
-        if(forceRefresh) {
-            url += `?t=${new Date().getTime()}`;
-        }
-        
-        let res = await fetch(url, {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error('读取失败');
@@ -416,8 +431,8 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（删除前端批次缓存/库存计算，改为后端ID关联）
-function renderStockIn() {
+// 渲染入库表格（保留原有批次/总库存逻辑，仅调整按钮禁用的校验方式）
+async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); 
@@ -427,14 +442,31 @@ function renderStockIn() {
     }
     tb.innerHTML = '';
 
+    // 缓存批次列表，避免重复计算（完全保留原有逻辑）
+    let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
+    let batchCache = {};
+    goodsSet.forEach(key => {
+        let [supplier, goodsName] = key.split('_');
+        batchCache[key] = getStockBatchList(supplier, goodsName);
+    });
+
+    // 批量校验当前页的入库单是否被引用（减少接口请求）
+    let idUsedMap = {};
+    for (let item of pageData) {
+        idUsedMap[item.id] = await checkInUsedByOut(item.id);
+    }
+
     pageData.forEach((item, idx) => {
-        // 从后端返回的字段中直接获取库存（后端已通过ID关联计算）
-        let batchRemain = item.batch_remain || 0; // 后端返回的批次剩余库存
-        let totalStock = item.total_stock || 0;   // 后端返回的商品总库存
+        let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
+        let batch = batchList.find(b => 
+            b.inRecords.some(inItem => inItem.id === item.id)
+        );
+        let batchRemain = batch ? batch.batchRemain : 0;
+        let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
 
-        // 判断是否被出库引用，控制按钮状态（保留原有逻辑）
-        let isUsed = checkInUsedByOut(item.id);
+        // 使用后端校验结果控制按钮状态
+        let isUsed = idUsedMap[item.id];
         let btnHtml = '';
         if(isUsed){
             btnHtml = `
@@ -471,7 +503,6 @@ function renderStockIn() {
         tb.innerHTML += html;
     });
 }
-
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
@@ -502,10 +533,11 @@ function inToggleSelectAll(){
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.checked=all);
 }
 
-// 单条删除
+// 单条删除（改为异步校验）
 async function deleteStockIn(id){
     // 删除前校验：已被出库引用禁止删除
-    if (checkInUsedByOut(id)) {
+    const isUsed = await checkInUsedByOut(id);
+    if (isUsed) {
         showMsg('该入库记录已生成出库单据，禁止删除！');
         return;
     }
@@ -516,11 +548,11 @@ async function deleteStockIn(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        refreshStockIn(); // 改用修复后的刷新函数
+        loadStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
 
-// 批量删除
+// 批量删除（改为异步校验）
 async function batchDeleteStockIn(){
     let ids = [];
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
@@ -529,7 +561,13 @@ async function batchDeleteStockIn(){
     if(ids.length===0) return showMsg('请选择数据');
 
     // 批量校验：存在已引用单据则整体拦截
-    let usedIds = ids.filter(id => checkInUsedByOut(id));
+    let usedIds = [];
+    for (let id of ids) {
+        const isUsed = await checkInUsedByOut(id);
+        if (isUsed) {
+            usedIds.push(id);
+        }
+    }
     if (usedIds.length > 0) {
         showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法批量删除！`);
         return;
@@ -543,12 +581,12 @@ async function batchDeleteStockIn(){
         });
     }
     showMsg('批量删除成功');
-    refreshStockIn(); // 改用修复后的刷新函数
+    loadStockIn();
 }
 
 // 清空排序、重置搜索
 function clearInSort(){
-    inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn(true); // 强制刷新
+    inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();
 }
 function resetInSearch() {
     document.getElementById('inSearchKeyword').value = '';
