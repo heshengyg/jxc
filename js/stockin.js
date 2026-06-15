@@ -9,30 +9,29 @@
 async function checkInUsedByOut(inId) {
     if (!inId) return false;
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_in_used_by_out`, {
             method: "POST",
             headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
                 "Content-Type": "application/json",
-                "Prefer": "return=representation"
+                "apikey": SUPABASE_KEY, // 这里要写对变量名，注意大小写！
+                "Authorization": `Bearer ${SUPABASE_KEY}`
             },
             body: JSON.stringify({
-                p_in_id: inId
+                "p_in_id": Number(inId) // 确保参数名和函数定义完全一致
             })
         });
-        if (!res.ok) throw new Error("RPC请求异常");
-        // 兼容Supabase RPC返回 [true] / [false] 数组格式
-        const result = await res.json();
-        const realResult = Array.isArray(result) ? result[0] : result;
-        return realResult === true;
+        if (!response.ok) {
+            throw new Error(`RPC请求失败，状态码：${response.status}`);
+        }
+        const result = await response.json();
+        // Supabase的RPC默认返回数组，比如 [true]
+        const isUsed = Array.isArray(result) ? result[0] : result;
+        return isUsed === true;
     } catch (err) {
         console.error("入库出库校验失败：", err);
-        // 异常兜底：放行，防止全部按钮不可用
         return false;
     }
 }
-
 // 刷新入库列表
 function refreshStockIn(){
     loadStockIn();
