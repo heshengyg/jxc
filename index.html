@@ -391,15 +391,5 @@ document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
 });
 </script>
-<!-- 放在页面底部 </body> 前 -->
-<script>
-// 页面全局预加载出库数据，双重保障
-window.onload = async function(){
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-    });
-    if(res.ok) allStockOut = await res.json();
-}
-</script>
 </body>
 </html>

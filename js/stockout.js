@@ -42,26 +42,17 @@ function renderOutSupList(list){
     });
 }
 
-// 根据供应商加载对应商品（已修复重复问题，其余逻辑完全不变）
+// 根据供应商加载对应商品
 function loadOutGoodsBySupplier(supplier){
-    // 先按 商品名称+规格 做唯一去重
-    const uniqueMap = new Map();
-    allStockIn
+    let goodsArr = [...new Set(allStockIn
         .filter(item => item.supplier === supplier)
-        .forEach(item => {
-            // 组合唯一键：商品名 + 规格，避免同名不同规格误去重
-            const key = `${item.goodsName}||${item.spec || ''}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, {
-                    name: item.goodsName,
-                    spec: item.spec,
-                    settleType: item.settleType,
-                    salePrice: item.sale_price
-                });
-            }
-        });
-    // 转回数组
-    let goodsArr = Array.from(uniqueMap.values());
+        .map(item => JSON.stringify({
+            name: item.goodsName,
+            spec: item.spec,
+            settleType: item.settleType,
+            salePrice: item.sale_price
+        }))
+    )].map(str => JSON.parse(str));
 
     outCurrGoodsList = goodsArr;
     document.getElementById('outGoodsSearchInput').value = '';
@@ -72,6 +63,7 @@ function loadOutGoodsBySupplier(supplier){
     document.getElementById('totalStockNum').value = '0';
     document.getElementById('outNum').value = '';
 }
+
 // 商品下拉
 function showOutGoodsList(){
     renderOutGoodsList(outCurrGoodsList);
