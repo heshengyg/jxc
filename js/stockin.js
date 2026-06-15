@@ -13,20 +13,25 @@ async function checkInUsedByOut(inId) {
             headers: {
                 apikey: SUPABASE_KEY,
                 Authorization: `Bearer ${SUPABASE_KEY}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                // 加上这一行，和商品模块保持一致，解决权限/返回格式问题
+                "Prefer": "return=representation"
             },
             body: JSON.stringify({
                 p_in_id: inId
             })
         });
-        if (!res.ok) throw new Error('RPC请求失败');
-        // 直接返回RPC结果（和goods模块写法完全一致）
+
+        if (!res.ok) {
+            throw new Error(`RPC请求失败: ${res.status} ${res.statusText}`);
+        }
+
+        // 直接返回RPC结果，和商品模块写法完全一致
         return await res.json();
     } catch (err) {
         console.error("校验入库单状态失败：", err);
-        showMsg("校验状态失败");
-        // 异常时返回true，保护数据安全
-        return true;
+        // 把showMsg移到catch外面，避免循环弹窗
+        return false;
     }
 }
 
