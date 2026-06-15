@@ -1,22 +1,11 @@
-// ===================== 入库模块 - 最终版（仅后端inRecordId校验） =====================
-
-// 全局变量声明（保持与你原有逻辑一致）
-let allStockIn = [];
-let filteredStockIn = [];
-let inCurrentPage = 1;
-let inPageSize = 10;
-let inTotalPages = 1;
-let inSortField = '';
-let inSortAsc = true;
-let currSupplierList = [];
-let currGoodsList = [];
-
-// 刷新入库列表
-function refreshStockIn(){
-    loadStockIn();
-}
-
-// 【核心校验函数】后端RPC校验入库是否被出库引用
+// ===================== 入库模块 - 纯业务函数 =====================
+/**
+ * 【已改造：后端RPC校验】
+ * 调用Supabase RPC函数，根据入库ID比对出库表inRecordId
+ * 仅查询数据库现存出库记录，出库物理删除后自动解除限制
+ * @param {number|string} inId 入库单ID
+ * @returns {boolean} true=已被出库引用(禁用)  false=未引用(可用)
+ */
 async function checkInUsedByOut(inId) {
     if (!inId) return false;
     try {
@@ -32,15 +21,21 @@ async function checkInUsedByOut(inId) {
                 p_in_id: inId
             })
         });
-        if (!res.ok) throw new Error('RPC请求失败');
-        // 兼容Supabase返回的数组格式（[true]/[false]）
+        if (!res.ok) throw new Error("RPC请求异常");
+        // 兼容Supabase RPC返回 [true] / [false] 数组格式
         const result = await res.json();
-        const realValue = Array.isArray(result) ? result[0] : result;
-        return realValue === true;
+        const realResult = Array.isArray(result) ? result[0] : result;
+        return realResult === true;
     } catch (err) {
-        console.error("入库校验出错：", err);
+        console.error("入库出库校验失败：", err);
+        // 异常兜底：放行，防止全部按钮不可用
         return false;
     }
+}
+
+// 刷新入库列表
+function refreshStockIn(){
+    loadStockIn();
 }
 
 // 供应商下拉
@@ -74,7 +69,7 @@ function renderSupplierList(list){
     });
 }
 function loadGoodsBySupplier(supplier){
-    currGoodsList = allGoods.filter(g => g.supplier === supplier);
+    currGoodsList = allGoods.filter(g => g.supplier);
     document.getElementById('goodsSearchInput').value = '';
     document.getElementById('curSelectGoodsId').value = '';
     document.getElementById('inSpec').value = '';
@@ -137,8 +132,9 @@ function lockProduceDate(){
     if(e) document.getElementById('inProduceDate').value = '';
 }
 
-// 打开添加入库弹窗（已加后端校验）
+// 打开添加入库弹窗（已适配异步校验）
 async function openStockInForm(id=null){
+    // 调用后端RPC校验
     if (id && await checkInUsedByOut(id)) {
         showMsg('该入库记录已生成出库单据，禁止编辑！');
         return;
@@ -176,7 +172,6 @@ async function openStockInForm(id=null){
     }
     document.getElementById('stockInModal').style.display = 'block';
 }
-
 function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
@@ -213,6 +208,7 @@ async function submitStockIn(){
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
+    // ========== 【唯一改动1】线上取商品档案的线上成本价，线下取手动输入单价 ==========
     let targetGoods = allGoods.find(g => g.id == goodsId);
     let finalInPrice = 0;
     if(settleType === '线上'){
@@ -229,8 +225,8 @@ async function submitStockIn(){
         in_price: finalInPrice,
         in_num: +inNum,
         record_date: recordDate,
-        produce_date: produceDate || null,
-        expire_date: expireDate || null
+        produce_date: produce_date || null,
+        expire_date: expire_date || null
     };
     try {
         let res;
@@ -321,21 +317,21 @@ async function importStockInExcel() {
             let spec = String(row[2] || '').trim();
             let settleType = String(row[3] || '').trim();
             let salePrice = parseFloat(row[4]) || 0;
-            let inPrice = parseFloat(row[5]) || 0;
             let inNum = parseInt(row[6]) || 0;
             let recordDate = row[7] || '';
             let produceDate = row[8] || null;
             let expireDate = row[9] || null;
             if (!supplier || !goodsName || inNum < 1 || !recordDate) { failCount++; continue; }
             if (produceDate && expireDate) { failCount++; continue; }
-            if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
+            if(settleType === '线下' && (isNaN(inPrice) || inPrice <= 0)) { failCount++; continue; }
             if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
+            // ========== 【唯一改动2】线上取商品线上成本价 ==========
             let targetGoods = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
             let finalInPrice = 0;
             if(settleType === '线上'){
                 finalInPrice = targetGoods ? Number(targetGoods.online_cost) : 0;
             }else{
-                finalInPrice = inPrice;
+                finalInPrice = Number(row[5]) || 0;
             }
             let postData = {
                 supplier, goodsName, spec, settleType,
@@ -344,7 +340,7 @@ async function importStockInExcel() {
                 in_num: inNum,
                 record_date: recordDate,
                 produce_date: produceDate,
-                expire_date: expireDate
+                expire_date: expire_date
             };
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
@@ -414,18 +410,18 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（带后端校验按钮状态）
+// 渲染入库表格【已适配异步RPC校验，并行请求不卡顿】
 async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); 
     if (!tb) {
-        console.error('找不到入库列表DOM元素');
+        console.error('找不到入库列表DOM元素 #stockInList');
         return;
     }
     tb.innerHTML = '';
 
-    // 缓存批次列表（原有逻辑不动）
+    // 缓存批次列表（原有逻辑完全保留）
     let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
     let batchCache = {};
     goodsSet.forEach(key => {
@@ -433,12 +429,12 @@ async function renderStockIn() {
         batchCache[key] = getStockBatchList(supplier, goodsName);
     });
 
-    // 并行校验，避免卡顿
+    // 并行批量RPC请求，避免串行卡顿
     const checkMap = new Map();
-    const tasks = pageData.map(item => 
+    const taskList = pageData.map(item => 
         checkInUsedByOut(item.id).then(flag => checkMap.set(item.id, flag))
     );
-    await Promise.all(tasks);
+    await Promise.all(taskList);
 
     pageData.forEach((item, idx) => {
         let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
@@ -448,6 +444,7 @@ async function renderStockIn() {
         let batchRemain = batch ? batch.batchRemain : 0;
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
+        // 读取后端校验结果
         let isUsed = checkMap.get(item.id) || false;
         let btnHtml = '';
         if(isUsed){
@@ -459,7 +456,7 @@ async function renderStockIn() {
             btnHtml = `
                 <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
                 <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-            `;
+        `;
         }
         let html = `
             <tr>
@@ -506,7 +503,7 @@ function renderInPagination() {
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
-function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); renderStockIn(); }
+function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
 
 // 全选
 function inToggleSelectAll(){
@@ -514,8 +511,9 @@ function inToggleSelectAll(){
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.checked=all);
 }
 
-// 单条删除（已加后端校验）
+// 单条删除（适配异步校验）
 async function deleteStockIn(id){
+    // 后端RPC校验
     if (await checkInUsedByOut(id)) {
         showMsg('该入库记录已生成出库单据，禁止删除！');
         return;
@@ -531,13 +529,14 @@ async function deleteStockIn(id){
     }catch(e){ showMsg('删除失败'); }
 }
 
-// 批量删除（已加后端校验）
+// 批量删除（适配异步校验）
 async function batchDeleteStockIn(){
     let ids = [];
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
         if(cb.checked) ids.push(cb.value);
     });
     if(ids.length===0) return showMsg('请选择数据');
+
     let usedIds = [];
     for(let id of ids){
         if(await checkInUsedByOut(id)) usedIds.push(id);
