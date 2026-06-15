@@ -1,8 +1,6 @@
 // ===================== 入库模块 - 纯业务函数 =====================
 /**
- * 校验当前入库ID是否被出库引用
- * @param {number|string} inId 入库单ID
- * @returns {boolean} true=已被引用(禁止操作)  false=未引用(可操作)
+ * 校验当前入库ID是否被出库引用（后端RPC）
  */
 async function checkInUsedByOut(inId) {
     if (!inId) return false;
@@ -25,10 +23,12 @@ async function checkInUsedByOut(inId) {
         return false;
     }
 }
+
 // 刷新入库列表
 function refreshStockIn(){
     loadStockIn();
 }
+
 // 供应商下拉
 function showSupList(){
     currSupplierList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
@@ -69,6 +69,7 @@ function loadGoodsBySupplier(supplier){
     document.getElementById('inPrice').value = '';
     document.getElementById('inPrice').disabled = false;
 }
+
 // 商品下拉
 function showGoodsList(){
     renderGoodsSelectList(currGoodsList);
@@ -111,6 +112,7 @@ function selectInGoods(goods){
         priceInput.disabled = false;
     }
 }
+
 // 日期互斥
 function lockExpireDate(){
     let p = document.getElementById('inProduceDate').value;
@@ -120,12 +122,15 @@ function lockProduceDate(){
     let e = document.getElementById('inExpireDate').value;
     if(e) document.getElementById('inProduceDate').value = '';
 }
-// 打开添加入库弹窗
+
+// 打开添加入库弹窗（保留async，点击瞬间校验）
 async function openStockInForm(id=null){
-    // 编辑前校验：已被出库引用则禁止编辑
-    if (id && await checkInUsedByOut(id)) {
-        showMsg('该入库记录已生成出库单据，禁止编辑！');
-        return;
+    if (id) {
+        const used = await checkInUsedByOut(id);
+        if (used) {
+            showMsg('该入库记录已生成出库单据，禁止编辑！');
+            return;
+        }
     }
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
@@ -163,6 +168,7 @@ async function openStockInForm(id=null){
 function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
+
 // 提交入库
 async function submitStockIn(){
     let editId = document.getElementById('inEditId').value;
@@ -195,7 +201,6 @@ async function submitStockIn(){
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
-    // ========== 【唯一改动1】线上取商品档案的线上成本价，线下取手动输入单价 ==========
     let targetGoods = allGoods.find(g => g.id == goodsId);
     let finalInPrice = 0;
     if(settleType === '线上'){
@@ -209,7 +214,7 @@ async function submitStockIn(){
         spec: spec || null,
         settleType: settleType,
         sale_price: salePrice,
-        in_price: finalInPrice,  // 使用计算后的最终单价
+        in_price: finalInPrice,
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
@@ -248,6 +253,7 @@ async function submitStockIn(){
         showMsg('入库提交失败');
     }
 }
+
 // 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
@@ -256,13 +262,14 @@ function downloadStockInTemplate(){
     XLSX.utils.book_append_sheet(wb, ws, "入库导入模板");
     XLSX.writeFile(wb, "入库导入模板.xlsx");
 }
+
 // 导出Excel
 function exportStockInExcel(){
     if(filteredStockIn.length === 0){
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库数量","录入日期","生产日期","到期日期"];
+    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
     let expData = filteredStockIn.map(item=>[
         item.supplier||"",
         item.goodsName||"",
@@ -279,6 +286,7 @@ function exportStockInExcel(){
     let wb = XLSX.utils.book_new();
     XLSX.writeFile(wb, "入库记录.xlsx");
 }
+
 // Excel导入
 async function importStockInExcel() {
     let file = document.getElementById('fileInput').files[0];
@@ -301,22 +309,18 @@ async function importStockInExcel() {
             let spec = String(row[2] || '').trim();
             let settleType = String(row[3] || '').trim();
             let salePrice = parseFloat(row[4]) || 0;
-            let inPrice = parseFloat(row[5]) || 0;
             let inNum = parseInt(row[6]) || 0;
             let recordDate = row[7] || '';
             let produceDate = row[8] || null;
             let expireDate = row[9] || null;
             if (!supplier || !goodsName || inNum < 1 || !recordDate) { failCount++; continue; }
             if (produceDate && expireDate) { failCount++; continue; }
-            if(settleType === '线下' && (inPrice === 0 || isNaN(inPrice))) { failCount++; continue; }
+            if(settleType === '线下' && (isNaN(inPrice) || inPrice <= 0)) { failCount++; continue; }
             if(settleType === '线上' && inPrice > 0) { failCount++; continue; }
-            // ========== 【唯一改动2】导入逻辑同步规则：线上取商品线上成本价 ==========
             let targetGoods = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-            let finalInPrice = 0;
-            if(settleType === '线上'){
-                finalInPrice = targetGoods ? Number(targetGoods.online_cost) : 0;
-            }else{
-                finalInPrice = inPrice;
+            let finalInPrice = targetGoods ? Number(targetGoods.online_cost) : 0;
+            if(settleType !== '线上'){
+                finalInPrice = Number(row[5]) || 0;
             }
             let postData = {
                 supplier, goodsName, spec, settleType,
@@ -347,6 +351,7 @@ async function importStockInExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
+
 // 加载入库列表
 async function loadStockIn() {
     try {
@@ -362,6 +367,7 @@ async function loadStockIn() {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
+
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
@@ -372,6 +378,7 @@ function filterStockIn() {
     renderInPagination();
     renderStockIn();
 }
+
 // 列表排序
 function inSortTable(field) {
     inSortField = field;
@@ -391,49 +398,33 @@ function updateInSortIcon() {
     let idx = Array.from(document.querySelectorAll('.sortable')).findIndex(th=>th.onclick?.toString().includes(inSortField));
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
-// 渲染入库表格
-async function renderStockIn() {
+
+// 渲染入库表格【恢复同步，不做按钮置灰，只拦截点击操作】
+function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
     let tb = document.getElementById('stockInList'); 
     if (!tb) {
         console.error('找不到入库列表DOM元素 #stockInList');
-        return; // 找不到元素直接返回，不执行渲染
+        return;
     }
     tb.innerHTML = '';
-    // 缓存批次列表，避免重复计算
     let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
     let batchCache = {};
     goodsSet.forEach(key => {
         let [supplier, goodsName] = key.split('_');
         batchCache[key] = getStockBatchList(supplier, goodsName);
     });
-    // 串行校验（兼容老旧环境，不使用Promise）
-    for(let i=0; i<pageData.length; i++){
-        let item = pageData[i];
-        item._used = await checkInUsedByOut(item.id);
-    }
     pageData.forEach((item, idx) => {
         let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
-        let batch = batchList.find(b => 
-            b.inRecords.some(inItem => inItem.id === item.id)
-        );
+        let batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
         let batchRemain = batch ? batch.batchRemain : 0;
         let totalStock = getTotalStockNum(item.supplier, item.goodsName);
         let amount = formatMoney((item.in_price || 0) * item.in_num);
-        let isUsed = item._used;
-        let btnHtml = '';
-        if(isUsed){
-            btnHtml = `
-                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
-            `;
-        }else{
-            btnHtml = `
-                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-            `;
-        }
+        let btnHtml = `
+            <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+            <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+        `;
         let html = `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
@@ -457,6 +448,7 @@ async function renderStockIn() {
         tb.innerHTML += html;
     });
 }
+
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
@@ -479,15 +471,17 @@ function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderIn
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
 function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
+
 // 全选
 function inToggleSelectAll(){
     let all = document.getElementById('inSelectAll').checked;
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.checked=all);
 }
-// 单条删除
+
+// 单条删除（点击时后端校验拦截）
 async function deleteStockIn(id){
-    // 删除前校验：已被出库引用禁止删除
-    if (await checkInUsedByOut(id)) {
+    const used = await checkInUsedByOut(id);
+    if (used) {
         showMsg('该入库记录已生成出库单据，禁止删除！');
         return;
     }
@@ -501,17 +495,18 @@ async function deleteStockIn(id){
         loadStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
-// 批量删除
+
+// 批量删除（逐条后端校验拦截）
 async function batchDeleteStockIn(){
     let ids = [];
     document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
         if(cb.checked) ids.push(cb.value);
     });
     if(ids.length===0) return showMsg('请选择数据');
-    // 批量校验
     let usedIds = [];
     for(let id of ids){
-        if(await checkInUsedByOut(id)) usedIds.push(id);
+        const used = await checkInUsedByOut(id);
+        if(used) usedIds.push(id);
     }
     if (usedIds.length > 0) {
         showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法批量删除！`);
@@ -527,6 +522,7 @@ async function batchDeleteStockIn(){
     showMsg('批量删除成功');
     loadStockIn();
 }
+
 // 清空排序、重置搜索
 function clearInSort(){
     inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();
