@@ -19,22 +19,47 @@ function getDateDiffDay(dateStr) {
     return Math.floor(diff);
 }
 
+/**
+ * 保质期状态计算（严格按需求：到期日期优先 / 生产日期两套规则 + 倒计时）
+ * @param {string} sc 生产日期
+ * @param {string} dq 到期日期
+ * @param {number} bzVal 保质期数值
+ * @param {string} bzUnit 保质期单位 day/month/year
+ * @param {number} warnDay 临期预警天数
+ * @returns {{statusText:string, countDownText:string}}
+ */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     const totalBzDay = getBzTotalDay(bzVal, bzUnit);
+    // 无保质期数据
+    if (totalBzDay <= 0) {
+        return { statusText: '无日期', countDownText: '' };
+    }
     const warnThreshold = totalBzDay - warnDay;
-    let diffDay;
+    let diffDay = null;
     let countDown = '';
     let statusText = '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    // 规则1：优先 使用【到期日期】计算
     if (dq) {
-        diffDay = getDateDiffDay(dq);
-    } else if (sc) {
-        const passDay = getDateDiffDay(sc) * -1;
+        const target = new Date(dq);
+        target.setHours(0, 0, 0, 0);
+        diffDay = Math.floor((target - today) / (1000 * 60 * 24));
+    }
+    // 规则2：无到期日期，使用【生产日期】推算剩余保质期
+    else if (sc) {
+        const produce = new Date(sc);
+        produce.setHours(0, 0, 0, 0);
+        const passDay = Math.floor((today - produce) / (1000 * 24));
         diffDay = totalBzDay - passDay;
-    } else {
+    }
+    // 两者都为空
+    else {
         return { statusText: '无日期', countDownText: '' };
     }
 
+    // 分级判断：过期 → 临期 → 打折 → 剩余天数
     if (diffDay <= 0) {
         statusText = '过期';
     } else if (diffDay <= warnThreshold) {
@@ -46,12 +71,19 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         statusText = `剩余${diffDay}天`;
     }
 
+    // 仅临期显示倒计时
     return {
         statusText,
         countDownText: statusText === '临期' ? `${countDown}天` : ''
     };
 }
 
+/**
+ * 库存报警状态
+ * @param {number} totalAllStock 总库存
+ * @param {number} warnStockThreshold 库存预警阈值
+ * @returns {string} 正常/临界/报警
+ */
 function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
     const diff = totalAllStock - warnStockThreshold;
     if (diff > 0) return '正常';
@@ -59,11 +91,9 @@ function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
     return '报警';
 }
 
-function getBatchStockAmount(inRecordId, inPrice) {
-    const batchRemain = getInItemRemain(inRecordId);
-    return Number((batchRemain * inPrice).toFixed(2));
-}
-
+/**
+ * 获取单个入库批次剩余库存
+ */
 function getInItemRemain(inRecordId) {
     let totalOut = 0;
     allStockOut.forEach(out => {
@@ -76,8 +106,15 @@ function getInItemRemain(inRecordId) {
     return Math.max(0, inNum - totalOut);
 }
 
-// ====================== 库存查看页面 stockStock.js 完整代码 ======================
-// 全局变量
+/**
+ * 计算批次库存金额：批次剩余库存 * 入库单价
+ */
+function getBatchStockAmount(inRecordId, inPrice) {
+    const batchRemain = getInItemRemain(inRecordId);
+    return Number((batchRemain * inPrice).toFixed(2));
+}
+
+// ====================== 库存查看页面 全局变量 ======================
 let allStockBatchList = [];
 let filteredStockBatch = [];
 let stockCurrentPage = 1;
@@ -96,9 +133,10 @@ let stockSummary = {
  * 加载全部库存批次数据
  */
 async function loadStockStock() {
-    // 先加载入库、出库全局数据
-    if(allStockIn.length === 0) await loadStockIn();
+    // 前置加载入库、出库全局数据（保证数据源存在）
+    if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
+
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
@@ -108,6 +146,7 @@ async function loadStockStock() {
         allStockBatchList = [];
 
         inAllList.forEach(inItem => {
+            // 匹配对应商品基础信息
             const goodsBase = allGoods.find(g =>
                 g.supplier === inItem.supplier
                 && g.name === inItem.goodsName
@@ -119,14 +158,15 @@ async function loadStockStock() {
             const warnStockThreshold = goodsBase.warn_num || 0;
             const batchRemain = getInItemRemain(inItem.id);
             const batchAmount = getBatchStockAmount(inItem.id, inItem.in_price);
-            
-            // 纯数值兜底临期阈值7天，不调用页面DOM函数
-            const warnDay = 7;
-            // 单位转换映射，和全局getBzTotalDay对齐
-            let unitCode = "day";
-            if(goodsBase.shelf_life_unit === "年") unitCode = "year";
-            if(goodsBase.shelf_life_unit === "个月") unitCode = "month";
 
+            // 保质期单位映射：页面中文 → 函数英文标识
+            let unitCode = "day";
+            if (goodsBase.shelf_life_unit === "年") unitCode = "year";
+            if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
+            // 临期预警天数 = 商品自身配置
+            const warnDay = goodsBase.warn_num || 0;
+
+            // 调用保质期计算
             const bzResult = calcBzStatus(
                 inItem.produce_date,
                 inItem.expire_date,
@@ -135,7 +175,8 @@ async function loadStockStock() {
                 warnDay
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
-            
+
+            // 页面展示用保质期文本
             let unitText = '天';
             if (goodsBase.shelf_life_unit === '年') unitText = '年';
             if (goodsBase.shelf_life_unit === '个月') unitText = '月';
@@ -160,24 +201,25 @@ async function loadStockStock() {
         });
 
         const totalEl = document.getElementById('stockTotalCount');
-        if(totalEl) totalEl.textContent = allStockBatchList.length;
+        if (totalEl) totalEl.textContent = allStockBatchList.length;
         filterStockStock();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
-        console.error("库存加载完整错误栈：", e);
+        console.error("库存加载异常：", e);
     }
 }
+
 /**
  * 搜索筛选
  */
 function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
     const kw = document.getElementById('stockSearchKeyword').value.toLowerCase();
-    filteredStockBatch = allStockBatchList.filter(item => String(item[field] || '').toLowerCase().includes(kw));
-    
+    filteredStockBatch = allStockBatch.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+
     const searchCountEl = document.getElementById('stockSearchCount');
-    if(searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
-    
+    if (searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
+
     renderStockPagination();
     renderStockTable();
 }
@@ -226,7 +268,7 @@ function updateStockSortIcon() {
 }
 
 /**
- * 渲染表格（含底部汇总行，一次性渲染无逐行卡顿）
+ * 渲染表格（含汇总行）
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -236,7 +278,7 @@ function renderStockTable() {
     tb.innerHTML = '';
     let htmlStr = '';
 
-    // 计算全筛选数据汇总
+    // 计算筛选汇总
     stockSummary = { totalAmount: 0, totalBatchStock: 0, totalAllStock: 0 };
     filteredStockBatch.forEach(item => {
         stockSummary.totalAmount += item.batchAmount;
@@ -244,7 +286,7 @@ function renderStockTable() {
         stockSummary.totalAllStock += item.totalAllStock;
     });
 
-    // 渲染分页行
+    // 渲染数据行
     pageData.forEach((item, idx) => {
         const seq = start + idx + 1;
         htmlStr += `
@@ -266,6 +308,7 @@ function renderStockTable() {
         </tr>
         `;
     });
+
     // 底部汇总行
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
@@ -280,17 +323,19 @@ function renderStockTable() {
     tb.innerHTML = htmlStr;
 }
 
-// ========== 分页函数（与入库出库完全统一） ==========
+/**
+ * 分页渲染（增加DOM容错，防止报错）
+ */
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
-    
+
     const currPageEl = document.getElementById('stockCurrentPage');
     const totalPageEl = document.getElementById('stockTotalPages');
     const pgBox = document.getElementById('stockPageNumbers');
-    
-    if(currPageEl) currPageEl.textContent = stockCurrentPage;
-    if(totalPageEl) totalPageEl.textContent = stockTotalPages;
-    if(pgBox) pgBox.innerHTML = '';
+
+    if (currPageEl) currPageEl.textContent = stockCurrentPage;
+    if (totalPageEl) totalPageEl.textContent = stockTotalPages;
+    if (pgBox) pgBox.innerHTML = '';
 
     const startPage = Math.max(1, stockCurrentPage - 2);
     const endPage = Math.min(stockTotalPages, startPage + 4);
@@ -301,16 +346,17 @@ function renderStockPagination() {
         btn.onclick = () => stockGoToPage(i);
         pgBox.appendChild(btn);
     }
-    // 修复点1：改用全局.page-controls.page-btn，增加空值容错
+
+    // 容错：判断按钮存在再设置禁用
     const btns = document.querySelectorAll('.page-controls .page-btn');
-    // 修复点2：循环前先判断元素存在，避免undefined.disabled报错
-    if(btns.length >= 5){
+    if (btns.length >= 5) {
         btns[0].disabled = stockCurrentPage === 1;
         btns[1].disabled = stockCurrentPage === 1;
         btns[3].disabled = stockCurrentPage === stockTotalPages;
         btns[4].disabled = stockCurrentPage === stockTotalPages;
     }
 }
+
 function stockGoToPage(p) {
     if (p < 1 || p > stockTotalPages) return;
     stockCurrentPage = p;
@@ -323,7 +369,6 @@ function changeStockPageSize() {
     stockPageSize = Number(document.getElementById('stockPageSize').value);
     stockCurrentPage = 1;
     renderStockPagination();
-    renderStockTable();
 }
 
 /**
