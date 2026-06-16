@@ -235,10 +235,67 @@
         </div>
     </div>
 
-    <!-- 库存查看 -->
-    <div id="stockView" class="tab-content">
-        <h3>库存查看</h3>
-        <p>功能开发中</p>
+<!-- 库存查看 -->
+<div id="stockView" class="tab-content">
+    <h3>库存查看</h3>
+    <div class="stat-bar">
+        共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
+    </div>
+    <div class="search-bar">
+        <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
+        <!-- 核心：点击按钮加载库存数据 -->
+        <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
+        <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
+        
+        <select id="stockSearchField">
+            <option value="supplier">供应商</option>
+            <option value="goodsName">商品名</option>
+            <option value="spec">规格</option>
+            <option value="stockWarnText">报警状态</option>
+            <option value="bzStatusText">保质期状态</option>
+        </select>
+        <input type="text" id="stockSearchKeyword" placeholder="输入关键词搜索">
+        <button onclick="filterStockStock()">搜索</button>
+        <button onclick="resetStockSearch()">重置搜索</button>
+    </div>
+
+    <div class="table-container">
+        <table class="stock-table">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="stockSortTable('id')">序列 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('supplier')">供应商 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('goodsName')">商品名 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('spec')">规格 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('warnStockThreshold')">库存预警阈值 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('stockWarnText')">报警状态 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('batchAmount')">库存金额 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('produce_date')">生产日期 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('expire_date')">到期日期 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('batchRemain')">批次库存 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('totalAllStock')">总库存 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('bzText')">保质期 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('bzStatusText')">保质期状态 <span class="stockSortIcon"></span></th>
+                    <th class="sortable" onclick="stockSortTable('countDownText')">过期倒计 <span class="stockSortIcon"></span></th>
+                </tr>
+            </thead>
+            <tbody id="stockStockList"></tbody>
+        </table>
+    </div>
+
+    <!-- 分页控件 -->
+    <div class="page-controls">
+        <button onclick="stockGoToPage(1)">首页</button>
+        <button onclick="stockPrevPage()">上一页</button>
+        <div id="stockPageNumbers"></div>
+        <button onclick="stockNextPage()">下一页</button>
+        <button onclick="stockGoToPage(stockTotalPages)">末页</button>
+        <span>第<span id="stockCurrentPage">1</span>/<span id="stockTotalPages">1</span>页</span>
+        <select id="stockPageSize" onchange="changeStockPageSize()">
+            <option value="10">10条/页</option>
+            <option value="20">20条/页</option>
+            <option value="50">50条/页</option>
+        </select>
     </div>
 </div>
 
@@ -382,8 +439,9 @@
 <script src="./js/login.js"></script>
 <script src="./js/goods.js"></script>
 <script src="./js/stockin.js"></script>
-<!-- 新增：出库JS -->
 <script src="./js/stockout.js"></script>
+<!-- 库存JS 放在最后 -->
+<script src="./js/stockStock.js"></script>
 
 <!-- 仅保留页面初始化原生代码 -->
 <script>

@@ -1,3 +1,81 @@
+// 库存模块内部依赖函数（仅本文件使用，不影响其他模块）
+function getBzTotalDay(val, unit) {
+    if (!val) return 0;
+    switch (unit) {
+        case 'year': return val * 365;
+        case 'month': return val * 30;
+        case 'day':
+        default: return val;
+    }
+}
+
+function getDateDiffDay(dateStr) {
+    if (!dateStr) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+    const diff = (target - today) / (1000 * 60 * 24);
+    return Math.floor(diff);
+}
+
+function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
+    const totalBzDay = getBzTotalDay(bzVal, bzUnit);
+    const warnThreshold = totalBzDay - warnDay;
+    let diffDay;
+    let countDown = '';
+    let statusText = '';
+
+    if (dq) {
+        diffDay = getDateDiffDay(dq);
+    } else if (sc) {
+        const passDay = getDateDiffDay(sc) * -1;
+        diffDay = totalBzDay - passDay;
+    } else {
+        return { statusText: '无日期', countDownText: '' };
+    }
+
+    if (diffDay <= 0) {
+        statusText = '过期';
+    } else if (diffDay <= warnThreshold) {
+        statusText = '临期';
+        countDown = diffDay - warnThreshold;
+    } else if (diffDay <= 2 * warnThreshold) {
+        statusText = '打折';
+    } else {
+        statusText = `剩余${diffDay}天`;
+    }
+
+    return {
+        statusText,
+        countDownText: statusText === '临期' ? `${countDown}天` : ''
+    };
+}
+
+function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
+    const diff = totalAllStock - warnStockThreshold;
+    if (diff > 0) return '正常';
+    if (diff === 0) return '临界';
+    return '报警';
+}
+
+function getBatchStockAmount(inRecordId, inPrice) {
+    const batchRemain = getInItemRemain(inRecordId);
+    return Number((batchRemain * inPrice).toFixed(2));
+}
+
+function getInItemRemain(inRecordId) {
+    let totalOut = 0;
+    allStockOut.forEach(out => {
+        if (out.inRecordId == inRecordId) {
+            totalOut += Number(out.outNum || 0);
+        }
+    });
+    let inItem = allStockIn.find(x => x.id == inRecordId);
+    let inNum = inItem ? Number(inItem.in_num || 0) : 0;
+    return Math.max(0, inNum - totalOut);
+}
+
 // ====================== 库存查看页面 stockStock.js 完整代码 ======================
 // 全局变量
 let allStockBatchList = [];
