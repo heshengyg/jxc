@@ -24,8 +24,8 @@ async function checkInUsedByOut(inId) {
 }
 
 // 刷新入库列表
-async function refreshStockIn(){
-    await loadStockIn();
+function refreshStockIn(){
+    loadStockIn();
 }
 
 // ========= 新增：入库页初始化 主动加载出库全局数据（核心修复库存问题） =========
@@ -264,14 +264,14 @@ if(settleType === '线上'){
         }
 
         // 兼容 201/200 成功状态，不再单纯依赖 res.ok
- if (res.status >= 200 && res.status < 300) {
-    // 忽略空响应解析报错
-    try { await res.json(); } catch {}
-    showMsg(editId ? '编辑成功' : '入库成功');
-    closeStockInForm();
-    await loadStockIn(); // 加 await 等待数据加载完成
-    return;
-}
+        if (res.status >= 200 && res.status < 300) {
+            // 忽略空响应解析报错
+            try { await res.json(); } catch {}
+            showMsg(editId ? '编辑成功' : '入库成功');
+            closeStockInForm();
+            loadStockIn();
+            return;
+        }
         // 非成功状态才抛出异常
         throw new Error('请求失败');
     } catch (e) {
@@ -382,6 +382,14 @@ async function importStockInExcel() {
 // 加载入库列表（入口：先加载出库数据，再加载入库）
 async function loadStockIn() {
     await preLoadStockOutData();
+    // 缓存命中，直接使用，不再发请求
+    if(pageCache.stockIn.data && pageCache.stockIn.page === inCurrentPage){
+        allStockIn = pageCache.stockIn.data;
+        refreshAllStockCache(allStockIn, allStockOut);
+        filterStockIn();
+        return;
+    }
+    // 原有分页请求逻辑不变
     try {
         const pageOffset = (inCurrentPage - 1) * inPageSize;
         const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
@@ -399,6 +407,9 @@ async function loadStockIn() {
         });
         const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
         allStockIn = pageData;
+        // 存入缓存
+        pageCache.stockIn.data = pageData;
+        pageCache.stockIn.page = inCurrentPage;
         document.getElementById('inTotalCount').textContent = totalRecord;
         refreshAllStockCache(allStockIn, allStockOut);
         filterStockIn();
@@ -406,6 +417,7 @@ async function loadStockIn() {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
+
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
@@ -547,7 +559,7 @@ async function deleteStockIn(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        await loadStockIn();
+        loadStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
 
@@ -574,7 +586,7 @@ async function batchDeleteStockIn(){
         });
     }
     showMsg('批量删除成功');
-    await loadStockIn();
+    loadStockIn();
 }
 
 // 清空排序、重置搜索
