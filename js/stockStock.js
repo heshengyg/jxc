@@ -20,17 +20,17 @@ function getDateDiffDay(dateStr) {
 }
 
 /**
- * 保质期状态计算（严格按需求：到期日期优先 / 生产日期两套规则 + 倒计时）
- * @param {string} sc 生产日期
- * @param {string} dq 到期日期
- * @param {number} bzVal 保质期数值
- * @param {string} bzUnit 保质期单位 day/month/year
- * @param {number} warnDay 临期预警天数
- * @returns {{statusText:string, countDownText:string}}
+ * 保质期状态计算
+ * 规则：
+ * 1. 优先到期日期；无到期日期则用生产日期推算
+ * 2. diffDay：剩余天数(正数=未过期，负数=已过期)
+ * 3. diffDay <= 0        → 过期
+ * 4. 0 < diff <= 预警值   → 临期（显示倒计时）
+ * 5. 预警值 < diff <= 2*预警值 → 打折
+ * 6. diff > 2*预警值      → 剩余XX天
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     const totalBzDay = getBzTotalDay(bzVal, bzUnit);
-    // 无保质期数据
     if (totalBzDay <= 0) {
         return { statusText: '无日期', countDownText: '' };
     }
@@ -38,28 +38,28 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     let diffDay = null;
     let countDown = '';
     let statusText = '';
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 规则1：优先 使用【到期日期】计算
+    // 优先 到期日期 计算剩余天数
     if (dq) {
         const target = new Date(dq);
         target.setHours(0, 0, 0, 0);
         diffDay = Math.floor((target - today) / (1000 * 60 * 24));
     }
-    // 规则2：无到期日期，使用【生产日期】推算剩余保质期
+    // 无到期日期，用生产日期推算剩余保质期
     else if (sc) {
         const produce = new Date(sc);
         produce.setHours(0, 0, 0, 0);
         const passDay = Math.floor((today - produce) / (1000 * 24));
         diffDay = totalBzDay - passDay;
     }
-    // 两者都为空
     else {
         return { statusText: '无日期', countDownText: '' };
     }
 
-    // 分级判断：过期 → 临期 → 打折 → 剩余天数
+    // 分级判断
     if (diffDay <= 0) {
         statusText = '过期';
     } else if (diffDay <= warnThreshold) {
@@ -71,7 +71,6 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         statusText = `剩余${diffDay}天`;
     }
 
-    // 仅临期显示倒计时
     return {
         statusText,
         countDownText: statusText === '临期' ? `${countDown}天` : ''
@@ -79,10 +78,8 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
 }
 
 /**
- * 库存报警状态
- * @param {number} totalAllStock 总库存
- * @param {number} warnStockThreshold 库存预警阈值
- * @returns {string} 正常/临界/报警
+ * 库存报警：总库存 - 预警阈值
+ * >0 正常  |  =0 临界  |  <0 报警
  */
 function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
     const diff = totalAllStock - warnStockThreshold;
@@ -92,7 +89,7 @@ function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
 }
 
 /**
- * 获取单个入库批次剩余库存
+ * 单个入库ID 剩余库存
  */
 function getInItemRemain(inRecordId) {
     let totalOut = 0;
@@ -107,14 +104,13 @@ function getInItemRemain(inRecordId) {
 }
 
 /**
- * 计算批次库存金额：批次剩余库存 * 入库单价
+ * 批次库存金额 = 批次总剩余库存 * 该批次入库单价
  */
-function getBatchStockAmount(inRecordId, inPrice) {
-    const batchRemain = getInItemRemain(inRecordId);
-    return Number((batchRemain * inPrice).toFixed(2));
+function getBatchStockAmount(totalRemain, inPrice) {
+    return Number((totalRemain * inPrice).toFixed(2));
 }
 
-// ====================== 库存查看页面 全局变量 ======================
+// ====================== 库存查看 全局变量 ======================
 let allStockBatchList = [];
 let filteredStockBatch = [];
 let stockCurrentPage = 1;
@@ -122,7 +118,6 @@ let stockPageSize = 10;
 let stockTotalPages = 1;
 let stockSortField = '';
 let stockSortAsc = true;
-// 筛选汇总缓存
 let stockSummary = {
     totalAmount: 0,
     totalBatchStock: 0,
@@ -130,10 +125,11 @@ let stockSummary = {
 };
 
 /**
- * 加载全部库存批次数据
+ * 加载库存数据
+ * 合并规则：供应商 + 商品名 + 规格 + 入库单价 + 生产日期 + 到期日期 为同一批次
  */
 async function loadStockStock() {
-    // 前置加载入库、出库全局数据（保证数据源存在）
+    // 前置加载全局入库、出库数据
     if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
 
@@ -143,56 +139,85 @@ async function loadStockStock() {
         });
         if (!res.ok) throw new Error('读取入库批次失败');
         const inAllList = await res.json();
-        allStockBatchList = [];
 
+        // ========== 核心：按规则合并库存批次 ==========
+        const batchMap = new Map();
         inAllList.forEach(inItem => {
-            // 匹配对应商品基础信息
-            const goodsBase = allGoods.find(g =>
-                g.supplier === inItem.supplier
-                && g.name === inItem.goodsName
-                && g.spec === inItem.spec
-            );
+            // 合并唯一键：供应商+商品名+规格+入库单价+生产日期+到期日期
+            const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
+
+            // 计算当前单条剩余库存
+            const singleRemain = getInItemRemain(inItem.id);
+
+            if (batchMap.has(key)) {
+                // 同批次：累加数量
+                const batch = batchMap.get(key);
+                batch.totalRemain += singleRemain;
+                batch.totalInNum += Number(inItem.in_num || 0);
+            } else {
+                // 新批次：初始化
+                const goodsBase = allGoods.find(g =>
+                    g.supplier === inItem.supplier
+                    && g.name === inItem.goodsName
+                    && g.spec === inItem.spec
+                );
+                batchMap.set(key, {
+                    supplier: inItem.supplier,
+                    goodsName: inItem.goodsName,
+                    spec: inItem.spec || '-',
+                    inPrice: inItem.in_price || 0,
+                    produce_date: inItem.produce_date || '-',
+                    expire_date: inItem.expire_date || '-',
+                    totalInNum: Number(inItem.in_num || 0),
+                    totalRemain: singleRemain,
+                    goodsBase: goodsBase
+                });
+            }
+        });
+
+        // 转为数组，构建最终渲染数据
+        allStockBatchList = [];
+        batchMap.forEach(batch => {
+            const goodsBase = batch.goodsBase;
             if (!goodsBase) return;
 
-            const totalAllStock = getTotalStockNum(inItem.supplier, inItem.goodsName);
+            // 该商品【全局总库存】（所有同商品批次合计）
+            const totalAllStock = getTotalStockNum(batch.supplier, batch.goodsName);
             const warnStockThreshold = goodsBase.warn_num || 0;
-            const batchRemain = getInItemRemain(inItem.id);
-            const batchAmount = getBatchStockAmount(inItem.id, inItem.in_price);
+            const batchAmount = getBatchStockAmount(batch.totalRemain, batch.inPrice);
 
-            // 保质期单位映射：页面中文 → 函数英文标识
+            // 保质期参数转换
             let unitCode = "day";
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
             if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
-            // 临期预警天数 = 商品自身配置
             const warnDay = goodsBase.warn_num || 0;
 
-            // 调用保质期计算
+            // 计算保质期状态 & 倒计时
             const bzResult = calcBzStatus(
-                inItem.produce_date,
-                inItem.expire_date,
+                batch.produce_date === '-' ? '' : batch.produce_date,
+                batch.expire_date === '-' ? '' : batch.expire_date,
                 goodsBase.shelf_life_num || 0,
                 unitCode,
                 warnDay
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
 
-            // 页面展示用保质期文本
+            // 页面展示保质期文本
             let unitText = '天';
             if (goodsBase.shelf_life_unit === '年') unitText = '年';
             if (goodsBase.shelf_life_unit === '个月') unitText = '月';
             const bzText = `${goodsBase.shelf_life_num || 0}${unitText}`;
 
             allStockBatchList.push({
-                id: inItem.id,
-                supplier: inItem.supplier,
-                goodsName: inItem.goodsName,
-                spec: inItem.spec || '-',
+                supplier: batch.supplier,
+                goodsName: batch.goodsName,
+                spec: batch.spec,
                 warnStockThreshold: warnStockThreshold,
                 stockWarnText: stockWarnText,
                 batchAmount: batchAmount,
-                produce_date: inItem.produce_date || '-',
-                expire_date: inItem.expire_date || '-',
-                batchRemain: batchRemain,
+                produce_date: batch.produce_date,
+                expire_date: batch.expire_date,
+                batchRemain: batch.totalRemain,
                 totalAllStock: totalAllStock,
                 bzText: bzText,
                 bzStatusText: bzResult.statusText,
@@ -210,7 +235,7 @@ async function loadStockStock() {
 }
 
 /**
- * 搜索筛选（已修复变量名错误 allStockBatch → allStockBatchList）
+ * 搜索筛选
  */
 function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
@@ -268,7 +293,7 @@ function updateStockSortIcon() {
 }
 
 /**
- * 渲染表格（含汇总行）
+ * 渲染表格 + 底部汇总
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -278,7 +303,7 @@ function renderStockTable() {
     tb.innerHTML = '';
     let htmlStr = '';
 
-    // 计算筛选汇总
+    // 汇总统计
     stockSummary = { totalAmount: 0, totalBatchStock: 0, totalAllStock: 0 };
     filteredStockBatch.forEach(item => {
         stockSummary.totalAmount += item.batchAmount;
@@ -309,7 +334,7 @@ function renderStockTable() {
         `;
     });
 
-    // 底部汇总行
+    // 汇总行
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
         <td colspan="6">筛选数据汇总</td>
@@ -324,7 +349,7 @@ function renderStockTable() {
 }
 
 /**
- * 分页渲染（增加DOM容错，防止报错）
+ * 分页渲染（容错）
  */
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
@@ -347,13 +372,12 @@ function renderStockPagination() {
         pgBox.appendChild(btn);
     }
 
-    // 容错：判断按钮存在再设置禁用
     const btns = document.querySelectorAll('.page-controls .page-btn');
     if (btns.length >= 5) {
         btns[0].disabled = stockCurrentPage === 1;
         btns[1].disabled = stockCurrentPage === 1;
         btns[3].disabled = stockCurrentPage === stockTotalPages;
-        btns[4].disabled = stockCurrentPage === stockTotalPages;
+        btns[4].disabled = stockTotalPages;
     }
 }
 
@@ -401,6 +425,6 @@ function exportStockStockExcel() {
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "库存明细");
+    XLSX.utils.book_append_sheet(wb, "库存明细");
     XLSX.writeFile(wb, "库存明细.xlsx");
 }
