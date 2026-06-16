@@ -184,6 +184,7 @@ function closeStockInForm(){
 }
 
 // 提交入库
+// 提交入库
 async function submitStockIn(){
     let editId = document.getElementById('inEditId').value;
     let supplier = document.getElementById('supSearchInput').value.trim();
@@ -198,6 +199,7 @@ async function submitStockIn(){
     let recordDate = document.getElementById('inRecordDate').value;
     let produceDate = document.getElementById('inProduceDate').value;
     let expireDate = document.getElementById('inExpireDate').value;
+
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName || !goodsId) return showMsg('请选择商品');
     if(!inNum || +inNum < 1) return showMsg('入库数量必须大于0');
@@ -215,6 +217,7 @@ async function submitStockIn(){
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
+
     let targetGoods = allGoods.find(g => g.id == goodsId);
     let finalInPrice = 0;
     if(settleType === '线上'){
@@ -222,6 +225,7 @@ async function submitStockIn(){
     }else{
         finalInPrice = +inPrice;
     }
+
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -234,40 +238,45 @@ async function submitStockIn(){
         produce_date: produceDate || null,
         expire_date: expireDate || null
     };
+
     try {
         let res;
+        const headers = {
+            apikey:SUPABASE_KEY,
+            Authorization:`Bearer ${SUPABASE_KEY}`,
+            'Content-Type':'application/json',
+            'Prefer':'return=representation'
+        };
+
         if(editId){
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${editId}`,{
                 method:'PATCH',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
+                headers,
                 body:JSON.stringify(postData)
             });
         }else{
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`,{
                 method:'POST',
-                headers:{
-                    apikey:SUPABASE_KEY,
-                    Authorization:`Bearer ${SUPABASE_KEY}`,
-                    'Content-Type':'application/json',
-                    'Prefer':'return=representation'
-                },
+                headers,
                 body:JSON.stringify(postData)
             });
         }
-        if(!res.ok) throw new Error('请求异常');
-        showMsg(editId ? '编辑成功' : '入库成功');
-        closeStockIn();
-        loadStockIn();
+
+        // 兼容 201/200 成功状态，不再单纯依赖 res.ok
+        if (res.status >= 200 && res.status < 300) {
+            // 忽略空响应解析报错
+            try { await res.json(); } catch {}
+            showMsg(editId ? '编辑成功' : '入库成功');
+            closeStockInForm();
+            loadStockIn();
+            return;
+        }
+        // 非成功状态才抛出异常
+        throw new Error('请求失败');
     } catch (e) {
         showMsg('入库提交失败');
     }
 }
-
 // 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
