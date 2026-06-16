@@ -235,200 +235,143 @@
         </div>
     </div>
 
-    <!-- 库存查看 【仅此处替换原有“功能开发中”】 -->
+    <!-- 库存查看 -->
     <div id="stockView" class="tab-content">
         <h3>库存查看</h3>
-        <div class="stat-bar">
-            共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
+        <p>功能开发中</p>
+    </div>
+</div>
+
+<!-- 出库弹窗 -->
+<div class="form-modal" id="stockOutModal">
+    <div class="form-container">
+        <h4 id="stockOutFormTitle">添加出库单据</h4>
+        <input type="hidden" id="outEditId">
+        <div class="form-group">
+            <label>供应商：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="outSupSearchInput" placeholder="搜索/选择供应商" onfocus="showOutSupList()" oninput="filterOutSupList()">
+                <div class="search-select-list" id="outSupListBox"></div>
+            </div>
+
+            <label>商品名称：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="outGoodsSearchInput" placeholder="搜索/选择商品" onfocus="showOutGoodsList()" oninput="filterOutGoodsList()">
+                <div class="search-select-list" id="outGoodsListBox"></div>
+            </div>
+            <input type="hidden" id="outCurGoodsId">
         </div>
-        <div class="search-bar">
-            <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
-            <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
-            <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
-            
-            <select id="stockSearchField">
-                <option value="supplier">供应商</option>
-                <option value="goodsName">商品名</option>
-                <option value="spec">规格</option>
-                <option value="stockWarnText">报警状态</option>
-                <option value="bzStatusText">保质期状态</option>
+        <div class="form-group">
+            <label>规格：</label>
+            <input type="text" id="outSpec" readonly placeholder="自动带出">
+            <label>结算方式：</label>
+            <input type="text" id="outSettleType" readonly placeholder="自动带出">
+            <label>销售单价：</label>
+            <input type="text" id="outSalePrice" readonly placeholder="自动带出">
+        </div>
+        <div class="form-group">
+            <label>当前总库存：</label>
+            <input type="text" id="totalStockNum" readonly placeholder="自动带出">
+            <label>出库数量：</label>
+            <input type="number" id="outNum" min="1" placeholder="必填" oninput="checkStockNum()">
+            <label>录入日期：</label>
+            <input type="date" id="outRecordDate">
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="submitStockOut()">提交</button>
+            <button class="btn" onclick="closeStockOutForm()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 入库弹窗 -->
+<div class="form-modal" id="stockInModal">
+    <div class="form-container">
+        <h4 id="stockInFormTitle">添加入库单据</h4>
+        <input type="hidden" id="inEditId">
+        <div class="form-group">
+            <label>供应商：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="supSearchInput" placeholder="搜索/选择供应商" onfocus="showSupList()" oninput="filterSupplierList()">
+                <div class="search-select-list" id="supListBox"></div>
+            </div>
+
+            <label>商品名称：</label>
+            <div class="search-select-wrap">
+                <input class="search-select-input" id="goodsSearchInput" placeholder="搜索/选择商品" onfocus="showGoodsList()" oninput="filterGoodsList()">
+                <div class="search-select-list" id="goodsListBox"></div>
+            </div>
+            <input type="hidden" id="curSelectGoodsId">
+        </div>
+        <div class="form-group">
+            <label>规格：</label>
+            <input type="text" id="inSpec" readonly placeholder="自动带出">
+            <label>结算方式(渠道)：</label>
+            <input type="text" id="inSettleType" readonly placeholder="自动带出">
+            <label>销售单价：</label>
+            <input type="text" id="inSalePrice" readonly placeholder="自动带出">
+        </div>
+        <div class="form-group">
+            <label>入库数量：</label>
+            <input type="number" id="inNum" min="1" placeholder="必填">
+            <label>入库单价：</label>
+            <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填">
+            <label>录入日期：</label>
+            <input type="date" id="inRecordDate">
+        </div>
+        <div class="form-group">
+            <label>生产日期：</label>
+            <input type="date" id="inProduceDate" onchange="lockExpireDate()">
+            <label>到期日期：</label>
+            <input type="date" id="inExpireDate" onchange="lockProduceDate()">
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="submitStockIn()">提交</button>
+            <button class="btn" onclick="closeStockInForm()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 商品弹窗 -->
+<div class="form-modal" id="formModal">
+    <div class="form-container">
+        <h4 id="formTitle">新增商品</h4>
+        <input type="hidden" id="editId">
+        <div class="form-group">
+            <label>供应商：</label>
+            <input type="text" id="add_supplier" required>
+            <label>商品名称：</label>
+            <input type="text" id="add_name" required>
+            <label>规格：</label>
+            <input type="text" id="add_spec">
+        </div>
+        <div class="form-group">
+            <label>销售渠道：</label>
+            <select id="add_channel" required onchange="toggleOnlineCostInput()">
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
             </select>
-            <input type="text" id="stockSearchKeyword" placeholder="输入关键词搜索">
-            <button onclick="filterStockStock()">搜索</button>
-            <button onclick="resetStockSearch()">重置搜索</button>
+            <label>销售单价：</label>
+            <input type="number" id="add_sale_price" step="0.01" min="0" required>
+            <label>线上成本价：</label>
+            <input type="number" id="add_online_cost" step="0.01" min="0" placeholder="线上可填，线下禁用">
         </div>
-
-        <div class="table-container">
-            <table class="stock-table">
-                <thead>
-                    <tr>
-                        <th class="sortable" onclick="stockSortTable('id')">序列 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('supplier')">供应商 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('goodsName')">商品名 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('spec')">规格 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('warnStockThreshold')">库存预警阈值 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('stockWarnText')">报警状态 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('batchAmount')">库存金额 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('produce_date')">生产日期 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('expire_date')">到期日期 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('batchRemain')">批次库存 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('totalAllStock')">总库存 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('bzText')">保质期 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('bzStatusText')">保质期状态 <span class="stockSortIcon"></span></th>
-                        <th class="sortable" onclick="stockSortTable('countDownText')">过期倒计 <span class="stockSortIcon"></span></th>
-                    </tr>
-                </thead>
-                <tbody id="stockStockList"></tbody>
-            </table>
-        </div>
-
-        <!-- 分页控件 -->
-        <div class="page-controls">
-            <button onclick="stockGoToPage(1)">首页</button>
-            <button onclick="stockPrevPage()">上一页</button>
-            <div id="stockPageNumbers"></div>
-            <button onclick="stockNextPage()">下一页</button>
-            <button onclick="stockGoToPage(stockTotalPages)">末页</button>
-            <span>第<span id="stockCurrentPage">1</span>/<span id="stockTotalPages">1</span>页</span>
-            <select id="stockPageSize" onchange="changeStockPageSize()">
-                <option value="10">10条/页</option>
-                <option value="20">20条/页</option>
-                <option value="50">50条/页</option>
+        <div class="form-group">
+            <label>保质期时长：</label>
+            <input type="number" id="add_shelf_life_num" min="0" placeholder="留空表示无保质期">
+            <label>保质期单位：</label>
+            <select id="add_shelf_life_unit">
+                <option value="">无</option>
+                <option value="天">天</option>
+                <option value="个月">个月</option>
+                <option value="年">年</option>
             </select>
+            <label>预警阈值：</label>
+            <input type="number" id="add_warn_num" min="0" placeholder="库存预警数量">
         </div>
-    </div>
-
-    <!-- 出库弹窗 -->
-    <div class="form-modal" id="stockOutModal">
-        <div class="form-container">
-            <h4 id="stockOutFormTitle">添加出库单据</h4>
-            <input type="hidden" id="outEdit">
-            <div class="form-group">
-                <label>供应商：</label>
-                <div class="search-select-wrap">
-                    <input class="search-select-input" id="outSupSearchInput" placeholder="搜索/选择供应商" onfocus="showOutSupList()" oninput="filterOutSupList()">
-                    <div class="search-select-list" id="outSupListBox"></div>
-                </div>
-
-                <label>商品名称：</label>
-                <div class="search-select-wrap">
-                    <input class="search-select-input" id="outGoodsSearchInput" placeholder="搜索/选择商品" onfocus="showOutGoodsList()" oninput="filterOutGoodsList()">
-                    <div class="search-select-list" id="outGoodsListBox"></div>
-                </div>
-                <input type="hidden" id="outCurGoodsId">
-            </div>
-            <div class="form-group">
-                <label>规格：</label>
-                <input type="text" id="outSpec" readonly placeholder="自动带出">
-                <label>结算方式：</label>
-                <input type="text" id="outSettleType" readonly placeholder="自动带出">
-                <label>销售单价：</label>
-                <input type="text" id="outSalePrice" readonly placeholder="自动带出">
-            </div>
-            <div class="form-group">
-                <label>当前总库存：</label>
-                <input type="text" id="totalStockNum" readonly placeholder="自动带出">
-                <label>出库数量：</label>
-                <input type="number" id="outNum" min="1" placeholder="必填" oninput="checkStockNum()">
-                <label>录入日期：</label>
-                <input type="date" id="outRecordDate">
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-primary" onclick="submitStockOut()">提交</button>
-                <button class="btn" onclick="closeStockOutForm()">取消</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 入库弹窗 -->
-    <div class="form-modal" id="stockInModal">
-        <div class="form-container">
-            <h4 id="stockInFormTitle">添加入库单据</h4>
-            <input type="hidden" id="inEditId">
-            <div class="form-group">
-                <label>供应商：</label>
-                <div class="search-select-wrap">
-                    <input class="search-select-input" id="supSearchInput" placeholder="搜索/选择供应商" onfocus="showSupList()" oninput="filterSupplierList()">
-                    <div class="search-select-list" id="supListBox"></div>
-                </div>
-
-                <label>商品名称：</label>
-                <div class="search-select-wrap">
-                    <input class="search-select-input" id="goodsSearchInput" placeholder="搜索/选择商品" onfocus="showGoodsList()" oninput="filterGoodsList()">
-                    <div class="search-select-list" id="goodsListBox"></div>
-                </div>
-                <input type="hidden" id="curSelectGoodsId">
-            </div>
-            <div class="form-group">
-                <label>规格：</label>
-                <input type="text" id="inSpec" readonly placeholder="自动带出">
-                <label>结算方式(渠道)：</label>
-                <input type="text" id="inSettleType" readonly placeholder="自动带出">
-                <label>销售单价：</label>
-                <input type="text" id="inSalePrice" readonly placeholder="自动带出">
-            </div>
-            <div class="form-group">
-                <label>入库数量：</label>
-                <input type="number" id="inNum" min="1" placeholder="必填">
-                <label>入库单价：</label>
-                <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填">
-                <label>录入日期：</label>
-                <input type="date" id="inRecordDate">
-            </div>
-            <div class="form-group">
-                <label>生产日期：</label>
-                <input type="date" id="inProduceDate" onchange="lockExpireDate()">
-                <label>到期日期：</label>
-                <input type="date" id="inExpireDate" onchange="lockProduceDate()">
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-primary" onclick="submitStockIn()">提交</button>
-                <button class="btn" onclick="closeStockInForm()">取消</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 商品弹窗 -->
-    <div class="form-modal" id="formModal">
-        <div class="form-container">
-            <h4 id="formTitle">新增商品</h4>
-            <input type="hidden" id="editId">
-            <div class="form-group">
-                <label>供应商：</label>
-                <input type="text" id="add_supplier" required>
-                <label>商品名称：</label>
-                <input type="text" id="add_name" required>
-                <label>规格：</label>
-                <input type="text" id="add_spec">
-            </div>
-            <div class="form-group">
-                <label>销售渠道：</label>
-                <select id="add_channel" required onchange="toggleOnlineCostInput()">
-                    <option value="线上">线上</option>
-                    <option value="线下">线下</option>
-                </select>
-                <label>销售单价：</label>
-                <input type="number" id="add_sale_price" step="0.01" min="0" required>
-                <label>线上成本价：</label>
-                <input type="number" id="add_online_cost" step="0.01" min="0" placeholder="线上可填，线下禁用">
-            </div>
-            <div class="form-group">
-                <label>保质期时长：</label>
-                <input type="number" id="add_shelf_life_num" min="0" placeholder="留空表示无保质期">
-                <label>保质期单位：</label>
-                <select id="add_shelf_life_unit">
-                    <option value="">无</option>
-                    <option value="天">天</option>
-                    <option value="个月">个月</option>
-                    <option value="年">年</option>
-                </select>
-                <label>预警阈值：</label>
-                <input type="number" id="add_warn_num" min="0" placeholder="库存预警数量">
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-primary" onclick="submitForm()">提交</button>
-                <button class="btn" onclick="closeForm()">取消</button>
-            </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="submitForm()">提交</button>
+            <button class="btn" onclick="closeForm()">取消</button>
         </div>
     </div>
 </div>
@@ -441,15 +384,11 @@
 <script src="./js/stockin.js"></script>
 <!-- 新增：出库JS -->
 <script src="./js/stockout.js"></script>
-<!-- 【仅新增这一行】引入库存JS，不改动原有任何脚本 -->
-<script src="./js/stockStock.js"></script>
 
-<!-- 页面初始化脚本，只保留这一段，删除所有重复script -->
+<!-- 仅保留页面初始化原生代码 -->
 <script>
-document.addEventListener('DOMContentLoaded', async function(){
-    document.getElementById('fileInput').value = '';
-    // 页面加载完成预加载入库数据，供出库下拉读取
-    await loadStockIn();
+document.addEventListener('DOMContentLoaded',function(){
+    document.getElementById('fileInput').value='';
 });
 </script>
 </body>
