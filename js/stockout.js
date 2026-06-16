@@ -8,11 +8,7 @@ function refreshStockOut(){
 }
 
 // 供应商下拉
-// 修改为（增加异步判断）
-async function showOutSupList(){
-    if(!allStockIn || allStockIn.length === 0){
-        await loadStockIn();
-    }
+function showOutSupList(){
     outCurrSupplierList = [...new Set(allStockIn.map(item=>item.supplier).filter(s=>s))];
     renderOutSupList(outCurrSupplierList);
     document.getElementById('outSupListBox').style.display = 'block';
@@ -274,10 +270,10 @@ async function submitStockOut(){
     }else{
         showMsg('部分出库记录提交异常，请检查数据');
     }
-    closeStockOutForm();
-    loadStockOut();
-    loadStockIn();
-}
+    closeStockOut();
+    await loadStockOut();
+    await loadStockIn();
+
 
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
@@ -430,15 +426,16 @@ async function deleteStockOut(id){
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
         showMsg('删除成功');
-        loadStockOut();
-        loadStockIn();
+        await loadStockOut();
+        await loadStockIn();
     }catch(e){ showMsg('删除失败'); }
 }
-
 // 批量删除
 async function batchDeleteStockOut(){
     let ids = [];
-    document.querySelectorAll('.out-item-checkbox:checked').forEach(cb=>ids.push(cb.value));
+    document.querySelectorAll('.out-item-checkbox').forEach(cb=>{
+        if(cb.checked) ids.push(cb.value);
+    });
     if(ids.length===0) return showMsg('请选择数据');
     if(!confirm(`确定删除${ids.length}条？`))return;
     for(let id of ids){
@@ -448,10 +445,9 @@ async function batchDeleteStockOut(){
         });
     }
     showMsg('批量删除成功');
-    loadStockOut();
-    loadStockIn();
+    await loadStockOut();
+    await loadStockIn();
 }
-
 // 清空排序、重置搜索
 function clearOutSort(){
     outSortField = ''; outSortAsc = true; updateOutSortIcon(); loadStockOut();
