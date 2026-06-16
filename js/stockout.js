@@ -39,14 +39,11 @@ function renderOutSupList(list){
 }
 
 // 根据供应商加载对应商品
-// 根据供应商加载对应商品（已修复重复问题，其余逻辑完全不变）
 function loadOutGoodsBySupplier(supplier){
-    // 先按 商品名称+规格 做唯一去重
     const uniqueMap = new Map();
     allStockIn
         .filter(item => item.supplier === supplier)
         .forEach(item => {
-            // 组合唯一键：商品名 + 规格，避免同名不同规格误去重
             const key = `${item.goodsName}||${item.spec || ''}`;
             if (!uniqueMap.has(key)) {
                 uniqueMap.set(key, {
@@ -57,7 +54,6 @@ function loadOutGoodsBySupplier(supplier){
                 });
             }
         });
-    // 转回数组
     let goodsArr = Array.from(uniqueMap.values());
 
     outCurrGoodsList = goodsArr;
@@ -98,19 +94,17 @@ function renderOutGoodsList(list){
     });
 }
 
-// 选择商品，自动带出字段 + 加载总库存（仅修改这一处）
+// 选择商品，自动带出字段 + 加载总库存
 function selectOutGoods(goods){
     let sup = document.getElementById('outSupSearchInput').value;
     document.getElementById('outGoodsSearchInput').value = goods.name;
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
-    // ========== 改动点：直接从商品基础库读取最新销售单价 ==========
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     let salePrice = baseGoods ? Number(baseGoods.sale_price) : 0;
     document.getElementById('outSalePrice').value = formatMoney(salePrice);
 
-    // 自动带出总库存（原逻辑不变）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
@@ -124,12 +118,11 @@ function checkStockNum(){
     }
 }
 
-// 打开新增出库弹窗（已移除编辑逻辑，仅保留新增）
+// 打开新增出库弹窗
 function openStockOutForm(){
     document.getElementById('outEditId').value = '';
     document.getElementById('stockOutFormTitle').innerText = '添加出库单据';
 
-    // 重置表单
     document.getElementById('outSupSearchInput').value = '';
     document.getElementById('outGoodsSearchInput').value = '';
     document.getElementById('outCurGoodsId').value = '';
@@ -146,7 +139,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 
-// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
+// 提交出库
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -157,32 +150,26 @@ async function submitStockOut(){
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
 
-    // 基础校验（原逻辑不变）
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // 库存校验（原逻辑不变）
     let totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细（原核心扣减逻辑不变）
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // ========== 按入库记录ID分组（不同入库=不同出库单价，自动拆分） ==========
     let groupMap = {};
     for(let d of outDetail){
         let inRecordId = d.inRecordId;
         let useNum = d.useNum;
-        // 查找当前这条入库对应的入库单，取出库单价
         let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
         if(!inItem) continue;
 
-        // 计算本条对应的出库单价（沿用原有单价规则）
         let outPrice = 0;
         let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
         if(settleType === '线上'){
@@ -191,7 +178,6 @@ async function submitStockOut(){
             outPrice = Number(inItem.in_price) || 0;
         }
 
-        // 同一条入库记录合并数量
         if(!groupMap[inRecordId]){
             groupMap[inRecordId] = {
                 inRecordId: inRecordId,
@@ -204,17 +190,14 @@ async function submitStockOut(){
         groupMap[inRecordId].details.push(d);
     }
 
-    // 转为数组，逐条提交
     let groupList = Object.values(groupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
 
-    // 统一取商品最新销售单价（沿用原有逻辑）
     let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
     if(baseGoods){
         salePrice = Number(baseGoods.sale_price) || 0;
     }
 
-    // ========== 循环分组，逐条生成并提交出库记录 ==========
     let submitSuccess = true;
     for(let group of groupList){
         let singleOutNum = group.totalUseNum;
@@ -222,11 +205,9 @@ async function submitStockOut(){
         let linkInId = group.inRecordId;
         let detailStr = JSON.stringify(group.details);
 
-        // 单独计算本条金额
         let outAmount = Number((singleOutPrice * singleOutNum).toFixed(2));
         let saleAmount = Number((salePrice * singleOutNum).toFixed(2));
 
-        // 单条出库提交数据结构（与原结构完全一致，保证兼容）
         let postData = {
             supplier: supplier,
             goodsName: goodsName,
@@ -264,18 +245,17 @@ async function submitStockOut(){
         }
     }
 
-    // 全部提交完成后统一反馈、刷新
     if(submitSuccess){
         showMsg('出库提交成功');
     }else{
         showMsg('部分出库记录提交异常，请检查数据');
     }
-    closeStockOut();
+    closeStockOutForm();
     await loadStockOut();
     await loadStockIn();
+} // 【修复关键：补全缺失的闭合大括号】
 
-
-// 导出/导入/模板、分页、排序、删除 等通用功能
+// 导出模板
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
     const ws = XLSX.utils.aoa_to_sheet([header]);
@@ -283,6 +263,7 @@ function downloadStockOutTemplate(){
     XLSX.utils.book_append_sheet(wb, ws, "出库导入模板");
     XLSX.writeFile(wb, "出库导入模板.xlsx");
 }
+// 导出Excel
 function exportStockOutExcel(){
     if(filteredStockOut.length === 0){
         showMsg("暂无数据可导出");
@@ -303,13 +284,11 @@ function exportStockOutExcel(){
 // 加载出库列表
 async function loadStockOut() {
     try {
-        // 后端分页请求
         const pageOffset = (outCurrentPage - 1) * outPageSize;
         const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc&limit=${outPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         const pageData = await fetchPage.json();
-        // 查询总条数
         const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?select=id`, {
             headers: {
                 apikey: SUPABASE_KEY,
@@ -334,7 +313,6 @@ function filterStockOut() {
     let kw = document.getElementById('outSearchKeyword').value.toLowerCase();
     filteredStockOut = allStockOut.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('outSearchCount').textContent = filteredStockOut.length;
-    // 删除 outCurrentPage = 1;
     renderOutPagination();
     renderStockOut();
 }
@@ -351,7 +329,8 @@ function outSortTable(field) {
         }
         return outSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     });
-    updateOutSortIcon(); renderStockOut();
+    updateOutSortIcon();
+    renderStockOut();
 }
 function updateOutSortIcon() {
     document.querySelectorAll('.outSortIcon').forEach(i=>i.innerText='');
@@ -359,11 +338,12 @@ function updateOutSortIcon() {
     if(idx>-1) document.querySelectorAll('.outSortIcon')[idx].innerText = outSortAsc?'↑':'↓';
 }
 
-// 渲染表格（已删除编辑按钮，仅保留删除按钮）
+// 渲染出库表格
 function renderStockOut() {
     let start = (outCurrentPage-1)*outPageSize;
     let pageData = filteredStockOut.slice(start, start+outPageSize);
-    let tb = document.getElementById('stockOutList'); tb.innerHTML = '';
+    let tb = document.getElementById('stockOutList');
+    tb.innerHTML = '';
     pageData.forEach((item,idx)=>{
         let html = `
             <tr>
@@ -388,17 +368,20 @@ function renderStockOut() {
     });
 }
 
-// 分页
+// 分页渲染
 function renderOutPagination() {
     outTotalPages = Math.ceil(filteredStockOut.length/outPageSize)||1;
     document.getElementById('outCurrentPage').textContent = outCurrentPage;
     document.getElementById('outTotalPages').textContent = outTotalPages;
-    let pgBox = document.getElementById('outPageNumbers'); pgBox.innerHTML='';
+    let pgBox = document.getElementById('outPageNumbers');
+    pgBox.innerHTML='';
     let s = Math.max(1, outCurrentPage-2), e = Math.min(outTotalPages, s+4);
     for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
         btn.className = 'page-btn '+(i===outCurrentPage?'active':'');
-        btn.innerText=i; btn.onclick=()=>outGoToPage(i); pgBox.appendChild(btn);
+        btn.innerText=i;
+        btn.onclick=()=>outGoToPage(i);
+        pgBox.appendChild(btn);
     }
     let btns = document.querySelectorAll('#stockOut .page-controls .page-btn');
     btns[0].disabled = outCurrentPage===1;
@@ -406,18 +389,28 @@ function renderOutPagination() {
     btns[3].disabled = outCurrentPage===outTotalPages;
     btns[4].disabled = outCurrentPage===outTotalPages;
 }
-function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
+function outGoToPage(p){
+    if(p<1||p>outTotalPages)return;
+    outCurrentPage=p;
+    renderOutPagination();
+    renderStockOut();
+}
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }
 function outNextPage(){ outGoToPage(outCurrentPage+1); }
-function changeOutPageSize(){ outPageSize=+document.getElementById('outPageSize').value; outCurrentPage=1; renderOutPagination(); renderStockOut(); }
+function changeOutPageSize(){
+    outPageSize=+document.getElementById('outPageSize').value;
+    outCurrentPage=1;
+    renderOutPagination();
+    renderStockOut();
+}
 
-// 全选
+// 全选复选框
 function outToggleSelectAll(){
     let all = document.getElementById('outSelectAll').checked;
     document.querySelectorAll('.out-item-checkbox').forEach(cb=>cb.checked=all);
 }
 
-// 单条删除
+// 单条删除出库
 async function deleteStockOut(id){
     if(!confirm('确定删除？'))return;
     try{
@@ -428,9 +421,11 @@ async function deleteStockOut(id){
         showMsg('删除成功');
         await loadStockOut();
         await loadStockIn();
-    }catch(e){ showMsg('删除失败'); }
+    }catch(e){
+        showMsg('删除失败');
+    }
 }
-// 批量删除
+// 批量删除出库
 async function batchDeleteStockOut(){
     let ids = [];
     document.querySelectorAll('.out-item-checkbox').forEach(cb=>{
@@ -448,10 +443,14 @@ async function batchDeleteStockOut(){
     await loadStockOut();
     await loadStockIn();
 }
-// 清空排序、重置搜索
+// 清空排序
 function clearOutSort(){
-    outSortField = ''; outSortAsc = true; updateOutSortIcon(); loadStockOut();
+    outSortField = '';
+    outSortAsc = true;
+    updateOutSortIcon();
+    loadStockOut();
 }
+// 重置搜索
 function resetOutSearch() {
     document.getElementById('outSearchKeyword').value = '';
     document.getElementById('outSearchField').selectedIndex = 0;
