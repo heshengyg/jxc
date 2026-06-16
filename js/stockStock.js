@@ -210,12 +210,12 @@ async function loadStockStock() {
 }
 
 /**
- * 搜索筛选
+ * 搜索筛选（已修复变量名错误 allStockBatch → allStockBatchList）
  */
 function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
     const kw = document.getElementById('stockSearchKeyword').value.toLowerCase();
-    filteredStockBatch = allStockBatch.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+    filteredStockBatch = allStockBatchList.filter(item => String(item[field] || '').toLowerCase().includes(kw));
 
     const searchCountEl = document.getElementById('stockSearchCount');
     if (searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
