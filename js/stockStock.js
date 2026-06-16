@@ -74,7 +74,7 @@ async function loadStockStock() {
         });
 
         const totalEl = document.getElementById('stockTotalCount');
-        if(totalEl) totalEl.textContent = allStockBatchList.length;
+        if (totalEl) totalEl.textContent = allStockBatchList.length;
         filterStockStock();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
@@ -87,11 +87,11 @@ async function loadStockStock() {
 function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
     const kw = document.getElementById('stockSearchKeyword').value.toLowerCase();
-    filteredStockBatch = allStockBatchList.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+    filteredStockBatch = allStockBatch.filter(item => String(item[field] || '').toLowerCase().includes(kw));
     
     const searchCountEl = document.getElementById('stockSearchCount');
-    if(searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
-    
+    if (searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
+
     renderStockPagination();
     renderStockTable();
 }
@@ -140,7 +140,7 @@ function updateStockSortIcon() {
 }
 
 /**
- * 渲染表格（含底部汇总行，一次性渲染无逐行卡顿）
+ * 渲染表格（含底部汇总行）
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -194,17 +194,17 @@ function renderStockTable() {
     tb.innerHTML = htmlStr;
 }
 
-// ========== 分页函数（与入库出库完全统一） ==========
+// ========== 分页函数 ==========
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
     
     const currPageEl = document.getElementById('stockCurrentPage');
     const totalPageEl = document.getElementById('stockTotalPages');
     const pgBox = document.getElementById('stockPageNumbers');
-    
-    if(currPageEl) currPageEl.textContent = stockCurrentPage;
-    if(totalPageEl) totalPageEl.textContent = stockTotalPages;
-    if(pgBox) pgBox.innerHTML = '';
+
+    if (currPageEl) currPageEl.textContent = stockCurrentPage;
+    if (totalPageEl) totalPageEl.textContent = stockTotalPages;
+    if (pgBox) pgBox.innerHTML = '';
 
     const startPage = Math.max(1, stockCurrentPage - 2);
     const endPage = Math.min(stockTotalPages, startPage + 4);
@@ -215,7 +215,7 @@ function renderStockPagination() {
         btn.onclick = () => stockGoToPage(i);
         pgBox.appendChild(btn);
     }
-    const btns = document.querySelectorAll('#stockStock .page-controls .page-btn');
+    const btns = document.querySelectorAll('.page-controls .page-btn');
     btns[0].disabled = stockCurrentPage === 1;
     btns[1].disabled = stockCurrentPage === 1;
     btns[3].disabled = stockCurrentPage === stockTotalPages;
@@ -233,7 +233,6 @@ function changeStockPageSize() {
     stockPageSize = Number(document.getElementById('stockPageSize').value);
     stockCurrentPage = 1;
     renderStockPagination();
-    renderStockTable();
 }
 
 /**

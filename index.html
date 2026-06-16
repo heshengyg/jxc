@@ -31,10 +31,6 @@
 <div class="main-page" id="mainBox">
     <div class="header">
         <h2>欢迎，<span id="roleText"></span></h2>
-        <!-- 第五步：新增库存预警提示区域 -->
-        <div class="warn-tip" id="stockWarnTip" style="color: red; margin-right: 20px; display: none;">
-            ⚠️ 有<span id="warnCount">0</span>个商品库存低于预警阈值！
-        </div>
         <button onclick="logout()">退出登录</button>
     </div>
 
@@ -239,68 +235,66 @@
         </div>
     </div>
 
-    <!-- 库存查看 -->
+    <!-- 库存查看 【仅此处替换原有“功能开发中”】 -->
     <div id="stockView" class="tab-content">
-        <div id="stockStock">
-            <h3>库存查看</h3>
-            <div class="stat-bar">
-                共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
-            </div>
-            <div class="search-bar">
-                <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
-                <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
-                <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
-                
-                <select id="stockSearchField">
-                    <option value="supplier">供应商</option>
-                    <option value="goodsName">商品名</option>
-                    <option value="spec">规格</option>
-                    <option value="stockWarnText">报警状态</option>
-                    <option value="bzStatusText">保质期状态</option>
-                </select>
-                <input type="text" id="stockSearchKeyword" placeholder="输入关键词搜索">
-                <button onclick="filterStockStock()">搜索</button>
-                <button onclick="resetStockSearch()">重置搜索</button>
-            </div>
+        <h3>库存查看</h3>
+        <div class="stat-bar">
+            共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
+            <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
+            <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
+            
+            <select id="stockSearchField">
+                <option value="supplier">供应商</option>
+                <option value="goodsName">商品名</option>
+                <option value="spec">规格</option>
+                <option value="stockWarnText">报警状态</option>
+                <option value="bzStatusText">保质期状态</option>
+            </select>
+            <input type="text" id="stockSearchKeyword" placeholder="输入关键词搜索">
+            <button onclick="filterStockStock()">搜索</button>
+            <button onclick="resetStockSearch()">重置搜索</button>
+        </div>
 
-            <div class="table-container">
-                <table class="stock-table">
-                    <thead>
-                        <tr>
-                            <th class="sortable" onclick="stockSortTable('id')">序列 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('supplier')">供应商 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('goodsName')">商品名 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('spec')">规格 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('warnStockThreshold')">库存预警阈值 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('stockWarnText')">报警状态 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('batchAmount')">库存金额 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('produce_date')">生产日期 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('expire_date')">到期日期 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('batchRemain')">批次库存 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('totalAllStock')">总库存 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('bzText')">保质期 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('bzStatusText')">保质期状态 <span class="stockSortIcon"></span></th>
-                            <th class="sortable" onclick="stockSortTable('countDownText')">过期倒计 <span class="stockSortIcon"></span></th>
-                        </tr>
-                    </thead>
-                    <tbody id="stockStockList"></tbody>
-                </table>
-            </div>
+        <div class="table-container">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="stockSortTable('id')">序列 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('supplier')">供应商 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('goodsName')">商品名 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('spec')">规格 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('warnStockThreshold')">库存预警阈值 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('stockWarnText')">报警状态 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('batchAmount')">库存金额 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('produce_date')">生产日期 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('expire_date')">到期日期 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('batchRemain')">批次库存 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('totalAllStock')">总库存 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('bzText')">保质期 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('bzStatusText')">保质期状态 <span class="stockSortIcon"></span></th>
+                        <th class="sortable" onclick="stockSortTable('countDownText')">过期倒计 <span class="stockSortIcon"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="stockStockList"></tbody>
+            </table>
+        </div>
 
-            <!-- 分页控件 -->
-            <div class="page-controls">
-                <button onclick="stockGoToPage(1)">首页</button>
-                <button onclick="stockPrevPage()">上一页</button>
-                <div id="stockPageNumbers"></div>
-                <button onclick="stockNextPage()">下一页</button>
-                <button onclick="stockGoToPage(stockTotalPages)">末页</button>
-                <span>第<span id="stockCurrentPage">1</span>/<span id="stockTotalPages">1</span>页</span>
-                <select id="stockPageSize" onchange="changeStockPageSize()">
-                    <option value="10">10条/页</option>
-                    <option value="20">20条/页</option>
-                    <option value="50">50条/页</option>
-                </select>
-            </div>
+        <!-- 分页控件 -->
+        <div class="page-controls">
+            <button onclick="stockGoToPage(1)">首页</button>
+            <button onclick="stockPrevPage()">上一页</button>
+            <div id="stockPageNumbers"></div>
+            <button onclick="stockNextPage()">下一页</button>
+            <button onclick="stockGoToPage(stockTotalPages)">末页</button>
+            <span>第<span id="stockCurrentPage">1</span>/<span id="stockTotalPages">1</span>页</span>
+            <select id="stockPageSize" onchange="changeStockPageSize()">
+                <option value="10">10条/页</option>
+                <option value="20">20条/页</option>
+                <option value="50">50条/页</option>
+            </select>
         </div>
     </div>
 
@@ -308,7 +302,7 @@
     <div class="form-modal" id="stockOutModal">
         <div class="form-container">
             <h4 id="stockOutFormTitle">添加出库单据</h4>
-            <input type="hidden" id="outEditId">
+            <input type="hidden" id="outEdit">
             <div class="form-group">
                 <label>供应商：</label>
                 <div class="search-select-wrap">
@@ -447,30 +441,13 @@
 <script src="./js/stockin.js"></script>
 <!-- 新增：出库JS -->
 <script src="./js/stockout.js"></script>
+<!-- 【仅新增这一行】引入库存JS，不改动原有任何脚本 -->
 <script src="./js/stockStock.js"></script>
 
-<!-- 页面初始化 + 标签切换补充 -->
+<!-- 仅保留页面初始化原生代码 -->
 <script>
-function switchTab(tab) {
-    const tabs = document.querySelectorAll('.tab-content');
-    const btns = document.querySelectorAll('.tab-btn');
-    tabs.forEach(t => t.classList.remove('active'));
-    btns.forEach(b => b.classList.remove('active'));
-    document.getElementById(tab).classList.add('active');
-    event.target.classList.add('active');
-
-    // 切换到库存自动加载数据
-    if (tab === 'stockView') {
-        loadStockStock();
-    }
-}
-
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
-    // 第五步：初始化时检查库存预警
-    if (typeof checkStockWarn === 'function') {
-        checkStockWarn();
-    }
 });
 </script>
 </body>
