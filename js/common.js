@@ -1,4 +1,9 @@
 // ===================== 全局变量区（所有模块仅在此声明） =====================
+// 页面缓存：存储入库、出库已加载分页数据，切换不用重新请求
+let pageCache = {
+    stockIn: { data: null, page: 1 },
+    stockOut: { data: null, page: 1 }
+};
 // 新增1：库存计算全局缓存（解决每行重复循环计算库存卡顿）
 let stockDataCache = new Map(); 
 // key格式：`supplier|goodsName`，value存储{totalStock, batchList}

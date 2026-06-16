@@ -381,18 +381,21 @@ async function importStockInExcel() {
 
 // 加载入库列表（入口：先加载出库数据，再加载入库）
 async function loadStockIn() {
-    // 优先预加载出库数据，补齐库存计算依赖（原有逻辑保留不动）
     await preLoadStockOutData();
+    // 缓存命中，直接使用，不再发请求
+    if(pageCache.stockIn.data && pageCache.stockIn.page === inCurrentPage){
+        allStockIn = pageCache.stockIn.data;
+        refreshAllStockCache(allStockIn, allStockOut);
+        filterStockIn();
+        return;
+    }
+    // 原有分页请求逻辑不变
     try {
-        // 【改动】Supabase后端分页，只拉当前页数据，不再一次性拉全表
         const pageOffset = (inCurrentPage - 1) * inPageSize;
-        // 分页数据：只获取当前页条数，按ID倒序
         const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         const pageData = await fetchPage.json();
-
-        // 【改动】单独请求总条数（轻量请求，不携带明细）
         const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?select=id`, {
             headers: {
                 apikey: SUPABASE_KEY,
@@ -403,13 +406,12 @@ async function loadStockIn() {
             }
         });
         const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
-
         allStockIn = pageData;
+        // 存入缓存
+        pageCache.stockIn.data = pageData;
+        pageCache.stockIn.page = inCurrentPage;
         document.getElementById('inTotalCount').textContent = totalRecord;
-
-        // 【新增】加载完当前页数据，执行全局库存缓存计算（来自common.js）
         refreshAllStockCache(allStockIn, allStockOut);
-
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
