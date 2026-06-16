@@ -301,11 +301,15 @@ function renderStockPagination() {
         btn.onclick = () => stockGoToPage(i);
         pgBox.appendChild(btn);
     }
-    const btns = document.querySelectorAll('#stockStock .page-controls .page-btn');
-    btns[0].disabled = stockCurrentPage === 1;
-    btns[1].disabled = stockCurrentPage === 1;
-    btns[3].disabled = stockCurrentPage === stockTotalPages;
-    btns[4].disabled = stockCurrentPage === stockTotalPages;
+    // 修复点1：改用全局.page-controls.page-btn，增加空值容错
+    const btns = document.querySelectorAll('.page-controls .page-btn');
+    // 修复点2：循环前先判断元素存在，避免undefined.disabled报错
+    if(btns.length >= 5){
+        btns[0].disabled = stockCurrentPage === 1;
+        btns[1].disabled = stockCurrentPage === 1;
+        btns[3].disabled = stockCurrentPage === stockTotalPages;
+        btns[4].disabled = stockCurrentPage === stockTotalPages;
+    }
 }
 function stockGoToPage(p) {
     if (p < 1 || p > stockTotalPages) return;
