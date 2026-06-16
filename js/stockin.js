@@ -381,16 +381,35 @@ async function importStockInExcel() {
 
 // 加载入库列表（入口：先加载出库数据，再加载入库）
 async function loadStockIn() {
-    // 优先预加载出库数据，补齐库存计算依赖
+    // 优先预加载出库数据，补齐库存计算依赖（原有逻辑保留不动）
     await preLoadStockOutData();
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+        // 【改动】Supabase后端分页，只拉当前页数据，不再一次性拉全表
+        const pageOffset = (inCurrentPage - 1) * inPageSize;
+        // 分页数据：只获取当前页条数，按ID倒序
+        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        if (!res.ok) throw new Error('读取失败');
-        let list = await res.json();
-        allStockIn = list.sort((a,b) => b.id - a.id);
-        document.getElementById('inTotalCount').textContent = allStockIn.length;
+        const pageData = await fetchPage.json();
+
+        // 【改动】单独请求总条数（轻量请求，不携带明细）
+        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Range-Unit': 'items',
+                'Range': '0-0',
+                'Prefer': 'count=exact'
+            }
+        });
+        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
+
+        allStockIn = pageData;
+        document.getElementById('inTotalCount').textContent = totalRecord;
+
+        // 【新增】加载完当前页数据，执行全局库存缓存计算（来自common.js）
+        refreshAllStockCache(allStockIn, allStockOut);
+
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
@@ -403,7 +422,7 @@ function filterStockIn() {
     let kw = document.getElementById('inSearchKeyword').value.toLowerCase();
     filteredStockIn = allStockIn.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('inSearchCount').textContent = filteredStockIn.length;
-    inCurrentPage = 1;
+    // 删除这一行：inCurrentPage = 1;
     renderInPagination();
     renderStockIn();
 }
@@ -439,31 +458,26 @@ async function renderStockIn() {
         return;
     }
     tb.innerHTML = '';
-
-    // 原有批次、库存缓存逻辑 100% 保留
-    let goodsSet = new Set(pageData.map(item => `${item.supplier}_${item.goodsName}`));
-    let batchCache = {};
-    goodsSet.forEach(key => {
-        let [supplier, goodsName] = key.split('_');
-        batchCache[key] = getStockBatchList(supplier, goodsName);
-    });
-
-    // 批量后端ID校验
+    // 【改动1：改用全局缓存，删除本地batchCache循环】
     let idUsedMap = {};
     for (let item of pageData) {
         idUsedMap[item.id] = await checkInUsedByOut(item.id);
     }
-
+    // 【改动2：先拼接完整字符串，最后一次性渲染DOM】
+    let fullHtml = '';
     pageData.forEach((item, idx) => {
-        let batchList = batchCache[`${item.supplier}_${item.goodsName}`];
-        let batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
+        // 直接读取预计算好的缓存，不再实时循环计算库存
+        const cacheKey = `${item.supplier}|${item.goodsName}`;
+        const cache = stockDataCache.get(cacheKey);
+        const batchList = cache.batchList;
+        const batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
         let batchRemain = batch ? batch.batchRemain : 0;
-        let totalStock = getTotalStockNum(item.supplier, item.goodsName);
+        let totalStock = cache.totalStock;
+
         let amount = formatMoney((item.in_price || 0) * item.in_num);
         let isUsed = idUsedMap[item.id];
         let btnHtml = '';
         
-        // 修复点：完整拼接HTML标签，保证每个按钮都正确闭合
         if(isUsed){
             btnHtml = `
                 <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
@@ -475,8 +489,8 @@ async function renderStockIn() {
                 <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
             `;
         }
-
-        let html = `
+        // 拼接字符串
+        fullHtml += `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
                 <td>${start + idx + 1}</td>
@@ -496,9 +510,11 @@ async function renderStockIn() {
                 </td>
             </tr>
         `;
-        tb.innerHTML += html;
     });
+    // 一次性渲染全部行，减少浏览器重绘
+    tb.innerHTML = fullHtml;
 }
+
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;

@@ -307,13 +307,25 @@ function exportStockOutExcel(){
 // 加载出库列表
 async function loadStockOut() {
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+        // 后端分页请求
+        const pageOffset = (outCurrentPage - 1) * outPageSize;
+        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc&limit=${outPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        if (!res.ok) throw new Error('读取失败');
-        let list = await res.json();
-        allStockOut = list.sort((a,b) => b.id - a.id);
-        document.getElementById('outTotalCount').textContent = allStockOut.length;
+        const pageData = await fetchPage.json();
+        // 查询总条数
+        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Range-Unit': 'items',
+                'Range': '0-0',
+                'Prefer': 'count=exact'
+            }
+        });
+        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
+        allStockOut = pageData;
+        document.getElementById('outTotalCount').textContent = totalRecord;
         filterStockOut();
     } catch (e) {
         showMsg('加载出库记录失败：' + e.message);
@@ -326,7 +338,7 @@ function filterStockOut() {
     let kw = document.getElementById('outSearchKeyword').value.toLowerCase();
     filteredStockOut = allStockOut.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('outSearchCount').textContent = filteredStockOut.length;
-    outCurrentPage = 1;
+    // 删除 outCurrentPage = 1;
     renderOutPagination();
     renderStockOut();
 }

@@ -1,4 +1,27 @@
 // ===================== 全局变量区（所有模块仅在此声明） =====================
+// 新增1：库存计算全局缓存（解决每行重复循环计算库存卡顿）
+let stockDataCache = new Map(); 
+// key格式：`supplier|goodsName`，value存储{totalStock, batchList}
+
+// 新增2：一次性批量预计算所有商品库存，只执行1次，渲染表格直接读缓存
+function refreshAllStockCache(inList, outList) {
+    stockDataCache.clear();
+    const uniqueKeySet = new Set();
+    // 提取所有唯一供应商+商品组合
+    inList.forEach(item => {
+        const key = `${item.supplier}|${item.goodsName}`;
+        uniqueKeySet.add(key);
+    });
+    // 批量计算存入缓存
+    uniqueKeySet.forEach(key => {
+        const [sup, gName] = key.split('|');
+        stockDataCache.set(key, {
+            totalStock: getTotalStockNum(sup, gName),
+            batchList: getStockBatchList(sup, gName)
+        });
+    });
+}
+
 // 商品模块
 let allGoods = [];
 let filteredGoods = [];
