@@ -73,7 +73,8 @@ async function loadStockStock() {
             });
         });
 
-        document.getElementById('stockTotalCount').textContent = allStockBatchList.length;
+        const totalEl = document.getElementById('stockTotalCount');
+        if(totalEl) totalEl.textContent = allStockBatchList.length;
         filterStockStock();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
@@ -87,7 +88,10 @@ function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
     const kw = document.getElementById('stockSearchKeyword').value.toLowerCase();
     filteredStockBatch = allStockBatchList.filter(item => String(item[field] || '').toLowerCase().includes(kw));
-    document.getElementById('stockSearchCount').textContent = filteredStockBatch.length;
+    
+    const searchCountEl = document.getElementById('stockSearchCount');
+    if(searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
+    
     renderStockPagination();
     renderStockTable();
 }
@@ -193,10 +197,15 @@ function renderStockTable() {
 // ========== 分页函数（与入库出库完全统一） ==========
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
-    document.getElementById('stockCurrentPage').textContent = stockCurrentPage;
-    document.getElementById('stockTotalPages').textContent = stockTotalPages;
+    
+    const currPageEl = document.getElementById('stockCurrentPage');
+    const totalPageEl = document.getElementById('stockTotalPages');
     const pgBox = document.getElementById('stockPageNumbers');
-    pgBox.innerHTML = '';
+    
+    if(currPageEl) currPageEl.textContent = stockCurrentPage;
+    if(totalPageEl) totalPageEl.textContent = stockTotalPages;
+    if(pgBox) pgBox.innerHTML = '';
+
     const startPage = Math.max(1, stockCurrentPage - 2);
     const endPage = Math.min(stockTotalPages, startPage + 4);
     for (let i = startPage; i <= endPage; i++) {
