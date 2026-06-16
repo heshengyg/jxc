@@ -31,6 +31,10 @@
 <div class="main-page" id="mainBox">
     <div class="header">
         <h2>欢迎，<span id="roleText"></span></h2>
+        <!-- 第五步：新增库存预警提示区域 -->
+        <div class="warn-tip" id="stockWarnTip" style="color: red; margin-right: 20px; display: none;">
+            ⚠️ 有<span id="warnCount">0</span>个商品库存低于预警阈值！
+        </div>
         <button onclick="logout()">退出登录</button>
     </div>
 
@@ -235,10 +239,63 @@
         </div>
     </div>
 
-    <!-- 库存查看 -->
+    <!-- 库存查看：第四步 - 完善库存查看模块 -->
     <div id="stockView" class="tab-content">
         <h3>库存查看</h3>
-        <p>功能开发中</p>
+        <div class="stat-bar">
+            共 <span id="viewTotalCount">0</span> 条库存记录，当前搜索结果 <span id="viewSearchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-default" onclick="exportStockViewExcel()">导出库存报表</button>
+            <button class="btn btn-default" onclick="refreshStockView()">刷新库存</button>
+            <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
+            
+            <select id="viewSearchField">
+                <option value="name">按商品名搜索</option>
+                <option value="supplier">按供应商搜索</option>
+                <option value="status">按库存状态搜索</option>
+            </select>
+            <input type="text" id="viewSearchKeyword" placeholder="输入关键词/正常/预警/临期" oninput="filterStockView()">
+            <button class="btn btn-default" onclick="resetViewSearch()">重置搜索</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th class="sortable" onclick="viewSortTable('supplier')">供应商 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('name')">商品名称 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('spec')">规格 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('total_stock')">当前总库存 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('warn_num')">预警阈值 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('shelf_life_status')">保质期状态 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('stock_status')">库存状态 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('last_in_date')">最后入库时间 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="viewSortTable('last_out_date')">最后出库时间 <span class="sort-icon"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="stockViewList"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <div class="page-info">
+                每页显示 <select id="viewPageSize" onchange="changeViewPageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="viewCurrentPage">1</span> / <span id="viewTotalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="viewGoToPage(1)">首页</button>
+                <button class="page-btn" onclick="viewPrevPage()">上一页</button>
+                <span id="viewPageNumbers"></span>
+                <button class="page-btn" onclick="viewNextPage()">下一页</button>
+                <button class="page-btn" onclick="viewGoToPage(viewTotalPages)">末页</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -384,11 +441,19 @@
 <script src="./js/stockin.js"></script>
 <!-- 新增：出库JS -->
 <script src="./js/stockout.js"></script>
+<!-- 第四步：新增库存查看JS -->
+<script src="./js/stockview.js"></script>
+<!-- 第五步：新增库存预警JS -->
+<script src="./js/stockWarn.js"></script>
 
 <!-- 仅保留页面初始化原生代码 -->
 <script>
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
+    // 第五步：初始化时检查库存预警
+    if (typeof checkStockWarn === 'function') {
+        checkStockWarn();
+    }
 });
 </script>
 </body>
