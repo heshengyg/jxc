@@ -347,3 +347,19 @@ function calcFIFOOut(supplier, goodsName, outNum) {
     }
     return outDetail;
 }
+/**
+ * 根据入库ID计算该批次剩余库存
+ * @param {number} inId 入库单id
+ * @returns {number} 批次剩余数量
+ */
+function getInItemRemain(inId) {
+    // 找到当前入库单
+    const inItem = allStockIn.find(item => item.id === inId);
+    if (!inItem) return 0;
+    // 统计该入库单所有关联出库总量
+    const outSum = allStockOut
+        .filter(out => out.inRecordId === inId)
+        .reduce((sum, cur) => sum + Number(cur.outNum), 0);
+    // 入库总数 - 出库总数 = 批次剩余库存
+    return Math.max(0, Number(inItem.inNum) - outSum);
+}
