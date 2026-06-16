@@ -96,6 +96,8 @@ let stockSummary = {
  * 加载全部库存批次数据
  */
 async function loadStockStock() {
+    // 先加载入库、出库全局数据
+    if(allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
@@ -106,7 +108,6 @@ async function loadStockStock() {
         allStockBatchList = [];
 
         inAllList.forEach(inItem => {
-            // 匹配商品基础信息
             const goodsBase = allGoods.find(g =>
                 g.supplier === inItem.supplier
                 && g.name === inItem.goodsName
@@ -114,24 +115,31 @@ async function loadStockStock() {
             );
             if (!goodsBase) return;
 
-            // 业务计算值
             const totalAllStock = getTotalStockNum(inItem.supplier, inItem.goodsName);
-            const warnStockThreshold = goodsBase.warnStockThreshold || 0;
+            const warnStockThreshold = goodsBase.warn_num || 0;
             const batchRemain = getInItemRemain(inItem.id);
             const batchAmount = getBatchStockAmount(inItem.id, inItem.in_price);
+            
+            // 纯数值兜底临期阈值7天，不调用页面DOM函数
+            const warnDay = 7;
+            // 单位转换映射，和全局getBzTotalDay对齐
+            let unitCode = "day";
+            if(goodsBase.shelf_life_unit === "年") unitCode = "year";
+            if(goodsBase.shelf_life_unit === "个月") unitCode = "month";
+
             const bzResult = calcBzStatus(
                 inItem.produce_date,
                 inItem.expire_date,
-                goodsBase.bzVal,
-                goodsBase.bzUnit,
-                goodsBase.warnDay
+                goodsBase.shelf_life_num || 0,
+                unitCode,
+                warnDay
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
-            // 格式化保质期展示文本
+            
             let unitText = '天';
-            if (goodsBase.bzUnit === 'year') unitText = '年';
-            if (goodsBase.bzUnit === 'month') unitText = '月';
-            const bzText = `${goodsBase.bzVal}${unitText}`;
+            if (goodsBase.shelf_life_unit === '年') unitText = '年';
+            if (goodsBase.shelf_life_unit === '个月') unitText = '月';
+            const bzText = `${goodsBase.shelf_life_num || 0}${unitText}`;
 
             allStockBatchList.push({
                 id: inItem.id,
@@ -156,9 +164,9 @@ async function loadStockStock() {
         filterStockStock();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
+        console.error("库存加载完整错误栈：", e);
     }
 }
-
 /**
  * 搜索筛选
  */
