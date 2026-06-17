@@ -24,13 +24,13 @@ function getDateDiffDay(dateStr) {
  * 修正点：
  * 1. 临期：过期倒计 = 到期日 - 今日
  * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
- * 3. 无日期：状态、倒计时均为空
+ * 3. 无日期：状态、倒计时均返回空字符串（本次修改点1）
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     // 1、保质期统一换算为总天数bzq
     const bzq = getBzTotalDay(bzVal, bzUnit);
     if (bzq <= 0) {
-        return { statusText: '无日期', countDownText: '' };
+        return { statusText: '', countDownText: '' };
     }
     const lq = warnDay; // 临期天数从商品基础信息读取
     const today = new Date();
@@ -59,8 +59,8 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         // 打折日期 = 生产日期 + (总保质期 - 2*临期天数)
         dzrq = new Date(scDate.getTime() + (bzq - 2 * lq) * 24 * 60 * 60 * 1000);
     } else {
-        // 两个日期都未填写
-        return { statusText: '无日期', countDownText: '' };
+        // 两个日期都未填写：返回空（本次修改点1）
+        return { statusText: '', countDownText: '' };
     }
 
     let statusText = '';
@@ -103,7 +103,7 @@ function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
 }
 
 /**
- * 单个入库ID 剩余库存【已修复笔误：out.outNum → out.outNum】
+ * 单个入库ID 剩余库存
  */
 function getInItemRemain(inRecordId) {
     let totalOut = 0;
@@ -137,6 +137,21 @@ let stockSummary = {
     totalBatchStock: 0,
     totalAllStock: 0
 };
+
+/**
+ * 页面加载自动执行入口（本次修改点2：进入页面自动加载数据）
+ */
+window.addEventListener('load', function(){
+    // 仅当前为库存页面时自动加载
+    if(document.getElementById('stockStockList')){
+        loadStockStock();
+        // 本次修改点3：绑定搜索框实时输入事件，边输入边筛选
+        const searchInput = document.getElementById('stockSearchKeyword');
+        if(searchInput){
+            searchInput.addEventListener('input', filterStockStock);
+        }
+    }
+});
 
 /**
  * 加载库存数据
@@ -249,7 +264,7 @@ async function loadStockStock() {
 }
 
 /**
- * 搜索筛选
+ * 搜索筛选（原有点击搜索按钮依然保留可用，新增输入实时触发）
  */
 function filterStockStock() {
     const field = document.getElementById('stockSearchField').value;
