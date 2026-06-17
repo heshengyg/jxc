@@ -27,15 +27,21 @@ function refreshGoods(){
     loadGoods();
 }
 
-// 渠道切换：控制线上成本价输入框禁用/启用
+// 渠道切换：控制线上成本价输入框禁用/启用 + 税率下拉框禁用
 function toggleOnlineCostInput(){
     let channel = document.getElementById('add_channel').value;
     let costInput = document.getElementById('add_online_cost');
+    let taxSelect = document.getElementById('add_tax_rate');
     if(channel === '线下'){
         costInput.disabled = true;
         costInput.value = '';
+        // 线下：税率可编辑
+        taxSelect.disabled = false;
     }else{
         costInput.disabled = false;
+        // 线上：税率强制禁用，固定为空
+        taxSelect.disabled = true;
+        taxSelect.value = '';
     }
 }
 
@@ -118,6 +124,7 @@ async function renderGoods() {
                 <td>${item.channel||''}</td>
                 <td>${formatMoney(item.sale_price)}</td>
                 <td>${onlineCost}</td>
+                <td>${item.tax_rate || '空'}</td>
                 <td>${shelfText}</td>
                 <td>${expire}</td>
                 <td>${item.warn_num||0}</td>
@@ -175,6 +182,7 @@ async function openEditForm(id){
     document.getElementById('add_name').value=item.name||'';
     document.getElementById('add_spec').value=item.spec||'';
     document.getElementById('add_channel').value=item.channel||'线上';
+    document.getElementById('add_tax_rate').value=item.tax_rate||'';
     document.getElementById('add_sale_price').value=item.sale_price||'';
     document.getElementById('add_online_cost').value=item.online_cost||'';
     document.getElementById('add_warn_num').value=item.warn_num||'';
@@ -214,6 +222,7 @@ async function submitForm(){
     let name = document.getElementById('add_name').value;
     let spec = document.getElementById('add_spec').value;
     let channel = document.getElementById('add_channel').value;
+    let taxRate = document.getElementById('add_tax_rate').value;
     let salePrice = document.getElementById('add_sale_price').value;
     let onlineCost = document.getElementById('add_online_cost').value;
     let warnNum = document.getElementById('add_warn_num').value;
@@ -221,12 +230,13 @@ async function submitForm(){
     let shelfUnit = document.getElementById('add_shelf_life_unit').value;
     if(!supplier||!name||!channel||!salePrice) return showMsg('必填项不能为空');
     if(+salePrice<=0) return showMsg('销售单价必须大于0');
-    if(isDuplicate(supplier,name,editId)) return showMsg('该供应商下已存在同名同规格商品！');
+    if(isDuplicate(supplier,name,spec,editId)) return showMsg('该供应商下已存在同名同规格商品！');
     let data = {
         supplier: supplier.trim(),
         name: name.trim(),
         spec: spec.trim() || null,
         channel: channel,
+        tax_rate: taxRate,
         sale_price: +salePrice,
         online_cost: onlineCost ? +onlineCost : null,
         warn_num: warnNum ? +warnNum : null,
@@ -313,7 +323,7 @@ async function batchDelete(){
 
 // 商品下载模板
 function downloadTemplate(){
-    let h = ["供应商","商品名称","规格","销售渠道","销售单价","线上成本价","库存预警阈值","保质期时长","保质期单位"];
+    let h = ["供应商","商品名称","规格","销售渠道","销售单价","税率","线上成本价","库存预警阈值","保质期时长","保质期单位"];
     let ws = XLSX.utils.aoa_to_sheet([h]);
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"模板");
@@ -326,7 +336,7 @@ function exportExcel(){
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商","商品名称","规格","销售渠道","销售单价","线上成本价","库存预警阈值","保质期"];
+    let header = ["供应商","商品名称","规格","销售渠道","销售单价","税率","线上成本价","库存预警阈值","保质期"];
     let exportData = filteredGoods.map(item=>{
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit||''}` : "";
         return [
@@ -335,6 +345,7 @@ function exportExcel(){
             item.spec||"",
             item.channel||"",
             item.sale_price||0,
+            item.tax_rate||"空",
             item.online_cost||0,
             item.warn_num||0,
             shelf

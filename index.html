@@ -78,6 +78,7 @@
                         <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('online_cost')">线上成本价 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('tax_rate')">税率 <span class="sort-icon"></span></th>
                         <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
                         <th>临期天数</th>
                         <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
@@ -410,6 +411,13 @@
             <select id="add_channel" required onchange="toggleOnlineCostInput()">
                 <option value="线上">线上</option>
                 <option value="线下">线下</option>
+            </select>
+            <label>商品税率：</label>
+            <select id="add_tax_rate">
+                <option value="">空</option>
+                <option value="免税">免税</option>
+                <option value="9%">9%</option>
+                <option value="13%">13%</option>
             </select>
             <label>销售单价：</label>
             <input type="number" id="add_sale_price" step="0.01" min="0" required>
