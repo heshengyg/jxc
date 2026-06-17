@@ -20,12 +20,11 @@ function getDateDiffDay(dateStr) {
 }
 
 /**
- * 严格按照你提供的日期节点规则重写保质期状态计算
- * 规则：
- * 1、生产日期/到期日期互斥，二选一
- * 2、先算出：到期日(hsdq)、临期日(lqrq)、打折日(dzrq)三个临界日期
- * 3、按顺序IF判断：过期→临期→打折→正常剩余天数
- * 4、仅临期状态展示【过期倒计】= 到期日-今日天数
+ * 严格按照最新修正规则重写保质期状态计算
+ * 修正点：
+ * 1. 临期：过期倒计 = 到期日 - 今日
+ * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
+ * 3. 无日期：状态、倒计时均为空
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     // 1、保质期统一换算为总天数bzq
@@ -80,9 +79,9 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     else if (today >= dzrq) {
         statusText = '打折';
     }
-    // 4、打折日 > 今日 >= 生产日期 → 正常，显示剩余天数
+    // 4、打折日 > 今日 >= 生产日期 → 正常，显示剩余【打折日-今日】天数
     else {
-        const remainDay = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
+        const remainDay = Math.floor((dzrq - today) / (1000 * 60 * 60 * 24));
         statusText = `剩余${remainDay}天`;
     }
 
@@ -110,7 +109,7 @@ function getInItemRemain(inRecordId) {
     let totalOut = 0;
     allStockOut.forEach(out => {
         if (out.inRecordId == inRecordId) {
-            totalOut += Number(out.outNum || 0);
+            totalOut += Number(out.out.outNum || 0);
         }
     });
     let inItem = allStockIn.find(x => x.id == inRecordId);
