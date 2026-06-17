@@ -369,14 +369,15 @@ function renderStockTable() {
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-        // 保质期状态背景色
-        let bzBg = '';
-        if (item.bzStatusText === '过期' || item.bzStatusText === '临期') {
-            bzBg = 'style="background:#ffdddd;"';
-        } else if (item.bzStatusText === '打折') {
-            bzBg = 'style="background:#ddeeff;"';
-        }
-
+// 保质期状态背景色
+let bzBg = '';
+if (item.bzStatusText === '过期') {
+    bzBg = 'style="background:#ff4444;color:#fff;"';
+} else if (item.bzStatusText === '临期') {
+    bzBg = 'style="background:#ffdddd;"';
+} else if (item.bzStatusText === '打折') {
+    bzBg = 'style="background:#ddeeff;"';
+}
         htmlStr += `
         <tr>
             <td>${seq}</td>
