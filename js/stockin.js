@@ -1,6 +1,25 @@
-// ===================== 入库模块 - 最终修复版（库存+后端校验双正常）+ 加载速度优化 =====================
-// 全局标记：出库数据仅首次进入入库页面加载一次，避免重复请求产生延迟，不影响任何业务更新逻辑
-let hasPreLoadStockOut = false;
+// ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
+// 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
+let allStockOutReadyPromise;
+
+// 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
+(function initPreLoadOut() {
+    allStockOutReadyPromise = (async function () {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+            if (res.ok) {
+                allStockOut = await res.json();
+            }
+        } catch (err) {
+            console.warn("全局预加载出库数据失败，不影响基础功能", err);
+        }
+    })();
+})();
 
 /**
  * 校验：后端ID比对（RPC/接口查询出库表，移除前端数组遍历）
@@ -31,25 +50,10 @@ async function refreshStockIn(){
     await loadStockIn();
 }
 
-// ========= 新增：入库页初始化 主动加载出库全局数据（核心修复库存问题 + 速度优化） =========
-// 提前拉取出库数据，补齐 getStockBatchList / getTotalStockNum 依赖的 allStockOut
+// ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
 async function preLoadStockOutData() {
-    // 仅首次进入入库页面执行一次请求，后续刷新、增删改入库不再重复拉取，消除延迟
-    if (hasPreLoadStockOut) return;
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`
-            }
-        });
-        if (res.ok) {
-            allStockOut = await res.json();
-            hasPreLoadStockOut = true;
-        }
-    } catch (err) {
-        console.warn("预加载出库数据失败，不影响基础功能", err);
-    }
+    // 直接等待页面初始化时已经发起的全局请求，不会新增任何网络耗时
+    await allStockOutReadyPromise;
 }
 
 // 供应商下拉
@@ -384,7 +388,7 @@ async function importStockInExcel() {
     reader.readAsArrayBuffer(file);
 }
 
-// 加载入库列表（入口：先加载出库数据，再加载入库）
+// 加载入库列表（仅等待预加载完成，不再发起新的出库接口请求）
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
@@ -417,7 +421,6 @@ function filterStockIn() {
     let kw = document.getElementById('inSearchKeyword').value.toLowerCase();
     filteredStockIn = allStockIn.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('inSearchCount').textContent = filteredStockIn.length;
-    // 删除这一行：inCurrentPage = 1;
     renderInPagination();
     renderStockIn();
 }
@@ -452,15 +455,12 @@ async function renderStockIn() {
         return;
     }
     tb.innerHTML = '';
-    // 【改动1：改用全局缓存，删除本地batchCache循环】
     let idUsedMap = {};
     for (let item of pageData) {
         idUsedMap[item.id] = await checkInUsedByOut(item.id);
     }
-    // 【改动2：先拼接完整字符串，最后一次性渲染DOM】
     let fullHtml = '';
     pageData.forEach((item, idx) => {
-        // 直接读取预计算好的缓存，不再实时循环计算库存
         const cacheKey = `${item.supplier}|${item.goodsName}`;
         const cache = stockDataCache.get(cacheKey);
         const batchList = cache.batchList;
@@ -483,7 +483,6 @@ async function renderStockIn() {
                 <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
             `;
         }
-        // 拼接字符串
         fullHtml += `
             <tr>
                 <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
@@ -505,7 +504,6 @@ async function renderStockIn() {
             </tr>
         `;
     });
-    // 一次性渲染全部行，减少浏览器重绘
     tb.innerHTML = fullHtml;
 }
 
