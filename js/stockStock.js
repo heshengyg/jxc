@@ -20,60 +20,75 @@ function getDateDiffDay(dateStr) {
 }
 
 /**
- * 保质期状态计算
+ * 严格按照你提供的日期节点规则重写保质期状态计算
  * 规则：
- * 1. 优先到期日期；无到期日期则用生产日期推算
- * 2. diffDay：剩余天数(正数=未过期，负数=已过期)
- * 3. diffDay <= 0        → 过期
- * 4. 0 < diff <= 预警值   → 临期（显示倒计时）
- * 5. 预警值 < diff <= 2*预警值 → 打折
- * 6. diff > 2*预警值      → 剩余XX天
+ * 1、生产日期/到期日期互斥，二选一
+ * 2、先算出：到期日(hsdq)、临期日(lqrq)、打折日(dzrq)三个临界日期
+ * 3、按顺序IF判断：过期→临期→打折→正常剩余天数
+ * 4、仅临期状态展示【过期倒计】= 到期日-今日天数
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
-    const totalBzDay = getBzTotalDay(bzVal, bzUnit);
-    if (totalBzDay <= 0) {
+    // 1、保质期统一换算为总天数bzq
+    const bzq = getBzTotalDay(bzVal, bzUnit);
+    if (bzq <= 0) {
         return { statusText: '无日期', countDownText: '' };
     }
-    const warnThreshold = totalBzDay - warnDay;
-    let diffDay = null;
-    let countDown = '';
-    let statusText = '';
-
+    const lq = warnDay; // 临期天数从商品基础信息读取
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 优先 到期日期 计算剩余天数
+    let hsdq; // 最终到期日期
+    let lqrq;  // 临期日期
+    let dzrq;  // 打折日期
+
     if (dq) {
-        const target = new Date(dq);
-        target.setHours(0, 0, 0, 0);
-        diffDay = Math.floor((target - today) / (1000 * 60 * 24));
-    }
-    // 无到期日期，用生产日期推算剩余保质期
-    else if (sc) {
-        const produce = new Date(sc);
-        produce.setHours(0, 0, 0, 0);
-        const passDay = Math.floor((today - produce) / (1000 * 24));
-        diffDay = totalBzDay - passDay;
-    }
-    else {
+        // 录入到期日期，直接使用dq作为最终到期日
+        hsdq = new Date(dq);
+        hsdq.setHours(0, 0, 0, 0);
+        // 临期日期 = 到期日 - 临期天数
+        lqrq = new Date(hsdq.getTime() - lq * 24 * 60 * 60 * 1000);
+        // 打折日期 = 到期日 - 2*临期天数
+        dzrq = new Date(hsdq.getTime() - 2 * lq * 24 * 60 * 60 * 1000);
+    } else if (sc) {
+        // 录入生产日期：通过生产日期+总保质期算出到期日
+        const scDate = new Date(sc);
+        scDate.setHours(0, 0, 0, 0);
+        // 到期日期 = 生产日期 + 总保质期天数
+        hsdq = new Date(scDate.getTime() + bzq * 24 * 60 * 60 * 1000);
+        // 临期日期 = 生产日期 + (总保质期 - 临期天数)
+        lqrq = new Date(scDate.getTime() + (bzq - lq) * 24 * 60 * 60 * 1000);
+        // 打折日期 = 生产日期 + (总保质期 - 2*临期天数)
+        dzrq = new Date(scDate.getTime() + (bzq - 2 * lq) * 24 * 60 * 60 * 1000);
+    } else {
+        // 两个日期都未填写
         return { statusText: '无日期', countDownText: '' };
     }
 
-    // 分级判断
-    if (diffDay <= 0) {
+    let statusText = '';
+    let countDownText = '';
+    // 1、今日 >= 到期日 → 过期
+    if (today >= hsdq) {
         statusText = '过期';
-    } else if (diffDay <= warnThreshold) {
+    }
+    // 2、到期日 > 今日 >= 临期日 → 临期，倒计=到期日-今日天数
+    else if (today >= lqrq) {
         statusText = '临期';
-        countDown = diffDay - warnThreshold;
-    } else if (diffDay <= 2 * warnThreshold) {
+        const remainDay = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
+        countDownText = `${remainDay}`;
+    }
+    // 3、临期日 > 今日 >= 打折日 → 打折
+    else if (today >= dzrq) {
         statusText = '打折';
-    } else {
-        statusText = `剩余${diffDay}天`;
+    }
+    // 4、打折日 > 今日 >= 生产日期 → 正常，显示剩余天数
+    else {
+        const remainDay = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
+        statusText = `剩余${remainDay}天`;
     }
 
     return {
         statusText,
-        countDownText: statusText === '临期' ? `${countDown}天` : ''
+        countDownText
     };
 }
 
@@ -425,6 +440,6 @@ function exportStockStockExcel() {
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, "库存明细");
+    XLSX.utils.book_append_sheet(wb, ws, "库存明细");
     XLSX.writeFile(wb, "库存明细.xlsx");
 }
