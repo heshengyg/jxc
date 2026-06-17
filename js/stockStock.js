@@ -103,13 +103,13 @@ function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
 }
 
 /**
- * 单个入库ID 剩余库存
+ * 单个入库ID 剩余库存【已修复笔误：out.outNum → out.outNum】
  */
 function getInItemRemain(inRecordId) {
     let totalOut = 0;
     allStockOut.forEach(out => {
         if (out.inRecordId == inRecordId) {
-            totalOut += Number(out.out.outNum || 0);
+            totalOut += Number(out.outNum || 0);
         }
     });
     let inItem = allStockIn.find(x => x.id == inRecordId);
