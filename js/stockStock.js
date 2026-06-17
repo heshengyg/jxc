@@ -401,19 +401,18 @@ function renderStockTable() {
         `;
     });
 
-    // 底部汇总行适配16列，仅保留库存金额、批次库存汇总
+    // 底部汇总：前6列合并文字，第7列放置批次库存汇总值，库存金额放在第11列位置
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
-        <td colspan="10">筛选数据汇总</td>
-        <td>${formatMoney(stockSummary.totalAmount)}</td>
-        <td colspan="2"></td>
+        <td colspan="6">筛选数据汇总</td>
         <td>${stockSummary.totalBatchStock}</td>
-        <td colspan="3"></td>
+        <td></td>
+        <td colspan="3">${formatMoney(stockSummary.totalAmount)}</td>
+        <td colspan="6"></td>
     </tr>
     `;
     tb.innerHTML = htmlStr;
 }
-
 /**
  * 分页渲染（容错）
  */
