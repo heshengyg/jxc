@@ -22,7 +22,7 @@ function getDateDiffDay(dateStr) {
 /**
  * 严格按照最新修正规则重写保质期状态计算
  * 修正点：
- * 1. 临期：过期倒计 = 到期日 - 今日
+ * 1. 临期：状态倒计 = 到期日 - 今日
  * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
  * 3. 无日期：状态、倒计时均返回空字符串
  * 新增：打折状态同样显示【临期日期-今日】的天数倒计时
@@ -251,11 +251,11 @@ async function loadStockStock() {
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
 
-            // 保质期单位展示：个月→X个月、年→X年、天→X天
-            let unitText = '天';
-            if (goodsBase.shelf_life_unit === '年') unitText = '年';
-            if (goodsBase.shelf_life_unit === '个月') unitText = '个月';
-            const bzText = `${goodsBase.shelf_life_num || 0}${unitText}`;
+            // 保质期单位展示：无保质期则为空，不再显示0天
+            let bzText = '';
+            if (goodsBase.shelf_life_num && goodsBase.shelf_life_unit) {
+                bzText = `${goodsBase.shelf_life_num}${goodsBase.shelf_life_unit}`;
+            }
 
             allStockBatchList.push({
                 supplier: batch.supplier,
@@ -362,7 +362,7 @@ function renderStockTable() {
         stockSummary.totalAllStock += item.totalAllStock;
     });
 
-    // 渲染数据行：序列，供应商，商品名，规格，结算方式，单价，批次库存，总库存，库存预警阈值，库存状态，库存金额，生产日期，到期日期，保质期，保质期状态，过期倒计
+    // 渲染数据行：序列，供应商，商品名，规格，结算方式，单价，批次库存，总库存，库存预警阈值，库存状态，库存金额，生产日期，到期日期，保质期，保质期状态，状态倒计
     pageData.forEach((item, idx) => {
         const seq = start + idx + 1;
         // 库存状态背景色
@@ -404,14 +404,19 @@ function renderStockTable() {
         `;
     });
 
-    // 底部汇总：前6列合并文字，第7列放置批次库存汇总值，库存金额放在第11列位置
+    // 汇总规则：
+    // 1-6列合并：筛选数据汇总
+    // 第7列：批次库存汇总值
+    // 8-10列合并空白占位
+    // 第11列：库存金额汇总值
+    // 12-16列合并空白占位
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
         <td colspan="6">筛选数据汇总</td>
         <td>${stockSummary.totalBatchStock}</td>
-        <td></td>
-        <td colspan="3">${formatMoney(stockSummary.totalAmount)}</td>
-        <td colspan="6"></td>
+        <td colspan="3"></td>
+        <td>${formatMoney(stockSummary.totalAmount)}</td>
+        <td colspan="5"></td>
     </tr>
     `;
     tb.innerHTML = htmlStr;
@@ -473,7 +478,7 @@ function exportStockStockExcel() {
     }
     const header = [
         "序列", "供应商", "商品名", "规格", "结算方式", "单价", "批次库存", "总库存",
-        "库存预警阈值", "库存状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "过期倒计"
+        "库存预警阈值", "库存状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "状态倒计"
     ];
     const expData = filteredStockBatch.map((item, idx) => [
         idx + 1,
