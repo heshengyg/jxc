@@ -1,4 +1,7 @@
-// ===================== 入库模块 - 最终修复版（库存+后端校验双正常） =====================
+// ===================== 入库模块 - 最终修复版（库存+后端校验双正常）+ 加载速度优化 =====================
+// 全局标记：出库数据仅首次进入入库页面加载一次，避免重复请求产生延迟，不影响任何业务更新逻辑
+let hasPreLoadStockOut = false;
+
 /**
  * 校验：后端ID比对（RPC/接口查询出库表，移除前端数组遍历）
  * @param {number|string} inId
@@ -28,9 +31,11 @@ async function refreshStockIn(){
     await loadStockIn();
 }
 
-// ========= 新增：入库页初始化 主动加载出库全局数据（核心修复库存问题） =========
+// ========= 新增：入库页初始化 主动加载出库全局数据（核心修复库存问题 + 速度优化） =========
 // 提前拉取出库数据，补齐 getStockBatchList / getTotalStockNum 依赖的 allStockOut
 async function preLoadStockOutData() {
+    // 仅首次进入入库页面执行一次请求，后续刷新、增删改入库不再重复拉取，消除延迟
+    if (hasPreLoadStockOut) return;
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
             headers: {
@@ -40,6 +45,7 @@ async function preLoadStockOutData() {
         });
         if (res.ok) {
             allStockOut = await res.json();
+            hasPreLoadStockOut = true;
         }
     } catch (err) {
         console.warn("预加载出库数据失败，不影响基础功能", err);
@@ -183,7 +189,6 @@ function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
 
-// 提交入库
 // 提交入库
 async function submitStockIn(){
     let editId = document.getElementById('inEditId').value;
@@ -438,7 +443,6 @@ function updateInSortIcon() {
 }
 
 // 渲染入库表格（库存逻辑完全保留 + 后端ID校验）
-// 渲染入库表格（修复按钮HTML结构，库存逻辑完全保留 + 后端ID校验）
 async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
