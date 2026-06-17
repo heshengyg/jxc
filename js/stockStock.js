@@ -469,13 +469,21 @@ function changeStockPageSize() {
 }
 
 /**
- * 导出库存Excel（表头严格匹配指定列名）
+ * 导出库存Excel（表头严格匹配指定列名，末尾追加全局汇总行）
  */
 function exportStockStockExcel() {
     if (filteredStockBatch.length === 0) {
         showMsg("暂无库存数据可导出");
         return;
     }
+    // 先计算筛选后全部数据的全局汇总值
+    let totalBatchStock = 0;
+    let totalAmount = 0;
+    filteredStockBatch.forEach(item => {
+        totalBatchStock += item.batchRemain;
+        totalAmount += item.batchAmount;
+    });
+
     const header = [
         "序列", "供应商", "商品名", "规格", "结算方式", "单价", "批次库存", "总库存",
         "库存预警阈值", "库存状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "状态倒计"
@@ -498,6 +506,14 @@ function exportStockStockExcel() {
         item.bzStatusText,
         item.countDownText
     ]);
+
+    // 新增汇总行：和页面规则一致
+    // 1-6列合并文字，第7列批次库存合计，8-10空白，第11列库存金额合计，剩余列空白
+    const summaryRow = [
+        "筛选数据汇总", "", "", "", "", "", totalBatchStock, "", "", "", totalAmount.toFixed(2), "", "", "", "", ""
+    ];
+    expData.push(summaryRow);
+
     const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "库存明细");
