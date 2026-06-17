@@ -139,9 +139,10 @@ let stockSummary = {
 };
 
 /**
- * DOM完全就绪后自动加载库存数据（修复进入页面不自动刷新问题）
+ * DOM完全就绪后首次自动加载库存数据
  */
 document.addEventListener('DOMContentLoaded', function () {
+    bindNavClickRefresh();
     if (document.getElementById('stockStockList')) {
         loadStockStock();
         const searchInput = document.getElementById('stockSearchKeyword');
@@ -150,6 +151,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 });
+
+/**
+ * 【本次新增：绑定库存查看导航按钮点击事件，每次点击都重新拉取最新数据】
+ */
+function bindNavClickRefresh() {
+    const stockNavBtn = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.trim() === '库存查看');
+    if (stockNavBtn) {
+        stockNavBtn.addEventListener('click', function () {
+            // 每次点击切换到库存查看，重置页码并刷新最新数据
+            stockCurrentPage = 1;
+            loadStockStock();
+        });
+    }
+}
 
 /**
  * 加载库存数据
@@ -229,7 +244,7 @@ async function loadStockStock() {
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
 
-            // 【修正：个月单位展示为 X个月，年/天保持原样】
+            // 保质期单位展示：个月→X个月、年→X年、天→X天
             let unitText = '天';
             if (goodsBase.shelf_life_unit === '年') unitText = '年';
             if (goodsBase.shelf_life_unit === '个月') unitText = '个月';
