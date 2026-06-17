@@ -24,7 +24,7 @@ function getDateDiffDay(dateStr) {
  * 修正点：
  * 1. 临期：过期倒计 = 到期日 - 今日
  * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
- * 3. 无日期：状态、倒计时均返回空字符串（本次修改点1）
+ * 3. 无日期：状态、倒计时均返回空字符串
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     // 1、保质期统一换算为总天数bzq
@@ -59,7 +59,7 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         // 打折日期 = 生产日期 + (总保质期 - 2*临期天数)
         dzrq = new Date(scDate.getTime() + (bzq - 2 * lq) * 24 * 60 * 60 * 1000);
     } else {
-        // 两个日期都未填写：返回空（本次修改点1）
+        // 两个日期都未填写：返回空
         return { statusText: '', countDownText: '' };
     }
 
@@ -139,15 +139,13 @@ let stockSummary = {
 };
 
 /**
- * 页面加载自动执行入口（本次修改点2：进入页面自动加载数据）
+ * DOM完全就绪后自动加载库存数据（修复进入页面不自动刷新问题）
  */
-window.addEventListener('load', function(){
-    // 仅当前为库存页面时自动加载
-    if(document.getElementById('stockStockList')){
+document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('stockStockList')) {
         loadStockStock();
-        // 本次修改点3：绑定搜索框实时输入事件，边输入边筛选
         const searchInput = document.getElementById('stockSearchKeyword');
-        if(searchInput){
+        if (searchInput) {
             searchInput.addEventListener('input', filterStockStock);
         }
     }
@@ -231,10 +229,10 @@ async function loadStockStock() {
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
 
-            // 页面展示保质期文本
+            // 【修正：个月单位展示为 X个月，年/天保持原样】
             let unitText = '天';
             if (goodsBase.shelf_life_unit === '年') unitText = '年';
-            if (goodsBase.shelf_life_unit === '个月') unitText = '月';
+            if (goodsBase.shelf_life_unit === '个月') unitText = '个月';
             const bzText = `${goodsBase.shelf_life_num || 0}${unitText}`;
 
             allStockBatchList.push({
