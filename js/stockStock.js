@@ -168,7 +168,7 @@ function bindNavClickRefresh() {
 /**
  * 加载库存数据
  * 合并规则：供应商 + 商品名 + 规格 + 入库单价 + 生产日期 + 到期日期 为同一批次
- * 修改点：新增结算类型字段，适配新列结构
+ * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
     // 前置加载全局入库、出库数据
@@ -197,7 +197,7 @@ async function loadStockStock() {
                 batch.totalRemain += singleRemain;
                 batch.totalInNum += Number(inItem.in_num || 0);
             } else {
-                // 新批次：初始化，新增结算类型字段
+                // 新批次：初始化，新增结算方式
                 const goodsBase = allGoods.find(g =>
                     g.supplier === inItem.supplier
                     && g.name === inItem.goodsName
@@ -207,7 +207,7 @@ async function loadStockStock() {
                     supplier: inItem.supplier,
                     goodsName: inItem.goodsName,
                     spec: inItem.spec || '-',
-                    settleType: inItem.settle_type || '-', // 新增结算类型
+                    settleType: inItem.settleType || '-',
                     inPrice: inItem.in_price || 0,
                     produce_date: inItem.produce_date || '-',
                     expire_date: inItem.expire_date || '-',
@@ -221,7 +221,7 @@ async function loadStockStock() {
         // 转为数组，构建最终渲染数据
         allStockBatchList = [];
         batchMap.forEach(batch => {
-            // 过滤批次库存为0的行，只保留>0的数据
+            // 修改需求1：过滤批次库存为0的行，只保留>0的数据
             if (batch.totalRemain <= 0) return;
 
             const goodsBase = batch.goodsBase;
@@ -258,8 +258,8 @@ async function loadStockStock() {
                 supplier: batch.supplier,
                 goodsName: batch.goodsName,
                 spec: batch.spec,
-                settleType: batch.settleType, // 新增结算类型
-                outPrice: batch.inPrice, // 出库单价=入库单价
+                settleType: batch.settleType,
+                outPrice: batch.inPrice,
                 batchRemain: batch.totalRemain,
                 totalAllStock: totalAllStock,
                 warnStockThreshold: warnStockThreshold,
@@ -308,7 +308,7 @@ function resetStockSearch() {
 }
 
 /**
- * 表头排序（适配新列结构）
+ * 表头排序（新增结算方式、单价排序）
  */
 function stockSortTable(field) {
     stockSortField = field;
@@ -341,7 +341,7 @@ function updateStockSortIcon() {
 }
 
 /**
- * 渲染表格 + 底部汇总（适配新列结构）
+ * 渲染表格 + 底部汇总（严格按指定列顺序渲染）
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -359,17 +359,17 @@ function renderStockTable() {
         stockSummary.totalAllStock += item.totalAllStock;
     });
 
-    // 渲染数据行（适配新列顺序）
+    // 渲染数据行：序列，供应商，商品名，规格，结算方式，单价，批次库存，总库存，库存预警阈值，库存状态，库存金额，生产日期，到期日期，保质期，保质期状态，过期倒计
     pageData.forEach((item, idx) => {
         const seq = start + idx + 1;
-        // 报警状态背景色
+        // 库存状态背景色
         let warnBg = '';
         if (item.stockWarnText === '报警') {
             warnBg = 'style="background:#ffdddd;"';
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-        // 保质期状态背景色
+        // 保质期状态背景色：过期深红，临期浅红，打折浅蓝
         let bzBg = '';
         if (item.bzStatusText === '过期') {
             bzBg = 'style="background:#ff4444;color:#fff;"';
@@ -401,7 +401,7 @@ function renderStockTable() {
         `;
     });
 
-    // 底部汇总行（适配新列结构，仅保留库存金额、批次库存汇总）
+    // 底部汇总行适配16列，仅保留库存金额、批次库存汇总
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
         <td colspan="10">筛选数据汇总</td>
@@ -462,7 +462,7 @@ function changeStockPageSize() {
 }
 
 /**
- * 导出库存Excel（适配新列结构）
+ * 导出库存Excel（表头严格匹配指定列名）
  */
 function exportStockStockExcel() {
     if (filteredStockBatch.length === 0) {
@@ -470,8 +470,8 @@ function exportStockStockExcel() {
         return;
     }
     const header = [
-        "序列", "供应商", "商品名", "规格", "结算类型", "出库单价", "批次库存", "总库存",
-        "库存预警阈值", "报警状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "过期倒计"
+        "序列", "供应商", "商品名", "规格", "结算方式", "单价", "批次库存", "总库存",
+        "库存预警阈值", "库存状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "过期倒计"
     ];
     const expData = filteredStockBatch.map((item, idx) => [
         idx + 1,
