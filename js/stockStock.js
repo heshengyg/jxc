@@ -153,13 +153,12 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /**
- * 【本次新增：绑定库存查看导航按钮点击事件，每次点击都重新拉取最新数据】
+ * 绑定库存查看导航按钮点击事件，每次点击都重新拉取最新数据
  */
 function bindNavClickRefresh() {
     const stockNavBtn = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.trim() === '库存查看');
     if (stockNavBtn) {
         stockNavBtn.addEventListener('click', function () {
-            // 每次点击切换到库存查看，重置页码并刷新最新数据
             stockCurrentPage = 1;
             loadStockStock();
         });
@@ -169,6 +168,7 @@ function bindNavClickRefresh() {
 /**
  * 加载库存数据
  * 合并规则：供应商 + 商品名 + 规格 + 入库单价 + 生产日期 + 到期日期 为同一批次
+ * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
     // 前置加载全局入库、出库数据
@@ -220,6 +220,9 @@ async function loadStockStock() {
         // 转为数组，构建最终渲染数据
         allStockBatchList = [];
         batchMap.forEach(batch => {
+            // 修改需求1：过滤批次库存为0的行，只保留>0的数据
+            if (batch.totalRemain <= 0) return;
+
             const goodsBase = batch.goodsBase;
             if (!goodsBase) return;
 
@@ -336,6 +339,9 @@ function updateStockSortIcon() {
 
 /**
  * 渲染表格 + 底部汇总
+ * 修改点2：汇总仅保留库存金额、批次总库存
+ * 修改点3：报警状态单元格背景色
+ * 修改点4：保质期状态单元格背景色
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -356,6 +362,21 @@ function renderStockTable() {
     // 渲染数据行
     pageData.forEach((item, idx) => {
         const seq = start + idx + 1;
+        // 报警状态背景色
+        let warnBg = '';
+        if (item.stockWarnText === '报警') {
+            warnBg = 'style="background:#ffdddd;"';
+        } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
+            warnBg = 'style="background:#ddffdd;"';
+        }
+        // 保质期状态背景色
+        let bzBg = '';
+        if (item.bzStatusText === '过期' || item.bzStatusText === '临期') {
+            bzBg = 'style="background:#ffdddd;"';
+        } else if (item.bzStatusText === '打折') {
+            bzBg = 'style="background:#ddeeff;"';
+        }
+
         htmlStr += `
         <tr>
             <td>${seq}</td>
@@ -363,28 +384,27 @@ function renderStockTable() {
             <td>${item.goodsName}</td>
             <td>${item.spec}</td>
             <td>${item.warnStockThreshold}</td>
-            <td>${item.stockWarnText}</td>
+            <td ${warnBg}>${item.stockWarnText}</td>
             <td>${formatMoney(item.batchAmount)}</td>
             <td>${item.produce_date}</td>
             <td>${item.expire_date}</td>
             <td>${item.batchRemain}</td>
             <td>${item.totalAllStock}</td>
             <td>${item.bzText}</td>
-            <td>${item.bzStatusText}</td>
+            <td ${bzBg}>${item.bzStatusText}</td>
             <td>${item.countDownText}</td>
         </tr>
         `;
     });
 
-    // 汇总行
+    // 修改需求2：只保留库存金额、批次库存汇总，其余列空白
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
         <td colspan="6">筛选数据汇总</td>
         <td>${formatMoney(stockSummary.totalAmount)}</td>
         <td colspan="2"></td>
         <td>${stockSummary.totalBatchStock}</td>
-        <td>${stockSummary.totalAllStock}</td>
-        <td colspan="3"></td>
+        <td colspan="4"></td>
     </tr>
     `;
     tb.innerHTML = htmlStr;
