@@ -168,7 +168,7 @@ function bindNavClickRefresh() {
 /**
  * 加载库存数据
  * 合并规则：供应商 + 商品名 + 规格 + 入库单价 + 生产日期 + 到期日期 为同一批次
- * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
+ * 修改点：新增结算类型字段，适配新列结构
  */
 async function loadStockStock() {
     // 前置加载全局入库、出库数据
@@ -197,7 +197,7 @@ async function loadStockStock() {
                 batch.totalRemain += singleRemain;
                 batch.totalInNum += Number(inItem.in_num || 0);
             } else {
-                // 新批次：初始化
+                // 新批次：初始化，新增结算类型字段
                 const goodsBase = allGoods.find(g =>
                     g.supplier === inItem.supplier
                     && g.name === inItem.goodsName
@@ -207,6 +207,7 @@ async function loadStockStock() {
                     supplier: inItem.supplier,
                     goodsName: inItem.goodsName,
                     spec: inItem.spec || '-',
+                    settleType: inItem.settle_type || '-', // 新增结算类型
                     inPrice: inItem.in_price || 0,
                     produce_date: inItem.produce_date || '-',
                     expire_date: inItem.expire_date || '-',
@@ -220,7 +221,7 @@ async function loadStockStock() {
         // 转为数组，构建最终渲染数据
         allStockBatchList = [];
         batchMap.forEach(batch => {
-            // 修改需求1：过滤批次库存为0的行，只保留>0的数据
+            // 过滤批次库存为0的行，只保留>0的数据
             if (batch.totalRemain <= 0) return;
 
             const goodsBase = batch.goodsBase;
@@ -257,13 +258,15 @@ async function loadStockStock() {
                 supplier: batch.supplier,
                 goodsName: batch.goodsName,
                 spec: batch.spec,
+                settleType: batch.settleType, // 新增结算类型
+                outPrice: batch.inPrice, // 出库单价=入库单价
+                batchRemain: batch.totalRemain,
+                totalAllStock: totalAllStock,
                 warnStockThreshold: warnStockThreshold,
                 stockWarnText: stockWarnText,
                 batchAmount: batchAmount,
                 produce_date: batch.produce_date,
                 expire_date: batch.expire_date,
-                batchRemain: batch.totalRemain,
-                totalAllStock: totalAllStock,
                 bzText: bzText,
                 bzStatusText: bzResult.statusText,
                 countDownText: bzResult.countDownText
@@ -305,7 +308,7 @@ function resetStockSearch() {
 }
 
 /**
- * 表头排序
+ * 表头排序（适配新列结构）
  */
 function stockSortTable(field) {
     stockSortField = field;
@@ -313,7 +316,7 @@ function stockSortTable(field) {
     filteredStockBatch.sort((a, b) => {
         const va = a[stockSortField] || '';
         const vb = b[stockSortField] || '';
-        const numFields = ['warnStockThreshold', 'batchAmount', 'batchRemain', 'totalAllStock'];
+        const numFields = ['warnStockThreshold', 'batchAmount', 'batchRemain', 'totalAllStock', 'outPrice'];
         if (numFields.includes(stockSortField)) {
             const numA = Number(va) || 0;
             const numB = Number(vb) || 0;
@@ -338,10 +341,7 @@ function updateStockSortIcon() {
 }
 
 /**
- * 渲染表格 + 底部汇总
- * 修改点2：汇总仅保留库存金额、批次总库存
- * 修改点3：报警状态单元格背景色
- * 修改点4：保质期状态单元格背景色
+ * 渲染表格 + 底部汇总（适配新列结构）
  */
 function renderStockTable() {
     const start = (stockCurrentPage - 1) * stockPageSize;
@@ -359,7 +359,7 @@ function renderStockTable() {
         stockSummary.totalAllStock += item.totalAllStock;
     });
 
-    // 渲染数据行
+    // 渲染数据行（适配新列顺序）
     pageData.forEach((item, idx) => {
         const seq = start + idx + 1;
         // 报警状态背景色
@@ -369,28 +369,31 @@ function renderStockTable() {
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-// 保质期状态背景色
-let bzBg = '';
-if (item.bzStatusText === '过期') {
-    bzBg = 'style="background:#ff4444;color:#fff;"';
-} else if (item.bzStatusText === '临期') {
-    bzBg = 'style="background:#ffdddd;"';
-} else if (item.bzStatusText === '打折') {
-    bzBg = 'style="background:#ddeeff;"';
-}
+        // 保质期状态背景色
+        let bzBg = '';
+        if (item.bzStatusText === '过期') {
+            bzBg = 'style="background:#ff4444;color:#fff;"';
+        } else if (item.bzStatusText === '临期') {
+            bzBg = 'style="background:#ffdddd;"';
+        } else if (item.bzStatusText === '打折') {
+            bzBg = 'style="background:#ddeeff;"';
+        }
+
         htmlStr += `
         <tr>
             <td>${seq}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
             <td>${item.spec}</td>
+            <td>${item.settleType}</td>
+            <td>${formatMoney(item.outPrice)}</td>
+            <td>${item.batchRemain}</td>
+            <td>${item.totalAllStock}</td>
             <td>${item.warnStockThreshold}</td>
             <td ${warnBg}>${item.stockWarnText}</td>
             <td>${formatMoney(item.batchAmount)}</td>
             <td>${item.produce_date}</td>
             <td>${item.expire_date}</td>
-            <td>${item.batchRemain}</td>
-            <td>${item.totalAllStock}</td>
             <td>${item.bzText}</td>
             <td ${bzBg}>${item.bzStatusText}</td>
             <td>${item.countDownText}</td>
@@ -398,14 +401,14 @@ if (item.bzStatusText === '过期') {
         `;
     });
 
-    // 修改需求2：只保留库存金额、批次库存汇总，其余列空白
+    // 底部汇总行（适配新列结构，仅保留库存金额、批次库存汇总）
     htmlStr += `
     <tr style="background:#f5f7fa;font-weight:bold;">
-        <td colspan="6">筛选数据汇总</td>
+        <td colspan="10">筛选数据汇总</td>
         <td>${formatMoney(stockSummary.totalAmount)}</td>
         <td colspan="2"></td>
         <td>${stockSummary.totalBatchStock}</td>
-        <td colspan="4"></td>
+        <td colspan="3"></td>
     </tr>
     `;
     tb.innerHTML = htmlStr;
@@ -459,7 +462,7 @@ function changeStockPageSize() {
 }
 
 /**
- * 导出库存Excel
+ * 导出库存Excel（适配新列结构）
  */
 function exportStockStockExcel() {
     if (filteredStockBatch.length === 0) {
@@ -467,21 +470,23 @@ function exportStockStockExcel() {
         return;
     }
     const header = [
-        "序列", "供应商", "商品名", "规格", "库存预警阈值", "报警状态", "库存金额",
-        "生产日期", "到期日期", "批次库存", "总库存", "保质期", "保质期状态", "过期倒计"
+        "序列", "供应商", "商品名", "规格", "结算类型", "出库单价", "批次库存", "总库存",
+        "库存预警阈值", "报警状态", "库存金额", "生产日期", "到期日期", "保质期", "保质期状态", "过期倒计"
     ];
     const expData = filteredStockBatch.map((item, idx) => [
         idx + 1,
         item.supplier,
         item.goodsName,
         item.spec,
+        item.settleType,
+        item.outPrice,
+        item.batchRemain,
+        item.totalAllStock,
         item.warnStockThreshold,
         item.stockWarnText,
         item.batchAmount,
         item.produce_date,
         item.expire_date,
-        item.batchRemain,
-        item.totalAllStock,
         item.bzText,
         item.bzStatusText,
         item.countDownText
