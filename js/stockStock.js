@@ -25,6 +25,7 @@ function getDateDiffDay(dateStr) {
  * 1. 临期：过期倒计 = 到期日 - 今日
  * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
  * 3. 无日期：状态、倒计时均返回空字符串
+ * 新增：打折状态同样显示【临期日期-今日】的天数倒计时
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     // 1、保质期统一换算为总天数bzq
@@ -75,9 +76,11 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         const remainDay = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
         countDownText = `${remainDay}`;
     }
-    // 3、临期日 > 今日 >= 打折日 → 打折
+    // 3、临期日 > 今日 >= 打折日 → 打折，倒计=临期日期 - 今日天数
     else if (today >= dzrq) {
         statusText = '打折';
+        const remainDay = Math.floor((lqrq - today) / (1000 * 60 * 60 * 24));
+        countDownText = `${remainDay}`;
     }
     // 4、打折日 > 今日 >= 生产日期 → 正常，显示剩余【打折日-今日】天数
     else {
