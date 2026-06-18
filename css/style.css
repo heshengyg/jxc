@@ -128,3 +128,10 @@ tbody tr:hover { background-color: #e6f7ef; }
 .search-select-list div:hover {
     background: #e5efff;
 }
+
+.bg-yellow-invoice {
+    background-color: #fff9cc;
+}
+.bg-green-invoice {
+    background-color: #d4edda;
+}

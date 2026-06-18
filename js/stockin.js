@@ -471,50 +471,58 @@ async function renderStockIn() {
     }
     let fullHtml = '';
     pageData.forEach((item, idx) => {
-        const cacheKey = `${item.supplier}|${item.goodsName}`;
-        const cache = stockDataCache.get(cacheKey);
-        const batchList = cache.batchList;
-        const batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
-        let batchRemain = batch ? batch.batchRemain : 0;
-        let totalStock = cache.totalStock;
+    const cacheKey = `${item.supplier}|${item.goodsName}`;
+    const cache = stockDataCache.get(cacheKey);
+    const batchList = cache.batchList;
+    const batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
+    let batchRemain = batch ? batch.batchRemain : 0;
+    let totalStock = cache.totalStock;
 
-        let amount = formatMoney((item.in_price || 0) * item.in_num);
-        let isUsed = idUsedMap[item.id];
-        let btnHtml = '';
-        
-        if(isUsed){
-            btnHtml = `
-                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
-            `;
-        }else{
-            btnHtml = `
-                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-            `;
-        }
-        fullHtml += `
-            <tr>
-                <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
-                <td>${start + idx + 1}</td>
-                <td>${item.supplier || ''}</td>
-                <td>${item.goodsName || ''}</td>
-                <td>${item.spec || '-'}</td>
-                <td>${item.settleType || ''}</td>
-                <td>${formatMoney(item.in_price)}</td>
-                <td>${item.in_num}</td>
-                <td>${amount}</td>
-                <td>${batchRemain}</td>
-                <td>${totalStock}</td>
-                <td>${item.invoice_status || ''}</td>
-                <td>${item.produce_date || ''}</td>
-                <td>${item.expire_date || ''}</td>
-                <td>
-                    ${btnHtml}
-                </td>
-            </tr>
+    let amount = formatMoney((item.in_price || 0) * item.in_num);
+    let isUsed = idUsedMap[item.id];
+    let btnHtml = '';
+    
+    if(isUsed){
+        btnHtml = `
+            <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+            <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
         `;
-    });
+    }else{
+        btnHtml = `
+            <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+            <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+        `;
+    }
+    // 发票状态与背景色判断
+    let invoiceText = item.invoice_status || '';
+    let invoiceClass = '';
+    if (invoiceText === '未开票') {
+        invoiceClass = 'bg-yellow-invoice';
+    } else if (invoiceText === '已开票') {
+        invoiceClass = 'bg-green-invoice';
+    }
+    fullHtml += `
+        <tr>
+            <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
+            <td>${start + idx + 1}</td>
+            <td>${item.supplier || ''}</td>
+            <td>${item.goodsName || ''}</td>
+            <td>${item.spec || '-'}</td>
+            <td>${item.settleType || ''}</td>
+            <td>${formatMoney(item.in_price)}</td>
+            <td>${item.in_num}</td>
+            <td>${amount}</td>
+            <td>${batchRemain}</td>
+            <td>${totalStock}</td>
+            <td class="${invoiceClass}">${invoiceText}</td>
+            <td>${item.produce_date || ''}</td>
+            <td>${item.expire_date || ''}</td>
+            <td>
+                ${btnHtml}
+            </td>
+        </tr>
+    `;
+});
     tb.innerHTML = fullHtml;
 }
 
