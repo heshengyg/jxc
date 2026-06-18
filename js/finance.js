@@ -15,11 +15,12 @@ switchTab = function (tabName) {
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        initFinanceBaseData();
-        switchFinanceSubTab('taxRate');
+        // 等待所有商品等基础数据加载完毕后，再初始化子页面
+        initFinanceBaseData().then(() => {
+            switchFinanceSubTab('taxRate');
+        });
     }
 }
-
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
