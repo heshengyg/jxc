@@ -27,24 +27,35 @@ function refreshGoods(){
     loadGoods();
 }
 
-// 渠道切换：控制线上成本价输入框禁用/启用 + 税率下拉框禁用
+// 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput(){
     let channel = document.getElementById('add_channel').value;
     let costInput = document.getElementById('add_online_cost');
     let taxSelect = document.getElementById('add_tax_rate');
+    // 保质期两个控件
+    let shelfNumInput = document.getElementById('add_shelf_life_num');
+    let shelfUnitSelect = document.getElementById('add_shelf_life_unit');
+
     if(channel === '线下'){
         costInput.disabled = true;
         costInput.value = '';
         // 线下：税率可编辑
         taxSelect.disabled = false;
+        // 线下：保质期启用可输入
+        shelfNumInput.disabled = false;
+        shelfUnitSelect.disabled = false;
     }else{
         costInput.disabled = false;
-        // 线上：税率强制禁用，固定为空
+        // 线上：税率强制禁用，赋值为空字符串""
         taxSelect.disabled = true;
         taxSelect.value = '';
+        // 线上：保质期直接禁用，清空内容
+        shelfNumInput.disabled = true;
+        shelfNumInput.value = '';
+        shelfUnitSelect.disabled = true;
+        shelfUnitSelect.value = '';
     }
 }
-
 function clearSort(){
     sortField = ''; sortAsc = true; updateSortIcon(); loadGoods();
 }
@@ -106,7 +117,8 @@ async function renderGoods() {
     let tb = document.getElementById('goodsList'); tb.innerHTML = '';
     for(let idx = 0; idx < pageData.length; idx++){
         const item = pageData[idx];
-        let shelfText = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit}` : '无';
+        // 保质期：有数值才拼接，无则返回空字符串
+        let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
         let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
         let onlineCost = formatMoney(item.online_cost);
         let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
@@ -124,7 +136,9 @@ async function renderGoods() {
                 <td>${item.channel||''}</td>
                 <td>${formatMoney(item.sale_price)}</td>
                 <td>${onlineCost}</td>
-                <td>${item.tax_rate || '空'}</td>
+                <!-- 税率无值直接空白，不再显示“空” -->
+                <td>${item.tax_rate || ''}</td>
+                <!-- 保质期无值直接空白，不再显示“无” -->
                 <td>${shelfText}</td>
                 <td>${expire}</td>
                 <td>${item.warn_num||0}</td>
@@ -137,7 +151,6 @@ async function renderGoods() {
         tb.innerHTML += html;
     }
 }
-
 function renderPagination() {
     totalPages = Math.ceil(filteredGoods.length/pageSize)||1;
     document.getElementById('currentPage').textContent = currentPage;
