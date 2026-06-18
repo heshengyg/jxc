@@ -182,7 +182,9 @@ function toggleSelectAll(){
 function openAddForm(){
     document.getElementById('formTitle').innerText='新增商品';
     document.getElementById('editId').value='';
+    // 清空所有表单值
     document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>el.value='');
+    // 先执行渠道状态初始化，统一重置所有控件的禁用状态
     toggleOnlineCostInput();
     document.getElementById('formModal').style.display='block';
 }
@@ -191,6 +193,7 @@ async function openEditForm(id){
     let item = allGoods.find(x=>x.id===id); if(!item)return;
     document.getElementById('formTitle').innerText='编辑商品';
     document.getElementById('editId').value=id;
+    // 1、先回填表单数据
     document.getElementById('add_supplier').value=item.supplier||'';
     document.getElementById('add_name').value=item.name||'';
     document.getElementById('add_spec').value=item.spec||'';
@@ -201,12 +204,11 @@ async function openEditForm(id){
     document.getElementById('add_warn_num').value=item.warn_num||'';
     document.getElementById('add_shelf_life_num').value=item.shelf_life_num||'';
     document.getElementById('add_shelf_life_unit').value=item.shelf_life_unit||'';
+
+    // 2、关键修复：先执行渠道禁用逻辑，线上自动锁定税率、保质期控件（不再被全局解锁覆盖）
     toggleOnlineCostInput();
-    // 先恢复所有输入框可编辑
-    document.querySelectorAll('#formModal input, #formModal select').forEach(el=>{
-        el.disabled = false;
-    });
-    // 被入库引用，锁定四项字段
+
+    // 3、删除全局所有输入框解锁代码，只单独锁定4个基础字段，不影响税率、保质期等控件状态
     let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
     if(isUsed){
         document.getElementById('add_supplier').disabled = true;
@@ -214,6 +216,7 @@ async function openEditForm(id){
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_channel').disabled = true;
     }
+
     document.getElementById('formModal').style.display='block';
 }
 
@@ -358,7 +361,7 @@ function exportExcel(){
             item.spec||"",
             item.channel||"",
             item.sale_price||0,
-            item.tax_rate||"空",
+            item.tax_rate||"",
             item.online_cost||0,
             item.warn_num||0,
             shelf
