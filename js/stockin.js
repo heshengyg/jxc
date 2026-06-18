@@ -236,6 +236,9 @@ if(settleType === '线上'){
         finalInPrice = +inPrice;
     }
 
+    // 修正逻辑：线下默认未开票，线上赋值空字符串（表格展示空白）
+    let invoiceStatus = settleType === '线下' ? '未开票' : '';
+
     let postData = {
         supplier: supplier,
         goodsName: goodsName,
@@ -246,7 +249,8 @@ if(settleType === '线上'){
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
-        expire_date: expireDate || null
+        expire_date: expireDate || null,
+        invoice_status: invoiceStatus
     };
 
     try {
@@ -259,6 +263,8 @@ if(settleType === '线上'){
         };
 
         if(editId){
+            // 编辑时不修改发票状态，保留自动核销后的结果
+            delete postData.invoice_status;
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${editId}`,{
                 method:'PATCH',
                 headers,
@@ -302,7 +308,7 @@ function exportStockInExcel(){
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
+    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期","发票状态"];
     let expData = filteredStockIn.map(item=>[
         item.supplier||"",
         item.goodsName||"",
@@ -313,7 +319,8 @@ function exportStockInExcel(){
         item.in_num||0,
         item.record_date||"",
         item.produce_date||"",
-        item.expire_date||""
+        item.expire_date||"",
+        item.invoice_status||""
     ]);
     let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
     let wb = XLSX.utils.book_new();
@@ -358,6 +365,8 @@ async function importStockInExcel() {
             }else{
                 finalInPrice = inPrice;
             }
+            // 导入同样修正规则：线下未开票，线上空字符串
+            let invoiceStatus = settleType === '线下' ? '未开票' : '';
             let postData = {
                 supplier, goodsName, spec, settleType,
                 sale_price: salePrice,
@@ -365,7 +374,8 @@ async function importStockInExcel() {
                 in_num: inNum,
                 record_date: recordDate,
                 produce_date: produceDate,
-                expire_date: expireDate
+                expire_date: expireDate,
+                invoice_status: invoiceStatus
             };
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
@@ -496,6 +506,7 @@ async function renderStockIn() {
                 <td>${amount}</td>
                 <td>${batchRemain}</td>
                 <td>${totalStock}</td>
+                <td>${item.invoice_status || ''}</td>
                 <td>${item.produce_date || ''}</td>
                 <td>${item.expire_date || ''}</td>
                 <td>
