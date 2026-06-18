@@ -9,17 +9,21 @@ let allPayList = [];
 let allInvoiceBackList = [];
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
+// 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
+        // 先执行数据加载
         initFinanceBaseData();
-        switchFinanceSubTab('taxRate');
+        // 等待事件循环完成数据请求赋值后再渲染表格
+        setTimeout(() => {
+            switchFinanceSubTab('taxRate');
+        }, 50);
     }
 }
-
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
