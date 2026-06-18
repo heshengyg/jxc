@@ -1,6 +1,11 @@
 // ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
+// 新增：全局商品税率缓存
+let goodsTaxCache = new Map();
+// ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
+// 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
+let allStockOutReadyPromise;
 
 // 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
 (function initPreLoadOut() {
@@ -308,7 +313,7 @@ function exportStockInExcel(){
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期","发票状态"];
+    let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期","发票状态","发票号码"];
     let expData = filteredStockIn.map(item=>[
         item.supplier||"",
         item.goodsName||"",
@@ -317,10 +322,12 @@ function exportStockInExcel(){
         item.sale_price||0,
         item.in_price||0,
         item.in_num||0,
+        item.in_price||0,
         item.record_date||"",
         item.produce_date||"",
         item.expire_date||"",
-        item.invoice_status||""
+        item.invoice_status||"",
+        item.invoice_no||""
     ]);
     let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
     let wb = XLSX.utils.book_new();
@@ -420,11 +427,20 @@ async function loadStockIn() {
         allStockIn = pageData;
         document.getElementById('inTotalCount').textContent = totalRecord;
         refreshAllStockCache(allStockIn, allStockOut);
+
+        // 初始化税率缓存
+        goodsTaxCache.clear();
+        allGoods.forEach(g => {
+            const key = `${g.supplier}|${g.name}|${g.spec ?? ''}`;
+            goodsTaxCache.set(key, g.tax_rate || '');
+        });
+
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
+
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
@@ -493,7 +509,8 @@ async function renderStockIn() {
             <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
         `;
     }
-    // 发票状态与背景色判断
+
+    // 发票状态背景色（原有逻辑完全保留）
     let invoiceText = item.invoice_status || '';
     let invoiceClass = '';
     if (invoiceText === '未开票') {
@@ -515,6 +532,7 @@ async function renderStockIn() {
             <td>${batchRemain}</td>
             <td>${totalStock}</td>
             <td class="${invoiceClass}">${invoiceText}</td>
+            <td>${item.invoice_no || ''}</td>
             <td>${item.produce_date || ''}</td>
             <td>${item.expire_date || ''}</td>
             <td>
@@ -525,7 +543,6 @@ async function renderStockIn() {
 });
     tb.innerHTML = fullHtml;
 }
-
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
