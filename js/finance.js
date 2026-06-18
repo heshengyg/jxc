@@ -2,16 +2,20 @@
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
 let monthDistinctList = [];
-let allGoodsList = [];
+// 复用window全局商品，不再单独新建数组
+let allGoodsList = window.allGoods;
 let allStockInList = [];
 let allPayList = [];
 let allInvoiceBackList = [];
 
-// 重写Tab切换，进入财务页初始化基础数据
+// 重写Tab切换，进入财务页先关闭弹窗、再初始化基础数据
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
+        // 修复3：进入财务强制关闭税率弹窗，杜绝自动弹出
+        const taxModal = document.getElementById('taxModal');
+        if(taxModal) taxModal.style.display = 'none';
         initFinanceBaseData();
         switchFinanceSubTab('taxRate');
     }
@@ -63,12 +67,13 @@ async function loadDistinctMonth() {
     monthDistinctList = Array.from(set).sort().reverse();
 }
 
-// 加载全部商品
+// 加载全部商品：同步更新window全局，实现双向同步
 async function loadAllGoods() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
-    allGoodsList = await res.json();
+    window.allGoods = await res.json();
+    allGoodsList = window.allGoods;
 }
 
 // 加载全部入库单
@@ -110,9 +115,13 @@ function initCurrentSubPage() {
     }
 }
 
-// ===================== ①税率录入模块（修复：仅线下商品+全局同步） =====================
+// ===================== ①税率录入模块（仅线下商品+全局双向同步+自动关闭弹窗） =====================
 function initTaxRatePage() {
+    // 进入税率页先强制关闭弹窗
+    const taxModal = document.getElementById('taxModal');
+    if(taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
+    // 自动刷新列表，无需手动点按钮
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
@@ -125,7 +134,7 @@ function initTaxSupplierFilter() {
 }
 function refreshTaxList() {
     const filterSupplier = document.getElementById('taxSupplierFilter').value;
-    // 核心修复：只筛选线下渠道商品，线上直接过滤
+    // 只筛选线下渠道商品，线上直接过滤
     let list = allGoodsList.filter(g => g.channel === '线下');
     if (filterSupplier) list = list.filter(g => g.supplier === filterSupplier);
     const tbody = document.getElementById('taxRateList');
@@ -164,7 +173,7 @@ async function saveTaxData() {
         },
         body: JSON.stringify({ tax_rate: taxRate })
     });
-    // 【关键同步修复】修改后重新拉取全局所有商品，更新缓存，商品页面立刻同步最新数据
+    // 修改后刷新全局数据源，商品页面只要刷新列表就自动同步
     await loadAllGoods();
     closeTaxModal();
     refreshTaxList();

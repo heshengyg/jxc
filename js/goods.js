@@ -60,6 +60,10 @@ function clearSort(){
     sortField = ''; sortAsc = true; updateSortIcon(); loadGoods();
 }
 
+// 全局挂载商品数组，和财务模块共享数据源
+window.allGoods = [];
+let filteredGoods = [];
+
 async function loadGoods() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
@@ -67,8 +71,8 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
-        allGoods = list.sort((a,b) => b.id - a.id);
-        document.getElementById('totalCount').textContent = allGoods.length;
+        window.allGoods = list.sort((a,b) => b.id - a.id);
+        document.getElementById('totalCount').textContent = window.allGoods.length;
         filterGoods();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
@@ -84,7 +88,7 @@ function resetSearch() {
 function filterGoods() {
     let field = document.getElementById('searchField').value;
     let kw = document.getElementById('searchKeyword').value.toLowerCase();
-    filteredGoods = allGoods.filter(item => String(item[field]||'').toLowerCase().includes(kw));
+    filteredGoods = window.allGoods.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('searchCount').textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
@@ -136,8 +140,8 @@ async function renderGoods() {
                 <td>${item.channel||''}</td>
                 <td>${formatMoney(item.sale_price)}</td>
                 <td>${onlineCost}</td>
-                <!-- 税率无值直接空白，不再显示“空” -->
-                <td>${item.tax_rate || ''}</td>
+                <!-- 修复1：税率带%展示，空值空白 -->
+                <td>${item.tax_rate ? item.tax_rate + '%' : ''}</td>
                 <!-- 保质期无值直接空白，不再显示“无” -->
                 <td>${shelfText}</td>
                 <td>${expire}</td>
@@ -195,7 +199,7 @@ function openAddForm(){
 }
 
 async function openEditForm(id){
-    let item = allGoods.find(x=>x.id===id); if(!item)return;
+    let item = window.allGoods.find(x=>x.id===id); if(!item)return;
     document.getElementById('formTitle').innerText='编辑商品';
     document.getElementById('editId').value=id;
     // 回填表单数据
@@ -235,7 +239,7 @@ function closeForm(){ document.getElementById('formModal').style.display='none';
 
 // 重复商品校验
 function isDuplicate(supplier,name,spec,editId){
-    return allGoods.some(item=>{
+    return window.allGoods.some(item=>{
         if(editId && +item.id===+editId) return false;
         return (item.supplier||'').trim()===supplier.trim()
             && (item.name||'').trim()===name.trim()
@@ -296,17 +300,18 @@ async function submitForm(){
             showMsg('新增成功，财务税率页面数据已同步更新');
         }
         closeForm();
-        // 1、刷新当前商品页面列表
         loadGoods();
-        // 2、【核心同步代码】刷新财务模块全局商品缓存，实现双向数据同步
-        await loadAllGoods();
+        // 调用财务全局刷新方法，双向同步
+        if(typeof loadAllGoods === 'function'){
+            await loadAllGoods();
+        }
     }catch(e){
         showMsg('操作失败');
     }
 }
 
 async function deleteGoods(id){
-    let item = allGoods.find(g => g.id === id);
+    let item = window.allGoods.find(g => g.id === id);
     // 校验是否被入库引用
     if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
         showMsg('该商品已存在入库记录，禁止删除！');
@@ -320,8 +325,9 @@ async function deleteGoods(id){
         });
         showMsg('删除成功，财务税率页面数据已同步更新');
         loadGoods();
-        // 同步刷新财务全局商品缓存
-        await loadAllGoods();
+        if(typeof loadAllGoods === 'function'){
+            await loadAllGoods();
+        }
     }catch(e){ showMsg('删除失败'); }
 }
 
@@ -332,7 +338,7 @@ async function batchDelete(){
     // 批量校验是否存在已入库商品
     let hasUsed = false;
     for(let id of ids){
-        let item = allGoods.find(g => g.id === id);
+        let item = window.allGoods.find(g => g.id === id);
         if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
             hasUsed = true;
             break;
@@ -351,10 +357,10 @@ async function batchDelete(){
     }
     showMsg('批量删除成功');
     loadGoods();
-    // 新增：同步刷新财务全局商品缓存
-    await loadAllGoods();
+    if(typeof loadAllGoods === 'function'){
+        await loadAllGoods();
+    }
 }
-
 
 // 商品下载模板
 function downloadTemplate(){
@@ -380,7 +386,7 @@ function exportExcel(){
             item.spec||"",
             item.channel||"",
             item.sale_price||0,
-            item.tax_rate||"",
+            item.tax_rate ? item.tax_rate + '%' : "",
             item.online_cost||0,
             item.warn_num||0,
             shelf
