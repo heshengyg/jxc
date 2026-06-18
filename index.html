@@ -40,6 +40,8 @@
         <!-- 新增：出库标签页 -->
         <button class="tab-btn" onclick="switchTab('stockOut')">出库管理</button>
         <button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
+        <!-- 新增：财务综合管理标签 -->
+        <button class="tab-btn" onclick="switchTab('finance')">财务综合管理</button>
     </div>
 
     <!-- 商品管理 -->
@@ -306,6 +308,410 @@
     </div>
 </div>
 
+<!-- ========== 财务综合管理模块（新增完整9个子页面） ========== -->
+<div id="finance" class="tab-content">
+    <h3>财务综合管理模块</h3>
+    <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="finance-sub-btn active" onclick="switchFinanceSubTab('taxRate')">①税率录入</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockInPrint')">②入库单打印</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('payRecord')">③财务付款记录</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('invoiceBack')">④发票返回记录</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('paymentBoard')">⑤收付款看板</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('monthInvoiceBalance')">⑥发票月结余</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockInCheck')">⑦入库对账</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockOutCheck')">⑧出库对账</button>
+        <button class="finance-sub-btn" onclick="switchFinanceSubTab('monthBeginStock')">⑨月期初数</button>
+    </div>
+
+    <!-- ①税率录入（直接编辑goods表tax_rate字段） -->
+    <div id="sub-taxRate" class="finance-sub-content">
+        <h4>商品基础税率维护</h4>
+        <div class="search-bar" style="margin:10px 0;">
+            <label>供应商筛选：</label>
+            <select id="taxSupplierFilter"></select>
+            <label>结算方式：</label>
+            <select id="taxChannelFilter">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>结算方式</th>
+                        <th>当前税率</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="taxRateList"></tbody>
+            </table>
+        </div>
+        <!-- 税率编辑弹窗 -->
+        <div id="taxModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
+                <h4>设置商品税率</h4>
+                <input type="hidden" id="taxEditId">
+                <div class="form-group" style="margin:10px 0;">
+                    <label>适用税率：</label>
+                    <select id="taxRateSelect" style="width:100%;padding:6px;">
+                        <option value="0">0%</option>
+                        <option value="9">9%</option>
+                        <option value="13">13%</option>
+                    </select>
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="saveTaxData()">保存</button>
+                    <button class="btn btn-default" onclick="closeTaxModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ②入库单打印（线下专用） -->
+    <div id="sub-stockInPrint" class="finance-sub-content" style="display:none;">
+        <h4>线下入库单打印</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>供应商：</label>
+            <select id="printSupplier"></select>
+            <label>商品名称：</label>
+            <input type="text" id="printGoodsName" placeholder="模糊搜索">
+            <label>规格：</label>
+            <input type="text" id="printSpec" placeholder="模糊搜索">
+            <label>入库起始日期：</label>
+            <input type="date" id="printStartDate">
+            <label>入库结束日期：</label>
+            <input type="date" id="printEndDate">
+            <button class="btn btn-primary" onclick="searchPrintStockIn()">查询</button>
+            <button class="btn btn-success" onclick="previewAndPrint()">打印预览</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="printAllCheck">全选</th>
+                        <th>供应商</th>
+                        <th>商品名</th>
+                        <th>规格</th>
+                        <th>入库单价(含税)</th>
+                        <th>入库数量</th>
+                        <th>入库总金额(含税)</th>
+                        <th>入库日期</th>
+                    </tr>
+                </thead>
+                <tbody id="printStockInList"></tbody>
+            </table>
+        </div>
+        <!-- 打印预览区域 -->
+        <div id="printPreviewWrap" style="display:none;padding:30px;width:800px;margin:0 auto;">
+            <h2 style="text-align:center;">商品入库单</h2>
+            <p>供应商：<span id="printPreviewSupplier"></span>　　入库日期：<span id="printPreviewDate"></span></p>
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>含税单价</th>
+                        <th>入库数量</th>
+                        <th>含税总金额</th>
+                    </tr>
+                </thead>
+                <tbody id="printPreviewTable"></tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" align="right"><strong>合计金额：</strong></td>
+                        <td id="printPreviewTotal"></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="margin-top:40px;display:flex;justify-content:space-between;">
+                <p>采购员签字：________________</p>
+                <p>仓库管理员签字：________________</p>
+                <p>财务审核签字：________________</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ③财务付款记录 -->
+    <div id="sub-payRecord" class="finance-sub-content" style="display:none;">
+        <h4>财务付款台账（线下供应商）</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-primary" onclick="openPayAddModal()">新增付款记录</button>
+            <label>供应商筛选：</label>
+            <select id="paySupplierFilter"></select>
+            <button class="btn btn-default" onclick="refreshPayRecordList()">刷新</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>付款日期</th>
+                        <th>供应商</th>
+                        <th>付款金额</th>
+                        <th>备注</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="payRecordList"></tbody>
+            </table>
+        </div>
+        <!-- 付款录入弹窗 -->
+        <div id="payModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
+                <h4>财务付款记录</h4>
+                <input type="hidden" id="payEditId">
+                <div class="form-group" style="margin:10px 0;">
+                    <label>付款日期：</label>
+                    <input type="date" id="payDate" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>线下供应商：</label>
+                    <select id="paySupplier" style="width:100%;padding:6px;"></select>
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>付款金额：</label>
+                    <input type="number" step="0.01" min="0.01" id="payAmount" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>备注：</label>
+                    <textarea id="payRemark" rows="3" style="width:100%;"></textarea>
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="savePayRecord()">保存</button>
+                    <button class="btn btn-default" onclick="closePayModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ④发票返回记录 -->
+    <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
+        <h4>发票退回台账（线下供应商）</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票退回记录</button>
+            <label>供应商筛选：</label>
+            <select id="invoiceBackSupplierFilter"></select>
+            <button class="btn btn-default" onclick="refreshInvoiceBackList()">刷新</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>退回日期</th>
+                        <th>供应商</th>
+                        <th>退回发票金额</th>
+                        <th>发票号码</th>
+                        <th>备注</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceBackList"></tbody>
+            </table>
+        </div>
+        <!-- 发票退回录入弹窗 -->
+        <div id="invoiceBackModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:20px;width:420px;border-radius:6px;">
+                <h4>新增发票退回记录</h4>
+                <input type="hidden" id="invoiceBackEditId">
+                <div class="form-group" style="margin:10px 0;">
+                    <label>退回日期：</label>
+                    <input type="date" id="invoiceBackDate" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>线下供应商：</label>
+                    <select id="invoiceBackSupplier" style="width:100%;padding:6px;"></select>
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>退回金额：</label>
+                    <input type="number" step="0.01" min="0.01" id="invoiceBackAmount" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>发票号码：</label>
+                    <input type="text" id="invoiceBackNo" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>备注：</label>
+                    <textarea id="invoiceBackRemark" rows="3" style="width:100%;"></textarea>
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="saveInvoiceBackRecord()">保存</button>
+                    <button class="btn btn-default" onclick="closeInvoiceBackModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ⑤收付款看板 -->
+    <div id="sub-paymentBoard" class="finance-sub-content" style="display:none;">
+        <h4>线下供应商收付款汇总看板</h4>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>总货款(入库含税汇总)</th>
+                        <th>累计实付款</th>
+                        <th>累计发票退回金额</th>
+                        <th>应付账款(总货款-实付款)</th>
+                        <th>发票结余(退回金额-总货款)</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentBoardList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ⑥月度发票结余 -->
+    <div id="sub-monthInvoiceBalance" class="finance-sub-content" style="display:none;">
+        <h4>供应商月度发票结余表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
+            <label>入库月份：</label>
+            <select id="monthBalanceSelect"></select>
+            <input type="text" placeholder="供应商模糊搜索" id="monthBalanceSearch">
+            <button class="btn btn-primary" onclick="searchMonthInvoiceBalance()">查询</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>统计月份</th>
+                        <th>当月发票结余金额</th>
+                    </tr>
+                </thead>
+                <tbody id="monthBalanceList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ⑦入库对账 -->
+    <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
+        <h4>入库财务对账表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="checkInSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            <label>发票状态：</label>
+            <select id="checkInInvoice">
+                <option value="">全部</option>
+                <option value="已开票">已开票</option>
+                <option value="未开票">未开票</option>
+            </select>
+            <label>入库月份：</label>
+            <select id="checkInMonth"></select>
+            <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
+            <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>发票状态</th>
+                        <th>入库单价</th>
+                        <th>入库数量</th>
+                        <th>是否付清</th>
+                        <th>含税入库金额</th>
+                        <th>不含税金额</th>
+                        <th>税额</th>
+                        <th>结余金额</th>
+                    </tr>
+                </thead>
+                <tbody id="stockInCheckList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ⑧出库对账 -->
+    <div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
+        <h4>出库财务对账表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="checkOutSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            <label>出库月份：</label>
+            <select id="checkOutMonth"></select>
+            <label><input type="checkbox" id="checkOutSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="checkOutGoodsGroup">按商品汇总</label>
+            <button class="btn btn-primary" onclick="searchStockOutCheck()">查询汇总</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>出库单价</th>
+                        <th>出库数量</th>
+                        <th>含税出库金额</th>
+                        <th>不含税金额</th>
+                        <th>税额</th>
+                    </tr>
+                </thead>
+                <tbody id="stockOutCheckList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ⑨月期初库存表 -->
+    <div id="sub-monthBeginStock" class="finance-sub-content" style="display:none;">
+        <h4>月末库存期初核算表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="beginSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            <label>统计月份：</label>
+            <select id="beginMonth"></select>
+            <label><input type="checkbox" id="beginSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="beginGoodsGroup">按商品汇总</label>
+            <button class="btn btn-primary" onclick="searchMonthBeginStock()">查询汇总</button>
+        </div>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>成本单价</th>
+                        <th>月末库存数量</th>
+                        <th>含税库存金额</th>
+                        <th>不含税库存金额</th>
+                        <th>税额</th>
+                    </tr>
+                </thead>
+                <tbody id="monthBeginStockList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">
     <div class="form-container">
@@ -418,9 +824,9 @@
             <label>商品税率：</label>
             <select id="add_tax_rate">
                 <option value="">空</option>
-                <option value="免税">免税</option>
-                <option value="9%">9%</option>
-                <option value="13%">13%</option>
+                <option value="0">0%</option>
+                <option value="9">9%</option>
+                <option value="13">13%</option>
             </select>
             <label>销售单价：</label>
             <input type="number" id="add_sale_price" step="0.01" min="0" required>
@@ -454,6 +860,8 @@
 <script src="./js/goods.js"></script>
 <script src="./js/stockin.js"></script>
 <script src="./js/stockout.js"></script>
+<!-- 新增财务JS引入 -->
+<script src="./js/finance.js"></script>
 <!-- 库存JS 放在最后 -->
 <script src="./js/stockStock.js"></script>
 
