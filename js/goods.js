@@ -281,7 +281,7 @@ async function submitForm(){
                 },
                 body:JSON.stringify(data)
             });
-            showMsg('编辑成功');
+            showMsg('编辑成功，财务税率页面数据已同步更新');
         }else{
             await fetch(`${SUPABASE_URL}/rest/v1/goods`,{
                 method:'POST',
@@ -293,10 +293,13 @@ async function submitForm(){
                 },
                 body:JSON.stringify(data)
             });
-            showMsg('新增成功');
+            showMsg('新增成功，财务税率页面数据已同步更新');
         }
         closeForm();
-        loadGoods(); // 提交后重新加载列表
+        // 1、刷新当前商品页面列表
+        loadGoods();
+        // 2、【核心同步代码】刷新财务模块全局商品缓存，实现双向数据同步
+        await loadAllGoods();
     }catch(e){
         showMsg('操作失败');
     }
@@ -315,8 +318,10 @@ async function deleteGoods(id){
             method:'DELETE',
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
-        showMsg('删除成功');
+        showMsg('删除成功，财务税率页面数据已同步更新');
         loadGoods();
+        // 同步刷新财务全局商品缓存
+        await loadAllGoods();
     }catch(e){ showMsg('删除失败'); }
 }
 
@@ -346,7 +351,10 @@ async function batchDelete(){
     }
     showMsg('批量删除成功');
     loadGoods();
+    // 新增：同步刷新财务全局商品缓存
+    await loadAllGoods();
 }
+
 
 // 商品下载模板
 function downloadTemplate(){

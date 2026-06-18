@@ -110,24 +110,24 @@ function initCurrentSubPage() {
     }
 }
 
-// ===================== ①税率录入模块 =====================
+// ===================== ①税率录入模块（修复：仅线下商品+全局同步） =====================
 function initTaxRatePage() {
     initTaxSupplierFilter();
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
     const sel = document.getElementById('taxSupplierFilter');
-    sel.innerHTML = '<option value="">全部供应商</option>';
+    sel.innerHTML = '<option value="">全部线下供应商</option>';
+    // 只从线下商品里提取供应商
     const supplierSet = new Set();
-    allGoodsList.forEach(g => supplierSet.add(g.supplier));
+    allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
     Array.from(supplierSet).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
 }
 function refreshTaxList() {
     const filterSupplier = document.getElementById('taxSupplierFilter').value;
-    const filterChannel = document.getElementById('taxChannelFilter').value;
-    let list = [...allGoodsList];
+    // 核心修复：只筛选线下渠道商品，线上直接过滤
+    let list = allGoodsList.filter(g => g.channel === '线下');
     if (filterSupplier) list = list.filter(g => g.supplier === filterSupplier);
-    if (filterChannel) list = list.filter(g => g.channel === filterChannel);
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     list.forEach((item, idx) => {
@@ -164,10 +164,11 @@ async function saveTaxData() {
         },
         body: JSON.stringify({ tax_rate: taxRate })
     });
+    // 【关键同步修复】修改后重新拉取全局所有商品，更新缓存，商品页面立刻同步最新数据
     await loadAllGoods();
     closeTaxModal();
     refreshTaxList();
-    showMsg('税率保存成功');
+    showMsg('税率保存成功，商品管理页面数据已同步更新');
 }
 
 // ===================== ②入库单打印模块 =====================
