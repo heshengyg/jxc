@@ -27,10 +27,20 @@ function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-${tabKey}`).style.display = 'block';
+    // 清空所有按钮激活样式
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    // 兼容首次进入财务页面自动选中第一个按钮
-    if(event && event.target){
+    // 优先使用点击事件的按钮，如果不存在则按当前tabKey匹配按钮（解决首次进入无event导致不高亮）
+    if (event && event.target && event.target.classList.contains('finance-sub-btn')) {
         event.target.classList.add('active');
+    } else {
+        // 遍历所有按钮，找到当前激活的tab对应的按钮添加高亮
+        const btnList = document.querySelectorAll('.finance-sub-btn');
+        for (let btn of btnList) {
+            if (btn.getAttribute('data-tab') === tabKey) {
+                btn.classList.add('active');
+                break;
+            }
+        }
     }
     initCurrentSubPage();
 }

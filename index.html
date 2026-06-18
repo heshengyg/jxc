@@ -312,15 +312,15 @@
 <div id="finance" class="tab-content">
     <h3>财务综合管理模块</h3>
     <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="finance-sub-btn active" onclick="switchFinanceSubTab('taxRate')">①税率录入</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockInPrint')">②入库单打印</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('payRecord')">③财务付款记录</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('invoiceBack')">④发票返回记录</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('paymentBoard')">⑤收付款看板</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('monthInvoiceBalance')">⑥发票月结余</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockInCheck')">⑦入库对账</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('stockOutCheck')">⑧出库对账</button>
-        <button class="finance-sub-btn" onclick="switchFinanceSubTab('monthBeginStock')">⑨月期初数</button>
+        <button class="finance-sub-btn active" data-tab="taxRate" onclick="switchFinanceSubTab('taxRate')">①税率录入</button>
+        <button class="finance-sub-btn" data-tab="stockInPrint" onclick="switchFinanceSubTab('stockInPrint')">②入库单打印</button>
+        <button class="finance-sub-btn" data-tab="payRecord" onclick="switchFinanceSubTab('payRecord')">③财务付款记录</button>
+        <button class="finance-sub-btn" data-tab="invoiceBack" onclick="switchFinanceSubTab('invoiceBack')">④发票返回记录</button>
+        <button class="finance-sub-btn" data-tab="paymentBoard" onclick="switchFinanceSubTab('paymentBoard')">⑤收付款看板</button>
+        <button class="finance-sub-btn" data-tab="monthInvoiceBalance" onclick="switchFinanceSubTab('monthInvoiceBalance')">⑥发票月结余</button>
+        <button class="finance-sub-btn" data-tab="stockInCheck" onclick="switchFinanceSubTab('stockInCheck')">⑦入库对账</button>
+        <button class="finance-sub-btn" data-tab="stockOutCheck" onclick="switchFinanceSubTab('stockOutCheck')">⑧出库对账</button>
+        <button class="finance-sub-btn" data-tab="monthBeginStock" onclick="switchFinanceSubTab('monthBeginStock')">⑨月期初数</button>
     </div>
 
     <!-- ①税率录入（直接编辑goods表tax_rate字段） -->

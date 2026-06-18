@@ -135,3 +135,9 @@ tbody tr:hover { background-color: #e6f7ef; }
 .bg-green-invoice {
     background-color: #d4edda;
 }
+
+.finance-sub-btn.active {
+    background-color: #1677ff;
+    color: #ffffff;
+    border: 1px solid #1677ff;
+}
