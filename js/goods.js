@@ -182,9 +182,14 @@ function toggleSelectAll(){
 function openAddForm(){
     document.getElementById('formTitle').innerText='新增商品';
     document.getElementById('editId').value='';
-    // 清空所有表单值
+    // 1. 清空所有表单值
     document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el=>el.value='');
-    // 先执行渠道状态初始化，统一重置所有控件的禁用状态
+    // 【关键修复1】每次打开新增，强制把4个基础字段恢复可编辑，清除上次锁定状态
+    document.getElementById('add_supplier').disabled = false;
+    document.getElementById('add_name').disabled = false;
+    document.getElementById('add_spec').disabled = false;
+    document.getElementById('add_channel').disabled = false;
+    // 2. 执行渠道规则，管控税率、保质期、线上成本价禁用状态
     toggleOnlineCostInput();
     document.getElementById('formModal').style.display='block';
 }
@@ -193,7 +198,7 @@ async function openEditForm(id){
     let item = allGoods.find(x=>x.id===id); if(!item)return;
     document.getElementById('formTitle').innerText='编辑商品';
     document.getElementById('editId').value=id;
-    // 1、先回填表单数据
+    // 回填表单数据
     document.getElementById('add_supplier').value=item.supplier||'';
     document.getElementById('add_name').value=item.name||'';
     document.getElementById('add_spec').value=item.spec||'';
@@ -205,10 +210,16 @@ async function openEditForm(id){
     document.getElementById('add_shelf_life_num').value=item.shelf_life_num||'';
     document.getElementById('add_shelf_life_unit').value=item.shelf_life_unit||'';
 
-    // 2、关键修复：先执行渠道禁用逻辑，线上自动锁定税率、保质期控件（不再被全局解锁覆盖）
+    // 【关键修复2】每次打开编辑，先强制解锁4个基础字段，清除上次遗留的禁用状态
+    document.getElementById('add_supplier').disabled = false;
+    document.getElementById('add_name').disabled = false;
+    document.getElementById('add_spec').disabled = false;
+    document.getElementById('add_channel').disabled = false;
+
+    // 执行渠道逻辑：线上自动禁用税率、保质期，解决线上编辑初始没禁用的问题
     toggleOnlineCostInput();
 
-    // 3、删除全局所有输入框解锁代码，只单独锁定4个基础字段，不影响税率、保质期等控件状态
+    // 仅当该商品有入库记录时，才重新锁定4个基础字段
     let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
     if(isUsed){
         document.getElementById('add_supplier').disabled = true;
