@@ -133,23 +133,25 @@
         <div class="table-container">
             <table>
                 <thead>
-                    <tr>
-                        <th><input type="checkbox" id="inSelectAll" onchange="inToggleSelectAll()"> 选择</th>
-                        <th>序号</th>
-                        <th class="sortable" onclick="inSortTable('supplier')">供应商 <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('goodsName')">商品名 <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('spec')">规格 <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('settleType')">结算方式(渠道) <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('inPrice')">入库单价 <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('inNum')">入库数量 <span class="inSortIcon"></span></th>
-                        <th>入库金额</th>
-                        <th>批次库存</th>
-                        <th>总库存</th>
-                        <th class="sortable" onclick="inSortTable('produce_date')">生产日期 <span class="inSortIcon"></span></th>
-                        <th class="sortable" onclick="inSortTable('expire_date')">到期日期 <span class="inSortIcon"></span></th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
+    <tr>
+        <th><input type="checkbox" id="inSelectAll" onchange="inToggleSelectAll()"> 选择</th>
+        <th>序号</th>
+        <th class="sortable" onclick="inSortTable('supplier')">供应商 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('goodsName')">商品名 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('spec')">规格 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('settleType')">结算方式(渠道) <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('inPrice')">入库单价 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('inNum')">入库数量 <span class="inSortIcon"></span></th>
+        <th>入库金额</th>
+        <th>批次库存</th>
+        <th>总库存</th>
+        <!-- 新增发票状态表头，对齐数据列 -->
+        <th class="sortable" onclick="inSortTable('invoice_status')">发票状态 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('produce_date')">生产日期 <span class="inSortIcon"></span></th>
+        <th class="sortable" onclick="inSortTable('expire_date')">到期日期 <span class="inSortIcon"></span></th>
+        <th>操作</th>
+    </tr>
+</thead>
                 <tbody id="stockInList"></tbody>
             </table>
         </div>
