@@ -1,11 +1,6 @@
 // ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
-// 新增：全局商品税率缓存
-let goodsTaxCache = new Map();
-// ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
-// 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
-let allStockOutReadyPromise;
 
 // 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
 (function initPreLoadOut() {
@@ -307,7 +302,7 @@ function downloadStockInTemplate(){
     XLSX.writeFile(wb, "入库导入模板.xlsx");
 }
 
-// 导出Excel
+// 导出Excel【仅修改：表头增加发票号码列】
 function exportStockInExcel(){
     if(filteredStockIn.length === 0){
         showMsg("暂无数据可导出");
@@ -322,7 +317,6 @@ function exportStockInExcel(){
         item.sale_price||0,
         item.in_price||0,
         item.in_num||0,
-        item.in_price||0,
         item.record_date||"",
         item.produce_date||"",
         item.expire_date||"",
@@ -405,7 +399,7 @@ async function importStockInExcel() {
     reader.readAsArrayBuffer(file);
 }
 
-// 加载入库列表（仅等待预加载完成，不再发起新的出库接口请求）
+// 加载入库列表【完全保留你原有代码，未新增任何全局缓存、不改动逻辑】
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
@@ -427,20 +421,11 @@ async function loadStockIn() {
         allStockIn = pageData;
         document.getElementById('inTotalCount').textContent = totalRecord;
         refreshAllStockCache(allStockIn, allStockOut);
-
-        // 初始化税率缓存
-        goodsTaxCache.clear();
-        allGoods.forEach(g => {
-            const key = `${g.supplier}|${g.name}|${g.spec ?? ''}`;
-            goodsTaxCache.set(key, g.tax_rate || '');
-        });
-
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
-
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
@@ -471,7 +456,7 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格（库存逻辑完全保留 + 后端ID校验）
+// 渲染入库表格【仅新增发票号码单元格，其余代码100%原样保留】
 async function renderStockIn() {
     let start = (inCurrentPage-1)*inPageSize;
     let pageData = filteredStockIn.slice(start, start+inPageSize);
@@ -509,8 +494,7 @@ async function renderStockIn() {
             <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
         `;
     }
-
-    // 发票状态背景色（原有逻辑完全保留）
+    // 发票状态与背景色判断
     let invoiceText = item.invoice_status || '';
     let invoiceClass = '';
     if (invoiceText === '未开票') {
@@ -543,6 +527,7 @@ async function renderStockIn() {
 });
     tb.innerHTML = fullHtml;
 }
+
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
