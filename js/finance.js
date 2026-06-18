@@ -16,10 +16,7 @@ switchTab = function (tabName) {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
         initFinanceBaseData();
-        // 延迟一小段，等接口数据赋值完毕再渲染表格
-        setTimeout(() => {
-            switchFinanceSubTab('taxRate');
-        }, 100);
+        switchFinanceSubTab('taxRate');
     }
 }
 
@@ -119,10 +116,11 @@ function initCurrentSubPage() {
 
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
+    // 进入税率页面强制关闭编辑弹窗，杜绝自动弹出
     const taxModal = document.getElementById('taxModal');
-    if(taxModal) taxModal.style.display = 'none';
+    if (taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
-    // 确保自动执行表格刷新
+    // 自动刷新表格，无需手动点击刷新按钮
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
@@ -157,10 +155,7 @@ function openTaxEdit(id) {
     document.getElementById('taxEditId').value = id;
     const row = allGoodsList.find(g => g.id === id);
     document.getElementById('taxRateSelect').value = row.tax_rate || '0';
-    // 弹窗强制最高层级，避免被表头遮挡
-    const modalDom = document.getElementById('taxModal');
-    modalDom.style.display = 'flex';
-    modalDom.style.zIndex = '9999';
+    document.getElementById('taxModal').style.display = 'flex';
 }
 function closeTaxModal() {
     document.getElementById('taxModal').style.display = 'none';
@@ -177,15 +172,13 @@ async function saveTaxData() {
         },
         body: JSON.stringify({ tax_rate: taxRate })
     });
+    // 修改税率后刷新全局数据源，商品端搜索/翻页即可同步最新数据
     await loadAllGoods();
-    // 新增：主动刷新商品页面数据，实现财务改完商品页立刻更新
-    if(typeof loadGoods === 'function'){
-        await loadGoods();
-    }
     closeTaxModal();
     refreshTaxList();
     showMsg('税率保存成功，商品管理页面数据已同步更新');
 }
+
 // ===================== ②入库单打印模块 =====================
 let printStockInData = [];
 function initStockInPrintPage() {
