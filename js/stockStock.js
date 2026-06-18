@@ -23,7 +23,7 @@ function getDateDiffDay(dateStr) {
  * 严格按照最新修正规则重写保质期状态计算
  * 修正点：
  * 1. 临期：状态倒计 = 到期日 - 今日
- * 2. 正常区间：状态为「剩余X天」，数值=打折日-今日
+ * 2. 正常区间：保质期状态固定显示【正常】，状态倒计为打折日-今日的纯数字
  * 3. 无日期：状态、倒计时均返回空字符串
  * 新增：打折状态同样显示【临期日期-今日】的天数倒计时
  */
@@ -82,10 +82,11 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
         const remainDay = Math.floor((lqrq - today) / (1000 * 60 * 60 * 24));
         countDownText = `${remainDay}`;
     }
-    // 4、打折日 > 今日 >= 生产日期 → 正常，显示剩余【打折日-今日】天数
+    // 4、打折日 > 今日 → 正常：状态文字固定为“正常”，倒计时为纯数字
     else {
         const remainDay = Math.floor((dzrq - today) / (1000 * 60 * 60 * 24));
-        statusText = `剩余${remainDay}天`;
+        statusText = `正常`;
+        countDownText = `${remainDay}`;
     }
 
     return {
@@ -372,7 +373,7 @@ function renderStockTable() {
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-        // 保质期状态背景色：过期深红，临期浅红，打折浅蓝
+        // 保质期状态背景色：过期深红，临期浅红，打折浅蓝，正常浅绿色
         let bzBg = '';
         if (item.bzStatusText === '过期') {
             bzBg = 'style="background:#ff4444;color:#fff;"';
@@ -380,6 +381,8 @@ function renderStockTable() {
             bzBg = 'style="background:#ffdddd;"';
         } else if (item.bzStatusText === '打折') {
             bzBg = 'style="background:#ddeeff;"';
+        } else if (item.bzStatusText === '正常') {
+            bzBg = 'style="background:#d4edda;"';
         }
 
         htmlStr += `
