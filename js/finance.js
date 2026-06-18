@@ -17,6 +17,8 @@ switchTab = function (tabName) {
         if (taxModal) taxModal.style.display = 'none';
         initFinanceBaseData();
         switchFinanceSubTab('taxRate');
+        // 页面初始化手动给第一个子按钮添加active高亮
+        document.querySelector('.finance-sub-btn').classList.add('active');
     }
 }
 
@@ -26,10 +28,12 @@ function switchFinanceSubTab(tabKey) {
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-${tabKey}`).style.display = 'block';
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    // 兼容首次进入财务页面自动选中第一个按钮
+    if(event && event.target){
+        event.target.classList.add('active');
+    }
     initCurrentSubPage();
 }
-
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
     await Promise.all([
