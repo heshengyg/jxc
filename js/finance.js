@@ -2,20 +2,19 @@
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
 let monthDistinctList = [];
-// 复用window全局商品，不再单独新建数组
-let allGoodsList = window.allGoods;
+// 安全兼容全局商品，防止页面加载顺序报错
+let allGoodsList = window.allGoods || [];
 let allStockInList = [];
 let allPayList = [];
 let allInvoiceBackList = [];
 
-// 重写Tab切换，进入财务页先关闭弹窗、再初始化基础数据
+// 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
-        // 修复3：进入财务强制关闭税率弹窗，杜绝自动弹出
         const taxModal = document.getElementById('taxModal');
-        if(taxModal) taxModal.style.display = 'none';
+        if (taxModal) taxModal.style.display = 'none';
         initFinanceBaseData();
         switchFinanceSubTab('taxRate');
     }
@@ -67,7 +66,7 @@ async function loadDistinctMonth() {
     monthDistinctList = Array.from(set).sort().reverse();
 }
 
-// 加载全部商品：同步更新window全局，实现双向同步
+// 加载全部商品，同步更新window全局，实现双向数据同步
 async function loadAllGoods() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
@@ -115,26 +114,26 @@ function initCurrentSubPage() {
     }
 }
 
-// ===================== ①税率录入模块（仅线下商品+全局双向同步+自动关闭弹窗） =====================
+// ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
-    // 进入税率页先强制关闭弹窗
+    // 进入税率页面强制关闭编辑弹窗，杜绝自动弹出
     const taxModal = document.getElementById('taxModal');
-    if(taxModal) taxModal.style.display = 'none';
+    if (taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
-    // 自动刷新列表，无需手动点按钮
+    // 自动刷新表格，无需手动点击刷新按钮
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
     const sel = document.getElementById('taxSupplierFilter');
     sel.innerHTML = '<option value="">全部线下供应商</option>';
-    // 只从线下商品里提取供应商
+    // 只筛选线下商品的供应商
     const supplierSet = new Set();
     allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
     Array.from(supplierSet).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
 }
 function refreshTaxList() {
     const filterSupplier = document.getElementById('taxSupplierFilter').value;
-    // 只筛选线下渠道商品，线上直接过滤
+    // 只展示线下渠道商品，过滤所有线上商品
     let list = allGoodsList.filter(g => g.channel === '线下');
     if (filterSupplier) list = list.filter(g => g.supplier === filterSupplier);
     const tbody = document.getElementById('taxRateList');
@@ -173,7 +172,7 @@ async function saveTaxData() {
         },
         body: JSON.stringify({ tax_rate: taxRate })
     });
-    // 修改后刷新全局数据源，商品页面只要刷新列表就自动同步
+    // 修改税率后刷新全局数据源，商品端搜索/翻页即可同步最新数据
     await loadAllGoods();
     closeTaxModal();
     refreshTaxList();

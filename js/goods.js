@@ -60,10 +60,6 @@ function clearSort(){
     sortField = ''; sortAsc = true; updateSortIcon(); loadGoods();
 }
 
-// 全局挂载商品数组，和财务模块共享数据源
-window.allGoods = [];
-let filteredGoods = [];
-
 async function loadGoods() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
@@ -71,8 +67,10 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
-        window.allGoods = list.sort((a,b) => b.id - a.id);
-        document.getElementById('totalCount').textContent = window.allGoods.length;
+        allGoods = list.sort((a,b) => b.id - a.id);
+        // 同步挂载到window，供财务共享数据源
+        window.allGoods = allGoods;
+        document.getElementById('totalCount').textContent = allGoods.length;
         filterGoods();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
@@ -88,7 +86,7 @@ function resetSearch() {
 function filterGoods() {
     let field = document.getElementById('searchField').value;
     let kw = document.getElementById('searchKeyword').value.toLowerCase();
-    filteredGoods = window.allGoods.filter(item => String(item[field]||'').toLowerCase().includes(kw));
+    filteredGoods = allGoods.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('searchCount').textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
@@ -140,7 +138,7 @@ async function renderGoods() {
                 <td>${item.channel||''}</td>
                 <td>${formatMoney(item.sale_price)}</td>
                 <td>${onlineCost}</td>
-                <!-- 修复1：税率带%展示，空值空白 -->
+                <!-- 修复：税率带%展示 -->
                 <td>${item.tax_rate ? item.tax_rate + '%' : ''}</td>
                 <!-- 保质期无值直接空白，不再显示“无” -->
                 <td>${shelfText}</td>
@@ -199,7 +197,7 @@ function openAddForm(){
 }
 
 async function openEditForm(id){
-    let item = window.allGoods.find(x=>x.id===id); if(!item)return;
+    let item = allGoods.find(x=>x.id===id); if(!item)return;
     document.getElementById('formTitle').innerText='编辑商品';
     document.getElementById('editId').value=id;
     // 回填表单数据
@@ -239,7 +237,7 @@ function closeForm(){ document.getElementById('formModal').style.display='none';
 
 // 重复商品校验
 function isDuplicate(supplier,name,spec,editId){
-    return window.allGoods.some(item=>{
+    return allGoods.some(item=>{
         if(editId && +item.id===+editId) return false;
         return (item.supplier||'').trim()===supplier.trim()
             && (item.name||'').trim()===name.trim()
@@ -285,7 +283,7 @@ async function submitForm(){
                 },
                 body:JSON.stringify(data)
             });
-            showMsg('编辑成功，财务税率页面数据已同步更新');
+            showMsg('编辑成功');
         }else{
             await fetch(`${SUPABASE_URL}/rest/v1/goods`,{
                 method:'POST',
@@ -297,11 +295,11 @@ async function submitForm(){
                 },
                 body:JSON.stringify(data)
             });
-            showMsg('新增成功，财务税率页面数据已同步更新');
+            showMsg('新增成功');
         }
         closeForm();
         loadGoods();
-        // 调用财务全局刷新方法，双向同步
+        // 同步刷新财务全局商品缓存
         if(typeof loadAllGoods === 'function'){
             await loadAllGoods();
         }
@@ -311,7 +309,7 @@ async function submitForm(){
 }
 
 async function deleteGoods(id){
-    let item = window.allGoods.find(g => g.id === id);
+    let item = allGoods.find(g => g.id === id);
     // 校验是否被入库引用
     if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
         showMsg('该商品已存在入库记录，禁止删除！');
@@ -323,8 +321,9 @@ async function deleteGoods(id){
             method:'DELETE',
             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
         });
-        showMsg('删除成功，财务税率页面数据已同步更新');
+        showMsg('删除成功');
         loadGoods();
+        // 同步刷新财务全局商品缓存
         if(typeof loadAllGoods === 'function'){
             await loadAllGoods();
         }
@@ -338,7 +337,7 @@ async function batchDelete(){
     // 批量校验是否存在已入库商品
     let hasUsed = false;
     for(let id of ids){
-        let item = window.allGoods.find(g => g.id === id);
+        let item = allGoods.find(g => g.id === id);
         if(item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)){
             hasUsed = true;
             break;
@@ -357,6 +356,7 @@ async function batchDelete(){
     }
     showMsg('批量删除成功');
     loadGoods();
+    // 同步刷新财务全局商品缓存
     if(typeof loadAllGoods === 'function'){
         await loadAllGoods();
     }
