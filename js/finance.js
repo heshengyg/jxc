@@ -439,6 +439,7 @@ async function saveTaxData() {
 let printStockInData = [];
 const printStyle = `
 <style type="text/css" media="print">
+/* 预览正常可见，仅打印时隐藏页面其余内容 */
 body * {
     visibility: hidden;
 }
@@ -459,9 +460,13 @@ body * {
 
 .supplier-bill {
     width: 100%;
+    /* 关键：取消垂直居中，内容从页面顶部开始排布，消灭上方空白 */
+    margin-top: 0;
     page-break-inside: avoid !important;
     font-family: "SimSun", "宋体";
+    text-align: center; /* 内部内容整体水平居中 */
 }
+/* 仅第二个单据前置分页，首页永远无分页空白 */
 .need-page-break {
     page-break-before: always !important;
 }
@@ -480,11 +485,14 @@ body * {
 }
 
 .goods-table {
-    width: 100% !important;
+    /* 核心：基础100%，内容少时可放大到最大150%横向宽度，水平居中 */
+    width: clamp(100%, 120%, 150%);
+    margin: 0 auto; /* 表格自身水平居中 */
     border-collapse: collapse;
     table-layout: fixed;
     margin-bottom: 8px;
 }
+/* 6列固定比例，跟着表格整体缩放 */
 .goods-table th:nth-child(1),.goods-table td:nth-child(1){width:14%}
 .goods-table th:nth-child(2),.goods-table td:nth-child(2){width:14%}
 .goods-table th:nth-child(3),.goods-table td:nth-child(3){width:26%}
@@ -513,6 +521,7 @@ body * {
     display:flex;
     justify-content:space-between;
     font-size:11pt;
+    margin-top: 10px;
 }
 </style>
 `;
@@ -764,7 +773,6 @@ function previewAndPrint() {
         groupMap[row.supplier].push(row);
     });
     const supplierList = Object.entries(groupMap);
-    // 正确：先赋值样式，再拼接HTML内容
     let printHtml = printStyle;
 
     supplierList.forEach(([supplier, dataList], index) => {
@@ -822,7 +830,6 @@ function previewAndPrint() {
     });
 
     const wrap = document.getElementById('printPreviewWrap');
-    // 关键修复：之前错误写成 wrap.innerHTML = printStyle; 现在正确赋值拼接好的完整html
     wrap.innerHTML = printHtml;
     wrap.style.display = 'block';
 
