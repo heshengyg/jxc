@@ -22,7 +22,7 @@ let currTaxRateOptionList = [
 // 财务全局分页公共变量（9个页面独立分页参数，互不干扰）
 const financePageConfig = {
     taxRate: { pageSize: 10, current: 1, total: 0 },
-    stockInPrint: { pageSize: 10, current: 1, total: 0 },
+    stockInPrint: { pageSize: 10, current: 1, total: 0, sortField: 'record_date', sortType: 'desc' },
     payRecord: { pageSize: 10, current: 1, total: 0 },
     invoiceBack: { pageSize: 10, current: 1, total: 0 },
     paymentBoard: { pageSize: 10, current: 1, total: 0 },
@@ -31,6 +31,11 @@ const financePageConfig = {
     stockOutCheck: { pageSize: 10, current: 1, total: 0 },
     monthBeginStock: { pageSize: 10, current: 1, total: 0 }
 };
+
+// 打印筛选下拉缓存
+let printSupplierSearchList = [];
+let printGoodsSearchList = [];
+let printSpecSearchList = [];
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
@@ -431,40 +436,202 @@ async function saveTaxData() {
 }
 
 // ===================== ②入库单打印模块 =====================
+l// ===================== ②入库单打印模块（已实现全部6项需求） =====================
 let printStockInData = [];
+// 打印样式 只打印预览区域，隐藏页面其他内容
+const printStyle = `
+<style type="text/css" media="print">
+    body * { visibility: hidden; }
+    #printPreviewWrap, #printPreviewWrap * { visibility: visible; }
+    #printPreviewWrap { position: absolute; left: 0; top: 0; width: 100%; padding: 30px; }
+    .page-break { page-break-after: always; }
+    table { width: 100%; border-collapse: collapse; }
+    th,td { border:1px solid #333; padding:6px; }
+</style>
+`;
+
 function initStockInPrintPage() {
-    financePageConfig.stockInPrint.current = 1;
-    const sel = document.getElementById('printSupplier');
-    sel.innerHTML = '<option value="">全部线下供应商</option>';
-    offlineSupplierList.forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
+    const cfg = financePageConfig.stockInPrint;
+    cfg.current = 1;
+    cfg.sortField = 'record_date';
+    cfg.sortType = 'desc';
+
+    // 初始化下拉搜索数据源
+    printSupplierSearchList = [...offlineSupplierList];
+    printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
+    printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
+
+    // 清空筛选条件
+    document.getElementById('printSupplierSearch').value = '';
+    document.getElementById('printGoodsNameSearch').value = '';
+    document.getElementById('printSpecSearch').value = '';
     document.getElementById('printStartDate').value = '';
     document.getElementById('printEndDate').value = '';
-    document.getElementById('printGoodsName').value = '';
-    document.getElementById('printSpec').value = '';
+    document.getElementById('printSupplierListBox').style.display = 'none';
+    document.getElementById('printGoodsListBox').style.display = 'none';
+    document.getElementById('printSpecListBox').style.display = 'none';
+
     document.getElementById('printStockInList').innerHTML = '';
     printStockInData = [];
     renderFinancePagination('stockInPrint');
 }
+
+// ========== 需求①：下拉带搜索函数 ==========
+// 供应商搜索下拉
+function showPrintSupplierList(){
+    renderPrintSupplierList(printSupplierSearchList);
+    document.getElementById('printSupplierListBox').style.display = 'block';
+}
+function filterPrintSupplierList(){
+    const kw = document.getElementById('printSupplierSearch').value.toLowerCase();
+    const filter = printSupplierSearchList.filter(s=>s.toLowerCase().includes(kw));
+    renderPrintSupplierList(filter);
+    document.getElementById('printSupplierListBox').style.display = 'block';
+}
+function renderPrintSupplierList(list){
+    const box = document.getElementById('printSupplierListBox');
+    box.innerHTML = '';
+    if(!list.length){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配</div>';
+        return;
+    }
+    list.forEach(s=>{
+        const div = document.createElement('div');
+        div.style.padding='6px 10px';
+        div.style.cursor='pointer';
+        div.style.borderBottom='1px solid #eee';
+        div.innerText = s;
+        div.onclick = ()=>{
+            document.getElementById('printSupplierSearch').value = s;
+            document.getElementById('printSupplierListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 商品名称搜索下拉
+function showPrintGoodsList(){
+    renderPrintGoodsList(printGoodsSearchList);
+    document.getElementById('printGoodsListBox').style.display = 'block';
+}
+function filterPrintGoodsList(){
+    const kw = document.getElementById('printGoodsNameSearch').value.toLowerCase();
+    const filter = printGoodsSearchList.filter(s=>s.toLowerCase().includes(kw));
+    renderPrintGoodsList(filter);
+    document.getElementById('printGoodsListBox').style.display = 'block';
+}
+function renderPrintGoodsList(list){
+    const box = document.getElementById('printGoodsListBox');
+    box.innerHTML = '';
+    if(!list.length){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配</div>';
+        return;
+    }
+    list.forEach(s=>{
+        const div = document.createElement('div');
+        div.style.padding='6px 10px';
+        div.style.cursor='pointer';
+        div.style.borderBottom='1px solid #eee';
+        div.innerText = s;
+        div.onclick = ()=>{
+            document.getElementById('printGoodsNameSearch').value = s;
+            document.getElementById('printGoodsListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 规格搜索下拉
+function showPrintSpecList(){
+    renderPrintSpecList(printSpecSearchList);
+    document.getElementById('printSpecListBox').style.display = 'block';
+}
+function filterPrintSpecList(){
+    const kw = document.getElementById('printSpecSearch').value.toLowerCase();
+    const filter = printSpecSearchList.filter(s=>s.toLowerCase().includes(kw));
+    renderPrintSpecList(filter);
+    document.getElementById('printSpecListBox').style.display = 'block';
+}
+function renderPrintSpecList(list){
+    const box = document.getElementById('printSpecListBox');
+    box.innerHTML = '';
+    if(!list.length){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配</div>';
+        return;
+    }
+    list.forEach(s=>{
+        const div = document.createElement('div');
+        div.style.padding='6px 10px';
+        div.style.cursor='pointer';
+        div.style.borderBottom='1px solid #eee';
+        div.innerText = s;
+        div.onclick = ()=>{
+            document.getElementById('printSpecSearch').value = s;
+            document.getElementById('printSpecListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 全局点击关闭下拉
+document.addEventListener('click',e=>{
+    if(!e.target.closest('#printSupplierSearch')) document.getElementById('printSupplierListBox').style.display='none';
+    if(!e.target.closest('#printGoodsNameSearch')) document.getElementById('printGoodsListBox').style.display='none';
+    if(!e.target.closest('#printSpecSearch')) document.getElementById('printSpecListBox').style.display='none';
+});
+
+// ========== 需求③默认最新日期在前、④列排序、清除排序 ==========
+function sortPrintTable(field){
+    const cfg = financePageConfig.stockInPrint;
+    if(cfg.sortField === field){
+        cfg.sortType = cfg.sortType === 'desc' ? 'asc' : 'desc';
+    }else{
+        cfg.sortField = field;
+        cfg.sortType = 'desc';
+    }
+    searchPrintStockIn();
+}
+function clearPrintSort(){
+    const cfg = financePageConfig.stockInPrint;
+    cfg.sortField = 'record_date';
+    cfg.sortType = 'desc';
+    searchPrintStockIn();
+}
+
+// 筛选查询主函数
 function searchPrintStockIn() {
     financePageConfig.stockInPrint.current = 1;
-    const supplier = document.getElementById('printSupplier').value;
-    const goodsName = document.getElementById('printGoodsName').value.trim().toLowerCase();
-    const spec = document.getElementById('printSpec').value.trim().toLowerCase();
+    const supplier = document.getElementById('printSupplierSearch').value.trim();
+    const goodsName = document.getElementById('printGoodsNameSearch').value.trim().toLowerCase();
+    const spec = document.getElementById('printSpecSearch').value.trim().toLowerCase();
     const start = document.getElementById('printStartDate').value;
     const end = document.getElementById('printEndDate').value;
+
     let list = allStockInList.filter(item => item.settleType === '线下');
     if (supplier) list = list.filter(i => i.supplier === supplier);
     if (goodsName) list = list.filter(i => i.goodsName.toLowerCase().includes(goodsName));
     if (spec) list = list.filter(i => (i.spec || '').toLowerCase().includes(spec));
     if (start) list = list.filter(i => i.record_date >= start);
     if (end) list = list.filter(i => i.record_date <= end);
+
+    // 排序处理
+    const cfg = financePageConfig.stockInPrint;
+    list.sort((a,b)=>{
+        let val1 = a[cfg.sortField], val2 = b[cfg.sortField];
+        if(typeof val1 === 'string' && !/^\d+$/.test(val1)){
+            val1 = val1.toLowerCase();
+            val2 = val2.toLowerCase();
+        }
+        if(val1 > val2) return cfg.sortType === 'desc' ? -1 : 1;
+        if(val1 < val2) return cfg.sortType === 'desc' ? -1 : 1;
+        return 0;
+    });
     printStockInData = list;
 
-    const cfg = financePageConfig.stockInPrint;
-    cfg.total = list.length;
     const startIdx = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
 
+    // 表格渲染（需求②：新增序列列）
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
@@ -472,6 +639,7 @@ function searchPrintStockIn() {
         tbody.innerHTML += `
         <tr>
             <td><input type="checkbox" class="print-checkbox" data-index="${startIdx+idx}"></td>
+            <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
             <td>${item.spec || ''}</td>
@@ -485,36 +653,100 @@ function searchPrintStockIn() {
     document.getElementById('printAllCheck').onchange = function () {
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = this.checked);
     }
+
+    // 需求⑤：供应商汇总行渲染
+    const groupMap = {};
+    list.forEach(row=>{
+        if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
+        groupMap[row.supplier].num += Number(row.in_num);
+        groupMap[row.supplier].amount += Number(row.in_price)*Number(row.in_num);
+    });
+    let totalTpl = '';
+    Object.entries(groupMap).forEach(([sup,data])=>{
+        totalTpl += `
+        <tr style="background:#f5f5f5;font-weight:bold;">
+            <td colspan="2">${sup} 汇总</td>
+            <td colspan="5">入库总数量：${data.num}</td>
+            <td colspan="2">入库总金额：${data.amount.toFixed(2)}</td>
+        </tr>`;
+    });
+    tbody.innerHTML += totalTpl;
+
+    cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
+
+// 预览打印（需求⑥：只打印入库单，按供应商分页、表头重复、跨页）
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) return showMsg('请选择需要打印的入库记录');
-    let totalAmount = 0;
-    let supplierName = '';
-    let printDate = '';
-    const tableBody = document.getElementById('printPreviewTable');
-    tableBody.innerHTML = '';
+
+    // 按供应商分组
+    const groupMap = {};
     checkedBox.forEach(cb => {
         const idx = Number(cb.dataset.index);
         const row = printStockInData[idx];
-        supplierName = row.supplier;
-        printDate = row.record_date;
-        const rowTotal = Number(row.in_price) * Number(row.in_num);
-        totalAmount += rowTotal;
-        tableBody.innerHTML += `
-        <tr>
-            <td>${row.goodsName}</td>
-            <td>${row.spec || ''}</td>
-            <td>${Number(row.in_price).toFixed(2)}</td>
-            <td>${row.in_num}</td>
-            <td>${rowTotal.toFixed(2)}</td>
-        </tr>`;
+        if(!groupMap[row.supplier]) groupMap[row.supplier] = {list:[],date:row.record_date};
+        groupMap[row.supplier].list.push(row);
+        groupMap[row.supplier].date = row.record_date;
     });
-    document.getElementById('printPreviewSupplier').innerText = supplierName;
-    document.getElementById('printPreviewDate').innerText = printDate;
-    document.getElementById('printPreviewTotal').innerText = totalAmount.toFixed(2);
+
+    let printHtml = printStyle;
+    // 每个供应商单独一页
+    Object.entries(groupMap).forEach(([sup,data],idx,arr)=>{
+        let sumNum = 0, sumAmount = 0;
+        let tableBody = '';
+        data.list.forEach(row=>{
+            const rowAmt = Number(row.in_price)*Number(row.in_num);
+            sumNum += Number(row.in_num);
+            sumAmount += rowAmt;
+            tableBody += `
+            <tr>
+                <td>${row.goodsName}</td>
+                <td>${row.spec||''}</td>
+                <td>${Number(row.in_price).toFixed(2)}</td>
+                <td>${row.in_num}</td>
+                <td>${rowAmt.toFixed(2)}</td>
+            </tr>`;
+        });
+        // 单个供应商入库单
+        printHtml += `
+        <div style="width:100%;">
+            <h2 style="text-align:center;">商品入库单</h2>
+            <p>供应商：${sup}　　入库日期：${data.date}</p>
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>含税单价</th>
+                        <th>入库数量</th>
+                        <th>含税总金额</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableBody}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" align="right"><strong>合计金额：</strong></td>
+                        <td>${sumAmount.toFixed(2)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="margin-top:40px;display:flex;justify-content:space-between;">
+                <p>采购员签字：________________</p>
+                <p>仓库管理员签字：________________</p>
+                <p>财务审核签字：________________</p>
+            </div>
+        </div>
+        ${idx !== arr.length-1 ? '<div class="page-break"></div>' : ''}
+        `;
+    });
+
+    // 写入预览区域，只打印该区域
     const previewDom = document.getElementById('printPreviewWrap');
+    previewDom.innerHTML = printHtml;
     previewDom.style.display = 'block';
     window.print();
     previewDom.style.display = 'none';

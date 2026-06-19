@@ -6,6 +6,11 @@
     <title>进销存系统</title>
     <link rel="stylesheet" href="./css/style.css">
     <script src="./lib/xlsx.full.min.js"></script>
+    <style>
+        .sortable {
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 <!-- 隐藏文件选择框 -->
@@ -415,21 +420,36 @@ document.addEventListener('click',function(e){
         <div class="pagination" id="page_taxRate"></div>
     </div>
 
-    <!-- ②入库单打印（线下专用） -->
+    <!-- ②入库单打印（线下专用）【已全部改造完成】 -->
     <div id="sub-stockInPrint" class="finance-sub-content" style="display:none;">
         <h4>线下入库单打印</h4>
-        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <label>供应商：</label>
-            <select id="printSupplier"></select>
-            <label>商品名称：</label>
-            <input type="text" id="printGoodsName" placeholder="模糊搜索">
-            <label>规格：</label>
-            <input type="text" id="printSpec" placeholder="模糊搜索">
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:relative;">
+            <!-- ①供应商：带搜索下拉 -->
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>供应商：</label>
+                <input type="text" id="printSupplierSearch" placeholder="搜索/选择供应商" onclick="showPrintSupplierList()" oninput="filterPrintSupplierList()" style="width:160px;padding:6px 8px;">
+                <div id="printSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            <!-- 商品名称：带搜索下拉 -->
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>商品名称：</label>
+                <input type="text" id="printGoodsNameSearch" placeholder="模糊搜索" onclick="showPrintGoodsList()" oninput="filterPrintGoodsList()" style="width:160px;padding:6px 8px;">
+                <div id="printGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            <!-- 规格：带搜索下拉 -->
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>规格：</label>
+                <input type="text" id="printSpecSearch" placeholder="模糊搜索" onclick="showPrintSpecList()" oninput="filterPrintSpecList()" style="width:140px;padding:6px 8px;">
+                <div id="printSpecListBox" style="position:absolute;top:100%;left:0;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+
             <label>入库起始日期：</label>
             <input type="date" id="printStartDate">
             <label>入库结束日期：</label>
             <input type="date" id="printEndDate">
+
             <button class="btn btn-primary" onclick="searchPrintStockIn()">查询</button>
+            <button class="btn btn-default" onclick="clearPrintSort()">清除排序</button>
             <button class="btn btn-success" onclick="previewAndPrint()">打印预览</button>
         </div>
         <div class="table-container">
@@ -437,13 +457,14 @@ document.addEventListener('click',function(e){
                 <thead>
                     <tr>
                         <th><input type="checkbox" id="printAllCheck">全选</th>
-                        <th>供应商</th>
-                        <th>商品名</th>
-                        <th>规格</th>
-                        <th>入库单价(含税)</th>
-                        <th>入库数量</th>
-                        <th>入库总金额(含税)</th>
-                        <th>入库日期</th>
+                        <th class="sortable" onclick="sortPrintTable('id')">序列</th>
+                        <th class="sortable" onclick="sortPrintTable('supplier')">供应商</th>
+                        <th class="sortable" onclick="sortPrintTable('goodsName')">商品名</th>
+                        <th class="sortable" onclick="sortPrintTable('spec')">规格</th>
+                        <th class="sortable" onclick="sortPrintTable('in_price')">入库单价(含税)</th>
+                        <th class="sortable" onclick="sortPrintTable('in_num')">入库数量</th>
+                        <th class="sortable" onclick="sortPrintTable('totalAmount')">入库总金额(含税)</th>
+                        <th class="sortable" onclick="sortPrintTable('record_date')">入库日期</th>
                     </tr>
                 </thead>
                 <tbody id="printStockInList"></tbody>
