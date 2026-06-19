@@ -19,6 +19,19 @@ let currTaxRateOptionList = [
     {val:'13',text:'13%'}
 ];
 
+// 财务全局分页公共变量（9个页面独立分页参数，互不干扰）
+const financePageConfig = {
+    taxRate: { pageSize: 10, current: 1, total: 0 },
+    stockInPrint: { pageSize: 10, current: 1, total: 0 },
+    payRecord: { pageSize: 10, current: 1, total: 0 },
+    invoiceBack: { pageSize: 10, current: 1, total: 0 },
+    paymentBoard: { pageSize: 10, current: 1, total: 0 },
+    monthInvoiceBalance: { pageSize: 10, current: 1, total: 0 },
+    stockInCheck: { pageSize: 10, current: 1, total: 0 },
+    stockOutCheck: { pageSize: 10, current: 1, total: 0 },
+    monthBeginStock: { pageSize: 10, current: 1, total: 0 }
+};
+
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
@@ -55,6 +68,47 @@ function switchFinanceSubTab(tabKey) {
     }
     initCurrentSubPage();
 }
+
+// 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数）
+function renderFinancePagination(pageKey) {
+    const cfg = financePageConfig[pageKey];
+    const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
+    // 渲染分页区域内容
+    const pageHtml = `
+        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+            <span>每页显示
+                <select onchange="changeFinancePageSize('${pageKey}',this.value)" style="padding:4px 6px;">
+                    <option value="10" ${cfg.pageSize===10?'selected':''}>10</option>
+                    <option value="20" ${cfg.pageSize===20?'selected':''}>20</option>
+                    <option value="50" ${cfg.pageSize===50?'selected':''}>50</option>
+                </select>条
+            </span>
+            <span>当前第${cfg.current}/${totalPages}页</span>
+            <button onclick="financeGoToPage('${pageKey}',${cfg.current-1})" ${cfg.current===1?'disabled':''}>上一页</button>
+            <button onclick="financeGoToPage('${pageKey}',${cfg.current+1})" ${cfg.current>=totalPages?'disabled':''}>下一页</button>
+        </div>
+    `;
+    // 每个页面分页容器ID规则：page_${pageKey}
+    const pageWrap = document.getElementById(`page_${pageKey}`);
+    if(pageWrap) pageWrap.innerHTML = pageHtml;
+}
+
+// 切换每页条数
+function changeFinancePageSize(pageKey, size) {
+    financePageConfig[pageKey].pageSize = Number(size);
+    financePageConfig[pageKey].current = 1;
+    initCurrentSubPage();
+}
+
+// 跳转指定页
+function financeGoToPage(pageKey, targetPage) {
+    const cfg = financePageConfig[pageKey];
+    const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
+    if(targetPage < 1 || targetPage > totalPages) return;
+    cfg.current = targetPage;
+    initCurrentSubPage();
+}
+
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
     await Promise.all([
@@ -264,7 +318,7 @@ function renderTaxRateList(list){
     });
 }
 
-// 多条件筛选刷新表格（点击按钮才执行，空条件默认查全部）
+// 多条件筛选刷新表格（点击按钮才执行，空条件默认查全部 + 分页处理）
 function refreshTaxList() {
     // 获取所有筛选条件
     const selectSupplier = document.getElementById('taxSupplierSearch').value.trim();
@@ -305,13 +359,19 @@ function refreshTaxList() {
         list = list.filter(g => g.channel === filterChannel);
     }
 
+    // 分页处理
+    const cfg = financePageConfig.taxRate;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
     // 渲染表格
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
-    list.forEach((item, idx) => {
+    pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
-            <td>${idx + 1}</td>
+            <td>${start + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.name}</td>
             <td>${item.spec || ''}</td>
@@ -320,6 +380,8 @@ function refreshTaxList() {
             <td><button class="btn btn-primary" onclick="openTaxEdit(${item.id})">编辑税率</button></td>
         </tr>`;
     });
+    // 渲染分页底部
+    renderFinancePagination('taxRate');
 }
 
 function openTaxEdit(id) {
@@ -355,9 +417,11 @@ async function saveTaxData() {
     refreshTaxList();
     showMsg('税率保存成功，商品管理页面数据已同步更新');
 }
+
 // ===================== ②入库单打印模块 =====================
 let printStockInData = [];
 function initStockInPrintPage() {
+    financePageConfig.stockInPrint.current = 1;
     const sel = document.getElementById('printSupplier');
     sel.innerHTML = '<option value="">全部线下供应商</option>';
     offlineSupplierList.forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
@@ -366,8 +430,11 @@ function initStockInPrintPage() {
     document.getElementById('printGoodsName').value = '';
     document.getElementById('printSpec').value = '';
     document.getElementById('printStockInList').innerHTML = '';
+    printStockInData = [];
+    renderFinancePagination('stockInPrint');
 }
 function searchPrintStockIn() {
+    financePageConfig.stockInPrint.current = 1;
     const supplier = document.getElementById('printSupplier').value;
     const goodsName = document.getElementById('printGoodsName').value.trim().toLowerCase();
     const spec = document.getElementById('printSpec').value.trim().toLowerCase();
@@ -380,13 +447,19 @@ function searchPrintStockIn() {
     if (start) list = list.filter(i => i.record_date >= start);
     if (end) list = list.filter(i => i.record_date <= end);
     printStockInData = list;
+
+    const cfg = financePageConfig.stockInPrint;
+    cfg.total = list.length;
+    const startIdx = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
+
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
-    list.forEach((item, idx) => {
+    pageData.forEach((item, idx) => {
         const total = (Number(item.in_price) * Number(item.in_num)).toFixed(2);
         tbody.innerHTML += `
         <tr>
-            <td><input type="checkbox" class="print-checkbox" data-index="${idx}"></td>
+            <td><input type="checkbox" class="print-checkbox" data-index="${startIdx+idx}"></td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
             <td>${item.spec || ''}</td>
@@ -400,6 +473,7 @@ function searchPrintStockIn() {
     document.getElementById('printAllCheck').onchange = function () {
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = this.checked);
     }
+    renderFinancePagination('stockInPrint');
 }
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
@@ -437,6 +511,7 @@ function previewAndPrint() {
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
+    financePageConfig.payRecord.current = 1;
     initPaySupplierSelect();
     refreshPayRecordList();
 }
@@ -455,12 +530,18 @@ function refreshPayRecordList() {
     const filterSupplier = document.getElementById('paySupplierFilter').value;
     let list = [...allPayList];
     if (filterSupplier) list = list.filter(p => p.supplier === filterSupplier);
+
+    const cfg = financePageConfig.payRecord;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
     const tbody = document.getElementById('payRecordList');
     tbody.innerHTML = '';
-    list.forEach((item, idx) => {
+    pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
-            <td>${idx + 1}</td>
+            <td>${start + idx + 1}</td>
             <td>${item.payment_date}</td>
             <td>${item.supplier}</td>
             <td>${Number(item.payment_amount).toFixed(2)}</td>
@@ -471,6 +552,7 @@ function refreshPayRecordList() {
             </td>
         </tr>`;
     });
+    renderFinancePagination('payRecord');
 }
 function openPayAddModal() {
     currentPayEditId = null;
@@ -512,7 +594,6 @@ async function savePayRecord() {
         });
     }
     await loadAllPayment();
-    closePayModal();
     refreshPayRecordList();
     showMsg('付款记录保存成功');
 }
@@ -530,6 +611,7 @@ async function deletePayRecord(id) {
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 function initInvoiceBackPage() {
+    financePageConfig.invoiceBack.current = 1;
     initInvoiceBackSupplierSelect();
     refreshInvoiceBackList();
 }
@@ -548,12 +630,18 @@ function refreshInvoiceBackList() {
     const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
     let list = [...allInvoiceBackList];
     if (filterSupplier) list = list.filter(i => i.supplier === filterSupplier);
+
+    const cfg = financePageConfig.invoiceBack;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
     const tbody = document.getElementById('invoiceBackList');
     tbody.innerHTML = '';
-    list.forEach((item, idx) => {
+    pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
-            <td>${idx + 1}</td>
+            <td>${start + idx + 1}</td>
             <td>${item.return_date}</td>
             <td>${item.supplier}</td>
             <td>${Number(item.invoice_amount).toFixed(2)}</td>
@@ -565,6 +653,7 @@ function refreshInvoiceBackList() {
             </td>
         </tr>`;
     });
+    renderFinancePagination('invoiceBack');
 }
 function openInvoiceBackAddModal() {
     currentInvoiceBackEditId = null;
@@ -609,7 +698,6 @@ async function saveInvoiceBackRecord() {
         });
     }
     await loadAllInvoiceBack();
-    closeInvoiceBackModal();
     refreshInvoiceBackList();
     showMsg('发票退回记录保存成功');
 }
@@ -626,6 +714,7 @@ async function deleteInvoiceBackRecord(id) {
 
 // ===================== ⑤收付款看板 =====================
 function initPaymentBoardPage() {
+    financePageConfig.paymentBoard.current = 1;
     renderPaymentBoard();
 }
 function renderPaymentBoard() {
@@ -646,35 +735,48 @@ function renderPaymentBoard() {
     allInvoiceBackList.forEach(b => {
         supplierGroup[b.supplier].totalBack += Number(b.invoice_amount);
     });
-    const tbody = document.getElementById('paymentBoardList');
-    tbody.innerHTML = '';
-    let idx = 1;
-    for (const supplier in supplierGroup) {
-        const data = supplierGroup[supplier];
+    let list = Object.entries(supplierGroup).map(([supplier, data]) => {
         const payable = data.totalIn - data.totalPay;
         const invBalance = data.totalBack - data.totalIn;
-        const color = invBalance < 0 ? 'color:red;' : '';
+        return { supplier, payable, invBalance, totalIn: data.totalIn, totalPay: data.totalPay, totalBack: data.totalBack };
+    });
+
+    const cfg = financePageConfig.paymentBoard;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
+    const tbody = document.getElementById('paymentBoardList');
+    tbody.innerHTML = '';
+    pageData.forEach((row, idx) => {
+        const color = row.invBalance < 0 ? 'color:red;' : '';
         tbody.innerHTML += `
         <tr>
-            <td>${idx++}</td>
-            <td>${supplier}</td>
-            <td>${data.totalIn.toFixed(2)}</td>
-            <td>${data.totalPay.toFixed(2)}</td>
-            <td>${data.totalBack.toFixed(2)}</td>
-            <td>${payable.toFixed(2)}</td>
-            <td style="${color}">${invBalance.toFixed(2)}</td>
+            <td>${start + idx + 1}</td>
+            <td>${row.supplier}</td>
+            <td>${row.totalIn.toFixed(2)}</td>
+            <td>${row.totalPay.toFixed(2)}</td>
+            <td>${row.totalBack.toFixed(2)}</td>
+            <td>${row.payable.toFixed(2)}</td>
+            <td style="${color}">${row.invBalance.toFixed(2)}</td>
         </tr>`;
-    }
+    });
+    renderFinancePagination('paymentBoard');
 }
 
 // ===================== ⑥发票月结余 =====================
 function initMonthBalancePage() {
+    financePageConfig.monthInvoiceBalance.current = 1;
     const sel = document.getElementById('monthBalanceSelect');
     sel.innerHTML = '<option value="">请选择月份</option>';
     monthDistinctList.forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
     document.getElementById('monthBalanceSearch').value = '';
+    const tbody = document.getElementById('monthBalanceList');
+    tbody.innerHTML = '';
+    renderFinancePagination('monthInvoiceBalance');
 }
 function searchMonthInvoiceBalance() {
+    financePageConfig.monthInvoiceBalance.current = 1;
     const month = document.getElementById('monthBalanceSelect').value;
     const searchKey = document.getElementById('monthBalanceSearch').value.trim().toLowerCase();
     if (!month) return showMsg('请选择统计月份');
@@ -701,22 +803,33 @@ function searchMonthInvoiceBalance() {
         list.push({ supplier: s, month, balance });
     }
     if (searchKey) list = list.filter(row => row.supplier.toLowerCase().includes(searchKey));
+
+    const cfg = financePageConfig.monthInvoiceBalance;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
     const tbody = document.getElementById('monthBalanceList');
     tbody.innerHTML = '';
-    list.forEach((item, idx) => {
+    pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
-            <td>${idx + 1}</td>
+            <td>${start + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.month}</td>
             <td>${item.balance.toFixed(2)}</td>
         </tr>`;
     });
+    renderFinancePagination('monthInvoiceBalance');
 }
 
 // ===================== ⑦入库对账 =====================
 function initStockInCheckPage() {
+    financePageConfig.stockInCheck.current = 1;
     initCheckMonthSelect('checkInMonth');
+    const tbody = document.getElementById('stockInCheckList');
+    tbody.innerHTML = '';
+    renderFinancePagination('stockInCheck');
 }
 function initCheckMonthSelect(selId) {
     const sel = document.getElementById(selId);
@@ -724,6 +837,7 @@ function initCheckMonthSelect(selId) {
     monthDistinctList.forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
 }
 function searchStockInCheck() {
+    financePageConfig.stockInCheck.current = 1;
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
@@ -770,9 +884,15 @@ function searchStockInCheck() {
         });
         list = Object.values(groupMap);
     }
+
+    const cfg = financePageConfig.stockInCheck;
+    cfg.total = list.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = list.slice(start, start + cfg.pageSize);
+
     const tbody = document.getElementById('stockInCheckList');
     tbody.innerHTML = '';
-    list.forEach(row => {
+    pageData.forEach(row => {
         tbody.innerHTML += `
         <tr>
             <td>${row.supplier}</td>
@@ -789,11 +909,16 @@ function searchStockInCheck() {
             <td>${Number(row.remainAmount).toFixed(2)}</td>
         </tr>`;
     });
+    renderFinancePagination('stockInCheck');
 }
 
 // ===================== ⑧出库对账 =====================
 function initStockOutCheckPage() {
+    financePageConfig.stockOutCheck.current = 1;
     initCheckMonthSelect('checkOutMonth');
+    const tbody = document.getElementById('stockOutCheckList');
+    tbody.innerHTML = '';
+    renderFinancePagination('stockOutCheck');
 }
 function searchStockOutCheck() {
     showMsg('出库模块需对接stock_out表，当前仅框架已完成，待出库表数据接入后即可使用');
@@ -801,7 +926,11 @@ function searchStockOutCheck() {
 
 // ===================== ⑨月期初库存 =====================
 function initMonthBeginPage() {
+    financePageConfig.monthBeginStock.current = 1;
     initCheckMonthSelect('beginMonth');
+    const tbody = document.getElementById('monthBeginStockList');
+    tbody.innerHTML = '';
+    renderFinancePagination('monthBeginStock');
 }
 function searchMonthBeginStock() {
     showMsg('库存期初表需要实时库存结余计算逻辑，当前框架已完成');
