@@ -439,109 +439,103 @@ async function saveTaxData() {
 let printStockInData = [];
 const printStyle = `
 <style type="text/css" media="print">
-/* 核心：只允许打印#printPreviewWrap区域，网页所有其他内容完全隐藏，杜绝顶部菜单栏打印 */
-body > *:not(#printPreviewWrap) {
-    display: none !important;
-    visibility: hidden !important;
-}
-#printPreviewWrap {
-    visibility: visible !important;
-    width: 100% !important;
-    margin: 0 auto !important;
-}
+    /* 打印时：仅预览容器可见，页面其他全部隐藏，预览界面正常显示内容 */
+    body * {
+        visibility: hidden;
+    }
+    #printPreviewWrap, #printPreviewWrap * {
+        visibility: visible;
+    }
+    #printPreviewWrap {
+        width: 100%;
+        margin: 0 auto;
+    }
 
-/* A5横向、页边距上下左右2cm */
-@page {
-    size: A5 landscape;
-    margin: 2cm;
-    marks: none;
-    orphans: 99;
-    widows: 99;
-}
+    /* A5横向，四边页边距2cm */
+    @page {
+        size: A5 landscape;
+        margin: 2cm;
+        marks: none;
+        /* 禁止单份单据内部分页 */
+        orphans: 10;
+        widows: 10;
+    }
 
-/* 单个供应商单据容器：强制禁止内部分页，整份单据必须在同一页，解决同供应商拆页 */
-.supplier-bill {
-    width: 100%;
-    page-break-inside: avoid !important;
-    font-family: "SimSun",宋体;
-    padding: 0;
-    margin-bottom: 15mm;
-}
+    /* 单个供应商单据：禁止内部分页，整单放一页 */
+    .supplier-bill {
+        width: 100%;
+        page-break-inside: avoid !important;
+        font-family: "SimSun", "宋体", sans-serif;
+        margin-bottom: 12mm;
+    }
+    /* 仅供应商之间分页，最后一页不加分页，杜绝空白页 */
+    .supplier-bill:not(:last-child) {
+        page-break-after: always;
+    }
 
-/* 仅在两个供应商之间分页，不会产生空白首页、尾页 */
-.supplier-bill:not(:last-of-type) {
-    page-break-after: always;
-}
+    /* 单据标题 */
+    .bill-title {
+        text-align: center;
+        font-size: 20pt;
+        font-weight: bold;
+        margin: 0 0 10mm 0;
+    }
+    /* 头部信息行 */
+    .bill-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12pt;
+        margin-bottom: 8mm;
+    }
 
-/* 单据标题 */
-.bill-title {
-    text-align: center;
-    font-size: 20pt;
-    font-weight: bold;
-    margin: 0 0 10mm 0;
-}
+    /* 表格强制铺满页面宽度，不会缩小居中 */
+    .goods-table {
+        width: 100% !important;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 12mm;
+    }
+    /* 6列固定百分比，总宽100%铺满A5 */
+    .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 14%; }
+    .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
+    .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 26%; }
+    .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14%; }
+    .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 16%; }
+    .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 16%; }
 
-/* 头部供应商+打印日期行 */
-.bill-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12pt;
-    margin-bottom: 8mm;
-}
+    /* 表头加粗边框 */
+    .goods-table th {
+        border: 2px solid #000 !important;
+        padding: 7px 4px;
+        text-align: center;
+        font-size: 12pt;
+        background-color: #f3f3f3;
+    }
+    /* 内容单元格细线边框 */
+    .goods-table td {
+        border: 1px solid #000 !important;
+        padding: 6px 4px;
+        text-align: center;
+        font-size: 11pt;
+    }
+    /* 合计行上边框加粗 */
+    .total-row td {
+        border-top: 2px solid #000 !important;
+        font-weight: bold;
+        text-align: right;
+        font-size: 12pt;
+    }
 
-/* 表格强制铺满A5可用宽度，不再居中缩小 */
-.goods-table {
-    width: 100% !important;
-    border-collapse: collapse;
-    table-layout: fixed;
-    margin-bottom: 12mm;
-}
-/* 6列固定百分比，总宽度100%填满页面 */
-.goods-table th:nth-child(1) { width:14%; }
-.goods-table th:nth-child(2) { width:14%; }
-.goods-table th:nth-child(3) { width:26%; }
-.goods-table th:nth-child(4) { width:14%; }
-.goods-table th:nth-child(5) { width:16%; }
-.goods-table th:nth-child(6) { width:16%; }
-.goods-table td:nth-child(1) { width:14%; }
-.goods-table td:nth-child(2) { width:14%; }
-.goods-table td:nth-child(3) { width:26%; }
-.goods-table td:nth-child(4) { width:14%; }
-.goods-table td:nth-child(5) { width:16%; }
-.goods-table td:nth-child(6) { width:16%; }
-
-/* 表头边框加粗2px */
-.goods-table th {
-    border: 2px solid #000;
-    padding: 7px 4px;
-    text-align: center;
-    font-size: 12pt;
-    background: #f3f3f3;
-}
-/* 内容单元格1px边框 */
-.goods-table td {
-    border: 1px solid #000;
-    padding: 6px 4px;
-    text-align: center;
-    font-size: 11pt;
-}
-/* 合计行上边框加粗 */
-.total-row td {
-    border-top: 2px solid #000;
-    font-weight: bold;
-    text-align: right;
-    font-size:12pt;
-}
-
-/* 每张单据底部固定放置签字栏，不会只出现在最后一页 */
-.bill-footer {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11pt;
-    margin-top: 5mm;
-}
+    /* 每张单据底部都带签字栏 */
+    .bill-footer {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11pt;
+        margin-top: 6mm;
+    }
 </style>
 `;
+
 function initStockInPrintPage() {
     const cfg = financePageConfig.stockInPrint;
     cfg.current = 1;
