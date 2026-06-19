@@ -439,15 +439,16 @@ async function saveTaxData() {
 let printStockInData = [];
 const printStyle = `
 <style type="text/css" media="print">
-/* 改用display彻底隐藏非打印区域，不会产生visibility的占位空白bug */
-body > :not(#printPreviewWrap) {
-    display: none !important;
+body * {
+    visibility: hidden;
+}
+#printPreviewWrap, #printPreviewWrap * {
+    visibility: visible;
 }
 #printPreviewWrap {
     width: 100%;
 }
 
-/* A5横向硬配置，锁死页边距，关闭所有多余打印标记 */
 @page {
     size: A5 landscape;
     margin: 2cm;
@@ -456,13 +457,11 @@ body > :not(#printPreviewWrap) {
     widows: 100;
 }
 
-/* 单张单据：纯流式从上往下排，禁止内部拆分，不设任何min-height/flex垂直拉伸 */
 .supplier-bill {
     width: 100%;
     page-break-inside: avoid !important;
     font-family: "SimSun", "宋体";
 }
-/* 仅从第2张单据开始，在它自己前面加分页，第一张永远无前置空白 */
 .need-page-break {
     page-break-before: always !important;
 }
@@ -480,7 +479,6 @@ body > :not(#printPreviewWrap) {
     margin-bottom: 6px;
 }
 
-/* 表格强制拉满宽度，锁死列宽不收缩 */
 .goods-table {
     width: 100% !important;
     border-collapse: collapse;
@@ -511,7 +509,6 @@ body > :not(#printPreviewWrap) {
     text-align:right;
 }
 
-/* 签字栏紧跟表格，不做任何拉伸，自然排布 */
 .bill-footer {
     display:flex;
     justify-content:space-between;
@@ -767,6 +764,7 @@ function previewAndPrint() {
         groupMap[row.supplier].push(row);
     });
     const supplierList = Object.entries(groupMap);
+    // 正确：先赋值样式，再拼接HTML内容
     let printHtml = printStyle;
 
     supplierList.forEach(([supplier, dataList], index) => {
@@ -786,7 +784,6 @@ function previewAndPrint() {
                 <td>${amount.toFixed(2)}</td>
             </tr>`;
         });
-        // 只有索引≥1（第二个及以后的单据）才加前置分页类，第一张完全无分页前置
         const breakClass = index >= 1 ? 'need-page-break' : '';
         printHtml += `
         <div class="supplier-bill ${breakClass}">
@@ -825,9 +822,10 @@ function previewAndPrint() {
     });
 
     const wrap = document.getElementById('printPreviewWrap');
-    wrap.innerHTML = printStyle;
+    // 关键修复：之前错误写成 wrap.innerHTML = printStyle; 现在正确赋值拼接好的完整html
+    wrap.innerHTML = printHtml;
     wrap.style.display = 'block';
-    // 加长等待确保DOM彻底渲染完成
+
     setTimeout(()=>{
         window.print();
         wrap.style.display = 'none';
