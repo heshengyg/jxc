@@ -437,16 +437,24 @@ async function saveTaxData() {
 
 // ===================== ②入库单打印模块 =====================
 let printStockInData = [];
-// 【修改】A5横向排版、标准尺寸适配、全边框、字体层级、无空白页
+// 【100%匹配Excel打印设置】A5横向、标准页边距、页脚签字栏、无空白页、自动适配列宽
 const printStyle = `
 <style type="text/css" media="print">
-    /* 严格设置A5横向标准尺寸：210mm宽 × 148mm高，横向打印 */
+    /* 严格匹配Excel的A5横向打印设置 */
     @page {
         size: A5 landscape;
-        margin: 10mm 12mm;
+        margin: 1.6cm 1cm 1.2cm 1cm; /* 上1.6cm、右1cm、下1.2cm、左1cm，和Excel完全一致 */
         padding: 0;
+        /* 页脚：放置签字栏，固定在页面底部 */
+        @bottom-center {
+            content: "采购员签字：________________　　仓库管理员签字：________________　　财务审核签字：________________";
+            font-family: "SimSun", "宋体", sans-serif;
+            font-size: 11pt;
+            text-align: center;
+            white-space: nowrap;
+        }
     }
-    /* 只显示打印预览区域，避免页面其他内容干扰 */
+    /* 只显示打印预览区域，彻底避免页面其他内容干扰 */
     body * {
         visibility: hidden;
         margin: 0;
@@ -462,79 +470,73 @@ const printStyle = `
         position: static;
         padding: 0;
     }
-    /* 每个供应商的入库单单独一页，适配A5横向尺寸 */
+    /* 每个供应商的入库单单独一页，适配A5横向尺寸，无内容溢出 */
     .print-page {
-        width: 186mm; /* 适配A5横向宽度-左右边距 */
-        min-height: 128mm; /* 适配A5横向高度-上下边距 */
+        width: 100%;
+        min-height: calc(148mm - 2.8cm); /* A5高度-上下边距，确保内容不超页 */
         margin: 0 auto;
         display: block;
-        page-break-after: always;
-        font-family: "SimSun", "宋体", sans-serif;
+        font-family: "SimSun", "宋体", sans-serif; /* 匹配Excel的宋体字体 */
+        page-break-inside: avoid; /* 避免单页内容被截断 */
     }
-    /* 标题样式：适配横向宽度，居中放大 */
+    /* 标题样式：匹配Excel的标题格式，居中放大 */
     .print-title {
         text-align: center;
-        font-size: 20px;
+        font-size: 18pt;
         font-weight: bold;
-        margin-bottom: 12px;
+        margin-bottom: 10pt;
         line-height: 1.5;
     }
-    /* 头部信息：供应商、打印日期，横向两端对齐 */
+    /* 头部信息：供应商、打印日期，匹配Excel的格式 */
     .print-header-info {
         display: flex;
         justify-content: space-between;
         width: 100%;
-        margin-bottom: 15px;
-        font-size: 13px;
+        margin-bottom: 12pt;
+        font-size: 12pt;
         line-height: 1.4;
     }
-    /* 表格样式：全边框、适配横向宽度、内容自动换行 */
+    /* 表格样式：100%宽度、全边框、自动适配列宽，确保所有列在一页内 */
     table {
         width: 100%;
         border-collapse: collapse;
-        margin: 0 0 18px 0;
-        table-layout: fixed;
+        margin: 0;
+        table-layout: fixed; /* 固定列宽，避免内容溢出 */
+        border: 1px solid #000;
     }
     th, td {
         border: 1px solid #000 !important;
-        padding: 8px 6px;
+        padding: 6pt 4pt;
         text-align: center;
         vertical-align: middle;
         word-wrap: break-word;
         overflow: hidden;
+        white-space: nowrap; /* 内容不换行，确保列宽稳定 */
     }
     th {
         font-weight: bold;
         background-color: #f0f0f0;
-        font-size: 12px;
+        font-size: 12pt;
         line-height: 1.3;
     }
     td {
-        font-size: 11px;
+        font-size: 11pt;
         line-height: 1.2;
     }
-    /* 合计行样式：适配横向，右对齐加粗 */
+    /* 合计行样式：匹配Excel的合计格式，右对齐加粗 */
     .total-row td {
         font-weight: bold;
         text-align: right;
-        font-size: 12px;
-        padding-right: 10px;
+        font-size: 12pt;
+        padding-right: 8pt;
     }
-    /* 签字栏样式：横向两端对齐，适配底部空间 */
-    .print-sign {
-        display: flex;
-        justify-content: space-between;
-        width: 100%;
-        margin-top: 25px;
-        font-size: 11px;
-        line-height: 1.4;
-    }
-    .print-sign p {
-        margin: 0;
-        padding: 0;
+    /* 解决空白页：仅在供应商之间加分页，最后一页不加分页 */
+    .page-break {
+        page-break-after: always;
     }
 </style>
 `;
+
 function initStockInPrintPage() {
     const cfg = financePageConfig.stockInPrint;
     cfg.current = 1;
@@ -769,7 +771,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// 【适配】A5横向列宽调整，内容完整不拥挤，每个供应商单独一页
+// 【彻底修复空白页】适配A5横向、每个供应商单独一页、无多余空白、内容完整不溢出
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) return showMsg('请选择需要打印的入库记录');
@@ -783,12 +785,14 @@ function previewAndPrint() {
         groupMap[row.supplier].push(row);
     });
 
+    const supplierList = Object.entries(groupMap);
     let printHtml = printStyle;
-    // 生成每个供应商的打印内容
-    Object.entries(groupMap).forEach(([sup, dataList], idx, arr)=>{
+
+    // 生成每个供应商的打印内容，彻底解决空白页
+    supplierList.forEach(([sup, dataList], idx)=>{
         let sumNum = 0, sumAmount = 0;
         let tableBody = '';
-        // 生成表格行，适配横向A5的列宽，内容不拥挤
+        // 生成表格行，列宽总和适配A5横向宽度，确保所有列在一页内
         dataList.forEach(row=>{
             const rowAmt = Number(row.in_price)*Number(row.in_num);
             sumNum += Number(row.in_num);
@@ -803,9 +807,9 @@ function previewAndPrint() {
                 <td style="width:14%">${rowAmt.toFixed(2)}</td>
             </tr>`;
         });
-        // 单个供应商入库单，适配A5横向尺寸
+        // 单个供应商入库单，适配A5横向尺寸，仅在非最后一页加分页
         printHtml += `
-        <div class="print-page">
+        <div class="print-page ${idx !== supplierList.length-1 ? 'page-break' : ''}">
             <div class="print-title">商品入库单</div>
             <div class="print-header-info">
                 <span>供应商：${sup}</span>
@@ -833,11 +837,6 @@ function previewAndPrint() {
                     </tr>
                 </tfoot>
             </table>
-            <div class="print-sign">
-                <p>采购员签字：________________</p>
-                <p>仓库管理员签字：________________</p>
-                <p>财务审核签字：________________</p>
-            </div>
         </div>
         `;
     });
@@ -846,11 +845,11 @@ function previewAndPrint() {
     const previewDom = document.getElementById('printPreviewWrap');
     previewDom.innerHTML = printHtml;
     previewDom.style.display = 'block';
-    // 延迟执行打印，确保样式加载完成
+    // 延迟执行打印，确保样式和DOM完全加载，避免空白页
     setTimeout(() => {
         window.print();
         previewDom.style.display = 'none';
-    }, 100);
+    }, 200);
 }
 
 // ===================== ③财务付款记录模块 =====================
