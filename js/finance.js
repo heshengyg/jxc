@@ -69,26 +69,26 @@ function switchFinanceSubTab(tabKey) {
     initCurrentSubPage();
 }
 
-// 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数）
+// 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数，复用项目现有pagination样式）
 function renderFinancePagination(pageKey) {
     const cfg = financePageConfig[pageKey];
     const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
-    // 渲染分页区域内容
+    // 复用你系统已有的分页样式结构
     const pageHtml = `
-        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
-            <span>每页显示
-                <select onchange="changeFinancePageSize('${pageKey}',this.value)" style="padding:4px 6px;">
-                    <option value="10" ${cfg.pageSize===10?'selected':''}>10</option>
-                    <option value="20" ${cfg.pageSize===20?'selected':''}>20</option>
-                    <option value="50" ${cfg.pageSize===50?'selected':''}>50</option>
-                </select>条
-            </span>
-            <span>当前第${cfg.current}/${totalPages}页</span>
-            <button onclick="financeGoToPage('${pageKey}',${cfg.current-1})" ${cfg.current===1?'disabled':''}>上一页</button>
-            <button onclick="financeGoToPage('${pageKey}',${cfg.current+1})" ${cfg.current>=totalPages?'disabled':''}>下一页</button>
+        <div class="page-info">
+            每页显示 <select onchange="changeFinancePageSize('${pageKey}',this.value)">
+                <option value="10" ${cfg.pageSize===10?'selected':''}>10</option>
+                <option value="20" ${cfg.pageSize===20?'selected':''}>20</option>
+                <option value="50" ${cfg.pageSize===50?'selected':''}>50</option>
+            </select> 条，当前第 <span>${cfg.current}</span> / <span>${totalPages}</span> 页
+        </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="financeGoToPage('${pageKey}',1)" ${cfg.current===1?'disabled':''}>首页</button>
+            <button class="page-btn" onclick="financeGoToPage('${pageKey}',${cfg.current-1})" ${cfg.current===1?'disabled':''}>上一页</button>
+            <button class="page-btn" onclick="financeGoToPage('${pageKey}',${cfg.current+1})" ${cfg.current>=totalPages?'disabled':''}>下一页</button>
+            <button class="page-btn" onclick="financeGoToPage('${pageKey}',${totalPages})" ${cfg.current>=totalPages?'disabled':''}>末页</button>
         </div>
     `;
-    // 每个页面分页容器ID规则：page_${pageKey}
     const pageWrap = document.getElementById(`page_${pageKey}`);
     if(pageWrap) pageWrap.innerHTML = pageHtml;
 }
