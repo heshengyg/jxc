@@ -411,8 +411,9 @@ document.addEventListener('click',function(e){
                 </div>
             </div>
         </div>
+        <!-- 【新增】税率录入独立分页容器，放在当前子页面内 -->
+        <div class="pagination" id="page_taxRate"></div>
     </div>
-<div class="pagination" id="page_taxRate"></div>
 
     <!-- ②入库单打印（线下专用） -->
     <div id="sub-stockInPrint" class="finance-sub-content" style="display:none;">
@@ -476,8 +477,9 @@ document.addEventListener('click',function(e){
                 <p>财务审核签字：________________</p>
             </div>
         </div>
+        <!-- 【新增】入库单打印独立分页容器 -->
+        <div class="pagination" id="page_stockInPrint"></div>
     </div>
-<div class="pagination" id="page_stockInPrint"></div>
 
     <!-- ③财务付款记录 -->
     <div id="sub-payRecord" class="finance-sub-content" style="display:none;">
@@ -530,8 +532,9 @@ document.addEventListener('click',function(e){
                 </div>
             </div>
         </div>
+        <!-- 【新增】财务付款记录独立分页容器 -->
+        <div class="pagination" id="page_payRecord"></div>
     </div>
-<div class="pagination" id="page_payRecord"></div>
 
     <!-- ④发票返回记录 -->
     <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
@@ -589,8 +592,9 @@ document.addEventListener('click',function(e){
                 </div>
             </div>
         </div>
+        <!-- 【新增】发票返回记录独立分页容器 -->
+        <div class="pagination" id="page_invoiceBack"></div>
     </div>
-<div class="pagination" id="page_invoiceBack"></div>
 
     <!-- ⑤收付款看板 -->
     <div id="sub-paymentBoard" class="finance-sub-content" style="display:none;">
@@ -611,8 +615,10 @@ document.addEventListener('click',function(e){
                 <tbody id="paymentBoardList"></tbody>
             </table>
         </div>
+        <!-- 【新增】收付款看板独立分页容器 -->
+        <div class="pagination" id="page_paymentBoard"></div>
     </div>
-<div class="pagination" id="page_paymentBoard"></div>
+
     <!-- ⑥月度发票结余 -->
     <div id="sub-monthInvoiceBalance" class="finance-sub-content" style="display:none;">
         <h4>供应商月度发票结余表</h4>
@@ -635,8 +641,9 @@ document.addEventListener('click',function(e){
                 <tbody id="monthBalanceList"></tbody>
             </table>
         </div>
+        <!-- 【新增】月度发票结余独立分页容器 -->
+        <div class="pagination" id="page_monthInvoiceBalance"></div>
     </div>
-<div class="pagination" id="page_monthInvoiceBalance"></div>
 
     <!-- ⑦入库对账 -->
     <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
@@ -681,8 +688,9 @@ document.addEventListener('click',function(e){
                 <tbody id="stockInCheckList"></tbody>
             </table>
         </div>
+        <!-- 【新增】入库对账独立分页容器 -->
+        <div class="pagination" id="page_stockInCheck"></div>
     </div>
-<div class="pagination" id="page_stockInCheck"></div>
 
     <!-- ⑧出库对账 -->
     <div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
@@ -718,8 +726,9 @@ document.addEventListener('click',function(e){
                 <tbody id="stockOutCheckList"></tbody>
             </table>
         </div>
+        <!-- 【新增】出库对账独立分页容器 -->
+        <div class="pagination" id="page_stockOutCheck"></div>
     </div>
-<div class="pagination" id="page_stockOutCheck"></div>
 
     <!-- ⑨月期初库存表 -->
     <div id="sub-monthBeginStock" class="finance-sub-content" style="display:none;">
@@ -755,9 +764,10 @@ document.addEventListener('click',function(e){
                 <tbody id="monthBeginStockList"></tbody>
             </table>
         </div>
+        <!-- 【新增】月期初库存独立分页容器 -->
+        <div class="pagination" id="page_monthBeginStock"></div>
     </div>
 </div>
-<div class="pagination" id="page_monthBeginStock"></div>
 
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">

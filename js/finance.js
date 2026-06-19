@@ -48,27 +48,39 @@ switchTab = function (tabName) {
 
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
-    currFinanceSub = tabKey;
+    currFinanceSubTab = tabKey;
+
+    // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
+    const paginationIds = [
+        'page_taxRate',
+        'page_stockInPrint',
+        'page_payRecord',
+        'page_invoiceBack',
+        'page_paymentBoard',
+        'page_monthInvoiceBalance',
+        'page_stockInCheck',
+        'page_stockOutCheck',
+        'page_monthBeginStock'
+    ];
+    paginationIds.forEach(id => {
+        const pageDom = document.getElementById(id);
+        if (pageDom) {
+            pageDom.innerHTML = ''; // 清空分页内容
+        }
+    });
+
+    // 下面是你原来的切换代码，完全保留不要修改
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-${tabKey}`).style.display = 'block';
-    // 清空所有按钮激活样式
+
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    // 优先使用点击事件的按钮，如果不存在则按当前tabKey匹配按钮（解决首次进入无event导致不高亮）
-    if (event && event.target && event.target.classList.contains('finance-sub-btn')) {
+    if (event?.target?.classList.contains('finance-sub-btn')) {
         event.target.classList.add('active');
     } else {
-        // 遍历所有按钮，找到当前激活的tab对应的按钮添加高亮
-        const btnList = document.querySelectorAll('.finance-sub-btn');
-        for (let btn of btnList) {
-            if (btn.getAttribute('data-tab') === tabKey) {
-                btn.classList.add('active');
-                break;
-            }
-        }
+        document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`).classList.add('active');
     }
     initCurrentSubPage();
 }
-
 // 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数，复用项目现有pagination样式）
 function renderFinancePagination(pageKey) {
     const cfg = financePageConfig[pageKey];
