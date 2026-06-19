@@ -326,17 +326,35 @@
     <!-- ①税率录入（直接编辑goods表tax_rate字段） -->
     <div id="sub-taxRate" class="finance-sub-content">
         <h4>商品基础税率维护</h4>
-        <div class="search-bar" style="margin:10px 0;">
-            <label>供应商筛选：</label>
-            <select id="taxSupplierFilter"></select>
-            <label>结算方式：</label>
-            <select id="taxChannelFilter">
-                <option value="">全部</option>
-                <option value="线上">线上</option>
-                <option value="线下">线下</option>
-            </select>
-            <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
-        </div>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:5px;">
+        <label>供应商：</label>
+        <input type="text" id="taxSupplierSearch" placeholder="输入供应商模糊搜索">
+        <select id="taxSupplierFilter"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;">
+        <label>商品名称：</label>
+        <input type="text" id="taxGoodsSearch" placeholder="输入商品名称模糊搜索">
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;">
+        <label>税率：</label>
+        <input type="text" id="taxValueSearch" placeholder="税率模糊搜索">
+        <select id="taxRateFilter">
+            <option value="">全部税率</option>
+            <option value="">未设置</option>
+            <option value="0">0%</option>
+            <option value="9">9%</option>
+            <option value="13">13%</option>
+        </select>
+    </div>
+    <label>结算方式：</label>
+    <select id="taxChannelFilter">
+        <option value="">全部</option>
+        <option value="线上">线上</option>
+        <option value="线下">线下</option>
+    </select>
+    <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
+</div>
         <div class="table-container">
             <table border="1" cellpadding="6" cellspacing="0" width="100%">
                 <thead>

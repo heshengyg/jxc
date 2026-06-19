@@ -143,12 +143,50 @@ function initTaxSupplierFilter() {
     const supplierSet = new Set();
     allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
     Array.from(supplierSet).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
+    // 清空搜索框
+    document.getElementById('taxSupplierSearch').value = '';
+    document.getElementById('taxGoodsSearch').value = '';
+    document.getElementById('taxValueSearch').value = '';
+    document.getElementById('taxRateFilter').value = '';
 }
 function refreshTaxList() {
     const filterSupplier = document.getElementById('taxSupplierFilter').value;
+    const supplierKeyword = document.getElementById('taxSupplierSearch').value.trim().toLowerCase();
+    const goodsKeyword = document.getElementById('taxGoodsSearch').value.trim().toLowerCase();
+    const taxKeyword = document.getElementById('taxValueSearch').value.trim();
+    const taxSelectVal = document.getElementById('taxRateFilter').value;
+
     // 只展示线下渠道商品，过滤所有线上商品
     let list = allGoodsList.filter(g => g.channel === '线下');
-    if (filterSupplier) list = list.filter(g => g.supplier === filterSupplier);
+
+    // 供应商下拉精准筛选
+    if (filterSupplier) {
+        list = list.filter(g => g.supplier === filterSupplier);
+    }
+    // 供应商输入框模糊搜索
+    if (supplierKeyword) {
+        list = list.filter(g => g.supplier.toLowerCase().includes(supplierKeyword));
+    }
+    // 商品名称模糊搜索
+    if (goodsKeyword) {
+        list = list.filter(g => g.name.toLowerCase().includes(goodsKeyword));
+    }
+
+    // 税率筛选：下拉框（包含未设置）
+    if (taxSelectVal === '') {
+        // 选中【未设置】
+        list = list.filter(g => g.tax_rate === null || g.tax_rate === undefined || g.tax_rate === '');
+    } else if (taxSelectVal !== '') {
+        list = list.filter(g => String(g.tax_rate) === taxSelectVal);
+    }
+    // 税率输入框模糊搜索
+    if (taxKeyword) {
+        list = list.filter(g => {
+            const taxStr = g.tax_rate ? String(g.tax_rate) : '未设置';
+            return taxStr.includes(taxKeyword);
+        });
+    }
+
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     list.forEach((item, idx) => {
