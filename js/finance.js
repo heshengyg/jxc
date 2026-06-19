@@ -437,83 +437,116 @@ async function saveTaxData() {
 
 // ===================== ②入库单打印模块 =====================
 let printStockInData = [];
-// 打印样式 适配A5纸、全边框、垂直居中、仅打印预览区域
+// 【修改】A5横向排版、标准尺寸适配、全边框、字体层级、无空白页
 const printStyle = `
 <style type="text/css" media="print">
+    /* 严格设置A5横向标准尺寸：210mm宽 × 148mm高，横向打印 */
     @page {
-        size: A5;
-        margin: 10mm;
-    }
-    body * { visibility: hidden; }
-    #printPreviewWrap, #printPreviewWrap * { visibility: visible; }
-    #printPreviewWrap {
-        width: 100%;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        size: A5 landscape;
+        margin: 10mm 12mm;
         padding: 0;
     }
+    /* 只显示打印预览区域，避免页面其他内容干扰 */
+    body * {
+        visibility: hidden;
+        margin: 0;
+        padding: 0;
+    }
+    #printPreviewWrap, #printPreviewWrap * {
+        visibility: visible;
+        box-sizing: border-box;
+    }
+    #printPreviewWrap {
+        width: 100%;
+        height: auto;
+        position: static;
+        padding: 0;
+    }
+    /* 每个供应商的入库单单独一页，适配A5横向尺寸 */
     .print-page {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 100vh;
+        width: 186mm; /* 适配A5横向宽度-左右边距 */
+        min-height: 128mm; /* 适配A5横向高度-上下边距 */
+        margin: 0 auto;
+        display: block;
+        page-break-after: always;
+        font-family: "SimSun", "宋体", sans-serif;
     }
-    .page-break { page-break-after: always; }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 15px 0;
-    }
-    th, td {
-        border: 1px solid #333 !important;
-        padding: 8px 6px;
-        text-align: center;
-        vertical-align: middle;
-    }
-    th {
-        font-weight: bold;
-        background-color: #f5f5f5;
-    }
-    .total-row td {
-        font-weight: bold;
-        text-align: right;
-    }
+    /* 标题样式：适配横向宽度，居中放大 */
     .print-title {
         text-align: center;
         font-size: 20px;
         font-weight: bold;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        line-height: 1.5;
     }
+    /* 头部信息：供应商、打印日期，横向两端对齐 */
     .print-header-info {
         display: flex;
         justify-content: space-between;
         width: 100%;
-        margin-bottom: 10px;
-        font-size: 14px;
+        margin-bottom: 15px;
+        font-size: 13px;
+        line-height: 1.4;
     }
+    /* 表格样式：全边框、适配横向宽度、内容自动换行 */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 18px 0;
+        table-layout: fixed;
+    }
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 8px 6px;
+        text-align: center;
+        vertical-align: middle;
+        word-wrap: break-word;
+        overflow: hidden;
+    }
+    th {
+        font-weight: bold;
+        background-color: #f0f0f0;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+    td {
+        font-size: 11px;
+        line-height: 1.2;
+    }
+    /* 合计行样式：适配横向，右对齐加粗 */
+    .total-row td {
+        font-weight: bold;
+        text-align: right;
+        font-size: 12px;
+        padding-right: 10px;
+    }
+    /* 签字栏样式：横向两端对齐，适配底部空间 */
     .print-sign {
         display: flex;
         justify-content: space-between;
         width: 100%;
-        margin-top: 30px;
-        font-size: 14px;
+        margin-top: 25px;
+        font-size: 11px;
+        line-height: 1.4;
+    }
+    .print-sign p {
+        margin: 0;
+        padding: 0;
     }
 </style>
 `;
-
 function initStockInPrintPage() {
     const cfg = financePageConfig.stockInPrint;
     cfg.current = 1;
     cfg.sortField = 'record_date';
     cfg.sortType = 'desc';
 
-    // 初始化下拉搜索数据源（修复：切换页面自动加载数据源，不再无匹配）
-    printSupplierSearchList = [...offlineSupplierList];
+    // 【修复】所有下拉数据源100%来自入库表的线下数据，和商品表完全解耦
+    // 1. 线下供应商：从入库表去重获取
+    printSupplierSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.supplier))];
+    // 2. 商品名称：从入库表对应供应商的线下数据去重获取
     printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
+    // 3. 规格：从入库表对应供应商的线下数据去重获取
     printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
 
     // 清空筛选条件
@@ -530,7 +563,6 @@ function initStockInPrintPage() {
     printStockInData = [];
     renderFinancePagination('stockInPrint');
 }
-
 // ========== 需求①：下拉带搜索函数 ==========
 // 供应商搜索下拉
 function showPrintSupplierList(){
@@ -737,13 +769,12 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// 预览打印（需求⑥：只打印入库单，按供应商分页、表头重复、跨页）
-// 预览打印 适配A5纸、新增录入日期列、完善合计、全边框、垂直居中
+// 【适配】A5横向列宽调整，内容完整不拥挤，每个供应商单独一页
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) return showMsg('请选择需要打印的入库记录');
 
-    // 按供应商分组
+    // 按供应商分组，确保每个供应商的入库单单独一页
     const groupMap = {};
     checkedBox.forEach(cb => {
         const idx = Number(cb.dataset.index);
@@ -753,34 +784,34 @@ function previewAndPrint() {
     });
 
     let printHtml = printStyle;
-    // 每个供应商单独一页 适配A5纸
+    // 生成每个供应商的打印内容
     Object.entries(groupMap).forEach(([sup, dataList], idx, arr)=>{
         let sumNum = 0, sumAmount = 0;
         let tableBody = '';
-        // 生成表格行 第一列为录入日期
+        // 生成表格行，适配横向A5的列宽，内容不拥挤
         dataList.forEach(row=>{
             const rowAmt = Number(row.in_price)*Number(row.in_num);
             sumNum += Number(row.in_num);
             sumAmount += rowAmt;
             tableBody += `
             <tr>
-                <td>${row.record_date}</td>
-                <td>${row.goodsName}</td>
-                <td>${row.spec||''}</td>
-                <td>${Number(row.in_price).toFixed(2)}</td>
-                <td>${row.in_num}</td>
-                <td>${rowAmt.toFixed(2)}</td>
+                <td style="width:16%">${row.record_date}</td>
+                <td style="width:24%">${row.goodsName}</td>
+                <td style="width:18%">${row.spec||''}</td>
+                <td style="width:14%">${Number(row.in_price).toFixed(2)}</td>
+                <td style="width:14%">${row.in_num}</td>
+                <td style="width:14%">${rowAmt.toFixed(2)}</td>
             </tr>`;
         });
-        // 单个供应商入库单 适配A5纸垂直居中
+        // 单个供应商入库单，适配A5横向尺寸
         printHtml += `
-        <div class="print-page ${idx !== arr.length-1 ? 'page-break' : ''}">
+        <div class="print-page">
             <div class="print-title">商品入库单</div>
             <div class="print-header-info">
                 <span>供应商：${sup}</span>
                 <span>打印日期：${new Date().toLocaleDateString()}</span>
             </div>
-            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <table>
                 <thead>
                     <tr>
                         <th>录入日期</th>
@@ -811,13 +842,17 @@ function previewAndPrint() {
         `;
     });
 
-    // 写入预览区域，只打印该区域
+    // 写入预览区域，执行打印
     const previewDom = document.getElementById('printPreviewWrap');
     previewDom.innerHTML = printHtml;
     previewDom.style.display = 'block';
-    window.print();
-    previewDom.style.display = 'none';
+    // 延迟执行打印，确保样式加载完成
+    setTimeout(() => {
+        window.print();
+        previewDom.style.display = 'none';
+    }, 100);
 }
+
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
