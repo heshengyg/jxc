@@ -53,7 +53,7 @@ switchTab = function (tabName) {
 
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
-    currFinanceSubTab = tabKey;
+    currFinanceSub = tabKey;
 
     // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
     const paginationIds = [
@@ -436,7 +436,6 @@ async function saveTaxData() {
 }
 
 // ===================== ②入库单打印模块 =====================
-l// ===================== ②入库单打印模块（已实现全部6项需求） =====================
 let printStockInData = [];
 // 打印样式 只打印预览区域，隐藏页面其他内容
 const printStyle = `
@@ -456,7 +455,7 @@ function initStockInPrintPage() {
     cfg.sortField = 'record_date';
     cfg.sortType = 'desc';
 
-    // 初始化下拉搜索数据源
+    // 初始化下拉搜索数据源（修复：切换页面自动加载数据源，不再无匹配）
     printSupplierSearchList = [...offlineSupplierList];
     printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
     printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
@@ -573,11 +572,17 @@ function renderPrintSpecList(list){
     });
 }
 
-// 全局点击关闭下拉
+// 全局点击空白关闭三个下拉框（修复下拉卡死、一直显示无匹配问题）
 document.addEventListener('click',e=>{
-    if(!e.target.closest('#printSupplierSearch')) document.getElementById('printSupplierListBox').style.display='none';
-    if(!e.target.closest('#printGoodsNameSearch')) document.getElementById('printGoodsListBox').style.display='none';
-    if(!e.target.closest('#printSpecSearch')) document.getElementById('printSpecListBox').style.display='none';
+    if(!e.target.closest('#printSupplierSearch') && !e.target.closest('#printSupplierListBox')){
+        document.getElementById('printSupplierListBox').style.display='none';
+    }
+    if(!e.target.closest('#printGoodsNameSearch') && !e.target.closest('#printGoodsListBox')){
+        document.getElementById('printGoodsListBox').style.display='none';
+    }
+    if(!e.target.closest('#printSpecSearch') && !e.target.closest('#printSpecListBox')){
+        document.getElementById('printSpecListBox').style.display='none';
+    }
 });
 
 // ========== 需求③默认最新日期在前、④列排序、清除排序 ==========

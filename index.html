@@ -500,6 +500,20 @@ document.addEventListener('click',function(e){
         </div>
         <!-- 【新增】入库单打印独立分页容器 -->
         <div class="pagination" id="page_stockInPrint"></div>
+<script>
+// 入库打印页面空白处关闭三个下拉框
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#printSupplierSearch') && !e.target.closest('#printSupplierListBox')) {
+        document.getElementById('printSupplierListBox').style.display = 'none';
+    }
+    if (!e.target.closest('#printGoodsNameSearch') && !e.target.closest('#printGoodsListBox')) {
+        document.getElementById('printGoodsListBox').style.display = 'none';
+    }
+    if (!e.target.closest('#printSpecSearch') && !e.target.closest('#printSpecListBox')) {
+        document.getElementById('printSpecListBox').style.display = 'none';
+    }
+});
+</script>
     </div>
 
     <!-- ③财务付款记录 -->
