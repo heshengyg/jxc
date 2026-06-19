@@ -326,35 +326,56 @@
     <!-- ①税率录入（直接编辑goods表tax_rate字段） -->
     <div id="sub-taxRate" class="finance-sub-content">
         <h4>商品基础税率维护</h4>
-        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <div style="display:flex;align-items:center;gap:5px;">
-        <label>供应商：</label>
-        <input type="text" id="taxSupplierSearch" placeholder="输入供应商模糊搜索">
-        <select id="taxSupplierFilter"></select>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:15px;align-items:center;flex-wrap:wrap;position:relative;">
+    <!-- 供应商搜索下拉 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>供应商筛选：</label>
+        <input type="text" id="taxSupplierSearch" placeholder="搜索/选择供应商" onclick="showTaxSupplierList()" oninput="filterTaxSupplierList()" style="width:240px;padding:6px 8px;font-size:14px;">
+        <div id="taxSupplierListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;">
-        <label>商品名称：</label>
-        <input type="text" id="taxGoodsSearch" placeholder="输入商品名称模糊搜索">
+
+    <!-- 商品名称搜索下拉 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>商品名称筛选：</label>
+        <input type="text" id="taxGoodsSearch" placeholder="搜索/选择商品" onclick="showTaxGoodsList()" oninput="filterTaxGoodsList()" style="width:240px;padding:6px 8px;font-size:14px;">
+        <div id="taxGoodsListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;">
-        <label>税率：</label>
-        <input type="text" id="taxValueSearch" placeholder="税率模糊搜索">
-        <select id="taxRateFilter">
-            <option value="">全部税率</option>
-            <option value="">未设置</option>
-            <option value="0">0%</option>
-            <option value="9">9%</option>
-            <option value="13">13%</option>
+
+    <!-- 税率搜索下拉（包含未设置） -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>税率筛选：</label>
+        <input type="text" id="taxRateSearch" placeholder="搜索/选择税率" onclick="showTaxRateList()" oninput="filterTaxRateList()" style="width:200px;padding:6px 8px;font-size:14px;">
+        <div id="taxRateListBox" style="position:absolute;top:100%;left:0;width:200px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:4px;">
+        <label>结算方式：</label>
+        <select id="taxChannelFilter" style="padding:6px 8px;font-size:14px;">
+            <option value="">全部</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
         </select>
     </div>
-    <label>结算方式：</label>
-    <select id="taxChannelFilter">
-        <option value="">全部</option>
-        <option value="线上">线上</option>
-        <option value="线下">线下</option>
-    </select>
-    <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
+
+    <div style="display:flex;align-items:flex-end;">
+        <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
+    </div>
 </div>
+
+<!-- 全局点击空白关闭所有下拉弹窗 -->
+<script>
+document.addEventListener('click',function(e){
+    if(!e.target.closest('#taxSupplierSearch') && !e.target.closest('#taxSupplierListBox')){
+        document.getElementById('taxSupplierListBox').style.display = 'none';
+    }
+    if(!e.target.closest('#taxGoodsSearch') && !e.target.closest('#taxGoodsListBox')){
+        document.getElementById('taxGoodsListBox').style.display = 'none';
+    }
+    if(!e.target.closest('#taxRateSearch') && !e.target.closest('#taxRateListBox')){
+        document.getElementById('taxRateListBox').style.display = 'none';
+    }
+});
+</script>
         <div class="table-container">
             <table border="1" cellpadding="6" cellspacing="0" width="100%">
                 <thead>

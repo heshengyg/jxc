@@ -8,6 +8,17 @@ let allStockInList = [];
 let allPayList = [];
 let allInvoiceBackList = [];
 
+// 新增：税率页面下拉缓存变量
+let currTaxSupplierList = [];
+let currTaxGoodsList = [];
+let currTaxRateOptionList = [
+    {val:'',text:'全部税率'},
+    {val:null,text:'未设置'},
+    {val:'0',text:'0%'},
+    {val:'9',text:'9%'},
+    {val:'13',text:'13%'}
+];
+
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
@@ -137,56 +148,164 @@ function initTaxRatePage() {
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
-    const sel = document.getElementById('taxSupplierFilter');
-    sel.innerHTML = '<option value="">全部线下供应商</option>';
-    // 只筛选线下商品的供应商
+    // 初始化供应商数据源：只线下商品供应商
     const supplierSet = new Set();
     allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
-    Array.from(supplierSet).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
-    // 清空搜索框
+    currTaxSupplierList = Array.from(supplierSet);
+
+    // 初始化商品数据源：所有线下商品
+    currTaxGoodsList = allGoodsList.filter(g => g.channel === '线下');
+
+    // 清空所有搜索框
     document.getElementById('taxSupplierSearch').value = '';
     document.getElementById('taxGoodsSearch').value = '';
-    document.getElementById('taxValueSearch').value = '';
-    document.getElementById('taxRateFilter').value = '';
+    document.getElementById('taxRateSearch').value = '';
+
+    // 关闭所有下拉框
+    document.getElementById('taxSupplierListBox').style.display = 'none';
+    document.getElementById('taxGoodsListBox').style.display = 'none';
+    document.getElementById('taxRateListBox').style.display = 'none';
 }
+
+// 供应商下拉相关函数（复刻入库搜索逻辑）
+function showTaxSupplierList(){
+    renderTaxSupplierList(currTaxSupplierList);
+    document.getElementById('taxSupplierListBox').style.display = 'block';
+}
+function filterTaxSupplierList(){
+    let kw = document.getElementById('taxSupplierSearch').value.toLowerCase();
+    let filterList = currTaxSupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderTaxSupplierList(filterList);
+    document.getElementById('taxSupplierListBox').style.display = 'block';
+}
+function renderTaxSupplierList(list){
+    let box = document.getElementById('taxSupplierListBox');
+    box.innerHTML = '';
+    if(list.length === 0){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(sup=>{
+        let div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = sup;
+        div.onclick = function(){
+            document.getElementById('taxSupplierSearch').value = sup;
+            document.getElementById('taxSupplierListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 商品名称下拉相关函数（复刻入库搜索逻辑）
+function showTaxGoodsList(){
+    renderTaxGoodsList(currTaxGoodsList);
+    document.getElementById('taxGoodsListBox').style.display = 'block';
+}
+function filterTaxGoodsList(){
+    let kw = document.getElementById('taxGoodsSearch').value.toLowerCase();
+    let filterList = currTaxGoodsList.filter(g => g.name.toLowerCase().includes(kw));
+    renderTaxGoodsList(filterList);
+    document.getElementById('taxGoodsListBox').style.display = 'block';
+}
+function renderTaxGoodsList(list){
+    let box = document.getElementById('taxGoodsListBox');
+    box.innerHTML = '';
+    if(list.length === 0){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(goods=>{
+        let div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = goods.name;
+        div.onclick = function(){
+            document.getElementById('taxGoodsSearch').value = goods.name;
+            document.getElementById('taxGoodsListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 税率下拉相关函数（复刻入库搜索逻辑）
+function showTaxRateList(){
+    renderTaxRateList(currTaxRateOptionList);
+    document.getElementById('taxRateListBox').style.display = 'block';
+}
+function filterTaxRateList(){
+    let kw = document.getElementById('taxRateSearch').value.toLowerCase();
+    let filterList = currTaxRateOptionList.filter(item => item.text.toLowerCase().includes(kw));
+    renderTaxRateList(filterList);
+    document.getElementById('taxRateListBox').style.display = 'block';
+}
+function renderTaxRateList(list){
+    let box = document.getElementById('taxRateListBox');
+    box.innerHTML = '';
+    if(list.length === 0){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(item=>{
+        let div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = item.text;
+        div.dataset.taxVal = item.val;
+        div.onclick = function(){
+            document.getElementById('taxRateSearch').value = this.innerText;
+            document.getElementById('taxRateListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 多条件筛选刷新表格（点击按钮才执行，空条件默认查全部）
 function refreshTaxList() {
-    const filterSupplier = document.getElementById('taxSupplierFilter').value;
-    const supplierKeyword = document.getElementById('taxSupplierSearch').value.trim().toLowerCase();
-    const goodsKeyword = document.getElementById('taxGoodsSearch').value.trim().toLowerCase();
-    const taxKeyword = document.getElementById('taxValueSearch').value.trim();
-    const taxSelectVal = document.getElementById('taxRateFilter').value;
+    // 获取所有筛选条件
+    const selectSupplier = document.getElementById('taxSupplierSearch').value.trim();
+    const selectGoodsName = document.getElementById('taxGoodsSearch').value.trim();
+    const selectTaxText = document.getElementById('taxRateSearch').value.trim();
+    const filterChannel = document.getElementById('taxChannelFilter').value;
 
-    // 只展示线下渠道商品，过滤所有线上商品
-    let list = allGoodsList.filter(g => g.channel === '线下');
+    // 初始数据源：默认全部线下商品
+    let list = [...allGoodsList.filter(g => g.channel === '线下')];
 
-    // 供应商下拉精准筛选
-    if (filterSupplier) {
-        list = list.filter(g => g.supplier === filterSupplier);
-    }
-    // 供应商输入框模糊搜索
-    if (supplierKeyword) {
-        list = list.filter(g => g.supplier.toLowerCase().includes(supplierKeyword));
-    }
-    // 商品名称模糊搜索
-    if (goodsKeyword) {
-        list = list.filter(g => g.name.toLowerCase().includes(goodsKeyword));
+    // 条件1：供应商筛选（选了才过滤，空则不过滤）
+    if(selectSupplier){
+        list = list.filter(g => g.supplier === selectSupplier);
     }
 
-    // 税率筛选：下拉框（包含未设置）
-    if (taxSelectVal === '') {
-        // 选中【未设置】
-        list = list.filter(g => g.tax_rate === null || g.tax_rate === undefined || g.tax_rate === '');
-    } else if (taxSelectVal !== '') {
-        list = list.filter(g => String(g.tax_rate) === taxSelectVal);
-    }
-    // 税率输入框模糊搜索
-    if (taxKeyword) {
-        list = list.filter(g => {
-            const taxStr = g.tax_rate ? String(g.tax_rate) : '未设置';
-            return taxStr.includes(taxKeyword);
-        });
+    // 条件2：商品名称筛选
+    if(selectGoodsName){
+        list = list.filter(g => g.name === selectGoodsName);
     }
 
+    // 条件3：税率筛选
+    if(selectTaxText){
+        const targetTax = currTaxRateOptionList.find(item => item.text === selectTaxText);
+        if(targetTax){
+            if(targetTax.val === null){
+                // 筛选未设置税率
+                list = list.filter(g => g.tax_rate === null || g.tax_rate === undefined || g.tax_rate === '');
+            }else if(targetTax.val !== ''){
+                // 筛选指定税率
+                list = list.filter(g => String(g.tax_rate) === targetTax.val);
+            }
+            // val为空：全部税率，不筛选
+        }
+    }
+
+    // 条件4：结算方式筛选
+    if(filterChannel){
+        list = list.filter(g => g.channel === filterChannel);
+    }
+
+    // 渲染表格
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     list.forEach((item, idx) => {
@@ -202,6 +321,7 @@ function refreshTaxList() {
         </tr>`;
     });
 }
+
 function openTaxEdit(id) {
     document.getElementById('taxEditId').value = id;
     const row = allGoodsList.find(g => g.id === id);
