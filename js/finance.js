@@ -437,15 +437,71 @@ async function saveTaxData() {
 
 // ===================== ②入库单打印模块 =====================
 let printStockInData = [];
-// 打印样式 只打印预览区域，隐藏页面其他内容
+// 打印样式 适配A5纸、全边框、垂直居中、仅打印预览区域
 const printStyle = `
 <style type="text/css" media="print">
+    @page {
+        size: A5;
+        margin: 10mm;
+    }
     body * { visibility: hidden; }
     #printPreviewWrap, #printPreviewWrap * { visibility: visible; }
-    #printPreviewWrap { position: absolute; left: 0; top: 0; width: 100%; padding: 30px; }
+    #printPreviewWrap {
+        width: 100%;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 0;
+    }
+    .print-page {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 100vh;
+    }
     .page-break { page-break-after: always; }
-    table { width: 100%; border-collapse: collapse; }
-    th,td { border:1px solid #333; padding:6px; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+    }
+    th, td {
+        border: 1px solid #333 !important;
+        padding: 8px 6px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    th {
+        font-weight: bold;
+        background-color: #f5f5f5;
+    }
+    .total-row td {
+        font-weight: bold;
+        text-align: right;
+    }
+    .print-title {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .print-header-info {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    .print-sign {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 30px;
+        font-size: 14px;
+    }
 </style>
 `;
 
@@ -682,6 +738,7 @@ function searchPrintStockIn() {
 }
 
 // 预览打印（需求⑥：只打印入库单，按供应商分页、表头重复、跨页）
+// 预览打印 适配A5纸、新增录入日期列、完善合计、全边框、垂直居中
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) return showMsg('请选择需要打印的入库记录');
@@ -691,22 +748,23 @@ function previewAndPrint() {
     checkedBox.forEach(cb => {
         const idx = Number(cb.dataset.index);
         const row = printStockInData[idx];
-        if(!groupMap[row.supplier]) groupMap[row.supplier] = {list:[],date:row.record_date};
-        groupMap[row.supplier].list.push(row);
-        groupMap[row.supplier].date = row.record_date;
+        if(!groupMap[row.supplier]) groupMap[row.supplier] = [];
+        groupMap[row.supplier].push(row);
     });
 
     let printHtml = printStyle;
-    // 每个供应商单独一页
-    Object.entries(groupMap).forEach(([sup,data],idx,arr)=>{
+    // 每个供应商单独一页 适配A5纸
+    Object.entries(groupMap).forEach(([sup, dataList], idx, arr)=>{
         let sumNum = 0, sumAmount = 0;
         let tableBody = '';
-        data.list.forEach(row=>{
+        // 生成表格行 第一列为录入日期
+        dataList.forEach(row=>{
             const rowAmt = Number(row.in_price)*Number(row.in_num);
             sumNum += Number(row.in_num);
             sumAmount += rowAmt;
             tableBody += `
             <tr>
+                <td>${row.record_date}</td>
                 <td>${row.goodsName}</td>
                 <td>${row.spec||''}</td>
                 <td>${Number(row.in_price).toFixed(2)}</td>
@@ -714,38 +772,42 @@ function previewAndPrint() {
                 <td>${rowAmt.toFixed(2)}</td>
             </tr>`;
         });
-        // 单个供应商入库单
+        // 单个供应商入库单 适配A5纸垂直居中
         printHtml += `
-        <div style="width:100%;">
-            <h2 style="text-align:center;">商品入库单</h2>
-            <p>供应商：${sup}　　入库日期：${data.date}</p>
+        <div class="print-page ${idx !== arr.length-1 ? 'page-break' : ''}">
+            <div class="print-title">商品入库单</div>
+            <div class="print-header-info">
+                <span>供应商：${sup}</span>
+                <span>打印日期：${new Date().toLocaleDateString()}</span>
+            </div>
             <table border="1" cellpadding="6" cellspacing="0" width="100%">
                 <thead>
                     <tr>
+                        <th>录入日期</th>
                         <th>商品名称</th>
                         <th>规格</th>
                         <th>含税单价</th>
                         <th>入库数量</th>
-                        <th>含税总金额</th>
+                        <th>含税金额</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${tableBody}
                 </tbody>
                 <tfoot>
-                    <tr>
-                        <td colspan="4" align="right"><strong>合计金额：</strong></td>
+                    <tr class="total-row">
+                        <td colspan="4"><strong>合计：</strong></td>
+                        <td>${sumNum}</td>
                         <td>${sumAmount.toFixed(2)}</td>
                     </tr>
                 </tfoot>
             </table>
-            <div style="margin-top:40px;display:flex;justify-content:space-between;">
+            <div class="print-sign">
                 <p>采购员签字：________________</p>
                 <p>仓库管理员签字：________________</p>
                 <p>财务审核签字：________________</p>
             </div>
         </div>
-        ${idx !== arr.length-1 ? '<div class="page-break"></div>' : ''}
         `;
     });
 
@@ -756,7 +818,6 @@ function previewAndPrint() {
     window.print();
     previewDom.style.display = 'none';
 }
-
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
