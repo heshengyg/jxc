@@ -732,7 +732,6 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// ===================== ②入库单打印模块 - 终极手动分页+固定页脚 =====================
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) {
@@ -740,7 +739,6 @@ function previewAndPrint() {
         return;
     }
 
-    // 按供应商分组
     const groupMap = {};
     checkedBox.forEach(cb => {
         const idx = parseInt(cb.dataset.index);
@@ -750,113 +748,88 @@ function previewAndPrint() {
         groupMap[row.supplier].push(row);
     });
 
-    // 每页最多显示的行数（根据A5高度调整）
     const ROWS_PER_PAGE = 12;
+    let allPagesHTML = '';
+    const supplierNames = Object.keys(groupMap);
 
-    // 收集所有页面块
-    const pageBlocks = [];
-    const supplierList = Object.keys(groupMap);
-
-    supplierList.forEach(supplier => {
+    supplierNames.forEach(supplier => {
         const rows = groupMap[supplier];
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-        // 按 ROWS_PER_PAGE 拆分
-        for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
-            const chunk = rows.slice(i, i + ROWS_PER_PAGE);
-            const isLastSupplier = (supplier === supplierList[supplierList.length - 1]);
-            const isLastBlock = (i + ROWS_PER_PAGE >= rows.length);
-            pageBlocks.push({
-                supplier,
-                rows: chunk,
-                isLastSupplier,
-                isLastBlock
-            });
-        }
-    });
-
-    const totalPages = pageBlocks.length;
-
-    // 构建所有页面HTML
-    let billHTML = '';
-    pageBlocks.forEach((block, index) => {
-        const { supplier, rows, isLastBlock } = block;
-        const pageNum = index + 1;
-
-        let totalQty = 0, totalAmount = 0;
-        let tableRows = '';
-
-        rows.forEach(row => {
-            const price = Number(row.in_price) || 0;
-            const qty = Number(row.in_num) || 0;
-            const amount = price * qty;
-            totalQty += qty;
-            totalAmount += amount;
-            const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
-
-            tableRows += `
-                <tr>
-                    <td>${date}</td>
-                    <td>${supplier}</td>
-                    <td>${row.goodsName || ''}</td>
-                    <td>${row.spec || ''}</td>
-                    <td>￥${price.toFixed(2)}</td>
-                    <td>${qty}</td>
-                    <td>￥${amount.toFixed(2)}</td>
-                </tr>
-            `;
+        // 计算该供应商总页数
+        const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
+        // 汇总数据（全局，用于最后一页显示）
+        let supTotalQty = 0, supTotalAmount = 0;
+        rows.forEach(r => {
+            supTotalQty += Number(r.in_num);
+            supTotalAmount += Number(r.in_price) * Number(r.in_num);
         });
 
-        // 如果是该供应商的最后一块，添加汇总行
-        if (isLastBlock) {
-            // 重新计算总数量和总金额（因为前面已累加，直接用累加值）
-            // 注意：上面累加的是当前块的数据，不是全部，需要重新计算整个供应商的总数
-            // 所以我们重新计算整个供应商的数据
-            const allRows = groupMap[supplier];
-            let supTotalQty = 0, supTotalAmount = 0;
-            allRows.forEach(r => {
-                supTotalQty += Number(r.in_num);
-                supTotalAmount += Number(r.in_price) * Number(r.in_num);
+        for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
+            const chunk = rows.slice(i, i + ROWS_PER_PAGE);
+            const pageNum = Math.floor(i / ROWS_PER_PAGE) + 1;
+            const isLastPage = (pageNum === totalPages);
+
+            let tableRows = '';
+            chunk.forEach(row => {
+                const price = Number(row.in_price) || 0;
+                const qty = Number(row.in_num) || 0;
+                const amount = price * qty;
+                const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
+                tableRows += `
+                    <tr>
+                        <td>${date}</td>
+                        <td>${supplier}</td>
+                        <td>${row.goodsName || ''}</td>
+                        <td>${row.spec || ''}</td>
+                        <td>￥${price.toFixed(2)}</td>
+                        <td>${qty}</td>
+                        <td>￥${amount.toFixed(2)}</td>
+                    </tr>
+                `;
             });
-            tableRows += `
-                <tr class="total-row">
-                    <td colspan="5" class="total-label">${supplier} 汇总</td>
-                    <td class="total-qty">${supTotalQty}</td>
-                    <td class="total-amount">￥${supTotalAmount.toFixed(2)}</td>
-                </tr>
+
+            // 如果是该供应商的最后一页，添加汇总行
+            if (isLastPage) {
+                tableRows += `
+                    <tr class="total-row">
+                        <td colspan="5" class="total-label">${supplier} 汇总</td>
+                        <td class="total-qty">${supTotalQty}</td>
+                        <td class="total-amount">￥${supTotalAmount.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+
+            // 构建单个页面块（每个供应商的页面独立计数）
+            const pageBreak = (i + ROWS_PER_PAGE >= rows.length && supplier === supplierNames[supplierNames.length - 1]) ? '' : 'page-break-after: always;';
+
+            allPagesHTML += `
+                <div class="page-block" style="${pageBreak}">
+                    <div class="bill-title">商品入库单</div>
+                    <div class="bill-header">
+                        <span><span class="label">供应商：</span>${supplier}</span>
+                        <span><span class="label">打印日期：</span>${new Date().toLocaleDateString('zh-CN')}</span>
+                    </div>
+                    <table class="goods-table">
+                        <thead>
+                            <tr>
+                                <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
+                                <th>入库价</th><th>数量</th><th>金额（含税）</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                    <div class="bill-footer">
+                        <span>库管员签字：___________</span>
+                        <span>业务员签字：___________</span>
+                        <span>财务审核签字：___________</span>
+                        <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
+                    </div>
+                </div>
             `;
         }
-
-        // 分页控制（最后一个不加分页符）
-        const pageBreak = (index === totalPages - 1) ? '' : 'page-break-after: always;';
-
-        billHTML += `
-            <div class="page-block" style="${pageBreak}">
-                <div class="bill-title">商品入库单</div>
-                <div class="bill-header">
-                    <span><span class="label">供应商：</span>${supplier}</span>
-                    <span><span class="label">打印日期：</span>${new Date().toLocaleDateString('zh-CN')}</span>
-                </div>
-                <table class="goods-table">
-                    <thead>
-                        <tr>
-                            <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
-                            <th>入库价</th><th>数量</th><th>金额（含税）</th>
-                        </tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
-                <div class="bill-footer">
-                    <span>库管员签字：___________</span>
-                    <span>业务员签字：___________</span>
-                    <span>财务审核签字：___________</span>
-                    <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
-                </div>
-            </div>
-        `;
     });
 
-    // 完整HTML
     const fullHTML = `
     <!DOCTYPE html>
     <html>
@@ -875,7 +848,7 @@ function previewAndPrint() {
         }
         @page {
             size: A5 landscape;
-            margin: 1.6cm 1.1cm 1.2cm 1.0cm; /* 上 右 下 左 */
+            margin: 1.6cm 1.1cm 1.2cm 1.0cm;
         }
 
         .print-container {
@@ -883,16 +856,15 @@ function previewAndPrint() {
             height: 100%;
         }
 
-        /* 每个页面块占满整页，使用flex列布局 */
         .page-block {
             width: 100%;
             height: 100%;
-            display: flex;
-            flex-direction: column;
+            position: relative;   /* 让页脚绝对定位 */
+            padding-bottom: 2.2cm; /* 为页脚预留空间（约40px） */
             page-break-after: always;
-            padding: 0;
             margin: 0;
-            position: relative;
+            padding-left: 0;
+            padding-right: 0;
         }
         .page-block:last-child {
             page-break-after: avoid;
@@ -905,7 +877,6 @@ function previewAndPrint() {
             letter-spacing: 6px;
             margin: 0 0 4px 0;
             padding: 0;
-            flex-shrink: 0;
         }
         .bill-header {
             display: flex;
@@ -913,16 +884,16 @@ function previewAndPrint() {
             font-size: 12pt;
             margin-bottom: 4px;
             padding: 0 2px;
-            flex-shrink: 0;
         }
         .bill-header .label { font-weight: bold; }
 
+        /* 表格：宽度100%，列宽固定，不拉伸行高 */
         .goods-table {
             width: 100% !important;
             border-collapse: collapse;
             font-size: 11pt;
             table-layout: fixed;
-            flex: 1;  /* 撑开剩余空间，将页脚推到底部 */
+            margin-bottom: 0;  /* 让页脚独立 */
         }
         .goods-table th, .goods-table td {
             border: 1px solid #000;
@@ -930,6 +901,7 @@ function previewAndPrint() {
             text-align: center;
             font-size: 11pt;
             word-break: break-word;
+            height: auto;      /* 不固定高度，由内容撑开 */
         }
         .goods-table th {
             border: 2px solid #000;
@@ -958,14 +930,17 @@ function previewAndPrint() {
             padding-right: 8px;
         }
 
+        /* 页脚：绝对定位到底部（距底部0.6cm，在页边距内） */
         .bill-footer {
+            position: absolute;
+            bottom: 0.6cm;
+            left: 0;
+            right: 0;
             display: flex;
             justify-content: space-between;
             font-size: 12pt;
             padding: 4px 4px 0 4px;
             border-top: 1px solid #000;
-            flex-shrink: 0;
-            margin-top: 4px;
         }
         .bill-footer span {
             min-width: 80px;
@@ -979,17 +954,18 @@ function previewAndPrint() {
         @media screen {
             .page-block {
                 border: 1px dashed #ccc;
-                padding: 12px 18px;
+                padding: 12px 18px 2.2cm 18px;
                 margin: 20px auto;
                 max-width: 1100px;
                 min-height: 600px;
                 background: #fefefe;
+                position: relative;
             }
             body { padding: 20px; background: #f0f2f5; }
             .print-container { max-width: 1100px; margin: 0 auto; }
+            .bill-footer { position: absolute; bottom: 0.6cm; left: 18px; right: 18px; }
         }
 
-        /* 打印时强制覆盖 */
         @media print {
             html, body, .print-container, .page-block {
                 margin: 0 !important;
@@ -1001,20 +977,23 @@ function previewAndPrint() {
             .page-block {
                 border: none !important;
                 page-break-after: always;
+                padding-bottom: 2.2cm !important;
             }
             .page-block:last-child { page-break-after: avoid; }
             .bill-title { margin-top: 0 !important; padding-top: 0 !important; }
             .goods-table { width: 100% !important; }
             .bill-footer { 
+                bottom: 0.6cm !important;
                 border-top: 1px solid #000;
-                margin-top: 4px;
             }
+            /* 防止表格被拉伸 */
+            .goods-table td, .goods-table th { height: auto !important; }
         }
     </style>
     </head>
     <body>
         <div class="print-container">
-            ${billHTML}
+            ${allPagesHTML}
         </div>
         <script>
             window.onload = function() {
