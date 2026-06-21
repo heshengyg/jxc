@@ -732,7 +732,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// ===================== ②入库单打印模块 - 重写打印预览 =====================
+// ===================== ②入库单打印模块 - 重写打印预览（优化边距与顶部对齐） =====================
 function previewAndPrint() {
     // 1. 获取选中的记录
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
@@ -837,13 +837,14 @@ function previewAndPrint() {
     <meta charset="UTF-8">
     <title>入库单打印预览</title>
     <style>
-        /* ---------- 全局重置 ---------- */
+        /* ---------- 全局重置：消除默认边距，确保顶部无空白 ---------- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: "SimSun", "宋体", serif;
             background: #fff;
             margin: 0;
             padding: 0;
+            width: 100%;
         }
 
         /* ---------- 页面设置（A5横向 + 指定边距） ---------- */
@@ -853,13 +854,14 @@ function previewAndPrint() {
             margin-bottom: 1.2cm;
             margin-left: 1.0cm;
             margin-right: 1.1cm;
+            marks: none;
         }
 
         /* ---------- 打印容器 ---------- */
         .print-container {
             width: 100%;
             max-width: 100%;
-            margin: 0 auto;
+            margin: 0;
             padding: 0;
         }
 
@@ -875,14 +877,14 @@ function previewAndPrint() {
             page-break-after: avoid;
         }
 
-        /* ---------- 标题 ---------- */
+        /* ---------- 标题：上边距为0，紧贴顶部 ---------- */
         .bill-title {
             text-align: center;
             font-size: 22pt;
             font-weight: bold;
-            margin: 0 0 12px 0;
+            margin: 0 0 6px 0;   /* 减小下边距，整体上移 */
             letter-spacing: 8px;
-            padding-top: 2px;
+            padding-top: 0;
         }
 
         /* ---------- 表头（供应商 + 日期） ---------- */
@@ -890,20 +892,20 @@ function previewAndPrint() {
             display: flex;
             justify-content: space-between;
             font-size: 12pt;
-            margin-bottom: 10px;
+            margin-bottom: 6px;   /* 减小下边距 */
             padding: 0 2px;
         }
         .bill-header .label {
             font-weight: bold;
         }
 
-        /* ---------- 表格 ---------- */
+        /* ---------- 表格：占满整页宽度，水平居中 ---------- */
         .goods-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 10.5pt;
             table-layout: fixed;
-            margin: 0 auto;
+            margin: 0 auto;       /* 水平居中（虽然宽度100%，但保险） */
         }
         .goods-table th {
             border: 2px solid #000;
@@ -921,7 +923,7 @@ function previewAndPrint() {
             word-break: break-word;
         }
 
-        /* ---------- 列宽分配（保证填满整页、水平居中） ---------- */
+        /* ---------- 列宽分配（精确比例，总和100%，填满A5横向） ---------- */
         .goods-table .col-date     { width: 13%; }
         .goods-table .col-supplier { width: 14%; }
         .goods-table .col-goods    { width: 22%; }
@@ -950,7 +952,7 @@ function previewAndPrint() {
         .bill-footer {
             display: flex;
             justify-content: space-between;
-            margin-top: 18px;
+            margin-top: 12px;     /* 保持适当间距 */
             font-size: 12pt;
             padding: 0 4px;
         }
@@ -963,7 +965,7 @@ function previewAndPrint() {
         @media screen {
             .supplier-bill {
                 border: 1px dashed #ccc;
-                padding: 16px 18px;
+                padding: 10px 18px;  /* 屏幕预览保留一点内边距，但打印时重置为0 */
                 margin: 20px auto;
                 border-radius: 6px;
                 max-width: 1100px;
@@ -982,11 +984,16 @@ function previewAndPrint() {
             }
         }
 
-        /* ---------- 打印时隐藏屏幕辅助元素 ---------- */
+        /* ---------- 打印时强制重置所有外边距内边距 ---------- */
         @media print {
             body {
                 padding: 0 !important;
                 background: #fff !important;
+                margin: 0 !important;
+            }
+            .print-container {
+                padding: 0 !important;
+                margin: 0 !important;
             }
             .supplier-bill {
                 border: none !important;
@@ -994,6 +1001,11 @@ function previewAndPrint() {
                 margin: 0 !important;
                 border-radius: 0 !important;
                 background: #fff !important;
+            }
+            /* 确保标题顶部无额外空隙 */
+            .bill-title {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
             }
         }
     </style>
@@ -1028,6 +1040,7 @@ function previewAndPrint() {
     win.document.close();
     win.focus();
 }
+
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
