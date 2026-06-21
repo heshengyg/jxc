@@ -732,6 +732,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
+// ===================== ②入库单打印模块 - 最终绝对定位版（强制占满） =====================
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) {
@@ -744,9 +745,7 @@ function previewAndPrint() {
         const idx = parseInt(cb.dataset.index);
         const row = printStockInData[idx];
         if (!row) return;
-        if (!groupMap[row.supplier]) {
-            groupMap[row.supplier] = [];
-        }
+        if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
         groupMap[row.supplier].push(row);
     });
 
@@ -757,7 +756,9 @@ function previewAndPrint() {
         const rows = groupMap[supplier];
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-        let totalQty = 0, totalAmount = 0, tableRows = '';
+        let totalQty = 0, totalAmount = 0;
+        let tableRows = '';
+
         rows.forEach(row => {
             const price = Number(row.in_price) || 0;
             const qty = Number(row.in_num) || 0;
@@ -765,6 +766,7 @@ function previewAndPrint() {
             totalQty += qty;
             totalAmount += amount;
             const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
+
             tableRows += `
                 <tr>
                     <td>${date}</td>
@@ -786,7 +788,8 @@ function previewAndPrint() {
             </tr>
         `;
 
-        const pageBreak = index === supplierList.length - 1 ? 'page-break-after: avoid;' : 'page-break-after: always;';
+        const pageBreak = index === supplierList.length - 1 ? '' : 'page-break-after: always;';
+
         billHTML += `
             <div class="supplier-bill" style="${pageBreak}">
                 <div class="bill-title">商品入库单</div>
@@ -796,17 +799,18 @@ function previewAndPrint() {
                 </div>
                 <table class="goods-table">
                     <colgroup>
-                        <col class="col-date">
-                        <col class="col-supplier">
-                        <col class="col-goods">
-                        <col class="col-spec">
-                        <col class="col-price">
-                        <col class="col-qty">
-                        <col class="col-amount">
+                        <col style="width:25mm;">
+                        <col style="width:27mm;">
+                        <col style="width:42mm;">
+                        <col style="width:27mm;">
+                        <col style="width:22mm;">
+                        <col style="width:18mm;">
+                        <col style="width:28mm;">
                     </colgroup>
                     <thead>
                         <tr>
-                            <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th><th>入库价</th><th>数量</th><th>金额（含税）</th>
+                            <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
+                            <th>入库价</th><th>数量</th><th>金额（含税）</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -821,152 +825,161 @@ function previewAndPrint() {
     });
 
     const fullHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>入库单打印</title>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { 
-    font-family: "SimSun", "宋体", serif; 
-    background:#fff; 
-    margin:0; 
-    padding:0; 
-    width:100%; 
-}
-/* 大幅缩小边距，让内容区域更大 */
-@page {
-    size: A5 landscape;
-    margin-top: 0.8cm;
-    margin-bottom: 0.8cm;
-    margin-left: 0.5cm;
-    margin-right: 0.5cm;
-}
-.print-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-.supplier-bill {
-    width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    page-break-inside: avoid;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh; /* 使内容撑满页面高度，方便底部定位 */
-}
-.supplier-bill:last-child { page-break-after: avoid; }
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <title>入库单打印</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            font-family: "SimSun", "宋体", serif;
+        }
+        @page {
+            size: A5 landscape;
+            margin: 1.6cm 1.1cm 1.2cm 1.0cm; /* 上 右 下 左 */
+        }
 
-.bill-title {
-    text-align: center;
-    font-size: 22pt;
-    font-weight: bold;
-    margin: 0 0 2px 0;
-    letter-spacing: 6px;
-    padding-top: 0;
-}
-.bill-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12pt;
-    margin-bottom: 2px;
-    padding: 0 2px;
-}
-.bill-header .label { font-weight: bold; }
+        .print-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
 
-/* 表格：宽度设为110% 强制溢出页面宽度，让浏览器自动缩放以适应，从而横向填满 */
-.goods-table {
-    width: 110% !important;
-    max-width: 110% !important;
-    border-collapse: collapse;
-    font-size: 11pt;
-    table-layout: fixed !important;
-    margin: 0 -5% 0 -5% !important; /* 负边距抵消溢出，但实际会撑宽 */
-}
-/* 列宽定义（总和100%，但表格宽110%，各列会相应拉伸） */
-.col-date     { width: 13%; }
-.col-supplier { width: 14%; }
-.col-goods    { width: 22%; }
-.col-spec     { width: 14%; }
-.col-price    { width: 11%; }
-.col-qty      { width: 10%; }
-.col-amount   { width: 16%; }
+        .supplier-bill {
+            width: 100%;
+            height: 100%;          /* 占满容器高度 */
+            position: relative;
+            padding: 0;
+            margin: 0;
+            page-break-after: always;
+            display: flex;
+            flex-direction: column;
+        }
+        .supplier-bill:last-child {
+            page-break-after: avoid;
+        }
 
-.goods-table th, .goods-table td {
-    border: 1px solid #000;
-    padding: 4px 2px;
-    text-align: center;
-    font-size: 11pt;
-}
-.goods-table th {
-    background: #f5f5f5;
-    font-weight: bold;
-    border-width: 2px;
-}
-.total-row td {
-    border-top: 2px solid #000;
-    font-weight: bold;
-    background: #fafafa;
-}
-.total-label { text-align: right; padding-right: 8px; }
-.total-qty, .total-amount { text-align: center; }
+        .bill-title {
+            text-align: center;
+            font-size: 22pt;
+            font-weight: bold;
+            letter-spacing: 6px;
+            margin: 0 0 3px 0;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        .bill-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12pt;
+            margin-bottom: 3px;
+            padding: 0 2px;
+            flex-shrink: 0;
+        }
+        .bill-header .label { font-weight: bold; }
 
-/* 页脚固定在底部 */
-.bill-footer {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12pt;
-    padding: 0 4px;
-    margin-top: auto; /* 关键：将页脚推到底部 */
-    margin-bottom: 0;
-}
-.bill-footer span { min-width: 80px; }
+        /* 表格占满剩余高度，但宽度固定100% */
+        .goods-table {
+            width: 100% !important;
+            border-collapse: collapse;
+            font-size: 11pt;
+            table-layout: fixed;   /* 配合col的固定宽度 */
+            flex: 1;              /* 撑开剩余空间 */
+        }
+        .goods-table th {
+            border: 2px solid #000;
+            padding: 4px 2px;
+            background: #f5f5f5;
+            font-weight: bold;
+            text-align: center;
+            font-size: 12pt;
+        }
+        .goods-table td {
+            border: 1px solid #000;
+            padding: 3px 2px;
+            text-align: center;
+            font-size: 11pt;
+            word-break: break-word;
+        }
 
-/* 屏幕预览辅助 */
-@media screen {
-    .supplier-bill { border:1px dashed #ccc; padding:10px; margin:20px auto; max-width:1100px; background:#fefefe; }
-    body { padding:20px; background:#f0f2f5; }
-    .print-container { max-width:1100px; margin:0 auto; }
-}
+        /* 汇总行 */
+        .goods-table .total-row td {
+            border-top: 2px solid #000;
+            font-weight: bold;
+            background: #fafafa;
+            font-size: 12pt;
+        }
+        .goods-table .total-label {
+            text-align: right;
+            padding-right: 8px;
+        }
 
-/* 打印强制 */
-@media print {
-    body, .print-container, .supplier-bill {
-        padding: 0 !important;
-        margin: 0 !important;
-        background: #fff !important;
-    }
-    .supplier-bill { border: none !important; min-height: 100vh; }
-    .bill-title { margin-top:0 !important; padding-top:0 !important; }
-    .goods-table {
-        width: 110% !important;
-        margin: 0 -5% !important;
-    }
-    /* 列宽强制 */
-    .col-date     { width: 13% !important; }
-    .col-supplier { width: 14% !important; }
-    .col-goods    { width: 22% !important; }
-    .col-spec     { width: 14% !important; }
-    .col-price    { width: 11% !important; }
-    .col-qty      { width: 10% !important; }
-    .col-amount   { width: 16% !important; }
-    .bill-footer { margin-top: auto !important; }
-}
-</style>
-</head>
-<body>
-<div class="print-container">
-    ${billHTML}
-</div>
-<script>
-    window.onload = function() { setTimeout(window.print, 500); };
-    window.onafterprint = function() { window.close(); };
-</script>
-</body>
-</html>
+        /* 页脚：固定在底部 */
+        .bill-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12pt;
+            padding: 6px 4px 0 4px;
+            border-top: 1px solid #000;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        .bill-footer span {
+            min-width: 100px;
+        }
+
+        /* 屏幕预览辅助 */
+        @media screen {
+            .supplier-bill {
+                border: 1px dashed #ccc;
+                padding: 10px 15px;
+                margin: 20px auto;
+                max-width: 1100px;
+                min-height: 600px;
+                background: #fefefe;
+            }
+            body { padding: 20px; background: #f0f2f5; }
+            .print-container { max-width: 1100px; margin: 0 auto; }
+        }
+
+        /* 打印时强制清理 */
+        @media print {
+            html, body, .print-container, .supplier-bill {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                height: 100% !important;
+            }
+            .supplier-bill {
+                border: none !important;
+                page-break-after: always;
+            }
+            .supplier-bill:last-child {
+                page-break-after: avoid;
+            }
+            .bill-title { margin-top: 0 !important; padding-top: 0 !important; }
+            .goods-table { width: 100% !important; }
+        }
+    </style>
+    </head>
+    <body>
+        <div class="print-container">
+            ${billHTML}
+        </div>
+        <script>
+            window.onload = function() {
+                setTimeout(function() { window.print(); }, 300);
+            };
+            window.onafterprint = function() { window.close(); };
+        <\/script>
+    </body>
+    </html>
     `;
 
     const win = window.open('', '_blank', 'width=1000,height=750,scrollbars=yes,resizable=yes');
