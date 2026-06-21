@@ -114,17 +114,27 @@ function renderFinancePagination(pageKey) {
 function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].pageSize = Number(size);
     financePageConfig[pageKey].current = 1;
-    initCurrentSubPage();
+    if (pageKey === 'stockInPrint') {
+        searchPrintStockIn();
+    } else {
+        initCurrentSubPage();
+    }
 }
 
 // 跳转指定页
 function financeGoToPage(pageKey, targetPage) {
     const cfg = financePageConfig[pageKey];
     const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
-    if(targetPage < 1 || targetPage > totalPages) return;
+    if (targetPage < 1 || targetPage > totalPages) return;
     cfg.current = targetPage;
-    initCurrentSubPage();
+    // 特殊处理入库单打印：直接刷新数据，避免重置
+    if (pageKey === 'stockInPrint') {
+        searchPrintStockIn();
+    } else {
+        initCurrentSubPage();
+    }
 }
+
 
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
@@ -655,6 +665,7 @@ function clearPrintSort(){
 }
 
 // 筛选查询主函数
+// 筛选查询主函数（添加统计信息）
 function searchPrintStockIn() {
     financePageConfig.stockInPrint.current = 1;
     const supplier = document.getElementById('printSupplierSearch').value.trim();
@@ -669,6 +680,20 @@ function searchPrintStockIn() {
     if (spec) list = list.filter(i => (i.spec || '').toLowerCase().includes(spec));
     if (start) list = list.filter(i => i.record_date >= start);
     if (end) list = list.filter(i => i.record_date <= end);
+
+    // ---------- 新增：统计信息 ----------
+    const totalAll = allStockInList.filter(item => item.settleType === '线下').length;
+    const oldStat = document.getElementById('printStatBar');
+    if (oldStat) oldStat.remove();
+    const statDiv = document.createElement('div');
+    statDiv.id = 'printStatBar';
+    statDiv.style.cssText = 'margin:10px 0; font-size:14px; color:#333;';
+    statDiv.innerHTML = `共 <strong>${totalAll}</strong> 条入库数据，当前搜索结果 <strong>${list.length}</strong> 条`;
+    const container = document.querySelector('.table-container');
+    if (container) {
+        container.parentNode.insertBefore(statDiv, container);
+    }
+    // ---------- 统计信息结束 ----------
 
     // 排序处理
     const cfg = financePageConfig.stockInPrint;
@@ -687,7 +712,7 @@ function searchPrintStockIn() {
     const startIdx = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
 
-    // 表格渲染（需求②：新增序列列）
+    // 表格渲染
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
@@ -710,7 +735,7 @@ function searchPrintStockIn() {
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = this.checked);
     }
 
-    // 需求⑤：供应商汇总行渲染
+    // 供应商汇总行渲染
     const groupMap = {};
     list.forEach(row=>{
         if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
@@ -731,7 +756,6 @@ function searchPrintStockIn() {
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
-
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) {
@@ -756,9 +780,7 @@ function previewAndPrint() {
         const rows = groupMap[supplier];
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-        // 计算该供应商总页数
         const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-        // 汇总数据（全局，用于最后一页显示）
         let supTotalQty = 0, supTotalAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.in_num);
@@ -789,7 +811,6 @@ function previewAndPrint() {
                 `;
             });
 
-            // 如果是该供应商的最后一页，添加汇总行
             if (isLastPage) {
                 tableRows += `
                     <tr class="total-row">
@@ -800,7 +821,6 @@ function previewAndPrint() {
                 `;
             }
 
-            // 构建单个页面块（每个供应商的页面独立计数）
             const pageBreak = (i + ROWS_PER_PAGE >= rows.length && supplier === supplierNames[supplierNames.length - 1]) ? '' : 'page-break-after: always;';
 
             allPagesHTML += `
@@ -859,8 +879,8 @@ function previewAndPrint() {
         .page-block {
             width: 100%;
             height: 100%;
-            position: relative;   /* 让页脚绝对定位 */
-            padding-bottom: 2.2cm; /* 为页脚预留空间（约40px） */
+            position: relative;
+            padding-bottom: 2.2cm;
             page-break-after: always;
             margin: 0;
             padding-left: 0;
@@ -887,13 +907,12 @@ function previewAndPrint() {
         }
         .bill-header .label { font-weight: bold; }
 
-        /* 表格：宽度100%，列宽固定，不拉伸行高 */
         .goods-table {
             width: 100% !important;
             border-collapse: collapse;
             font-size: 11pt;
             table-layout: fixed;
-            margin-bottom: 0;  /* 让页脚独立 */
+            margin-bottom: 0;
         }
         .goods-table th, .goods-table td {
             border: 1px solid #000;
@@ -901,7 +920,7 @@ function previewAndPrint() {
             text-align: center;
             font-size: 11pt;
             word-break: break-word;
-            height: auto;      /* 不固定高度，由内容撑开 */
+            height: auto;
         }
         .goods-table th {
             border: 2px solid #000;
@@ -910,7 +929,6 @@ function previewAndPrint() {
             font-size: 12pt;
         }
 
-        /* 列宽百分比（总和100%） */
         .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 13%; }
         .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
         .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
@@ -930,7 +948,7 @@ function previewAndPrint() {
             padding-right: 8px;
         }
 
-        /* 页脚：绝对定位到底部（距底部0.6cm，在页边距内） */
+        /* ----- 去掉签字上方的横线（原 border-top 已移除） ----- */
         .bill-footer {
             position: absolute;
             bottom: 0.6cm;
@@ -940,7 +958,7 @@ function previewAndPrint() {
             justify-content: space-between;
             font-size: 12pt;
             padding: 4px 4px 0 4px;
-            border-top: 1px solid #000;
+            /* border-top: 1px solid #000;   ← 已删除 */
         }
         .bill-footer span {
             min-width: 80px;
@@ -950,7 +968,6 @@ function previewAndPrint() {
             text-align: right;
         }
 
-        /* 屏幕预览辅助 */
         @media screen {
             .page-block {
                 border: 1px dashed #ccc;
@@ -984,9 +1001,8 @@ function previewAndPrint() {
             .goods-table { width: 100% !important; }
             .bill-footer { 
                 bottom: 0.6cm !important;
-                border-top: 1px solid #000;
+                /* border-top 已移除 */
             }
-            /* 防止表格被拉伸 */
             .goods-table td, .goods-table th { height: auto !important; }
         }
     </style>
