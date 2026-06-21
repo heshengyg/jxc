@@ -732,7 +732,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// ===================== ②入库单打印模块 - 最终优化版（强制占满A5横向） =====================
+// ===================== ②入库单打印模块 - 终极强制占满A5横向 =====================
 function previewAndPrint() {
     // 1. 获取选中的记录
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
@@ -778,23 +778,22 @@ function previewAndPrint() {
 
             tableRows += `
                 <tr>
-                    <td class="col-date">${date}</td>
-                    <td class="col-supplier">${supplier}</td>
-                    <td class="col-goods">${row.goodsName || ''}</td>
-                    <td class="col-spec">${row.spec || ''}</td>
-                    <td class="col-price">${priceStr}</td>
-                    <td class="col-qty">${qty}</td>
-                    <td class="col-amount">${amountStr}</td>
+                    <td>${date}</td>
+                    <td>${supplier}</td>
+                    <td>${row.goodsName || ''}</td>
+                    <td>${row.spec || ''}</td>
+                    <td>${priceStr}</td>
+                    <td>${qty}</td>
+                    <td>${amountStr}</td>
                 </tr>
             `;
         });
 
-        // 汇总行：前四列合并写“合计”，第五列留空，第六列总数量，第七列总金额（带￥）
+        // 汇总行：前5列合并显示“供应商汇总”，第6列总数量，第7列总金额
         const totalAmountStr = `￥${totalAmount.toFixed(2)}`;
         tableRows += `
             <tr class="total-row">
-                <td colspan="4" class="total-label">合计</td>
-                <td class="total-price"></td>
+                <td colspan="5" class="total-label">${supplier} 汇总</td>
                 <td class="total-qty">${totalQty}</td>
                 <td class="total-amount">${totalAmountStr}</td>
             </tr>
@@ -810,15 +809,25 @@ function previewAndPrint() {
                     <span><span class="label">打印日期：</span>${new Date().toLocaleDateString('zh-CN')}</span>
                 </div>
                 <table class="goods-table">
+                    <!-- 用 col 标签显式控制每列宽度百分比，确保占满 -->
+                    <colgroup>
+                        <col class="col-date">
+                        <col class="col-supplier">
+                        <col class="col-goods">
+                        <col class="col-spec">
+                        <col class="col-price">
+                        <col class="col-qty">
+                        <col class="col-amount">
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th class="col-date">入库日期</th>
-                            <th class="col-supplier">供应商</th>
-                            <th class="col-goods">商品名称</th>
-                            <th class="col-spec">规格</th>
-                            <th class="col-price">入库价</th>
-                            <th class="col-qty">数量</th>
-                            <th class="col-amount">金额（含税）</th>
+                            <th>入库日期</th>
+                            <th>供应商</th>
+                            <th>商品名称</th>
+                            <th>规格</th>
+                            <th>入库价</th>
+                            <th>数量</th>
+                            <th>金额（含税）</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -832,7 +841,7 @@ function previewAndPrint() {
         `;
     });
 
-    // 4. 组装完整 HTML（样式大幅强化，强制占满横向）
+    // 4. 组装完整 HTML（样式采用最强制方式）
     const fullHTML = `
     <!DOCTYPE html>
     <html>
@@ -876,7 +885,7 @@ function previewAndPrint() {
             page-break-after: avoid;
         }
 
-        /* ----- 标题、表头（极紧凑） ----- */
+        /* ----- 标题、表头（极紧凑，上边距为0） ----- */
         .bill-title {
             text-align: center;
             font-size: 24pt;
@@ -896,15 +905,24 @@ function previewAndPrint() {
             font-weight: bold;
         }
 
-        /* ----- 表格：强制占满100%，固定列宽 ----- */
+        /* ----- 表格：强制100%宽度，使用固定列宽 ----- */
         .goods-table {
             width: 100% !important;
             max-width: 100% !important;
             border-collapse: collapse;
-            font-size: 12pt;          /* 加大字体 */
+            font-size: 12pt;
             table-layout: fixed !important;
             margin: 0 auto;
         }
+        /* 用 col 定义宽度（百分比总和100%） */
+        .col-date     { width: 13%; }
+        .col-supplier { width: 14%; }
+        .col-goods    { width: 22%; }
+        .col-spec     { width: 14%; }
+        .col-price    { width: 11%; }
+        .col-qty      { width: 10%; }
+        .col-amount   { width: 16%; }
+
         .goods-table th {
             border: 2px solid #000;
             padding: 5px 3px;
@@ -922,15 +940,6 @@ function previewAndPrint() {
             white-space: normal;
         }
 
-        /* 列宽比例（总和100%） */
-        .goods-table .col-date     { width: 13%; }
-        .goods-table .col-supplier { width: 14%; }
-        .goods-table .col-goods    { width: 22%; }
-        .goods-table .col-spec     { width: 14%; }
-        .goods-table .col-price    { width: 11%; }
-        .goods-table .col-qty      { width: 10%; }
-        .goods-table .col-amount   { width: 16%; }
-
         /* ----- 汇总行 ----- */
         .goods-table .total-row td {
             border-top: 2px solid #000;
@@ -941,9 +950,6 @@ function previewAndPrint() {
         .goods-table .total-label {
             text-align: right;
             padding-right: 10px;
-        }
-        .goods-table .total-price {
-            /* 留空 */
         }
         .goods-table .total-qty,
         .goods-table .total-amount {
@@ -983,7 +989,7 @@ function previewAndPrint() {
             }
         }
 
-        /* ----- 打印时强制清除所有额外边距，并确保表格占满 ----- */
+        /* ----- 打印时强制所有宽高及边距 ----- */
         @media print {
             body, .print-container, .supplier-bill {
                 padding: 0 !important;
@@ -1000,24 +1006,16 @@ function previewAndPrint() {
             }
             .goods-table {
                 width: 100% !important;
+                table-layout: fixed !important;
             }
-            /* 确保所有列宽百分比强制生效 */
-            .goods-table .col-date,
-            .goods-table .col-supplier,
-            .goods-table .col-goods,
-            .goods-table .col-spec,
-            .goods-table .col-price,
-            .goods-table .col-qty,
-            .goods-table .col-amount {
-                width: auto !important; /* 重置，下面用百分比覆盖 */
-            }
-            .goods-table .col-date     { width: 13% !important; }
-            .goods-table .col-supplier { width: 14% !important; }
-            .goods-table .col-goods    { width: 22% !important; }
-            .goods-table .col-spec     { width: 14% !important; }
-            .goods-table .col-price    { width: 11% !important; }
-            .goods-table .col-qty      { width: 10% !important; }
-            .goods-table .col-amount   { width: 16% !important; }
+            /* 强制每个列宽百分比 */
+            .col-date     { width: 13% !important; }
+            .col-supplier { width: 14% !important; }
+            .col-goods    { width: 22% !important; }
+            .col-spec     { width: 14% !important; }
+            .col-price    { width: 11% !important; }
+            .col-qty      { width: 10% !important; }
+            .col-amount   { width: 16% !important; }
         }
     </style>
     </head>
@@ -1049,6 +1047,7 @@ function previewAndPrint() {
     win.document.close();
     win.focus();
 }
+
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
