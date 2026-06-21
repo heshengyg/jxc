@@ -732,7 +732,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// ===================== ②入库单打印模块 - 重写打印预览（横向拉满 + 汇总对齐 + ￥符号） =====================
+// ===================== ②入库单打印模块 - 最终优化版（强制占满A5横向） =====================
 function previewAndPrint() {
     // 1. 获取选中的记录
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
@@ -759,7 +759,6 @@ function previewAndPrint() {
 
     supplierList.forEach((supplier, index) => {
         const rows = groupMap[supplier];
-        // 按入库日期升序排列
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
         let totalQty = 0;
@@ -774,7 +773,6 @@ function previewAndPrint() {
             totalAmount += amount;
             const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
 
-            // 金额加￥符号，保留两位小数
             const priceStr = `￥${price.toFixed(2)}`;
             const amountStr = `￥${amount.toFixed(2)}`;
 
@@ -791,7 +789,7 @@ function previewAndPrint() {
             `;
         });
 
-        // 汇总行：前四列合并写“合计”，第五列留空，第六列显示总数量（不带文字），第七列显示总金额（带￥）
+        // 汇总行：前四列合并写“合计”，第五列留空，第六列总数量，第七列总金额（带￥）
         const totalAmountStr = `￥${totalAmount.toFixed(2)}`;
         tableRows += `
             <tr class="total-row">
@@ -802,7 +800,6 @@ function previewAndPrint() {
             </tr>
         `;
 
-        // 每个供应商的单据容器（最后一个不加分页，避免多余空白页）
         const pageBreak = index === supplierList.length - 1 ? 'page-break-after: avoid;' : 'page-break-after: always;';
 
         billHTML += `
@@ -835,7 +832,7 @@ function previewAndPrint() {
         `;
     });
 
-    // 4. 组装完整 HTML（包含打印样式 + 自动打印脚本）
+    // 4. 组装完整 HTML（样式大幅强化，强制占满横向）
     const fullHTML = `
     <!DOCTYPE html>
     <html>
@@ -843,7 +840,7 @@ function previewAndPrint() {
     <meta charset="UTF-8">
     <title>入库单打印预览</title>
     <style>
-        /* ---------- 全局重置：消除默认边距 ---------- */
+        /* ----- 彻底重置 ----- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: "SimSun", "宋体", serif;
@@ -853,63 +850,59 @@ function previewAndPrint() {
             width: 100%;
         }
 
-        /* ---------- 页面设置（A5横向 + 指定边距） ---------- */
+        /* ----- A5横向 + 指定边距（上1.6，下1.2，左1.0，右1.1 cm） ----- */
         @page {
             size: A5 landscape;
             margin-top: 1.6cm;
             margin-bottom: 1.2cm;
             margin-left: 1.0cm;
             margin-right: 1.1cm;
-            marks: none;
         }
 
-        /* ---------- 打印容器 ---------- */
         .print-container {
-            width: 100%;
-            max-width: 100%;
-            margin: 0;
-            padding: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
-        /* ---------- 每个供应商单据 ---------- */
         .supplier-bill {
-            width: 100%;
-            padding: 0;
-            margin: 0;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
             page-break-inside: avoid;
         }
         .supplier-bill:last-child {
             page-break-after: avoid;
         }
 
-        /* ---------- 标题：紧贴顶部，无多余空隙 ---------- */
+        /* ----- 标题、表头（极紧凑） ----- */
         .bill-title {
             text-align: center;
-            font-size: 22pt;
+            font-size: 24pt;
             font-weight: bold;
-            margin: 0 0 4px 0;      /* 下边距极小，上边距为0 */
+            margin: 0 0 4px 0;
             letter-spacing: 8px;
             padding-top: 0;
         }
-
-        /* ---------- 表头（供应商 + 日期） ---------- */
         .bill-header {
             display: flex;
             justify-content: space-between;
-            font-size: 12pt;
-            margin-bottom: 4px;      /* 减小下边距 */
+            font-size: 13pt;
+            margin-bottom: 4px;
             padding: 0 2px;
         }
         .bill-header .label {
             font-weight: bold;
         }
 
-        /* ---------- 表格：占满整页宽度，水平居中 ---------- */
+        /* ----- 表格：强制占满100%，固定列宽 ----- */
         .goods-table {
-            width: 100%;
+            width: 100% !important;
+            max-width: 100% !important;
             border-collapse: collapse;
-            font-size: 10.5pt;
-            table-layout: fixed;     /* 固定列宽，防止内容撑开 */
+            font-size: 12pt;          /* 加大字体 */
+            table-layout: fixed !important;
             margin: 0 auto;
         }
         .goods-table th {
@@ -918,18 +911,18 @@ function previewAndPrint() {
             background: #f5f5f5;
             font-weight: bold;
             text-align: center;
-            font-size: 11pt;
+            font-size: 13pt;
         }
         .goods-table td {
             border: 1px solid #000;
             padding: 4px 3px;
             text-align: center;
-            font-size: 10.5pt;
+            font-size: 12pt;
             word-break: break-word;
             white-space: normal;
         }
 
-        /* ---------- 列宽精确分配（总和100%） ---------- */
+        /* 列宽比例（总和100%） */
         .goods-table .col-date     { width: 13%; }
         .goods-table .col-supplier { width: 14%; }
         .goods-table .col-goods    { width: 22%; }
@@ -938,11 +931,11 @@ function previewAndPrint() {
         .goods-table .col-qty      { width: 10%; }
         .goods-table .col-amount   { width: 16%; }
 
-        /* ---------- 汇总行 ---------- */
+        /* ----- 汇总行 ----- */
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
-            font-size: 11pt;
+            font-size: 13pt;
             background: #fafafa;
         }
         .goods-table .total-label {
@@ -957,12 +950,12 @@ function previewAndPrint() {
             text-align: center;
         }
 
-        /* ---------- 页脚签字 ---------- */
+        /* ----- 页脚签字 ----- */
         .bill-footer {
             display: flex;
             justify-content: space-between;
-            margin-top: 12px;
-            font-size: 12pt;
+            margin-top: 14px;
+            font-size: 13pt;
             padding: 0 4px;
         }
         .bill-footer span {
@@ -970,18 +963,15 @@ function previewAndPrint() {
             min-width: 100px;
         }
 
-        /* ---------- 屏幕预览辅助（非打印时显示边框，便于查看） ---------- */
+        /* ----- 屏幕预览辅助（非打印时） ----- */
         @media screen {
             .supplier-bill {
                 border: 1px dashed #ccc;
-                padding: 10px 18px;
+                padding: 12px 20px;
                 margin: 20px auto;
                 border-radius: 6px;
                 max-width: 1100px;
                 background: #fefefe;
-            }
-            .supplier-bill:last-child {
-                margin-bottom: 20px;
             }
             body {
                 padding: 20px;
@@ -993,28 +983,41 @@ function previewAndPrint() {
             }
         }
 
-        /* ---------- 打印时强制重置所有外边距内边距 ---------- */
+        /* ----- 打印时强制清除所有额外边距，并确保表格占满 ----- */
         @media print {
-            body {
+            body, .print-container, .supplier-bill {
                 padding: 0 !important;
+                margin: 0 !important;
                 background: #fff !important;
-                margin: 0 !important;
-            }
-            .print-container {
-                padding: 0 !important;
-                margin: 0 !important;
             }
             .supplier-bill {
                 border: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
                 border-radius: 0 !important;
-                background: #fff !important;
             }
             .bill-title {
                 margin-top: 0 !important;
                 padding-top: 0 !important;
             }
+            .goods-table {
+                width: 100% !important;
+            }
+            /* 确保所有列宽百分比强制生效 */
+            .goods-table .col-date,
+            .goods-table .col-supplier,
+            .goods-table .col-goods,
+            .goods-table .col-spec,
+            .goods-table .col-price,
+            .goods-table .col-qty,
+            .goods-table .col-amount {
+                width: auto !important; /* 重置，下面用百分比覆盖 */
+            }
+            .goods-table .col-date     { width: 13% !important; }
+            .goods-table .col-supplier { width: 14% !important; }
+            .goods-table .col-goods    { width: 22% !important; }
+            .goods-table .col-spec     { width: 14% !important; }
+            .goods-table .col-price    { width: 11% !important; }
+            .goods-table .col-qty      { width: 10% !important; }
+            .goods-table .col-amount   { width: 16% !important; }
         }
     </style>
     </head>
@@ -1036,7 +1039,7 @@ function previewAndPrint() {
     </html>
     `;
 
-    // 5. 打开新窗口展示打印预览
+    // 5. 打开新窗口
     const win = window.open('', '_blank', 'width=1000,height=750,scrollbars=yes,resizable=yes');
     if (!win) {
         showMsg('请允许弹出窗口，以便打印预览');
@@ -1046,7 +1049,6 @@ function previewAndPrint() {
     win.document.close();
     win.focus();
 }
-
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 function initPayRecordPage() {
