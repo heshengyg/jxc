@@ -732,7 +732,7 @@ function searchPrintStockIn() {
     renderFinancePagination('stockInPrint');
 }
 
-// ===================== ②入库单打印模块 - 终极强制占满A5横向（固定宽度法） =====================
+// ===================== ②入库单打印模块 - 终极手动分页+固定页脚 =====================
 function previewAndPrint() {
     const checkedBox = document.querySelectorAll('.print-checkbox:checked');
     if (checkedBox.length === 0) {
@@ -740,6 +740,7 @@ function previewAndPrint() {
         return;
     }
 
+    // 按供应商分组
     const groupMap = {};
     checkedBox.forEach(cb => {
         const idx = parseInt(cb.dataset.index);
@@ -749,12 +750,38 @@ function previewAndPrint() {
         groupMap[row.supplier].push(row);
     });
 
-    let billHTML = '';
+    // 每页最多显示的行数（根据A5高度调整）
+    const ROWS_PER_PAGE = 12;
+
+    // 收集所有页面块
+    const pageBlocks = [];
     const supplierList = Object.keys(groupMap);
 
-    supplierList.forEach((supplier, index) => {
+    supplierList.forEach(supplier => {
         const rows = groupMap[supplier];
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
+
+        // 按 ROWS_PER_PAGE 拆分
+        for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
+            const chunk = rows.slice(i, i + ROWS_PER_PAGE);
+            const isLastSupplier = (supplier === supplierList[supplierList.length - 1]);
+            const isLastBlock = (i + ROWS_PER_PAGE >= rows.length);
+            pageBlocks.push({
+                supplier,
+                rows: chunk,
+                isLastSupplier,
+                isLastBlock
+            });
+        }
+    });
+
+    const totalPages = pageBlocks.length;
+
+    // 构建所有页面HTML
+    let billHTML = '';
+    pageBlocks.forEach((block, index) => {
+        const { supplier, rows, isLastBlock } = block;
+        const pageNum = index + 1;
 
         let totalQty = 0, totalAmount = 0;
         let tableRows = '';
@@ -780,33 +807,37 @@ function previewAndPrint() {
             `;
         });
 
-        tableRows += `
-            <tr class="total-row">
-                <td colspan="5" class="total-label">${supplier} 汇总</td>
-                <td class="total-qty">${totalQty}</td>
-                <td class="total-amount">￥${totalAmount.toFixed(2)}</td>
-            </tr>
-        `;
+        // 如果是该供应商的最后一块，添加汇总行
+        if (isLastBlock) {
+            // 重新计算总数量和总金额（因为前面已累加，直接用累加值）
+            // 注意：上面累加的是当前块的数据，不是全部，需要重新计算整个供应商的总数
+            // 所以我们重新计算整个供应商的数据
+            const allRows = groupMap[supplier];
+            let supTotalQty = 0, supTotalAmount = 0;
+            allRows.forEach(r => {
+                supTotalQty += Number(r.in_num);
+                supTotalAmount += Number(r.in_price) * Number(r.in_num);
+            });
+            tableRows += `
+                <tr class="total-row">
+                    <td colspan="5" class="total-label">${supplier} 汇总</td>
+                    <td class="total-qty">${supTotalQty}</td>
+                    <td class="total-amount">￥${supTotalAmount.toFixed(2)}</td>
+                </tr>
+            `;
+        }
 
-        const pageBreak = index === supplierList.length - 1 ? '' : 'page-break-after: always;';
+        // 分页控制（最后一个不加分页符）
+        const pageBreak = (index === totalPages - 1) ? '' : 'page-break-after: always;';
 
         billHTML += `
-            <div class="supplier-bill" style="${pageBreak}">
+            <div class="page-block" style="${pageBreak}">
                 <div class="bill-title">商品入库单</div>
                 <div class="bill-header">
                     <span><span class="label">供应商：</span>${supplier}</span>
                     <span><span class="label">打印日期：</span>${new Date().toLocaleDateString('zh-CN')}</span>
                 </div>
                 <table class="goods-table">
-                    <colgroup>
-                        <col style="width:13%;">
-                        <col style="width:14%;">
-                        <col style="width:22%;">
-                        <col style="width:14%;">
-                        <col style="width:11%;">
-                        <col style="width:10%;">
-                        <col style="width:16%;">
-                    </colgroup>
                     <thead>
                         <tr>
                             <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
@@ -819,11 +850,13 @@ function previewAndPrint() {
                     <span>库管员签字：___________</span>
                     <span>业务员签字：___________</span>
                     <span>财务审核签字：___________</span>
+                    <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
                 </div>
             </div>
         `;
     });
 
+    // 完整HTML
     const fullHTML = `
     <!DOCTYPE html>
     <html>
@@ -836,32 +869,32 @@ function previewAndPrint() {
             margin: 0;
             padding: 0;
             width: 100%;
+            height: 100%;
             background: #fff;
             font-family: "SimSun", "宋体", serif;
         }
         @page {
             size: A5 landscape;
-            margin: 1.6cm 1.1cm 1.2cm 1.0cm;
+            margin: 1.6cm 1.1cm 1.2cm 1.0cm; /* 上 右 下 左 */
         }
 
         .print-container {
             width: 100%;
-            max-width: 100%;
-            margin: 0;
-            padding: 0;
+            height: 100%;
         }
 
-        .supplier-bill {
+        /* 每个页面块占满整页，使用flex列布局 */
+        .page-block {
             width: 100%;
-            max-width: 100%;
-            margin: 0;
-            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
             page-break-after: always;
+            padding: 0;
+            margin: 0;
             position: relative;
-            /* 为页脚预留底部空间 */
-            padding-bottom: 2.2cm;
         }
-        .supplier-bill:last-child {
+        .page-block:last-child {
             page-break-after: avoid;
         }
 
@@ -872,6 +905,7 @@ function previewAndPrint() {
             letter-spacing: 6px;
             margin: 0 0 4px 0;
             padding: 0;
+            flex-shrink: 0;
         }
         .bill-header {
             display: flex;
@@ -879,16 +913,16 @@ function previewAndPrint() {
             font-size: 12pt;
             margin-bottom: 4px;
             padding: 0 2px;
+            flex-shrink: 0;
         }
         .bill-header .label { font-weight: bold; }
 
         .goods-table {
             width: 100% !important;
-            min-width: 100% !important;
             border-collapse: collapse;
             font-size: 11pt;
-            table-layout: fixed; /* 固定列宽 */
-            margin: 0;
+            table-layout: fixed;
+            flex: 1;  /* 撑开剩余空间，将页脚推到底部 */
         }
         .goods-table th, .goods-table td {
             border: 1px solid #000;
@@ -904,7 +938,15 @@ function previewAndPrint() {
             font-size: 12pt;
         }
 
-        /* 汇总行 */
+        /* 列宽百分比（总和100%） */
+        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 13%; }
+        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
+        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
+        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14%; }
+        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 11%; }
+        .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
+        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 16%; }
+
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
@@ -916,76 +958,56 @@ function previewAndPrint() {
             padding-right: 8px;
         }
 
-        /* 页脚：绝对定位到底部 */
         .bill-footer {
-            position: absolute;
-            bottom: 0.8cm;  /* 在页边距内，距底部0.8cm */
-            left: 0;
-            right: 0;
             display: flex;
             justify-content: space-between;
             font-size: 12pt;
-            padding: 0 4px;
+            padding: 4px 4px 0 4px;
             border-top: 1px solid #000;
-            padding-top: 4px;
+            flex-shrink: 0;
+            margin-top: 4px;
         }
         .bill-footer span {
-            min-width: 100px;
+            min-width: 80px;
+        }
+        .bill-footer span:last-child {
+            min-width: 120px;
+            text-align: right;
         }
 
         /* 屏幕预览辅助 */
         @media screen {
-            .supplier-bill {
+            .page-block {
                 border: 1px dashed #ccc;
                 padding: 12px 18px;
                 margin: 20px auto;
                 max-width: 1100px;
+                min-height: 600px;
                 background: #fefefe;
-                padding-bottom: 2.2cm;
             }
             body { padding: 20px; background: #f0f2f5; }
             .print-container { max-width: 1100px; margin: 0 auto; }
-            .bill-footer { bottom: 0.5cm; left: 18px; right: 18px; }
         }
 
-        /* 打印时强制 */
+        /* 打印时强制覆盖 */
         @media print {
-            html, body, .print-container, .supplier-bill {
+            html, body, .print-container, .page-block {
                 margin: 0 !important;
                 padding: 0 !important;
                 background: #fff !important;
                 width: 100% !important;
-                max-width: 100% !important;
+                height: 100% !important;
             }
-            .supplier-bill {
+            .page-block {
                 border: none !important;
                 page-break-after: always;
-                padding-bottom: 2.2cm !important;
             }
-            .supplier-bill:last-child { page-break-after: avoid; }
+            .page-block:last-child { page-break-after: avoid; }
             .bill-title { margin-top: 0 !important; padding-top: 0 !important; }
-            .goods-table {
-                width: 100% !important;
-                min-width: 100% !important;
-                table-layout: fixed !important;
-            }
-            /* 强制列宽 */
-            .goods-table colgroup col {
-                width: auto !important;
-            }
-            .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 13% !important; }
-            .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14% !important; }
-            .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22% !important; }
-            .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14% !important; }
-            .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 11% !important; }
-            .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10% !important; }
-            .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 16% !important; }
-
-            .bill-footer {
-                position: absolute !important;
-                bottom: 0.8cm !important;
-                left: 0 !important;
-                right: 0 !important;
+            .goods-table { width: 100% !important; }
+            .bill-footer { 
+                border-top: 1px solid #000;
+                margin-top: 4px;
             }
         }
     </style>
