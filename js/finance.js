@@ -729,36 +729,39 @@ function searchPrintStockIn(resetPage = true) {
 
     // 绑定单选框选中事件，存入全局选中数组
     document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-        checkbox.onchange = function(){
-            const idx = parseInt(this.dataset.index);
-            if(this.checked){
-                if(!selectedPrintIndexArr.includes(idx)){
-                    selectedPrintIndexArr.push(idx);
-                }
-            }else{
-                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+    checkbox.onchange = function(){
+        const idx = parseInt(this.dataset.index);
+        if(this.checked){
+            if(!selectedPrintIndexArr.includes(idx)){
+                selectedPrintIndexArr.push(idx);
             }
-            // 同步当前页全选框状态
-            const allChecked = Array.from(document.querySelectorAll('.print-checkbox')).every(cb => cb.checked);
-            document.getElementById('printAllCheck').checked = allChecked;
+        }else{
+            selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
         }
-    });
+        // 同步全选按钮状态：是否所有数据都被选中
+        const allChecked = selectedPrintIndexArr.length === printStockInData.length;
+        document.getElementById('printAllCheck').checked = allChecked;
+        // 同时确保当前页的复选框状态与 selectedPrintIndexArr 一致（防止跨页后状态错乱）
+        document.querySelectorAll('.print-checkbox').forEach(cb => {
+            const idx2 = parseInt(cb.dataset.index);
+            cb.checked = selectedPrintIndexArr.includes(idx2);
+        });
+    }
+});
 
     // 全选事件：当前页全部加入/移除全局选中数组
     document.getElementById('printAllCheck').onchange = function () {
-        document.querySelectorAll('.print-checkbox').forEach(cb => {
-            const idx = parseInt(cb.dataset.index);
-            if(this.checked){
-                if(!selectedPrintIndexArr.includes(idx)){
-                    selectedPrintIndexArr.push(idx);
-                }
-                cb.checked = true;
-            }else{
-                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
-                cb.checked = false;
-            }
-        });
+    if (this.checked) {
+        // 全选：将所有数据的索引加入 selectedPrintIndexArr
+        selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
+        // 勾选当前页所有复选框
+        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
+    } else {
+        // 取消全选：清空 selectedPrintIndexArr
+        selectedPrintIndexArr = [];
+        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
     }
+}
 
     // 供应商汇总行渲染
     const groupMap = {};
