@@ -2,25 +2,6 @@
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
 
-// 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
-(function initPreLoadOut() {
-    allStockOutReadyPromise = (async function () {
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-                headers: {
-                    apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`
-                }
-            });
-            if (res.ok) {
-                allStockOut = await res.json();
-            }
-        } catch (err) {
-            console.warn("全局预加载出库数据失败，不影响基础功能", err);
-        }
-    })();
-})();
-
 /**
  * 校验：后端ID比对（RPC/接口查询出库表，移除前端数组遍历）
  * @param {number|string} inId
@@ -50,12 +31,24 @@ async function refreshStockIn(){
     await loadStockIn();
 }
 
-// ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
+// 仅进入入库页面时才拉取出库数据，不再全局预加载阻塞主线程
 async function preLoadStockOutData() {
-    // 直接等待页面初始化时已经发起的全局请求，不会新增任何网络耗时
-    await allStockOutReadyPromise;
+    // 如果已经加载过出库数据，直接返回，不再重复请求
+    if(allStockOut && allStockOut.length > 0) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        if (res.ok) {
+            allStockOut = await res.json();
+        }
+    } catch (err) {
+        console.warn("预加载出库数据失败，不影响基础功能", err);
+    }
 }
-
 // 供应商下拉
 function showSupList(){
     currSupplierList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
