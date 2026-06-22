@@ -399,28 +399,21 @@ async function importStockInExcel() {
     reader.readAsArrayBuffer(file);
 }
 
-// 加载入库列表【完全保留你原有代码，未新增任何全局缓存、不改动逻辑】
+// 加载入库列表【修复：全量拉取所有入库数据，前端分页前端搜索，加入页面缓存】
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
-        const pageOffset = (inCurrentPage - 1) * inPageSize;
-        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
+        // 全量获取所有入库数据，不再使用后端limit+offset分页
+        const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        const pageData = await fetchPage.json();
-        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?select=id`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Range-Unit': 'items',
-                'Range': '0-0',
-                'Prefer': 'count=exact'
-            }
-        });
-        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
-        allStockIn = pageData;
-        document.getElementById('inTotalCount').textContent = totalRecord;
+        allStockIn = await fetchAll.json();
+        pageCache.stockIn.data = allStockIn;
+        document.getElementById('inTotalCount').textContent = allStockIn.length;
+
         refreshAllStockCache(allStockIn, allStockOut);
+        // 刷新数据默认回到第一页
+        inCurrentPage = 1;
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
@@ -549,7 +542,7 @@ function renderInPagination() {
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
-function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
+function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); renderStockIn(); }
 
 // 全选
 function inToggleSelectAll(){

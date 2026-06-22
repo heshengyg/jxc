@@ -300,45 +300,33 @@ function exportStockOutExcel(){
     ]);
     let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
     let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "出库记录");
-    XLSX.writeFile(wb, "出库记录.xlsx");
+    XLSX.writeFile(wb, "出库记录");
 }
 
-// 加载出库列表
+// 加载出库列表【修复：全量拉取数据+缓存，前端分页搜索】
 async function loadStockOut() {
     try {
-        // 后端分页请求
-        const pageOffset = (outCurrentPage - 1) * outPageSize;
-        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc&limit=${outPageSize}&offset=${pageOffset}`, {
+        const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        const pageData = await fetchPage.json();
-        // 查询总条数
-        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?select=id`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Range-Unit': 'items',
-                'Range': '0-0',
-                'Prefer': 'count=exact'
-            }
-        });
-        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
-        allStockOut = pageData;
-        document.getElementById('outTotalCount').textContent = totalRecord;
+        allStockOut = await fetchAll.json();
+        pageCache.stockOut.data = allStockOut;
+        document.getElementById('outTotalCount').textContent = allStockOut.length;
+
+        outCurrentPage = 1;
         filterStockOut();
     } catch (e) {
         showMsg('加载出库记录失败：' + e.message);
     }
 }
 
-// 搜索筛选
+// 搜索筛选【修复：搜索后强制回到第1页】
 function filterStockOut() {
     let field = document.getElementById('outSearchField').value;
     let kw = document.getElementById('outSearchKeyword').value.toLowerCase();
     filteredStockOut = allStockOut.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('outSearchCount').textContent = filteredStockOut.length;
-    // 删除 outCurrentPage = 1;
+    outCurrentPage = 1;
     renderOutPagination();
     renderStockOut();
 }

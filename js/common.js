@@ -33,16 +33,16 @@ let filteredGoods = [];
 let currentPage = 1, pageSize = 10, totalPages = 1;
 let sortField = '', sortAsc = true;
 
-// 入库模块
+// 入库模块【修复：初始每页和页面下拉默认5条保持一致】
 let allStockIn = [];
 let filteredStockIn = [];
-let inCurrentPage = 1, inPageSize = 10, inTotalPages = 1;
+let inCurrentPage = 1, inPageSize = 5, inTotalPages = 1;
 let inSortField = '', inSortAsc = true;
 
-// ========== 新增：出库模块全局变量 ==========
+// ========== 新增：出库模块全局变量【修复：初始每页5条】 ==========
 let allStockOut = [];
 let filteredStockOut = [];
-let outCurrentPage = 1, outPageSize = 10, outTotalPages = 1;
+let outCurrentPage = 1, outPageSize = 5, outTotalPages = 1;
 let outSortField = '', outSortAsc = true;
 
 // 公共通用变量
@@ -82,17 +82,29 @@ function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
 }
 
-// 标签页切换
+// 标签页切换【修复：避免重复请求，加缓存判断】
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
-    if (tabId === 'stockIn') loadStockIn();
-    // 切换到出库：先加载入库数据，再加载出库数据
+    
+    if (tabId === 'stockIn') {
+        // 无缓存才重新加载
+        if (!pageCache.stockIn.data) {
+            loadStockIn();
+        } else {
+            filterStockIn();
+        }
+    }
     if (tabId === 'stockOut') {
-        loadStockIn();
-        loadStockOut();
+        // 先确保入库数据加载完成
+        if (!pageCache.stockIn.data) loadStockIn();
+        if (!pageCache.stockOut.data) {
+            loadStockOut();
+        } else {
+            filterStockOut();
+        }
     }
 }
 
