@@ -663,12 +663,11 @@ function clearPrintSort(){
 }
 
 // 筛选查询主函数
-// 筛选查询主函数
-function searchPrintStockIn() {
+function searchPrintStockIn(resetPage = true) {
     // 新查询清空历史跨页选中
     selectedPrintIndexArr = [];
     if (resetPage) {
-        financePageConfig.stockInPrint.current = 1;   // 仅当 resetPage 为 true 时才重置
+        financePageConfig.stockInPrint.current = 1;
     }
     const supplier = document.getElementById('printSupplierSearch').value.trim();
     const goodsName = document.getElementById('printGoodsNameSearch').value.trim().toLowerCase();
