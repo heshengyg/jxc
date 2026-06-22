@@ -1,4 +1,3 @@
-我再提供给你库存stockstock.js，麻烦把底部分页显示格式调整为出入库一页的效果，其他任何逻辑代码不要动。
 // 库存模块内部依赖函数（仅本文件使用，不影响其他模块）
 function getBzTotalDay(val, unit) {
     if (!val) return 0;
