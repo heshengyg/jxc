@@ -43,20 +43,22 @@ let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
 
-// 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
-        if (taxModal) taxModal.style.display = 'none';
+        if (taxModal) {
+            taxModal.style.display = 'none';
+            // 强制重置为none，防止flex样式残留导致自动弹出
+            taxModal.style.position = 'fixed';
+        }
         initFinanceBaseData();
-        switchFinanceSubTab('taxRate');
-        // 页面初始化手动给第一个子按钮添加active高亮
+        // 先激活第一个按钮，再切换子页面，避免初始化触发弹窗
         document.querySelector('.finance-sub-btn').classList.add('active');
+        switchFinanceSubTab('taxRate');
     }
 }
-
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
@@ -221,7 +223,6 @@ function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
     if(taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
-    // 确保自动执行表格刷新
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
@@ -1482,3 +1483,13 @@ function initMonthBeginPage() {
 function searchMonthBeginStock() {
     showMsg('库存期初表需要实时库存结余计算逻辑，当前框架已完成');
 }
+
+// 点击灰色遮罩关闭税率弹窗
+document.addEventListener('click', function(e) {
+    const taxModal = document.getElementById('taxModal');
+    if (!taxModal) return;
+    // 点击遮罩空白处关闭弹窗
+    if (e.target === taxModal) {
+        closeTaxModal();
+    }
+});
