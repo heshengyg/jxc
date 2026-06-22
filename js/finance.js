@@ -2,6 +2,12 @@
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
 let monthDistinctList = [];
+// 打印筛选下拉缓存
+let printSupplierSearchList = [];
+let printGoodsSearchList = [];
+let printSpecSearchList = [];
+// =========【新增下面这一行】=========
+let selectedPrintIndexArr = [];
 // 安全兼容全局商品，防止页面加载顺序报错
 let allGoodsList = window.allGoods || [];
 let allStockInList = [];
@@ -655,7 +661,10 @@ function clearPrintSort(){
 }
 
 // 筛选查询主函数
+// 筛选查询主函数
 function searchPrintStockIn() {
+    // 新查询清空历史跨页选中
+    selectedPrintIndexArr = [];
     financePageConfig.stockInPrint.current = 1;
     const supplier = document.getElementById('printSupplierSearch').value.trim();
     const goodsName = document.getElementById('printGoodsNameSearch').value.trim().toLowerCase();
@@ -684,17 +693,26 @@ function searchPrintStockIn() {
     });
     printStockInData = list;
 
+    // 需求1：渲染总条数统计文案（HTML需要在【线下入库单打印】标题下方添加 <div id="stockTotalTip" style="margin:8px 0;"></div>）
+    const totalTipDom = document.getElementById('stockTotalTip');
+    if(totalTipDom){
+        totalTipDom.innerText = `共${list.length}条入库记录，当前搜索结果${list.length}条`;
+    }
+
     const startIdx = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
 
-    // 表格渲染（需求②：新增序列列）
+    // 表格渲染
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
         const total = (Number(item.in_price) * Number(item.in_num)).toFixed(2);
+        const globalIndex = startIdx + idx;
+        // 跨页勾选回显
+        const isChecked = selectedPrintIndexArr.includes(globalIndex);
         tbody.innerHTML += `
         <tr>
-            <td><input type="checkbox" class="print-checkbox" data-index="${startIdx+idx}"></td>
+            <td><input type="checkbox" class="print-checkbox" data-index="${globalIndex}" ${isChecked ? 'checked' : ''}></td>
             <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
@@ -705,12 +723,41 @@ function searchPrintStockIn() {
             <td>${item.record_date}</td>
         </tr>`;
     });
-    // 全选事件
+
+    // 绑定单选框选中事件，存入全局选中数组
+    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
+        checkbox.onchange = function(){
+            const idx = parseInt(this.dataset.index);
+            if(this.checked){
+                if(!selectedPrintIndexArr.includes(idx)){
+                    selectedPrintIndexArr.push(idx);
+                }
+            }else{
+                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+            }
+            // 同步当前页全选框状态
+            const allChecked = Array.from(document.querySelectorAll('.print-checkbox')).every(cb => cb.checked);
+            document.getElementById('printAllCheck').checked = allChecked;
+        }
+    });
+
+    // 全选事件：当前页全部加入/移除全局选中数组
     document.getElementById('printAllCheck').onchange = function () {
-        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = this.checked);
+        document.querySelectorAll('.print-checkbox').forEach(cb => {
+            const idx = parseInt(cb.dataset.index);
+            if(this.checked){
+                if(!selectedPrintIndexArr.includes(idx)){
+                    selectedPrintIndexArr.push(idx);
+                }
+                cb.checked = true;
+            }else{
+                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+                cb.checked = false;
+            }
+        });
     }
 
-    // 需求⑤：供应商汇总行渲染
+    // 供应商汇总行渲染
     const groupMap = {};
     list.forEach(row=>{
         if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
@@ -731,17 +778,15 @@ function searchPrintStockIn() {
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
-
 function previewAndPrint() {
-    const checkedBox = document.querySelectorAll('.print-checkbox:checked');
-    if (checkedBox.length === 0) {
+    // 从全局跨页选中数组获取所有选中数据，不再只取当前页勾选框
+    if (selectedPrintIndexArr.length === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
     }
 
     const groupMap = {};
-    checkedBox.forEach(cb => {
-        const idx = parseInt(cb.dataset.index);
+    selectedPrintIndexArr.forEach(idx => {
         const row = printStockInData[idx];
         if (!row) return;
         if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
