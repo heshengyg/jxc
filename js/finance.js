@@ -38,6 +38,7 @@ let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
 let selectedPrintIndexArr = [];
+let skipPrintAllChange = false;
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
@@ -728,9 +729,10 @@ function searchPrintStockIn(resetPage = true) {
     });
 
     // 绑定单选框选中事件，存入全局选中数组
+// 绑定单选框选中事件，存入全局选中数组
 document.querySelectorAll('.print-checkbox').forEach(checkbox => {
     checkbox.onchange = function(){
-        const idx = Number(this.dataset.index);  // 改为 Number
+        const idx = Number(this.dataset.index);
         if(this.checked){
             if(!selectedPrintIndexArr.includes(idx)){
                 selectedPrintIndexArr.push(idx);
@@ -738,24 +740,32 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         }else{
             selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
         }
-        // 同步全选按钮状态：是否所有数据都被选中
+        // 同步全选按钮状态
         const allChecked = selectedPrintIndexArr.length === printStockInData.length;
+        // ===== 新增：阻止触发 onchange =====
+        skipPrintAllChange = true;
         document.getElementById('printAllCheck').checked = allChecked;
+        skipPrintAllChange = false;
+        // ===== 新增结束 =====
     };
 });
-
     // 全选事件：当前页全部加入/移除全局选中数组
     document.getElementById('printAllCheck').onchange = function () {
+    // ===== 新增：如果是代码触发则跳过 =====
+    if (skipPrintAllChange) {
+        skipPrintAllChange = false;
+        return;
+    }
+    // ===== 新增结束 =====
+
     if (this.checked) {
-        // 全选：所有数据索引
         selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
     } else {
-        // 取消全选
         selectedPrintIndexArr = [];
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
     }
-}
+};
 
     // 供应商汇总行渲染
     const groupMap = {};
@@ -794,11 +804,6 @@ function previewAndPrint() {
     }
     selectedPrintIndexArr = validIndices;
     // ===== 新增结束 =====
-
-    if (selectedPrintIndexArr.length === 0) {
-        showMsg('请选择需要打印的入库记录');
-        return;
-    }
     if (selectedPrintIndexArr.length === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
