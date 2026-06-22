@@ -2,12 +2,7 @@
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
 let monthDistinctList = [];
-// 打印筛选下拉缓存
-let printSupplierSearchList = [];
-let printGoodsSearchList = [];
-let printSpecSearchList = [];
-// =========【新增下面这一行】=========
-let selectedPrintIndexArr = [];
+
 // 安全兼容全局商品，防止页面加载顺序报错
 let allGoodsList = window.allGoods || [];
 let allStockInList = [];
@@ -42,6 +37,7 @@ const financePageConfig = {
 let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
+let selectedPrintIndexArr = [];
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
