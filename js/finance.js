@@ -728,9 +728,9 @@ function searchPrintStockIn(resetPage = true) {
     });
 
     // 绑定单选框选中事件，存入全局选中数组
-    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
+document.querySelectorAll('.print-checkbox').forEach(checkbox => {
     checkbox.onchange = function(){
-        const idx = parseInt(this.dataset.index);
+        const idx = Number(this.dataset.index);  // 改为 Number
         if(this.checked){
             if(!selectedPrintIndexArr.includes(idx)){
                 selectedPrintIndexArr.push(idx);
@@ -738,15 +738,10 @@ function searchPrintStockIn(resetPage = true) {
         }else{
             selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
         }
-        // 同步全选按钮状态
+        // 同步全选按钮状态：是否所有数据都被选中
         const allChecked = selectedPrintIndexArr.length === printStockInData.length;
         document.getElementById('printAllCheck').checked = allChecked;
-        // 同步当前页复选框状态（防止其他页勾选影响）
-        document.querySelectorAll('.print-checkbox').forEach(cb => {
-            const idx2 = parseInt(cb.dataset.index);
-            cb.checked = selectedPrintIndexArr.includes(idx2);
-        });
-    }
+    };
 });
 
     // 全选事件：当前页全部加入/移除全局选中数组
@@ -779,12 +774,31 @@ function searchPrintStockIn(resetPage = true) {
         </tr>`;
     });
     tbody.innerHTML += totalTpl;
-
+// 在渲染完表格后，同步全选按钮状态（根据当前已选数量）
+document.getElementById('printAllCheck').checked = (selectedPrintIndexArr.length === printStockInData.length && printStockInData.length > 0);
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
 function previewAndPrint() {
-    // 从全局跨页选中数组获取所有选中数据，不再只取当前页勾选框
+// ===== 新增：过滤无效索引并去重 =====
+    const validIndices = [];
+    const seen = new Set();
+    for (let idx of selectedPrintIndexArr) {
+        const numIdx = Number(idx);
+        if (Number.isInteger(numIdx) && numIdx >= 0 && numIdx < printStockInData.length && printStockInData[numIdx] !== undefined) {
+            if (!seen.has(numIdx)) {
+                seen.add(numIdx);
+                validIndices.push(numIdx);
+            }
+        }
+    }
+    selectedPrintIndexArr = validIndices;
+    // ===== 新增结束 =====
+
+    if (selectedPrintIndexArr.length === 0) {
+        showMsg('请选择需要打印的入库记录');
+        return;
+    }
     if (selectedPrintIndexArr.length === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
