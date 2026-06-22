@@ -38,42 +38,41 @@ let printGoodsSearchList = [];
 let printSpecSearchList = [];
 
 const originSwitchTab = switchTab;
-switchTab = async function (tabName) {
-    // 调用原始切换逻辑（确保主 Tab 切换正常）
+switchTab = function (tabName) {
     originSwitchTab(tabName);
-    
     if (tabName === 'finance') {
-        // 1. 强制确保财务主容器可见（容错）
-        const financeContainer = document.getElementById('finance');
-        if (financeContainer) {
-            financeContainer.style.display = '';      // 清除内联样式
-            financeContainer.classList.add('active'); // 确保 active 类存在
-        }
-
-        // 2. 关闭可能残留的税率弹窗
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-
-        // 3. 加载财务基础数据（如果已加载过，不会重复请求）
-        try {
-            await initFinanceBaseData();
-        } catch (e) {
-            console.error('财务数据加载失败:', e);
-            showMsg('财务数据加载失败，请刷新重试');
-            return;
-        }
-
-        // 4. 切换到税率子页面
+        // 不等待数据加载，直接切换子页面，由子页面负责加载
         switchFinanceSubTab('taxRate');
-        
-        // 5. 高亮第一个子按钮
-        const firstBtn = document.querySelector('.finance-sub-btn');
-        if (firstBtn) firstBtn.classList.add('active');
+        document.querySelector('.finance-sub-btn').classList.add('active');
     }
-};
+}
 // 财务子Tab切换
-function switchFinanceSubTab(tabKey) {
+async function switchFinanceSubTab(tabKey) {
+    // 切换子页面显示（同步部分）
     currFinanceSub = tabKey;
+
+    // 清空所有分页
+    const paginationIds = [ ... ];
+    paginationIds.forEach(id => {
+        const pageDom = document.getElementById(id);
+        if (pageDom) pageDom.innerHTML = '';
+    });
+
+    // 隐藏所有子页面，显示目标子页面
+    document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
+    const target = document.getElementById(`sub-${tabKey}`);
+    if (target) target.style.display = 'block';
+
+    // 高亮按钮
+    document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // 异步加载数据并初始化（等待完成）
+    await initCurrentSubPage();
+}
 
     // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
     const paginationIds = [
@@ -220,7 +219,12 @@ async function loadAllInvoiceBack() {
 }
 
 // 当前子页面初始化分发
-function initCurrentSubPage() {
+async function initCurrentSubPage() {
+    // 如果基础数据尚未加载，则先加载（防止空白）
+    if (allGoodsList.length === 0 || allStockInList.length === 0) {
+        await initFinanceBaseData();
+    }
+    // 数据就绪后执行对应的子页面初始化
     switch (currFinanceSub) {
         case 'taxRate': initTaxRatePage(); break;
         case 'stockInPrint': initStockInPrintPage(); break;
