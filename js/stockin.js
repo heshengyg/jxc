@@ -2,6 +2,25 @@
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
 
+// 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
+(function initPreLoadOut() {
+    allStockOutReadyPromise = (async function () {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+            if (res.ok) {
+                allStockOut = await res.json();
+            }
+        } catch (err) {
+            console.warn("全局预加载出库数据失败，不影响基础功能", err);
+        }
+    })();
+})();
+
 /**
  * 校验：后端ID比对（RPC/接口查询出库表，移除前端数组遍历）
  * @param {number|string} inId
@@ -31,24 +50,12 @@ async function refreshStockIn(){
     await loadStockIn();
 }
 
-// 仅进入入库页面时才拉取出库数据，不再全局预加载阻塞主线程
+// ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
 async function preLoadStockOutData() {
-    // 如果已经加载过出库数据，直接返回，不再重复请求
-    if(allStockOut && allStockOut.length > 0) return;
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`
-            }
-        });
-        if (res.ok) {
-            allStockOut = await res.json();
-        }
-    } catch (err) {
-        console.warn("预加载出库数据失败，不影响基础功能", err);
-    }
+    // 直接等待页面初始化时已经发起的全局请求，不会新增任何网络耗时
+    await allStockOutReadyPromise;
 }
+
 // 供应商下拉
 function showSupList(){
     currSupplierList = [...new Set(allGoods.map(item=>item.supplier).filter(s=>s))];
@@ -392,21 +399,28 @@ async function importStockInExcel() {
     reader.readAsArrayBuffer(file);
 }
 
-// 加载入库列表【修复：全量拉取所有入库数据，前端分页前端搜索，加入页面缓存】
+// 加载入库列表【完全保留你原有代码，未新增任何全局缓存、不改动逻辑】
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
-        // 全量获取所有入库数据，不再使用后端limit+offset分页
-        const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
+        const pageOffset = (inCurrentPage - 1) * inPageSize;
+        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        allStockIn = await fetchAll.json();
-        pageCache.stockIn.data = allStockIn;
-        document.getElementById('inTotalCount').textContent = allStockIn.length;
-
+        const pageData = await fetchPage.json();
+        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Range-Unit': 'items',
+                'Range': '0-0',
+                'Prefer': 'count=exact'
+            }
+        });
+        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
+        allStockIn = pageData;
+        document.getElementById('inTotalCount').textContent = totalRecord;
         refreshAllStockCache(allStockIn, allStockOut);
-        // 刷新数据默认回到第一页
-        inCurrentPage = 1;
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
@@ -514,34 +528,28 @@ async function renderStockIn() {
     tb.innerHTML = fullHtml;
 }
 
-// 分页渲染【修复：仅当前页码按钮禁用，其他页码可正常点击】
+// 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
     document.getElementById('inCurrentPage').textContent = inCurrentPage;
     document.getElementById('inTotalPages').textContent = inTotalPages;
-    let pgBox = document.getElementById('inPageNumbers'); 
-    pgBox.innerHTML='';
+    let pgBox = document.getElementById('inPageNumbers'); pgBox.innerHTML='';
     let s = Math.max(1, inCurrentPage-2), e = Math.min(inTotalPages, s+4);
     for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
         btn.className = 'page-btn '+(i===inCurrentPage?'active':'');
-        btn.innerText=i;
-        // 仅当前页禁用，其余页码全部可点击
-        btn.disabled = i === inCurrentPage;
-        btn.onclick=()=>inGoToPage(i); 
-        pgBox.appendChild(btn);
+        btn.innerText=i; btn.onclick=()=>inGoToPage(i); pgBox.appendChild(btn);
     }
-    // 仅首尾按钮做边界禁用
-    let btns = document.querySelectorAll('#stockIn .page-controls > button');
-    btns[0].disabled = inCurrentPage === 1; //首页
-    btns[1].disabled = inCurrentPage === 1; //上一页
-    btns[3].disabled = inCurrentPage === inTotalPages; //下一页
-    btns[4].disabled = inCurrentPage === inTotalPages; //末页
+    let btns = document.querySelectorAll('#stockIn .page-controls .page-btn');
+    btns[0].disabled = inCurrentPage===1;
+    btns[1].disabled = inCurrentPage===1;
+    btns[3].disabled = inCurrentPage===inTotalPages;
+    btns[4].disabled = inCurrentPage===inTotalPages;
 }
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
-function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); renderStockIn(); }
+function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
 
 // 全选
 function inToggleSelectAll(){

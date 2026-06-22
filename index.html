@@ -165,21 +165,22 @@
         </div>
 
         <div class="pagination">
-    <div class="page-info">
-        每页显示 <select id="inPageSize" onchange="changeInPageSize()">
-            <option value="5">5</option>
-            <option value="10">10</option>
-            <option value="20">20</option>
-        </select> 条，当前第 <span id="inCurrentPage">1</span> / <span id="inTotalPages">1</span> 页
+            <div class="page-info">
+                每页显示 <select id="inPageSize" onchange="changeInPageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="inCurrentPage">1</span> / <span id="inTotalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="inGoToPage(1)">首页</button>
+                <button class="page-btn" onclick="inPrevPage()">上一页</button>
+                <span id="inPageNumbers"></span>
+                <button class="page-btn" onclick="inNextPage()">下一页</button>
+                <button class="page-btn" onclick="inGoToPage(inTotalPages)">末页</button>
+            </div>
+        </div>
     </div>
-    <div class="page-controls">
-        <button class="page-btn" onclick="inGoToPage(1)">首页</button>
-        <button class="page-btn" onclick="inPrevPage()">上一页</button>
-        <span id="inPageNumbers"></span>
-        <button class="page-btn" onclick="inNextPage()">下一页</button>
-        <button class="page-btn" onclick="inGoToPage(Number(document.getElementById('inTotalPages').textContent))">末页</button>
-    </div>
-</div>
 
     <!-- ========== 新增：出库管理模块 ========== -->
     <div id="stockOut" class="tab-content">
@@ -228,21 +229,22 @@
         </div>
 
         <div class="pagination">
-    <div class="page-info">
-        每页显示 <select id="outPageSize" onchange="changeOutPageSize()">
-            <option value="5">5</option>
-            <option value="10">10</option>
-            <option value="20">20</option>
-        </select> 条，当前第 <span id="outCurrentPage">1</span> / <span id="outTotalPages">1</span> 页
+            <div class="page-info">
+                每页显示 <select id="outPageSize" onchange="changeOutPageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="outCurrentPage">1</span> / <span id="outTotalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="outGoToPage(1)">首页</button>
+                <button class="page-btn" onclick="outPrevPage()">上一页</button>
+                <span id="outPageNumbers"></span>
+                <button class="page-btn" onclick="outNextPage()">下一页</button>
+                <button class="page-btn" onclick="outGoToPage(outTotalPages)">末页</button>
+            </div>
+        </div>
     </div>
-    <div class="page-controls">
-        <button class="page-btn" onclick="outGoToPage(1)">首页</button>
-        <button class="page-btn" onclick="outPrevPage()">上一页</button>
-        <span id="outPageNumbers"></span>
-        <button class="page-btn" onclick="outNextPage()">下一页</button>
-        <button class="page-btn" onclick="outGoToPage(Number(document.getElementById('outTotalPages').textContent))">末页</button>
-    </div>
-</div>
 
 <!-- 库存查看 -->
 <div id="stockView" class="tab-content">
@@ -959,10 +961,6 @@ document.addEventListener('click', function(e) {
 <script>
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
-    // 新增：初始化同步分页下拉默认值，保证JS和DOM一致，默认10条
-    pageSize = Number(document.getElementById('pageSize').value);
-    inPageSize = Number(document.getElementById('inPageSize').value);
-    outPageSize = Number(document.getElementById('outPageSize').value);
 });
 </script>
 </body>

@@ -300,33 +300,45 @@ function exportStockOutExcel(){
     ]);
     let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
     let wb = XLSX.utils.book_new();
-    XLSX.writeFile(wb, "出库记录");
+    XLSX.utils.book_append_sheet(wb, ws, "出库记录");
+    XLSX.writeFile(wb, "出库记录.xlsx");
 }
 
-// 加载出库列表【修复：全量拉取数据+缓存，前端分页搜索】
+// 加载出库列表
 async function loadStockOut() {
     try {
-        const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc`, {
+        // 后端分页请求
+        const pageOffset = (outCurrentPage - 1) * outPageSize;
+        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?order=id.desc&limit=${outPageSize}&offset=${pageOffset}`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        allStockOut = await fetchAll.json();
-        pageCache.stockOut.data = allStockOut;
-        document.getElementById('outTotalCount').textContent = allStockOut.length;
-
-        outCurrentPage = 1;
+        const pageData = await fetchPage.json();
+        // 查询总条数
+        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_out?select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Range-Unit': 'items',
+                'Range': '0-0',
+                'Prefer': 'count=exact'
+            }
+        });
+        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
+        allStockOut = pageData;
+        document.getElementById('outTotalCount').textContent = totalRecord;
         filterStockOut();
     } catch (e) {
         showMsg('加载出库记录失败：' + e.message);
     }
 }
 
-// 搜索筛选【修复：搜索后强制回到第1页】
+// 搜索筛选
 function filterStockOut() {
     let field = document.getElementById('outSearchField').value;
     let kw = document.getElementById('outSearchKeyword').value.toLowerCase();
     filteredStockOut = allStockOut.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('outSearchCount').textContent = filteredStockOut.length;
-    outCurrentPage = 1;
+    // 删除 outCurrentPage = 1;
     renderOutPagination();
     renderStockOut();
 }
@@ -380,27 +392,23 @@ function renderStockOut() {
     });
 }
 
-// 分页【修复：仅当前页码按钮禁用，其他页码正常可点击】
+// 分页
 function renderOutPagination() {
     outTotalPages = Math.ceil(filteredStockOut.length/outPageSize)||1;
     document.getElementById('outCurrentPage').textContent = outCurrentPage;
     document.getElementById('outTotalPages').textContent = outTotalPages;
-    let pgBox = document.getElementById('outPageNumbers'); 
-    pgBox.innerHTML='';
+    let pgBox = document.getElementById('outPageNumbers'); pgBox.innerHTML='';
     let s = Math.max(1, outCurrentPage-2), e = Math.min(outTotalPages, s+4);
     for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
         btn.className = 'page-btn '+(i===outCurrentPage?'active':'');
-        btn.innerText=i;
-        btn.disabled = i === outCurrentPage;
-        btn.onclick=()=>outGoToPage(i); 
-        pgBox.appendChild(btn);
+        btn.innerText=i; btn.onclick=()=>outGoToPage(i); pgBox.appendChild(btn);
     }
-    let btns = document.querySelectorAll('#stockOut .page-controls > button');
-    btns[0].disabled = outCurrentPage === 1;
-    btns[1].disabled = outCurrentPage === 1;
-    btns[3].disabled = outCurrentPage === outTotalPages;
-    btns[4].disabled = outCurrentPage === outTotalPages;
+    let btns = document.querySelectorAll('#stockOut .page-controls .page-btn');
+    btns[0].disabled = outCurrentPage===1;
+    btns[1].disabled = outCurrentPage===1;
+    btns[3].disabled = outCurrentPage===outTotalPages;
+    btns[4].disabled = outCurrentPage===outTotalPages;
 }
 function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }

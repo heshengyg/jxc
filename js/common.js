@@ -33,13 +33,13 @@ let filteredGoods = [];
 let currentPage = 1, pageSize = 10, totalPages = 1;
 let sortField = '', sortAsc = true;
 
-// 入库模块【修复：初始每页和页面下拉默认10条保持一致】
+// 入库模块
 let allStockIn = [];
 let filteredStockIn = [];
 let inCurrentPage = 1, inPageSize = 10, inTotalPages = 1;
 let inSortField = '', inSortAsc = true;
 
-// ========== 新增：出库模块全局变量【修复：初始每页10条】 ==========
+// ========== 新增：出库模块全局变量 ==========
 let allStockOut = [];
 let filteredStockOut = [];
 let outCurrentPage = 1, outPageSize = 10, outTotalPages = 1;
@@ -82,20 +82,19 @@ function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
 }
 
-// 标签页切换【还原原生写法，彻底解决页面阻塞空白】
+// 标签页切换
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
     if (tabId === 'stockIn') loadStockIn();
+    // 切换到出库：先加载入库数据，再加载出库数据
     if (tabId === 'stockOut') {
         loadStockIn();
         loadStockOut();
     }
-    // 库存、财务不需要预加载，直接打开页面即可
 }
-
 
 // 点击空白关闭下拉框
 document.addEventListener('click', function(e){
