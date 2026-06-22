@@ -44,12 +44,11 @@ switchTab = function (tabName) {
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        // 直接切换子页面，数据在 initCurrentSubPage 中异步加载
+        // 直接切换子页面，数据由 initCurrentSubPage 异步加载
         switchFinanceSubTab('taxRate');
         document.querySelector('.finance-sub-btn')?.classList.add('active');
     }
 };
-
 // 财务子Tab切换（异步，加载数据）
 async function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
@@ -200,8 +199,8 @@ async function loadAllInvoiceBack() {
 
 // 当前子页面初始化分发（异步加载数据）
 async function initCurrentSubPage() {
-    // 如果基础数据尚未加载，则先加载（防止空白）
-    if (allGoodsList.length === 0 || allStockInList.length === 0) {
+    // 税率页面只需要商品数据，其他子页面各自会处理缺失的数据
+    if (allGoodsList.length === 0) {
         await initFinanceBaseData();
     }
     // 数据就绪后执行对应的子页面初始化
