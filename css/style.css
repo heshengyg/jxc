@@ -141,3 +141,5 @@ tbody tr:hover { background-color: #e6f7ef; }
     color: #ffffff;
     border: 1px solid #1677ff;
 }
+.bill-footer{border-top:none !important;}
+.goods-table .total-row td{border-top:1px solid #000 !important;}

@@ -940,7 +940,6 @@ function previewAndPrint() {
             justify-content: space-between;
             font-size: 12pt;
             padding: 4px 4px 0 4px;
-            border-top: 1px solid #000;
         }
         .bill-footer span {
             min-width: 80px;
