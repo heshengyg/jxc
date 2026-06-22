@@ -741,14 +741,11 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         }else{
             selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
         }
-        // 同步全选按钮状态
         const allChecked = selectedPrintIndexArr.length === printStockInData.length;
-        // ===== 新增：阻止触发 onchange =====
         skipPrintAllChange = true;
         document.getElementById('printAllCheck').checked = allChecked;
         skipPrintAllChange = false;
-        cfg.total = list.length;
-renderFinancePagination('stockInPrint');
+        // 注意：这里不要调用 renderFinancePagination，以免干扰
     };
 });
     // 全选事件：当前页全部加入/移除全局选中数组
@@ -787,7 +784,11 @@ renderFinancePagination('stockInPrint');
     });
     tbody.innerHTML += totalTpl;
 // 在渲染完表格后，同步全选按钮状态（根据当前已选数量）
-document.getElementById('printAllCheck').checked = (selectedPrintIndexArr.length === printStockInData.length && printStockInData.length > 0);
+// 同步全选按钮状态（阻止触发 onchange）
+    skipPrintAllChange = true;
+    document.getElementById('printAllCheck').checked = (selectedPrintIndexArr.length === printStockInData.length && printStockInData.length > 0);
+    skipPrintAllChange = false;
+
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
