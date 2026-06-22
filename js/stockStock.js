@@ -1,3 +1,4 @@
+我再提供给你库存stockstock.js，麻烦把底部分页显示格式调整为出入库一页的效果，其他任何逻辑代码不要动。
 // 库存模块内部依赖函数（仅本文件使用，不影响其他模块）
 function getBzTotalDay(val, unit) {
     if (!val) return 0;
@@ -430,11 +431,14 @@ function renderStockTable() {
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
 
-    document.getElementById('stockCurrentPage').textContent = stockCurrentPage;
-    document.getElementById('stockTotalPages').textContent = stockTotalPages;
-
+    const currPageEl = document.getElementById('stockCurrentPage');
+    const totalPageEl = document.getElementById('stockTotalPages');
     const pgBox = document.getElementById('stockPageNumbers');
-    pgBox.innerHTML = '';
+
+    if (currPageEl) currPageEl.textContent = stockCurrentPage;
+    if (totalPageEl) totalPageEl.textContent = stockTotalPages;
+    if (pgBox) pgBox.innerHTML = '';
+
     const startPage = Math.max(1, stockCurrentPage - 2);
     const endPage = Math.min(stockTotalPages, startPage + 4);
     for (let i = startPage; i <= endPage; i++) {
@@ -445,13 +449,12 @@ function renderStockPagination() {
         pgBox.appendChild(btn);
     }
 
-    // ✅ 首尾定位：第一个=首页，第二个=上一页，倒数第二个=下一页，倒数第一个=末页
-    const btns = document.querySelectorAll('#stockView .page-controls .page-btn');
-    if (btns.length >= 4) {
-        btns[0].disabled = (stockCurrentPage === 1);
-        btns[1].disabled = (stockCurrentPage === 1);
-        btns[btns.length - 2].disabled = (stockCurrentPage === stockTotalPages);
-        btns[btns.length - 1].disabled = (stockCurrentPage === stockTotalPages);
+    const btns = document.querySelectorAll('.page-controls .page-btn');
+    if (btns.length >= 5) {
+        btns[0].disabled = stockCurrentPage === 1;
+        btns[1].disabled = stockCurrentPage === 1;
+        btns[3].disabled = stockCurrentPage === stockTotalPages;
+        btns[4].disabled = stockTotalPages;
     }
 }
 

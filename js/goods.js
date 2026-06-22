@@ -154,30 +154,21 @@ async function renderGoods() {
     }
 }
 function renderPagination() {
-    totalPages = Math.ceil(filteredGoods.length / pageSize) || 1;
+    totalPages = Math.ceil(filteredGoods.length/pageSize)||1;
     document.getElementById('currentPage').textContent = currentPage;
     document.getElementById('totalPages').textContent = totalPages;
-
-    let pgBox = document.getElementById('pageNumbers');
-    pgBox.innerHTML = '';
-    let s = Math.max(1, currentPage - 2);
-    let e = Math.min(totalPages, s + 4);
-    for (let i = s; i <= e; i++) {
+    let pgBox = document.getElementById('pageNumbers'); pgBox.innerHTML='';
+    let s = Math.max(1, currentPage-2), e = Math.min(totalPages, s+4);
+    for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
-        btn.className = 'page-btn ' + (i === currentPage ? 'active' : '');
-        btn.innerText = i;
-        btn.onclick = () => goToPage(i);
-        pgBox.appendChild(btn);
+        btn.className = 'page-btn '+(i===currentPage?'active':'');
+        btn.innerText=i; btn.onclick=()=>goToPage(i); pgBox.appendChild(btn);
     }
-
-    // ✅ 通过位置获取：第一个=首页，第二个=上一页，倒数第二个=下一页，倒数第一个=末页
     let btns = document.querySelectorAll('#goods .page-controls .page-btn');
-    if (btns.length >= 4) {
-        btns[0].disabled = (currentPage === 1);
-        btns[1].disabled = (currentPage === 1);
-        btns[btns.length - 2].disabled = (currentPage === totalPages);
-        btns[btns.length - 1].disabled = (currentPage === totalPages);
-    }
+    btns[0].disabled = currentPage===1;
+    btns[1].disabled = currentPage===1;
+    btns[3].disabled = currentPage===totalPages;
+    btns[4].disabled = currentPage===totalPages;
 }
 
 function goToPage(p){ if(p<1||p>totalPages)return; currentPage=p; renderPagination(); renderGoods(); }
