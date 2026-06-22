@@ -749,14 +749,12 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
     };
 });
     // 全选事件：当前页全部加入/移除全局选中数组
-    document.getElementById('printAllCheck').onchange = function () {
-    // ===== 新增：如果是代码触发则跳过 =====
+    // 1. 先绑定全选事件（确保只绑定一次，但每次渲染都需要重新绑定）
+document.getElementById('printAllCheck').onchange = function () {
     if (skipPrintAllChange) {
         skipPrintAllChange = false;
         return;
     }
-    // ===== 新增结束 =====
-
     if (this.checked) {
         selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
@@ -765,6 +763,25 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
     }
 };
+
+// 2. 再绑定手动勾选事件
+document.querySelectorAll('.print-checkbox').forEach(checkbox => {
+    checkbox.onchange = function(){
+        const idx = Number(this.dataset.index);
+        if(this.checked){
+            if(!selectedPrintIndexArr.includes(idx)){
+                selectedPrintIndexArr.push(idx);
+            }
+        }else{
+            selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+        }
+        // 同步全选按钮状态
+        const allChecked = selectedPrintIndexArr.length === printStockInData.length;
+        skipPrintAllChange = true;
+        document.getElementById('printAllCheck').checked = allChecked;
+        skipPrintAllChange = false;
+    };
+});
 
     // 供应商汇总行渲染
     const groupMap = {};
@@ -793,7 +810,21 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
     renderFinancePagination('stockInPrint');
 }
 function previewAndPrint() {
-// ===== 新增：过滤无效索引并去重 =====
+    // ===== 保险逻辑：如果 selectedPrintIndexArr 为空，但页面上有勾选的复选框，尝试重新收集 =====
+    const checkedBoxes = document.querySelectorAll('.print-checkbox:checked');
+    if (selectedPrintIndexArr.length === 0 && checkedBoxes.length > 0) {
+        console.warn('selectedPrintIndexArr 为空，但页面上有勾选，尝试重新收集');
+        selectedPrintIndexArr = [];
+        checkedBoxes.forEach(cb => {
+            const idx = Number(cb.dataset.index);
+            if (!selectedPrintIndexArr.includes(idx)) {
+                selectedPrintIndexArr.push(idx);
+            }
+        });
+    }
+    // ===== 保险逻辑结束 =====
+
+    // 过滤无效索引并去重
     const validIndices = [];
     const seen = new Set();
     for (let idx of selectedPrintIndexArr) {
@@ -806,12 +837,11 @@ function previewAndPrint() {
         }
     }
     selectedPrintIndexArr = validIndices;
-    // ===== 新增结束 =====
+
     if (selectedPrintIndexArr.length === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
     }
-
     const groupMap = {};
     selectedPrintIndexArr.forEach(idx => {
         const row = printStockInData[idx];
