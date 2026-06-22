@@ -40,6 +40,7 @@ let printSpecSearchList = [];
 let selectedPrintIndexArr = [];
 let skipPrintAllChange = false;
 
+
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
@@ -746,7 +747,8 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         skipPrintAllChange = true;
         document.getElementById('printAllCheck').checked = allChecked;
         skipPrintAllChange = false;
-        // ===== 新增结束 =====
+        cfg.total = list.length;
+renderFinancePagination('stockInPrint');
     };
 });
     // 全选事件：当前页全部加入/移除全局选中数组
