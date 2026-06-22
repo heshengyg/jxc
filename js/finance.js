@@ -39,18 +39,17 @@ let printSpecSearchList = [];
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
-switchTab = function (tabName) {
+switchTab = async function (tabName) {   // ✅ 声明为 async
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        initFinanceBaseData();
+        await initFinanceBaseData();      // ✅ 等待所有财务基础数据加载完成
         switchFinanceSubTab('taxRate');
         // 页面初始化手动给第一个子按钮添加active高亮
         document.querySelector('.finance-sub-btn').classList.add('active');
     }
 }
-
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
