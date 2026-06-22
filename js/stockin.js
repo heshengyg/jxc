@@ -521,23 +521,29 @@ async function renderStockIn() {
     tb.innerHTML = fullHtml;
 }
 
-// 分页渲染
+// 分页渲染【修复：仅当前页码按钮禁用，其他页码可正常点击】
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
     document.getElementById('inCurrentPage').textContent = inCurrentPage;
     document.getElementById('inTotalPages').textContent = inTotalPages;
-    let pgBox = document.getElementById('inPageNumbers'); pgBox.innerHTML='';
+    let pgBox = document.getElementById('inPageNumbers'); 
+    pgBox.innerHTML='';
     let s = Math.max(1, inCurrentPage-2), e = Math.min(inTotalPages, s+4);
     for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
         btn.className = 'page-btn '+(i===inCurrentPage?'active':'');
-        btn.innerText=i; btn.onclick=()=>inGoToPage(i); pgBox.appendChild(btn);
+        btn.innerText=i;
+        // 仅当前页禁用，其余页码全部可点击
+        btn.disabled = i === inCurrentPage;
+        btn.onclick=()=>inGoToPage(i); 
+        pgBox.appendChild(btn);
     }
-    let btns = document.querySelectorAll('#stockIn .page-controls .page-btn');
-    btns[0].disabled = inCurrentPage===1;
-    btns[1].disabled = inCurrentPage===1;
-    btns[3].disabled = inCurrentPage===inTotalPages;
-    btns[4].disabled = inCurrentPage===inTotalPages;
+    // 仅首尾按钮做边界禁用
+    let btns = document.querySelectorAll('#stockIn .page-controls > button');
+    btns[0].disabled = inCurrentPage === 1; //首页
+    btns[1].disabled = inCurrentPage === 1; //上一页
+    btns[3].disabled = inCurrentPage === inTotalPages; //下一页
+    btns[4].disabled = inCurrentPage === inTotalPages; //末页
 }
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }

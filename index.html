@@ -959,6 +959,10 @@ document.addEventListener('click', function(e) {
 <script>
 document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('fileInput').value='';
+    // 新增：初始化同步分页下拉默认值，保证JS和DOM一致，默认10条
+    pageSize = Number(document.getElementById('pageSize').value);
+    inPageSize = Number(document.getElementById('inPageSize').value);
+    outPageSize = Number(document.getElementById('outPageSize').value);
 });
 </script>
 </body>

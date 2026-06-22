@@ -380,23 +380,27 @@ function renderStockOut() {
     });
 }
 
-// 分页
+// 分页【修复：仅当前页码按钮禁用，其他页码正常可点击】
 function renderOutPagination() {
     outTotalPages = Math.ceil(filteredStockOut.length/outPageSize)||1;
     document.getElementById('outCurrentPage').textContent = outCurrentPage;
     document.getElementById('outTotalPages').textContent = outTotalPages;
-    let pgBox = document.getElementById('outPageNumbers'); pgBox.innerHTML='';
+    let pgBox = document.getElementById('outPageNumbers'); 
+    pgBox.innerHTML='';
     let s = Math.max(1, outCurrentPage-2), e = Math.min(outTotalPages, s+4);
     for(let i=s;i<=e;i++){
         let btn = document.createElement('button');
         btn.className = 'page-btn '+(i===outCurrentPage?'active':'');
-        btn.innerText=i; btn.onclick=()=>outGoToPage(i); pgBox.appendChild(btn);
+        btn.innerText=i;
+        btn.disabled = i === outCurrentPage;
+        btn.onclick=()=>outGoToPage(i); 
+        pgBox.appendChild(btn);
     }
-    let btns = document.querySelectorAll('#stockOut .page-controls .page-btn');
-    btns[0].disabled = outCurrentPage===1;
-    btns[1].disabled = outCurrentPage===1;
-    btns[3].disabled = outCurrentPage===outTotalPages;
-    btns[4].disabled = outCurrentPage===outTotalPages;
+    let btns = document.querySelectorAll('#stockOut .page-controls > button');
+    btns[0].disabled = outCurrentPage === 1;
+    btns[1].disabled = outCurrentPage === 1;
+    btns[3].disabled = outCurrentPage === outTotalPages;
+    btns[4].disabled = outCurrentPage === outTotalPages;
 }
 function outGoToPage(p){ if(p<1||p>outTotalPages)return; outCurrentPage=p; renderOutPagination(); renderStockOut(); }
 function outPrevPage(){ outGoToPage(outCurrentPage-1); }
