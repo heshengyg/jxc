@@ -2,12 +2,6 @@
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
 let monthDistinctList = [];
-// 打印筛选下拉缓存
-let printSupplierSearchList = [];
-let printGoodsSearchList = [];
-let printSpecSearchList = [];
-// 【需求3新增：跨页选中存储数组】
-let selectedPrintIndexArr = [];
 // 安全兼容全局商品，防止页面加载顺序报错
 let allGoodsList = window.allGoods || [];
 let allStockInList = [];
@@ -43,22 +37,20 @@ let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
 
+// 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
 switchTab = function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
-        if (taxModal) {
-            taxModal.style.display = 'none';
-            // 强制重置为none，防止flex样式残留导致自动弹出
-            taxModal.style.position = 'fixed';
-        }
+        if (taxModal) taxModal.style.display = 'none';
         initFinanceBaseData();
-        // 先激活第一个按钮，再切换子页面，避免初始化触发弹窗
-        document.querySelector('.finance-sub-btn').classList.add('active');
         switchFinanceSubTab('taxRate');
+        // 页面初始化手动给第一个子按钮添加active高亮
+        document.querySelector('.finance-sub-btn').classList.add('active');
     }
 }
+
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
@@ -223,6 +215,7 @@ function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
     if(taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
+    // 确保自动执行表格刷新
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
@@ -664,8 +657,6 @@ function clearPrintSort(){
 // 筛选查询主函数
 function searchPrintStockIn() {
     financePageConfig.stockInPrint.current = 1;
-    // 【需求3：切换搜索清空跨页选中】
-    selectedPrintIndexArr = [];
     const supplier = document.getElementById('printSupplierSearch').value.trim();
     const goodsName = document.getElementById('printGoodsNameSearch').value.trim().toLowerCase();
     const spec = document.getElementById('printSpecSearch').value.trim().toLowerCase();
@@ -693,12 +684,6 @@ function searchPrintStockIn() {
     });
     printStockInData = list;
 
-    // 【需求1：渲染总条数统计】
-    const totalTipDom = document.getElementById('stockInTotalTip');
-    if(totalTipDom){
-        totalTipDom.innerText = `共${list.length}条入库记录，当前搜索结果${list.length}条`;
-    }
-
     const startIdx = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
 
@@ -707,12 +692,9 @@ function searchPrintStockIn() {
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
         const total = (Number(item.in_price) * Number(item.in_num)).toFixed(2);
-        const globalIndex = startIdx + idx;
-        // 【需求3：判断当前行是否在跨页选中数组，回显勾选状态】
-        const isChecked = selectedPrintIndexArr.includes(globalIndex);
         tbody.innerHTML += `
         <tr>
-            <td><input type="checkbox" class="print-checkbox" data-index="${globalIndex}" ${isChecked ? 'checked' : ''}></td>
+            <td><input type="checkbox" class="print-checkbox" data-index="${startIdx+idx}"></td>
             <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
@@ -723,39 +705,9 @@ function searchPrintStockIn() {
             <td>${item.record_date}</td>
         </tr>`;
     });
-
-    // 【需求3：修改单选框事件：新增/移除全局选中索引】
-    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-        checkbox.onchange = function(){
-            const idx = parseInt(this.dataset.index);
-            if(this.checked){
-                if(!selectedPrintIndexArr.includes(idx)){
-                    selectedPrintIndexArr.push(idx);
-                }
-            }else{
-                selectedPrintIndexArr = selectedPrintIndexArr.filter(item => item !== idx);
-            }
-            // 切换当前页全选框状态
-            const pageAllChecked = Array.from(document.querySelectorAll('.print-checkbox')).every(cb=>cb.checked);
-            document.getElementById('printAllCheck').checked = pageAllChecked;
-        }
-    });
-
-    // 【需求3：修改全选事件：选中当前页所有数据存入全局数组】
+    // 全选事件
     document.getElementById('printAllCheck').onchange = function () {
-        const currentPageCheckboxes = document.querySelectorAll('.print-checkbox');
-        currentPageCheckboxes.forEach(cb => {
-            const idx = parseInt(cb.dataset.index);
-            if(this.checked){
-                if(!selectedPrintIndexArr.includes(idx)){
-                    selectedPrintIndexArr.push(idx);
-                }
-                cb.checked = true;
-            }else{
-                selectedPrintIndexArr = selectedPrintIndexArr.filter(item => item !== idx);
-                cb.checked = false;
-            }
-        });
+        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = this.checked);
     }
 
     // 需求⑤：供应商汇总行渲染
@@ -779,15 +731,17 @@ function searchPrintStockIn() {
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
+
 function previewAndPrint() {
-    // 【需求3：直接从全局跨页选中数组读取所有选中行，不再只取当前页面勾选框】
-    if (selectedPrintIndexArr.length === 0) {
+    const checkedBox = document.querySelectorAll('.print-checkbox:checked');
+    if (checkedBox.length === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
     }
 
     const groupMap = {};
-    selectedPrintIndexArr.forEach(idx => {
+    checkedBox.forEach(cb => {
+        const idx = parseInt(cb.dataset.index);
         const row = printStockInData[idx];
         if (!row) return;
         if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
@@ -1483,13 +1437,3 @@ function initMonthBeginPage() {
 function searchMonthBeginStock() {
     showMsg('库存期初表需要实时库存结余计算逻辑，当前框架已完成');
 }
-
-// 点击灰色遮罩关闭税率弹窗
-document.addEventListener('click', function(e) {
-    const taxModal = document.getElementById('taxModal');
-    if (!taxModal) return;
-    // 点击遮罩空白处关闭弹窗
-    if (e.target === taxModal) {
-        closeTaxModal();
-    }
-});
