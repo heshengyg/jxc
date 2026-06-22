@@ -37,19 +37,40 @@ let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
 
-// 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
-switchTab = async function (tabName) {   // ✅ 声明为 async
+switchTab = async function (tabName) {
+    // 调用原始切换逻辑（确保主 Tab 切换正常）
     originSwitchTab(tabName);
+    
     if (tabName === 'finance') {
+        // 1. 强制确保财务主容器可见（容错）
+        const financeContainer = document.getElementById('finance');
+        if (financeContainer) {
+            financeContainer.style.display = '';      // 清除内联样式
+            financeContainer.classList.add('active'); // 确保 active 类存在
+        }
+
+        // 2. 关闭可能残留的税率弹窗
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        await initFinanceBaseData();      // ✅ 等待所有财务基础数据加载完成
+
+        // 3. 加载财务基础数据（如果已加载过，不会重复请求）
+        try {
+            await initFinanceBaseData();
+        } catch (e) {
+            console.error('财务数据加载失败:', e);
+            showMsg('财务数据加载失败，请刷新重试');
+            return;
+        }
+
+        // 4. 切换到税率子页面
         switchFinanceSubTab('taxRate');
-        // 页面初始化手动给第一个子按钮添加active高亮
-        document.querySelector('.finance-sub-btn').classList.add('active');
+        
+        // 5. 高亮第一个子按钮
+        const firstBtn = document.querySelector('.finance-sub-btn');
+        if (firstBtn) firstBtn.classList.add('active');
     }
-}
+};
 // 财务子Tab切换
 function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
@@ -75,7 +96,11 @@ function switchFinanceSubTab(tabKey) {
 
     // 下面是你原来的切换代码，完全保留不要修改
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
-    document.getElementById(`sub-${tabKey}`).style.display = 'block';
+    const target = document.getElementById(`sub-${tabKey}`);
+if (target) {
+    target.style.display = '';        // 清除内联样式，让 CSS 控制
+    target.style.visibility = 'visible';
+}
 
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
     if (event?.target?.classList.contains('finance-sub-btn')) {
