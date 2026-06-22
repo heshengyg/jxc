@@ -116,18 +116,25 @@ function renderFinancePagination(pageKey) {
 function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].pageSize = Number(size);
     financePageConfig[pageKey].current = 1;
-    initCurrentSubPage();
+    if(pageKey === 'stockInPrint'){
+        searchPrintStockIn();
+    }else{
+        initCurrentSubPage();
+    }
 }
-
 // 跳转指定页
 function financeGoToPage(pageKey, targetPage) {
     const cfg = financePageConfig[pageKey];
     const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
     if(targetPage < 1 || targetPage > totalPages) return;
     cfg.current = targetPage;
-    initCurrentSubPage();
+    // 核心修复：入库打印页面直接调用查询渲染，不走initCurrentSubPage（会清空筛选数据）
+    if(pageKey === 'stockInPrint'){
+        searchPrintStockIn();
+    }else{
+        initCurrentSubPage();
+    }
 }
-
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
     await Promise.all([
@@ -505,32 +512,27 @@ function initStockInPrintPage() {
     cfg.sortField = 'record_date';
     cfg.sortType = 'desc';
 
-    // 【关键修复】仅首次进入该子页面才初始化数据源，分页跳转不再清空筛选结果
-    if (printStockInData.length === 0) {
-        // 线下供应商：从入库表去重获取
-        printSupplierSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.supplier))];
-        // 商品名称：从入库表对应供应商的线下数据去重获取
-        printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
-        // 规格：从入库表对应供应商的线下数据去重获取
-        printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
+    // 【修复】所有下拉数据源100%来自入库表的线下数据，和商品表完全解耦
+    // 1. 线下供应商：从入库表去重获取
+    printSupplierSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.supplier))];
+    // 2. 商品名称：从入库表对应供应商的线下数据去重获取
+    printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
+    // 3. 规格：从入库表对应供应商的线下数据去重获取
+    printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
 
-        // 清空筛选条件
-        document.getElementById('printSupplierSearch').value = '';
-        document.getElementById('printGoodsNameSearch').value = '';
-        document.getElementById('printSpecSearch').value = '';
-        document.getElementById('printStartDate').value = '';
-        document.getElementById('printEndDate').value = '';
-        document.getElementById('printSupplierListBox').style.display = 'none';
-        document.getElementById('printGoodsListBox').style.display = 'none';
-        document.getElementById('printSpecListBox').style.display = 'none';
+    // 清空筛选条件
+    document.getElementById('printSupplierSearch').value = '';
+    document.getElementById('printGoodsNameSearch').value = '';
+    document.getElementById('printSpecSearch').value = '';
+    document.getElementById('printStartDate').value = '';
+    document.getElementById('printEndDate').value = '';
+    document.getElementById('printSupplierListBox').style.display = 'none';
+    document.getElementById('printGoodsListBox').style.display = 'none';
+    document.getElementById('printSpecListBox').style.display = 'none';
 
-        document.getElementById('printStockInList').innerHTML = '';
-        printStockInData = [];
-        renderFinancePagination('stockInPrint');
-    } else {
-        // 分页跳转：只重新渲染当前页表格，不清空筛选后的数据
-        searchPrintStockIn();
-    }
+    document.getElementById('printStockInList').innerHTML = '';
+    printStockInData = [];
+    renderFinancePagination('stockInPrint');
 }
 
 // ========== 需求①：下拉带搜索函数 ==========
