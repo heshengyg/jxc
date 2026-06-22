@@ -664,9 +664,9 @@ function clearPrintSort(){
 
 // 筛选查询主函数
 function searchPrintStockIn(resetPage = true) {
-    // 新查询清空历史跨页选中
-    selectedPrintIndexArr = [];
+    // ✅ 只有新查询/排序时才清空选中
     if (resetPage) {
+        selectedPrintIndexArr = [];
         financePageConfig.stockInPrint.current = 1;
     }
     const supplier = document.getElementById('printSupplierSearch').value.trim();
@@ -738,10 +738,10 @@ function searchPrintStockIn(resetPage = true) {
         }else{
             selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
         }
-        // 同步全选按钮状态：是否所有数据都被选中
+        // 同步全选按钮状态
         const allChecked = selectedPrintIndexArr.length === printStockInData.length;
         document.getElementById('printAllCheck').checked = allChecked;
-        // 同时确保当前页的复选框状态与 selectedPrintIndexArr 一致（防止跨页后状态错乱）
+        // 同步当前页复选框状态（防止其他页勾选影响）
         document.querySelectorAll('.print-checkbox').forEach(cb => {
             const idx2 = parseInt(cb.dataset.index);
             cb.checked = selectedPrintIndexArr.includes(idx2);
@@ -752,12 +752,11 @@ function searchPrintStockIn(resetPage = true) {
     // 全选事件：当前页全部加入/移除全局选中数组
     document.getElementById('printAllCheck').onchange = function () {
     if (this.checked) {
-        // 全选：将所有数据的索引加入 selectedPrintIndexArr
+        // 全选：所有数据索引
         selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
-        // 勾选当前页所有复选框
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
     } else {
-        // 取消全选：清空 selectedPrintIndexArr
+        // 取消全选
         selectedPrintIndexArr = [];
         document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
     }
