@@ -117,7 +117,7 @@ function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].pageSize = Number(size);
     financePageConfig[pageKey].current = 1;
     if(pageKey === 'stockInPrint'){
-        searchPrintStockIn();
+        searchPrintStockIn(true);   // 明确传 true 重置
     }else{
         initCurrentSubPage();
     }
@@ -128,9 +128,8 @@ function financeGoToPage(pageKey, targetPage) {
     const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
     if(targetPage < 1 || targetPage > totalPages) return;
     cfg.current = targetPage;
-    // 核心修复：入库打印页面直接调用查询渲染，不走initCurrentSubPage（会清空筛选数据）
     if(pageKey === 'stockInPrint'){
-        searchPrintStockIn();
+        searchPrintStockIn(false);   // ← 新增参数 false
     }else{
         initCurrentSubPage();
     }
@@ -668,7 +667,9 @@ function clearPrintSort(){
 function searchPrintStockIn() {
     // 新查询清空历史跨页选中
     selectedPrintIndexArr = [];
-    financePageConfig.stockInPrint.current = 1;
+    if (resetPage) {
+        financePageConfig.stockInPrint.current = 1;   // 仅当 resetPage 为 true 时才重置
+    }
     const supplier = document.getElementById('printSupplierSearch').value.trim();
     const goodsName = document.getElementById('printGoodsNameSearch').value.trim().toLowerCase();
     const spec = document.getElementById('printSpecSearch').value.trim().toLowerCase();
