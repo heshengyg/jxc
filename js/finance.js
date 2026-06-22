@@ -502,7 +502,6 @@ body *{visibility:hidden;}
 
 function initStockInPrintPage() {
     const cfg = financePageConfig.stockInPrint;
-    cfg.current = 1;
     cfg.sortField = 'record_date';
     cfg.sortType = 'desc';
 
