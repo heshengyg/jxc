@@ -984,7 +984,6 @@ function previewAndPrint() {
             .goods-table { width: 100% !important; }
             .bill-footer { 
                 bottom: 0.6cm !important;
-                border-top: 1px solid #000;
             }
             /* 防止表格被拉伸 */
             .goods-table td, .goods-table th { height: auto !important; }
