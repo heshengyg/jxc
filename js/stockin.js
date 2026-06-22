@@ -403,35 +403,29 @@ async function importStockInExcel() {
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
-        const pageOffset = (inCurrentPage - 1) * inPageSize;
-        const fetchPage = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc&limit=${inPageSize}&offset=${pageOffset}`, {
+        // 一次性拉取全部入库记录（按id降序）
+        const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        const pageData = await fetchPage.json();
-        const countRes = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?select=id`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Range-Unit': 'items',
-                'Range': '0-0',
-                'Prefer': 'count=exact'
-            }
-        });
-        const totalRecord = Number(countRes.headers.get('content-range').split('/')[1]);
-        allStockIn = pageData;
-        document.getElementById('inTotalCount').textContent = totalRecord;
+        const allData = await fetchAll.json();
+        allStockIn = allData;
+        document.getElementById('inTotalCount').textContent = allData.length;
         refreshAllStockCache(allStockIn, allStockOut);
+        // 重置到第一页
+        inCurrentPage = 1;
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
+
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
     let kw = document.getElementById('inSearchKeyword').value.toLowerCase();
     filteredStockIn = allStockIn.filter(item => String(item[field]||'').toLowerCase().includes(kw));
     document.getElementById('inSearchCount').textContent = filteredStockIn.length;
+    inCurrentPage = 1;   // ✅ 重置当前页为第一页
     renderInPagination();
     renderStockIn();
 }
@@ -530,22 +524,32 @@ async function renderStockIn() {
 
 // 分页渲染
 function renderInPagination() {
-    inTotalPages = Math.ceil(filteredStockIn.length/inPageSize)||1;
+    inTotalPages = Math.ceil(filteredStockIn.length / inPageSize) || 1;
     document.getElementById('inCurrentPage').textContent = inCurrentPage;
     document.getElementById('inTotalPages').textContent = inTotalPages;
-    let pgBox = document.getElementById('inPageNumbers'); pgBox.innerHTML='';
-    let s = Math.max(1, inCurrentPage-2), e = Math.min(inTotalPages, s+4);
-    for(let i=s;i<=e;i++){
+
+    let pgBox = document.getElementById('inPageNumbers');
+    pgBox.innerHTML = '';
+    let s = Math.max(1, inCurrentPage - 2);
+    let e = Math.min(inTotalPages, s + 4);
+    for (let i = s; i <= e; i++) {
         let btn = document.createElement('button');
-        btn.className = 'page-btn '+(i===inCurrentPage?'active':'');
-        btn.innerText=i; btn.onclick=()=>inGoToPage(i); pgBox.appendChild(btn);
+        btn.className = 'page-btn ' + (i === inCurrentPage ? 'active' : '');
+        btn.innerText = i;
+        btn.onclick = () => inGoToPage(i);
+        pgBox.appendChild(btn);
     }
+
+    // ✅ 首尾定位
     let btns = document.querySelectorAll('#stockIn .page-controls .page-btn');
-    btns[0].disabled = inCurrentPage===1;
-    btns[1].disabled = inCurrentPage===1;
-    btns[3].disabled = inCurrentPage===inTotalPages;
-    btns[4].disabled = inCurrentPage===inTotalPages;
+    if (btns.length >= 4) {
+        btns[0].disabled = (inCurrentPage === 1);
+        btns[1].disabled = (inCurrentPage === 1);
+        btns[btns.length - 2].disabled = (inCurrentPage === inTotalPages);
+        btns[btns.length - 1].disabled = (inCurrentPage === inTotalPages);
+    }
 }
+
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
