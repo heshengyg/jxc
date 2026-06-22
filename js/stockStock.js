@@ -430,14 +430,11 @@ function renderStockTable() {
 function renderStockPagination() {
     stockTotalPages = Math.ceil(filteredStockBatch.length / stockPageSize) || 1;
 
-    const currPageEl = document.getElementById('stockCurrentPage');
-    const totalPageEl = document.getElementById('stockTotalPages');
+    document.getElementById('stockCurrentPage').textContent = stockCurrentPage;
+    document.getElementById('stockTotalPages').textContent = stockTotalPages;
+
     const pgBox = document.getElementById('stockPageNumbers');
-
-    if (currPageEl) currPageEl.textContent = stockCurrentPage;
-    if (totalPageEl) totalPageEl.textContent = stockTotalPages;
-    if (pgBox) pgBox.innerHTML = '';
-
+    pgBox.innerHTML = '';
     const startPage = Math.max(1, stockCurrentPage - 2);
     const endPage = Math.min(stockTotalPages, startPage + 4);
     for (let i = startPage; i <= endPage; i++) {
@@ -448,12 +445,13 @@ function renderStockPagination() {
         pgBox.appendChild(btn);
     }
 
-    const btns = document.querySelectorAll('.page-controls .page-btn');
-    if (btns.length >= 5) {
-        btns[0].disabled = stockCurrentPage === 1;
-        btns[1].disabled = stockCurrentPage === 1;
-        btns[3].disabled = stockCurrentPage === stockTotalPages;
-        btns[4].disabled = stockTotalPages;
+    // ✅ 首尾定位：第一个=首页，第二个=上一页，倒数第二个=下一页，倒数第一个=末页
+    const btns = document.querySelectorAll('#stockView .page-controls .page-btn');
+    if (btns.length >= 4) {
+        btns[0].disabled = (stockCurrentPage === 1);
+        btns[1].disabled = (stockCurrentPage === 1);
+        btns[btns.length - 2].disabled = (stockCurrentPage === stockTotalPages);
+        btns[btns.length - 1].disabled = (stockCurrentPage === stockTotalPages);
     }
 }
 
