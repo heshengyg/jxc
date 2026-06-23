@@ -1161,7 +1161,12 @@ async function savePayRecord() {
     await loadAllPayment();
     refreshPayRecordList();
     showMsg('付款记录保存成功');
+    
+    // ✅ 新增：关闭弹窗并重置编辑ID
+    closePayModal();
+    currentPayEditId = null;
 }
+
 async function deletePayRecord(id) {
     if (!confirm('确定删除该付款记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_payment?id=eq.${id}`, {
@@ -1279,7 +1284,12 @@ async function saveInvoiceBackRecord() {
     await loadAllInvoiceBack();
     refreshInvoiceBackList();
     showMsg('发票退回记录保存成功');
+    
+    // ✅ 新增：关闭弹窗并重置编辑ID
+    closeInvoiceBackModal();
+    currentInvoiceBackEditId = null;
 }
+
 async function deleteInvoiceBackRecord(id) {
     if (!confirm('确定删除该发票退回记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
