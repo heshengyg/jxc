@@ -1195,15 +1195,29 @@ async function initInvoiceBackPage() {
 
 function initInvoiceBackSupplierSelect() {
     const filterSel = document.getElementById('invoiceBackSupplierFilter');
-    filterSel.innerHTML = '<option value="">全部供应商</option>';
     const editSel = document.getElementById('invoiceBackSupplier');
+    filterSel.innerHTML = '<option value="">全部供应商</option>';
     editSel.innerHTML = '';
+    
+    // ✅ 确保 offlineSupplierList 有数据
+    if (offlineSupplierList.length === 0) {
+        // 如果为空，尝试重新加载
+        loadOfflineSupplier().then(() => {
+            offlineSupplierList.forEach(s => {
+                filterSel.innerHTML += `<option value="${s}">${s}</option>`;
+                editSel.innerHTML += `<option value="${s}">${s}</option>`;
+            });
+        });
+        return;
+    }
+    
     offlineSupplierList.forEach(s => {
         filterSel.innerHTML += `<option value="${s}">${s}</option>`;
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
 }
+
 function refreshInvoiceBackList() {
     const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
     let list = [...allInvoiceBackList];
@@ -1266,30 +1280,43 @@ async function saveInvoiceBackRecord() {
     const amount = Number(document.getElementById('invoiceBackAmount').value);
     const invNo = document.getElementById('invoiceBackNo').value.trim();
     const remark = document.getElementById('invoiceBackRemark').value.trim();
-    if (!backDate || !supplier || isNaN(amount) || amount <= 0 || !invNo) return showMsg('请完善必填项，退回金额必须大于0');
-    const body = { return_date: backDate, supplier, invoice_amount: amount, invoice_no: invNo, remark };
-    if (currentInvoiceBackEditId) {
-        await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${currentInvoiceBackEditId}`, {
-            method: 'PATCH',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-    } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice`, {
-            method: 'POST',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-    }
-    await loadAllInvoiceBack();
-    refreshInvoiceBackList();
-    showMsg('发票退回记录保存成功');
     
-    // ✅ 新增：关闭弹窗并重置编辑ID
-    closeInvoiceBackModal();
-    currentInvoiceBackEditId = null;
+    // ✅ 修改：允许金额为0，但必须 >= 0
+    if (!backDate || !supplier || isNaN(amount) || amount < 0 || !invNo) {
+        return showMsg('请完善必填项（日期、供应商、发票号码、金额不能为负数）');
+    }
+    
+    const body = { 
+        return_date: backDate, 
+        supplier: supplier, 
+        invoice_amount: amount, 
+        invoice_no: invNo, 
+        remark: remark || '' 
+    };
+    
+    try {
+        if (currentInvoiceBackEditId) {
+            await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${currentInvoiceBackEditId}`, {
+                method: 'PATCH',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        } else {
+            await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice`, {
+                method: 'POST',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        }
+        await loadAllInvoiceBack();
+        refreshInvoiceBackList();
+        showMsg('发票退回记录保存成功');
+        closeInvoiceBackModal();
+        currentInvoiceBackEditId = null;
+    } catch (e) {
+        showMsg('保存失败：' + e.message);
+    }
 }
-
 async function deleteInvoiceBackRecord(id) {
     if (!confirm('确定删除该发票退回记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
