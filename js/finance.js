@@ -222,15 +222,18 @@ async function initCurrentSubPage() {
 
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
-    // ✅ 强制关闭税率弹窗
+    // ✅ 强制关闭税率弹窗（使用多种方式确保关闭）
     const taxModal = document.getElementById('taxModal');
     if (taxModal) {
         taxModal.style.display = 'none';
+        taxModal.style.visibility = 'hidden';
+        taxModal.style.opacity = '0';
         taxModal.style.zIndex = '9999';
     }
     initTaxSupplierFilter();
     refreshTaxList();
 }
+
 function initTaxSupplierFilter() {
     // 初始化供应商数据源：只线下商品供应商
     const supplierSet = new Set();
@@ -424,7 +427,11 @@ function openTaxEdit(id) {
     modalDom.style.zIndex = '9999';
 }
 function closeTaxModal() {
-    document.getElementById('taxModal').style.display = 'none';
+    const modal = document.getElementById('taxModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+    }
 }
 async function saveTaxData() {
     const id = document.getElementById('taxEditId').value;
