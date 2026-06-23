@@ -222,10 +222,13 @@ async function initCurrentSubPage() {
 
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
+    // ✅ 强制关闭税率弹窗
     const taxModal = document.getElementById('taxModal');
-    if(taxModal) taxModal.style.display = 'none';
+    if (taxModal) {
+        taxModal.style.display = 'none';
+        taxModal.style.zIndex = '9999';
+    }
     initTaxSupplierFilter();
-    // 确保自动执行表格刷新
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
