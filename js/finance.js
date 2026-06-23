@@ -1281,6 +1281,7 @@ async function saveInvoiceBackRecord() {
     const invNo = document.getElementById('invoiceBackNo').value.trim();
     const remark = document.getElementById('invoiceBackRemark').value.trim();
     
+    // 校验：日期、供应商、金额必须填写，金额必须大于0
     if (!backDate || !supplier || isNaN(amount) || amount <= 0) {
         return showMsg('请完善必填项（日期、供应商、金额必须大于0）');
     }
@@ -1294,32 +1295,45 @@ async function saveInvoiceBackRecord() {
     };
     
     try {
+        // 1. 保存发票返回记录
         if (currentInvoiceBackEditId) {
             await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${currentInvoiceBackEditId}`, {
                 method: 'PATCH',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    apikey: SUPABASE_KEY, 
+                    Authorization: `Bearer ${SUPABASE_KEY}`, 
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify(body)
             });
         } else {
             await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice`, {
                 method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    apikey: SUPABASE_KEY, 
+                    Authorization: `Bearer ${SUPABASE_KEY}`, 
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify(body)
             });
         }
         
-        // ✅ 核销：自动核销该供应商的入库记录
+        // 2. ✅ 核销：自动核销该供应商的入库记录
         await autoWriteOffInvoice(supplier, amount, invNo);
         
-        // 重新加载所有数据
+        // 3. 重新加载所有数据
         await Promise.all([
             loadAllInvoiceBack(),
-            loadAllStockIn()  // 刷新入库数据
+            loadAllStockIn()
         ]);
         
+        // 4. 刷新当前页面列表
         refreshInvoiceBackList();
-        // 刷新入库列表（如果当前在入库管理页面）
-        if (typeof loadStockIn === 'function') {
+        
+        // 5. ✅ 刷新入库列表（调用 in.js 中的 loadStockIn）
+        if (typeof window.loadStockIn === 'function') {
+            await window.loadStockIn();
+        } else if (typeof loadStockIn === 'function') {
             await loadStockIn();
         }
         
@@ -1327,10 +1341,10 @@ async function saveInvoiceBackRecord() {
         closeInvoiceBackModal();
         currentInvoiceBackEditId = null;
     } catch (e) {
+        console.error('保存失败:', e);
         showMsg('保存失败：' + e.message);
     }
 }
-
 // ===================== 发票核销引擎 =====================
 
 /**
@@ -1342,73 +1356,98 @@ async function saveInvoiceBackRecord() {
 async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
     if (!supplier || invoiceAmount <= 0) return;
 
-    // 1. 获取该供应商所有线下入库记录（按入库日期从早到晚排序）
-    const inRecords = allStockInList
+    console.log(`开始核销：供应商 ${supplier}，发票金额 ${invoiceAmount}，发票号码 ${invoiceNo}`);
+
+    // 1. 先从数据库获取最新入库数据
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const latestStockIn = await res.json();
+
+    // 2. 过滤该供应商的未开票线下入库记录（按入库日期从早到晚排序）
+    const inRecords = latestStockIn
         .filter(item => 
             item.supplier === supplier && 
             item.settleType === '线下' &&
-            item.invoice_status !== '已开票'  // 只处理未开票的
+            item.invoice_status !== '已开票'
         )
         .sort((a, b) => {
-            // 按入库日期排序（先进先出）
             const dateA = new Date(a.record_date || '1970-01-01');
             const dateB = new Date(b.record_date || '1970-01-01');
             return dateA - dateB;
         });
 
-    if (inRecords.length === 0) return;
+    console.log(`找到 ${inRecords.length} 条未开票入库记录`, inRecords);
+
+    if (inRecords.length === 0) {
+        console.log(`供应商 ${supplier} 没有未开票的入库记录`);
+        showMsg(`注意：供应商 ${supplier} 没有未开票的入库记录可核销`);
+        return;
+    }
 
     let remainingAmount = invoiceAmount;
     const updatedIds = [];
 
-    // 2. 逐条核销
+    // 3. 逐条核销（先进先出）
     for (let record of inRecords) {
         if (remainingAmount <= 0) break;
 
         const recordTotal = Number(record.in_price) * Number(record.in_num);
+        console.log(`处理入库记录 ID:${record.id}，金额:${recordTotal}，剩余发票:${remainingAmount}`);
         
         if (remainingAmount >= recordTotal) {
             // 完全核销该条记录
             remainingAmount -= recordTotal;
             updatedIds.push({ id: record.id, status: '已开票' });
+            console.log(`✅ 完全核销记录 ID:${record.id}`);
         } else {
             // 部分核销：标记为"未开票"（但记录已处理）
-            // 注意：部分核销的入库记录仍显示"未开票"，但发票金额已消耗
             updatedIds.push({ id: record.id, status: '未开票' });
-            remainingAmount = 0;  // 发票金额已用完
+            remainingAmount = 0;
+            console.log(`⚠️ 部分核销记录 ID:${record.id}，剩余发票已用完`);
         }
     }
 
-    // 3. 批量更新入库记录的发票状态
+    // 4. 批量更新入库记录的发票状态
     const headers = {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json'
     };
 
+    let updateCount = 0;
     for (let item of updatedIds) {
-        // 如果发票金额不足，部分核销的记录仍保留"未开票"状态
-        // 但我们需要记录发票号码到该条入库记录中（表明已部分核销）
         const updateData = {
             invoice_status: item.status,
-            invoice_no: invoiceNo  // 记录核销的发票号码
+            invoice_no: invoiceNo || null
         };
 
         try {
-            await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
+            const result = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
                 method: 'PATCH',
                 headers: headers,
                 body: JSON.stringify(updateData)
             });
+            if (result.ok) {
+                updateCount++;
+                console.log(`✅ 更新入库记录 ${item.id} 状态为 ${item.status}`);
+            } else {
+                console.error(`❌ 更新入库记录 ${item.id} 失败`, await result.text());
+            }
         } catch (e) {
-            console.error(`核销入库记录 ${item.id} 失败:`, e);
+            console.error(`❌ 核销入库记录 ${item.id} 失败:`, e);
         }
     }
 
-    // 4. 如果发票金额还有剩余，但已经没有更多入库记录可核销
+    // 5. 更新全局变量
+    allStockInList = latestStockIn;
+
+    // 6. 提示结果
     if (remainingAmount > 0) {
-        console.log(`供应商 ${supplier} 发票余额 ${remainingAmount.toFixed(2)} 无更多入库记录可核销`);
-        showMsg(`注意：供应商 ${supplier} 发票余额 ${remainingAmount.toFixed(2)} 无更多未开票入库记录可核销`);
+        console.log(`供应商 ${supplier} 发票余额 ${remainingAmount.toFixed(2)} 无更多未开票入库记录可核销`);
+        showMsg(`注意：供应商 ${supplier} 发票余额 ${remainingAmount.toFixed(2)} 无更多未开票入库记录可核销（已核销 ${updateCount} 条）`);
+    } else {
+        showMsg(`✅ 核销完成：共更新 ${updateCount} 条入库记录为"${updatedIds.length > 0 ? updatedIds[updatedIds.length-1].status : '已开票'}"`);
     }
 }
 

@@ -513,6 +513,7 @@ async function renderStockIn() {
             <td>${item.invoice_no || ''}</td>
             <td>${item.produce_date || ''}</td>
             <td>${item.expire_date || ''}</td>
+            <td>${item.record_date || ''}</td>   <!-- ✅ 新增：录入日期 -->
             <td>
                 ${btnHtml}
             </td>
