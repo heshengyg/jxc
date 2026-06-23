@@ -666,7 +666,6 @@ function clearPrintSort(){
 
 // 筛选查询主函数
 function searchPrintStockIn(resetPage = true) {
-    // ✅ 只有新查询/排序时才清空选中
     if (resetPage) {
         selectedPrintIndexArr = [];
         financePageConfig.stockInPrint.current = 1;
@@ -684,7 +683,6 @@ function searchPrintStockIn(resetPage = true) {
     if (start) list = list.filter(i => i.record_date >= start);
     if (end) list = list.filter(i => i.record_date <= end);
 
-    // 排序处理
     const cfg = financePageConfig.stockInPrint;
     list.sort((a,b)=>{
         let val1 = a[cfg.sortField], val2 = b[cfg.sortField];
@@ -698,7 +696,6 @@ function searchPrintStockIn(resetPage = true) {
     });
     printStockInData = list;
 
-    // 需求1：渲染总条数统计文案（HTML需要在【线下入库单打印】标题下方添加 <div id="stockTotalTip" style="margin:8px 0;"></div>）
     const totalTipDom = document.getElementById('stockTotalTip');
     if(totalTipDom){
         totalTipDom.innerText = `共${list.length}条入库记录，当前搜索结果${list.length}条`;
@@ -707,13 +704,11 @@ function searchPrintStockIn(resetPage = true) {
     const startIdx = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(startIdx, startIdx + cfg.pageSize);
 
-    // 表格渲染
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
         const total = (Number(item.in_price) * Number(item.in_num)).toFixed(2);
         const globalIndex = startIdx + idx;
-        // 跨页勾选回显
         const isChecked = selectedPrintIndexArr.includes(globalIndex);
         tbody.innerHTML += `
         <tr>
@@ -729,59 +724,38 @@ function searchPrintStockIn(resetPage = true) {
         </tr>`;
     });
 
-    // 绑定单选框选中事件，存入全局选中数组
-// 绑定单选框选中事件，存入全局选中数组
-document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-    checkbox.onchange = function(){
-        const idx = Number(this.dataset.index);
-        if(this.checked){
-            if(!selectedPrintIndexArr.includes(idx)){
-                selectedPrintIndexArr.push(idx);
-            }
-        }else{
-            selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+    // 1. 先绑定全选事件
+    document.getElementById('printAllCheck').onchange = function () {
+        if (skipPrintAllChange) {
+            skipPrintAllChange = false;
+            return;
         }
-        const allChecked = selectedPrintIndexArr.length === printStockInData.length;
-        skipPrintAllChange = true;
-        document.getElementById('printAllCheck').checked = allChecked;
-        skipPrintAllChange = false;
-        // 注意：这里不要调用 renderFinancePagination，以免干扰
+        if (this.checked) {
+            selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
+            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
+        } else {
+            selectedPrintIndexArr = [];
+            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
+        }
     };
-});
-    // 全选事件：当前页全部加入/移除全局选中数组
-    // 1. 先绑定全选事件（确保只绑定一次，但每次渲染都需要重新绑定）
-document.getElementById('printAllCheck').onchange = function () {
-    if (skipPrintAllChange) {
-        skipPrintAllChange = false;
-        return;
-    }
-    if (this.checked) {
-        selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
-        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
-    } else {
-        selectedPrintIndexArr = [];
-        document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
-    }
-};
 
-// 2. 再绑定手动勾选事件
-document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-    checkbox.onchange = function(){
-        const idx = Number(this.dataset.index);
-        if(this.checked){
-            if(!selectedPrintIndexArr.includes(idx)){
-                selectedPrintIndexArr.push(idx);
+    // 2. 绑定手动勾选事件（只保留这一个）
+    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
+        checkbox.onchange = function(){
+            const idx = Number(this.dataset.index);
+            if(this.checked){
+                if(!selectedPrintIndexArr.includes(idx)){
+                    selectedPrintIndexArr.push(idx);
+                }
+            }else{
+                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
             }
-        }else{
-            selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
-        }
-        // 同步全选按钮状态
-        const allChecked = selectedPrintIndexArr.length === printStockInData.length;
-        skipPrintAllChange = true;
-        document.getElementById('printAllCheck').checked = allChecked;
-        skipPrintAllChange = false;
-    };
-});
+            const allChecked = selectedPrintIndexArr.length === printStockInData.length;
+            skipPrintAllChange = true;
+            document.getElementById('printAllCheck').checked = allChecked;
+            skipPrintAllChange = false;
+        };
+    });
 
     // 供应商汇总行渲染
     const groupMap = {};
@@ -800,8 +774,8 @@ document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         </tr>`;
     });
     tbody.innerHTML += totalTpl;
-// 在渲染完表格后，同步全选按钮状态（根据当前已选数量）
-// 同步全选按钮状态（阻止触发 onchange）
+
+    // 同步全选按钮状态
     skipPrintAllChange = true;
     document.getElementById('printAllCheck').checked = (selectedPrintIndexArr.length === printStockInData.length && printStockInData.length > 0);
     skipPrintAllChange = false;
