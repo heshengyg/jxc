@@ -574,9 +574,9 @@ document.addEventListener('click', function(e) {
 
     <!-- ④发票返回记录 -->
     <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
-        <h4>发票退回台账（线下供应商）</h4>
+        <h4>发票返回台账（线下供应商）</h4>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
-            <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票退回记录</button>
+            <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票返回记录</button>
             <label>供应商筛选：</label>
             <select id="invoiceBackSupplierFilter"></select>
             <button class="btn btn-default" onclick="refreshInvoiceBackList()">刷新</button>
@@ -586,9 +586,9 @@ document.addEventListener('click', function(e) {
                 <thead>
                     <tr>
                         <th>序号</th>
-                        <th>退回日期</th>
+                        <th>返回日期</th>
                         <th>供应商</th>
-                        <th>退回发票金额</th>
+                        <th>返回发票金额</th>
                         <th>发票号码</th>
                         <th>备注</th>
                         <th>操作</th>
@@ -597,13 +597,13 @@ document.addEventListener('click', function(e) {
                 <tbody id="invoiceBackList"></tbody>
             </table>
         </div>
-        <!-- 发票退回录入弹窗 -->
+        <!-- 发票返回录入弹窗 -->
         <div id="invoiceBackModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
             <div style="background:#fff;padding:20px;width:420px;border-radius:6px;">
-                <h4>新增发票退回记录</h4>
+                <h4>新增发票返回记录</h4>
                 <input type="hidden" id="invoiceBackEditId">
                 <div class="form-group" style="margin:10px 0;">
-                    <label>退回日期：</label>
+                    <label>返回日期：</label>
                     <input type="date" id="invoiceBackDate" style="width:100%;padding:6px;">
                 </div>
                 <div class="form-group" style="margin:10px 0;">
@@ -611,7 +611,7 @@ document.addEventListener('click', function(e) {
                     <select id="invoiceBackSupplier" style="width:100%;padding:6px;"></select>
                 </div>
                 <div class="form-group" style="margin:10px 0;">
-                    <label>退回金额：</label>
+                    <label>返回金额：</label>
                     <input type="number" step="0.01" min="0.01" id="invoiceBackAmount" style="width:100%;padding:6px;">
                 </div>
                 <div class="form-group" style="margin:10px 0;">
@@ -643,9 +643,9 @@ document.addEventListener('click', function(e) {
                         <th>供应商</th>
                         <th>总货款(入库含税汇总)</th>
                         <th>累计实付款</th>
-                        <th>累计发票退回金额</th>
+                        <th>累计发票返回金额</th>
                         <th>应付账款(总货款-实付款)</th>
-                        <th>发票结余(退回金额-总货款)</th>
+                        <th>发票结余(返回金额-总货款)</th>
                     </tr>
                 </thead>
                 <tbody id="paymentBoardList"></tbody>

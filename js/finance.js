@@ -197,7 +197,7 @@ async function loadAllPayment() {
     allPayList = await res.json();
 }
 
-// 加载全部发票退回记录
+// 加载全部发票返回记录
 async function loadAllInvoiceBack() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
@@ -1310,7 +1310,7 @@ async function saveInvoiceBackRecord() {
         }
         await loadAllInvoiceBack();
         refreshInvoiceBackList();
-        showMsg('发票退回记录保存成功');
+        showMsg('发票返回记录保存成功');
         closeInvoiceBackModal();
         currentInvoiceBackEditId = null;
     } catch (e) {
@@ -1319,7 +1319,7 @@ async function saveInvoiceBackRecord() {
 }
 
 async function deleteInvoiceBackRecord(id) {
-    if (!confirm('确定删除该发票退回记录？')) return;
+    if (!confirm('确定删除该发票返回记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
         method: 'DELETE',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
@@ -1348,7 +1348,7 @@ function renderPaymentBoard() {
     allPayList.forEach(p => {
         supplierGroup[p.supplier].totalPay += Number(p.payment_amount);
     });
-    // 汇总发票退回
+    // 汇总发票返回
     allInvoiceBackList.forEach(b => {
         supplierGroup[b.supplier].totalBack += Number(b.invoice_amount);
     });
@@ -1408,7 +1408,7 @@ function searchMonthInvoiceBalance() {
         if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
         supplierMap[item.supplier].inTotal += total;
     });
-    // 当月发票退回汇总
+    // 当月发票返回汇总
     const monthBack = allInvoiceBackList.filter(b => b.return_date && b.return_date.substring(0, 7) === month);
     monthBack.forEach(item => {
         if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
