@@ -1451,17 +1451,148 @@ async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
     }
 }
 
+/**
+ * 重新计算某供应商的发票核销状态（用于删除发票记录后回滚）
+ * @param {string} supplier 供应商名称
+ */
+async function recalculateInvoiceStatus(supplier) {
+    if (!supplier) return;
+
+    console.log(`开始重新计算供应商 ${supplier} 的发票核销状态`);
+
+    // 1. 获取该供应商所有未删除的发票返回记录（按日期排序）
+    const supplierInvoices = allInvoiceBackList
+        .filter(inv => inv.supplier === supplier)
+        .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
+
+    // 2. 获取该供应商所有线下入库记录（按入库日期排序）
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const latestStockIn = await res.json();
+
+    const inRecords = latestStockIn
+        .filter(item => 
+            item.supplier === supplier && 
+            item.settleType === '线下'
+        )
+        .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+
+    if (inRecords.length === 0) {
+        console.log(`供应商 ${supplier} 没有线下入库记录`);
+        return;
+    }
+
+    // 3. 重置所有入库记录的发票状态为"未开票"，发票号码清空
+    const headers = {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+    };
+
+    for (let record of inRecords) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify({
+                invoice_status: '未开票',
+                invoice_no: null
+            })
+        });
+    }
+    console.log(`已重置 ${inRecords.length} 条入库记录为"未开票"`);
+
+    // 4. 如果没有发票记录，直接返回（已全部重置为未开票）
+    if (supplierInvoices.length === 0) {
+        console.log(`供应商 ${supplier} 没有发票记录，已全部重置为未开票`);
+        allStockInList = latestStockIn;
+        return;
+    }
+
+    // 5. 按顺序重新核销所有发票
+    let remainingInRecords = [...inRecords];
+    let updateCount = 0;
+
+    for (let invoice of supplierInvoices) {
+        const invoiceAmount = Number(invoice.invoice_amount) || 0;
+        if (invoiceAmount <= 0) continue;
+
+        let remainingAmount = invoiceAmount;
+        const updatedIds = [];
+
+        for (let record of remainingInRecords) {
+            if (remainingAmount <= 0) break;
+
+            const recordTotal = Number(record.in_price) * Number(record.in_num);
+            
+            if (remainingAmount >= recordTotal) {
+                remainingAmount -= recordTotal;
+                updatedIds.push({ id: record.id, status: '已开票' });
+            } else {
+                updatedIds.push({ id: record.id, status: '未开票' });
+                remainingAmount = 0;
+            }
+        }
+
+        // 更新这批记录
+        for (let item of updatedIds) {
+            await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
+                method: 'PATCH',
+                headers: headers,
+                body: JSON.stringify({
+                    invoice_status: item.status,
+                    invoice_no: invoice.invoice_no || null
+                })
+            });
+            updateCount++;
+            // 从剩余记录中移除已完全核销的
+            if (item.status === '已开票') {
+                remainingInRecords = remainingInRecords.filter(r => r.id !== item.id);
+            }
+        }
+    }
+
+    console.log(`重新核销完成，共更新 ${updateCount} 条入库记录`);
+
+    // 6. 更新全局变量
+    allStockInList = latestStockIn;
+}
+
 async function deleteInvoiceBackRecord(id) {
     if (!confirm('确定删除该发票返回记录？')) return;
+    
+    // 1. 先获取要删除的记录信息（用于获取供应商）
+    const recordToDelete = allInvoiceBackList.find(i => i.id === id);
+    if (!recordToDelete) {
+        showMsg('记录不存在');
+        return;
+    }
+    const supplier = recordToDelete.supplier;
+    
+    // 2. 删除记录
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
         method: 'DELETE',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
+    
+    // 3. 重新加载发票数据
     await loadAllInvoiceBack();
+    
+    // 4. ✅ 重新计算该供应商的核销状态
+    await recalculateInvoiceStatus(supplier);
+    
+    // 5. 刷新列表
     refreshInvoiceBackList();
-    showMsg('删除成功');
+    
+    // 6. 刷新入库列表
+    if (typeof window.loadStockIn === 'function') {
+        await window.loadStockIn();
+    } else if (typeof loadStockIn === 'function') {
+        await loadStockIn();
+    }
+    
+    showMsg('删除成功，已重新计算发票核销状态');
 }
-
 // ===================== ⑤收付款看板 =====================
 function initPaymentBoardPage() {
     financePageConfig.paymentBoard.current = 1;
