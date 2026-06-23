@@ -1118,8 +1118,11 @@ function openPayAddModal() {
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('payAmount').value = '';
     document.getElementById('payRemark').value = '';
-    document.getElementById('payModal').style.display = 'flex';
+    const modal = document.getElementById('payModal');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
 }
+
 function openPayEdit(id) {
     currentPayEditId = id;
     const row = allPayList.find(p => p.id === id);
@@ -1127,8 +1130,11 @@ function openPayEdit(id) {
     document.getElementById('paySupplier').value = row.supplier;
     document.getElementById('payAmount').value = row.payment_amount;
     document.getElementById('payRemark').value = row.remark || '';
-    document.getElementById('payModal').style.display = 'flex';
+    const modal = document.getElementById('payModal');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
 }
+
 function closePayModal() {
     document.getElementById('payModal').style.display = 'none';
 }
@@ -1228,8 +1234,11 @@ function openInvoiceBackAddModal() {
     document.getElementById('invoiceBackAmount').value = '';
     document.getElementById('invoiceBackNo').value = '';
     document.getElementById('invoiceBackRemark').value = '';
-    document.getElementById('invoiceBackModal').style.display = 'flex';
+    const modal = document.getElementById('invoiceBackModal');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
 }
+
 function openInvoiceBackEdit(id) {
     currentInvoiceBackEditId = id;
     const row = allInvoiceBackList.find(i => i.id === id);
@@ -1238,8 +1247,11 @@ function openInvoiceBackEdit(id) {
     document.getElementById('invoiceBackAmount').value = row.invoice_amount;
     document.getElementById('invoiceBackNo').value = row.invoice_no || '';
     document.getElementById('invoiceBackRemark').value = row.remark || '';
-    document.getElementById('invoiceBackModal').style.display = 'flex';
+    const modal = document.getElementById('invoiceBackModal');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
 }
+
 function closeInvoiceBackModal() {
     document.getElementById('invoiceBackModal').style.display = 'none';
 }
