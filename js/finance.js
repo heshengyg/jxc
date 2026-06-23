@@ -424,18 +424,13 @@ function openTaxEdit(id) {
         document.getElementById('taxRateSelect').value = row.tax_rate || '0';
     }
     const modalDom = document.getElementById('taxModal');
-    modalDom.style.display = 'flex';
-    modalDom.style.pointerEvents = 'auto';
-    modalDom.style.zIndex = '9999';
+    modalDom.style.display = 'block';
 }
 
 function closeTaxModal() {
-    const modal = document.getElementById('taxModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.style.pointerEvents = 'none';
-    }
+    document.getElementById('taxModal').style.display = 'none';
 }
+
 async function saveTaxData() {
     const id = document.getElementById('taxEditId').value;
     const taxRate = document.getElementById('taxRateSelect').value;
