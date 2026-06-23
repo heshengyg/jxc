@@ -667,7 +667,7 @@ function clearPrintSort(){
 // 筛选查询主函数
 function searchPrintStockIn(resetPage = true) {
     if (resetPage) {
-        selectedPrintIds.clear();  // 清空选中
+        selectedPrintIds.clear();
         financePageConfig.stockInPrint.current = 1;
     }
     const supplier = document.getElementById('printSupplierSearch').value.trim();
@@ -707,12 +707,10 @@ function searchPrintStockIn(resetPage = true) {
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
-        const globalIndex = startIdx + idx;
-        // 使用记录的 id 判断是否选中
         const isChecked = selectedPrintIds.has(item.id);
         tbody.innerHTML += `
         <tr>
-            <td><input type="checkbox" class="print-checkbox" data-id="${item.id}" data-index="${globalIndex}" ${isChecked ? 'checked' : ''}></td>
+            <td><input type="checkbox" class="print-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}></td>
             <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
@@ -722,40 +720,6 @@ function searchPrintStockIn(resetPage = true) {
             <td>${(Number(item.in_price) * Number(item.in_num)).toFixed(2)}</td>
             <td>${item.record_date}</td>
         </tr>`;
-    });
-
-    // 1. 先绑定全选事件
-    document.getElementById('printAllCheck').onchange = function () {
-        if (skipPrintAllChange) {
-            skipPrintAllChange = false;
-            return;
-        }
-        if (this.checked) {
-            // 全选：将所有记录 ID 加入 Set
-            printStockInData.forEach(item => selectedPrintIds.add(item.id));
-            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
-        } else {
-            // 取消全选：清空 Set
-            selectedPrintIds.clear();
-            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
-        }
-    };
-
-    // 2. 绑定手动勾选事件
-    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-        checkbox.onchange = function(){
-            const id = Number(this.dataset.id);
-            if(this.checked){
-                selectedPrintIds.add(id);
-            }else{
-                selectedPrintIds.delete(id);
-            }
-            // 同步全选按钮状态
-            const allChecked = selectedPrintIds.size === printStockInData.length;
-            skipPrintAllChange = true;
-            document.getElementById('printAllCheck').checked = allChecked;
-            skipPrintAllChange = false;
-        };
     });
 
     // 供应商汇总行渲染
@@ -776,14 +740,47 @@ function searchPrintStockIn(resetPage = true) {
     });
     tbody.innerHTML += totalTpl;
 
+    cfg.total = list.length;
+    renderFinancePagination('stockInPrint');
+
+    // ===== 关键：在分页渲染完成后重新绑定所有事件 =====
+    // 全选事件
+    document.getElementById('printAllCheck').onchange = function () {
+        if (skipPrintAllChange) {
+            skipPrintAllChange = false;
+            return;
+        }
+        if (this.checked) {
+            printStockInData.forEach(item => selectedPrintIds.add(item.id));
+            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
+        } else {
+            selectedPrintIds.clear();
+            document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
+        }
+    };
+
+    // 手动勾选事件
+    document.querySelectorAll('.print-checkbox').forEach(checkbox => {
+        checkbox.onchange = function(){
+            const id = Number(this.dataset.id);
+            if(this.checked){
+                selectedPrintIds.add(id);
+            }else{
+                selectedPrintIds.delete(id);
+            }
+            const allChecked = selectedPrintIds.size === printStockInData.length;
+            skipPrintAllChange = true;
+            document.getElementById('printAllCheck').checked = allChecked;
+            skipPrintAllChange = false;
+        };
+    });
+
     // 同步全选按钮状态
     skipPrintAllChange = true;
     document.getElementById('printAllCheck').checked = (selectedPrintIds.size === printStockInData.length && printStockInData.length > 0);
     skipPrintAllChange = false;
-
-    cfg.total = list.length;
-    renderFinancePagination('stockInPrint');
 }
+
 function previewAndPrint() {
     if (selectedPrintIds.size === 0) {
         showMsg('请选择需要打印的入库记录');
