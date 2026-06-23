@@ -37,7 +37,7 @@ const financePageConfig = {
 let printSupplierSearchList = [];
 let printGoodsSearchList = [];
 let printSpecSearchList = [];
-let selectedPrintIndexArr = [];
+let selectedPrintIds = new Set();
 let skipPrintAllChange = false;
 
 
@@ -667,7 +667,7 @@ function clearPrintSort(){
 // 筛选查询主函数
 function searchPrintStockIn(resetPage = true) {
     if (resetPage) {
-        selectedPrintIndexArr = [];
+        selectedPrintIds.clear();  // 清空选中
         financePageConfig.stockInPrint.current = 1;
     }
     const supplier = document.getElementById('printSupplierSearch').value.trim();
@@ -707,19 +707,19 @@ function searchPrintStockIn(resetPage = true) {
     const tbody = document.getElementById('printStockInList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
-        const total = (Number(item.in_price) * Number(item.in_num)).toFixed(2);
         const globalIndex = startIdx + idx;
-        const isChecked = selectedPrintIndexArr.includes(globalIndex);
+        // 使用记录的 id 判断是否选中
+        const isChecked = selectedPrintIds.has(item.id);
         tbody.innerHTML += `
         <tr>
-            <td><input type="checkbox" class="print-checkbox" data-index="${globalIndex}" ${isChecked ? 'checked' : ''}></td>
+            <td><input type="checkbox" class="print-checkbox" data-id="${item.id}" data-index="${globalIndex}" ${isChecked ? 'checked' : ''}></td>
             <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
             <td>${item.spec || ''}</td>
             <td>${Number(item.in_price).toFixed(2)}</td>
             <td>${item.in_num}</td>
-            <td>${total}</td>
+            <td>${(Number(item.in_price) * Number(item.in_num)).toFixed(2)}</td>
             <td>${item.record_date}</td>
         </tr>`;
     });
@@ -731,26 +731,27 @@ function searchPrintStockIn(resetPage = true) {
             return;
         }
         if (this.checked) {
-            selectedPrintIndexArr = printStockInData.map((_, idx) => idx);
+            // 全选：将所有记录 ID 加入 Set
+            printStockInData.forEach(item => selectedPrintIds.add(item.id));
             document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = true);
         } else {
-            selectedPrintIndexArr = [];
+            // 取消全选：清空 Set
+            selectedPrintIds.clear();
             document.querySelectorAll('.print-checkbox').forEach(cb => cb.checked = false);
         }
     };
 
-    // 2. 绑定手动勾选事件（只保留这一个）
+    // 2. 绑定手动勾选事件
     document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         checkbox.onchange = function(){
-            const idx = Number(this.dataset.index);
+            const id = Number(this.dataset.id);
             if(this.checked){
-                if(!selectedPrintIndexArr.includes(idx)){
-                    selectedPrintIndexArr.push(idx);
-                }
+                selectedPrintIds.add(id);
             }else{
-                selectedPrintIndexArr = selectedPrintIndexArr.filter(i => i !== idx);
+                selectedPrintIds.delete(id);
             }
-            const allChecked = selectedPrintIndexArr.length === printStockInData.length;
+            // 同步全选按钮状态
+            const allChecked = selectedPrintIds.size === printStockInData.length;
             skipPrintAllChange = true;
             document.getElementById('printAllCheck').checked = allChecked;
             skipPrintAllChange = false;
@@ -777,52 +778,31 @@ function searchPrintStockIn(resetPage = true) {
 
     // 同步全选按钮状态
     skipPrintAllChange = true;
-    document.getElementById('printAllCheck').checked = (selectedPrintIndexArr.length === printStockInData.length && printStockInData.length > 0);
+    document.getElementById('printAllCheck').checked = (selectedPrintIds.size === printStockInData.length && printStockInData.length > 0);
     skipPrintAllChange = false;
 
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 }
 function previewAndPrint() {
-    // ===== 保险逻辑：如果 selectedPrintIndexArr 为空，但页面上有勾选的复选框，尝试重新收集 =====
-    const checkedBoxes = document.querySelectorAll('.print-checkbox:checked');
-    if (selectedPrintIndexArr.length === 0 && checkedBoxes.length > 0) {
-        console.warn('selectedPrintIndexArr 为空，但页面上有勾选，尝试重新收集');
-        selectedPrintIndexArr = [];
-        checkedBoxes.forEach(cb => {
-            const idx = Number(cb.dataset.index);
-            if (!selectedPrintIndexArr.includes(idx)) {
-                selectedPrintIndexArr.push(idx);
-            }
-        });
-    }
-    // ===== 保险逻辑结束 =====
-
-    // 过滤无效索引并去重
-    const validIndices = [];
-    const seen = new Set();
-    for (let idx of selectedPrintIndexArr) {
-        const numIdx = Number(idx);
-        if (Number.isInteger(numIdx) && numIdx >= 0 && numIdx < printStockInData.length && printStockInData[numIdx] !== undefined) {
-            if (!seen.has(numIdx)) {
-                seen.add(numIdx);
-                validIndices.push(numIdx);
-            }
-        }
-    }
-    selectedPrintIndexArr = validIndices;
-
-    if (selectedPrintIndexArr.length === 0) {
+    if (selectedPrintIds.size === 0) {
         showMsg('请选择需要打印的入库记录');
         return;
     }
+
+    // 从 printStockInData 中筛选出选中的记录
     const groupMap = {};
-    selectedPrintIndexArr.forEach(idx => {
-        const row = printStockInData[idx];
-        if (!row) return;
-        if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
-        groupMap[row.supplier].push(row);
+    printStockInData.forEach(row => {
+        if (selectedPrintIds.has(row.id)) {
+            if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
+            groupMap[row.supplier].push(row);
+        }
     });
+
+    if (Object.keys(groupMap).length === 0) {
+        showMsg('请选择需要打印的入库记录');
+        return;
+    }
 
     const ROWS_PER_PAGE = 12;
     let allPagesHTML = '';
@@ -832,9 +812,7 @@ function previewAndPrint() {
         const rows = groupMap[supplier];
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-        // 计算该供应商总页数
         const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-        // 汇总数据（全局，用于最后一页显示）
         let supTotalQty = 0, supTotalAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.in_num);
@@ -865,7 +843,6 @@ function previewAndPrint() {
                 `;
             });
 
-            // 如果是该供应商的最后一页，添加汇总行
             if (isLastPage) {
                 tableRows += `
                     <tr class="total-row">
@@ -876,7 +853,6 @@ function previewAndPrint() {
                 `;
             }
 
-            // 构建单个页面块（每个供应商的页面独立计数）
             const pageBreak = (i + ROWS_PER_PAGE >= rows.length && supplier === supplierNames[supplierNames.length - 1]) ? '' : 'page-break-after: always;';
 
             allPagesHTML += `
@@ -905,7 +881,6 @@ function previewAndPrint() {
             `;
         }
     });
-
     const fullHTML = `
     <!DOCTYPE html>
     <html>
