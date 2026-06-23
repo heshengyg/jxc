@@ -143,3 +143,10 @@ tbody tr:hover { background-color: #e6f7ef; }
 }
 .bill-footer{border-top:none !important;}
 .goods-table .total-row td{border-top:1px solid #000 !important;}
+
+.bg-green-invoice {
+    background-color: #d4edda !important;
+}
+.bg-yellow-invoice {
+    background-color: #fff3cd !important;
+}

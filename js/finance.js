@@ -1629,26 +1629,33 @@ function searchStockInCheck() {
         const channel = row.settleType || (goods ? goods.channel : '');
         const inPrice = Number(row.in_price) || 0;
         const qty = Number(row.in_num) || 0;
-        const totalAmount = inPrice * qty;  // 含税入库金额
+        const totalAmount = inPrice * qty;
         
         let noTaxPrice = 0;
         let noTaxTotal = 0;
         let taxTotal = 0;
         let isPay = '';
         let remainAmount = '';
+        let taxRateDisplay = '';
+        let inPriceDisplay = '';
+        
+        // ✅ 保留录入日期
+        const recordDate = row.record_date || '';
         
         if (channel === '线上') {
-            // ===== 线上供应商：税率空白，不含税/税额/结余空白 =====
-            // 税率显示为空（通过 tax_rate 设置为空字符串）
-            // 是否付清为空
-            // 结余金额为空
+            // 线上供应商
+            taxRateDisplay = '';
+            inPriceDisplay = formatMoney(inPrice);
             noTaxPrice = 0;
             noTaxTotal = 0;
             taxTotal = 0;
             isPay = '';
             remainAmount = '';
         } else {
-            // ===== 线下供应商：正常计算 =====
+            // 线下供应商
+            taxRateDisplay = (taxRate > 0 ? taxRate + '%' : '0%');
+            inPriceDisplay = formatMoney(inPrice);
+            
             const taxDecimal = taxRate / 100;
             if (taxDecimal > 0) {
                 noTaxPrice = inPrice / (1 + taxDecimal);
@@ -1660,32 +1667,30 @@ function searchStockInCheck() {
                 taxTotal = 0;
             }
             
-            // 是否付清：根据付款记录判断
             const supplierPay = allPayList
                 .filter(p => p.supplier === row.supplier)
                 .reduce((sum, p) => sum + Number(p.payment_amount), 0);
             isPay = supplierPay >= totalAmount ? '已付清' : '未付清';
             
-            // 结余金额 = 发票返回总额 - 入库总金额
             const backTotal = allInvoiceBackList
                 .filter(b => b.supplier === row.supplier)
                 .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
-            remainAmount = (backTotal - totalAmount).toFixed(2);
+            remainAmount = formatMoney(backTotal - totalAmount);
         }
         
         return {
             ...row,
             channel: channel,
-            tax_rate_display: channel === '线上' ? '' : (taxRate > 0 ? taxRate + '%' : '0%'),
-            tax_rate_value: taxRate,
-            in_price_display: inPrice.toFixed(2),
+            tax_rate_display: taxRateDisplay,
+            in_price_display: inPriceDisplay,
             in_num: qty,
-            totalAmount: totalAmount.toFixed(2),
-            noTaxPrice: noTaxPrice.toFixed(2),
-            noTaxTotal: noTaxTotal.toFixed(2),
-            taxTotal: taxTotal.toFixed(2),
+            totalAmount: formatMoney(totalAmount),
+            noTaxPrice: formatMoney(noTaxPrice),
+            noTaxTotal: formatMoney(noTaxTotal),
+            taxTotal: formatMoney(taxTotal),
             isPay: isPay,
-            remainAmount: remainAmount
+            remainAmount: remainAmount,
+            record_date: recordDate  // ✅ 保留录入日期
         };
     });
     
@@ -1701,34 +1706,36 @@ function searchStockInCheck() {
                     spec: row.spec || '',
                     tax_rate_display: row.tax_rate_display,
                     invoice_status: row.invoice_status || '',
-                    in_price_display: '0.00',
+                    in_price_display: '￥0.00',
                     in_num: 0,
                     totalAmount: 0,
                     noTaxTotal: 0,
                     taxTotal: 0,
                     isPay: row.isPay,
                     remainAmount: 0,
+                    record_date: row.record_date || '',  // ✅ 保留录入日期
                     count: 0
                 };
             }
             const g = groupMap[key];
             g.in_num += Number(row.in_num);
-            g.totalAmount += Number(row.totalAmount);
-            g.noTaxTotal += Number(row.noTaxTotal);
-            g.taxTotal += Number(row.taxTotal);
-            g.remainAmount += Number(row.remainAmount);
+            g.totalAmount += parseFloat(row.totalAmount.replace('￥', ''));
+            g.noTaxTotal += parseFloat(row.noTaxTotal.replace('￥', ''));
+            g.taxTotal += parseFloat(row.taxTotal.replace('￥', ''));
+            const remainVal = typeof row.remainAmount === 'string' ? parseFloat(row.remainAmount.replace('￥', '')) : Number(row.remainAmount);
+            g.remainAmount += isNaN(remainVal) ? 0 : remainVal;
             g.count++;
-            // 取第一条的单价显示
             if (g.count === 1) {
                 g.in_price_display = row.in_price_display;
+                g.record_date = row.record_date || '';  // ✅ 取第一条的日期
             }
         });
         list = Object.values(groupMap).map(g => ({
             ...g,
-            totalAmount: g.totalAmount.toFixed(2),
-            noTaxTotal: g.noTaxTotal.toFixed(2),
-            taxTotal: g.taxTotal.toFixed(2),
-            remainAmount: g.remainAmount.toFixed(2)
+            totalAmount: formatMoney(g.totalAmount),
+            noTaxTotal: formatMoney(g.noTaxTotal),
+            taxTotal: formatMoney(g.taxTotal),
+            remainAmount: formatMoney(g.remainAmount)
         }));
     }
     
@@ -1749,31 +1756,49 @@ function searchStockInCheck() {
     tbody.innerHTML = '';
     
     if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
         renderFinancePagination('stockInCheck');
         return;
     }
     
     pageData.forEach(row => {
+        // 发票状态背景色
+        let invoiceClass = '';
+        if (row.invoice_status === '已开票') {
+            invoiceClass = 'bg-green-invoice';
+        } else if (row.invoice_status === '未开票') {
+            invoiceClass = 'bg-yellow-invoice';
+        }
+        
+        // 是否付清背景色
+        let payClass = '';
+        if (row.isPay === '已付清') {
+            payClass = 'bg-green-invoice';
+        } else if (row.isPay === '未付清') {
+            payClass = 'bg-yellow-invoice';
+        }
+        
         tbody.innerHTML += `
         <tr>
             <td>${row.supplier}</td>
             <td>${row.goodsName}</td>
             <td>${row.spec || ''}</td>
             <td>${row.tax_rate_display}</td>
-            <td>${row.invoice_status || ''}</td>
+            <td class="${invoiceClass}">${row.invoice_status || ''}</td>
             <td>${row.in_price_display}</td>
             <td>${row.in_num}</td>
-            <td>${row.isPay}</td>
+            <td class="${payClass}">${row.isPay}</td>
             <td>${row.totalAmount}</td>
             <td>${row.noTaxTotal}</td>
             <td>${row.taxTotal}</td>
             <td>${row.remainAmount}</td>
+            <td>${row.record_date}</td>
         </tr>`;
     });
     
     renderFinancePagination('stockInCheck');
 }
+
 // ===================== ⑧出库对账 =====================
 function initStockOutCheckPage() {
     financePageConfig.stockOutCheck.current = 1;
