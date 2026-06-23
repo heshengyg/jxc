@@ -420,17 +420,20 @@ function refreshTaxList() {
 function openTaxEdit(id) {
     document.getElementById('taxEditId').value = id;
     const row = allGoodsList.find(g => g.id === id);
-    document.getElementById('taxRateSelect').value = row.tax_rate || '0';
-    // 弹窗强制最高层级，避免被表头遮挡
+    if (row) {
+        document.getElementById('taxRateSelect').value = row.tax_rate || '0';
+    }
     const modalDom = document.getElementById('taxModal');
     modalDom.style.display = 'flex';
+    modalDom.style.pointerEvents = 'auto';
     modalDom.style.zIndex = '9999';
 }
+
 function closeTaxModal() {
     const modal = document.getElementById('taxModal');
     if (modal) {
         modal.style.display = 'none';
-        modal.style.visibility = 'hidden';
+        modal.style.pointerEvents = 'none';
     }
 }
 async function saveTaxData() {
