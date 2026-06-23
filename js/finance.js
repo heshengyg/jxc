@@ -1278,19 +1278,19 @@ async function saveInvoiceBackRecord() {
     const backDate = document.getElementById('invoiceBackDate').value;
     const supplier = document.getElementById('invoiceBackSupplier').value;
     const amount = Number(document.getElementById('invoiceBackAmount').value);
-    const invNo = document.getElementById('invoiceBackNo').value.trim();
+    const invNo = document.getElementById('invoiceBackNo').value.trim();  // 选填，不再校验
     const remark = document.getElementById('invoiceBackRemark').value.trim();
     
-    // ✅ 修改：允许金额为0，但必须 >= 0
-    if (!backDate || !supplier || isNaN(amount) || amount < 0 || !invNo) {
-        return showMsg('请完善必填项（日期、供应商、发票号码、金额不能为负数）');
+    // ✅ 发票号码不再强制校验
+    if (!backDate || !supplier || isNaN(amount) || amount <= 0) {
+        return showMsg('请完善必填项（日期、供应商、金额必须大于0）');
     }
     
     const body = { 
         return_date: backDate, 
         supplier: supplier, 
         invoice_amount: amount, 
-        invoice_no: invNo, 
+        invoice_no: invNo || null,  // 如果为空，存为 null
         remark: remark || '' 
     };
     
@@ -1317,6 +1317,7 @@ async function saveInvoiceBackRecord() {
         showMsg('保存失败：' + e.message);
     }
 }
+
 async function deleteInvoiceBackRecord(id) {
     if (!confirm('确定删除该发票退回记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
