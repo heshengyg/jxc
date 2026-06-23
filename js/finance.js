@@ -206,12 +206,12 @@ async function loadAllInvoiceBack() {
 }
 
 // 当前子页面初始化分发
-function initCurrentSubPage() {
+async function initCurrentSubPage() {
     switch (currFinanceSub) {
         case 'taxRate': initTaxRatePage(); break;
         case 'stockInPrint': initStockInPrintPage(); break;
-        case 'payRecord': initPayRecordPage(); break;
-        case 'invoiceBack': initInvoiceBackPage(); break;
+        case 'payRecord': await initPayRecordPage(); break;
+        case 'invoiceBack': await initInvoiceBackPage(); break;
         case 'paymentBoard': initPaymentBoardPage(); break;
         case 'monthInvoiceBalance': initMonthBalancePage(); break;
         case 'stockInCheck': initStockInCheckPage(); break;
@@ -1060,7 +1060,11 @@ function previewAndPrint() {
 
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
-function initPayRecordPage() {
+async function initPayRecordPage() {
+    // 确保数据已加载
+    if (offlineSupplierList.length === 0) {
+        await loadOfflineSupplier();
+    }
     financePageConfig.payRecord.current = 1;
     initPaySupplierSelect();
     refreshPayRecordList();
@@ -1160,7 +1164,10 @@ async function deletePayRecord(id) {
 
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
-function initInvoiceBackPage() {
+async function initInvoiceBackPage() {
+    if (offlineSupplierList.length === 0) {
+        await loadOfflineSupplier();
+    }
     financePageConfig.invoiceBack.current = 1;
     initInvoiceBackSupplierSelect();
     refreshInvoiceBackList();
