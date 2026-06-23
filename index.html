@@ -683,51 +683,58 @@ document.addEventListener('click', function(e) {
     </div>
 
     <!-- ⑦入库对账 -->
-    <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
-        <h4>入库财务对账表</h4>
-        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <label>结算方式：</label>
-            <select id="checkInSettle">
-                <option value="">全部</option>
-                <option value="线上">线上</option>
-                <option value="线下">线下</option>
-            </select>
-            <label>发票状态：</label>
-            <select id="checkInInvoice">
-                <option value="">全部</option>
-                <option value="已开票">已开票</option>
-                <option value="未开票">未开票</option>
-            </select>
-            <label>入库月份：</label>
-            <select id="checkInMonth"></select>
-            <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
-            <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
-            <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
-        </div>
-        <div class="table-container">
-            <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                <thead>
-                    <tr>
-                        <th>供应商</th>
-                        <th>商品名称</th>
-                        <th>规格</th>
-                        <th>税率</th>
-                        <th>发票状态</th>
-                        <th>入库单价</th>
-                        <th>入库数量</th>
-                        <th>是否付清</th>
-                        <th>含税入库金额</th>
-                        <th>不含税金额</th>
-                        <th>税额</th>
-                        <th>结余金额</th>
-                    </tr>
-                </thead>
-                <tbody id="stockInCheckList"></tbody>
-            </table>
-        </div>
-        <!-- 【新增】入库对账独立分页容器 -->
-        <div class="pagination" id="page_stockInCheck"></div>
+<div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
+    <h4>入库财务对账表</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label>结算方式：</label>
+        <select id="checkInSettle">
+            <option value="">全部</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
+        </select>
+        <label>发票状态：</label>
+        <select id="checkInInvoice">
+            <option value="">全部</option>
+            <option value="已开票">已开票</option>
+            <option value="未开票">未开票</option>
+        </select>
+        <label>入库月份：</label>
+        <select id="checkInMonth"></select>
+        <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
+        <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
+        <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
     </div>
+    
+    <!-- ✅ 新增：统计信息 -->
+    <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+        共 0 条入库记录，当前搜索结果 0 条
+    </div>
+    
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>供应商</th>
+                    <th>商品名称</th>
+                    <th>规格</th>
+                    <th>税率</th>
+                    <th>发票状态</th>
+                    <th>入库单价</th>
+                    <th>入库数量</th>
+                    <th>是否付清</th>
+                    <th>含税入库金额</th>
+                    <th>不含税金额</th>
+                    <th>税额</th>
+                    <th>结余金额</th>
+                    <th>录入日期</th>
+                </tr>
+            </thead>
+            <tbody id="stockInCheckList"></tbody>
+        </table>
+    </div>
+    <!-- 【新增】入库对账独立分页容器 -->
+    <div class="pagination" id="page_stockInCheck"></div>
+</div>
 
     <!-- ⑧出库对账 -->
     <div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
