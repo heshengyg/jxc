@@ -43,20 +43,19 @@ let skipPrintAllChange = false;
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
-switchTab = function (tabName) {
+switchTab = async function (tabName) {   // ← 加上 async
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        initFinanceBaseData();
-        switchFinanceSubTab('taxRate');
-        // 页面初始化手动给第一个子按钮添加active高亮
+        await initFinanceBaseData();   // ← 加上 await
+        await switchFinanceSubTab('taxRate');   // ← 加上 await
         document.querySelector('.finance-sub-btn').classList.add('active');
     }
 }
 
 // 财务子Tab切换
-function switchFinanceSubTab(tabKey) {
+async function switchFinanceSubTab(tabKey) {   // ← 加上 async
     currFinanceSub = tabKey;
 
     // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
@@ -74,11 +73,10 @@ function switchFinanceSubTab(tabKey) {
     paginationIds.forEach(id => {
         const pageDom = document.getElementById(id);
         if (pageDom) {
-            pageDom.innerHTML = ''; // 清空分页内容
+            pageDom.innerHTML = '';
         }
     });
 
-    // 下面是你原来的切换代码，完全保留不要修改
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-${tabKey}`).style.display = 'block';
 
@@ -88,8 +86,10 @@ function switchFinanceSubTab(tabKey) {
     } else {
         document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`).classList.add('active');
     }
-    initCurrentSubPage();
+    
+    await initCurrentSubPage();   // ← 加上 await
 }
+
 // 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数，复用项目现有pagination样式）
 function renderFinancePagination(pageKey) {
     const cfg = financePageConfig[pageKey];
@@ -1061,6 +1061,10 @@ function previewAndPrint() {
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 async function initPayRecordPage() {
+    // ✅ 关键修复：先确保弹窗是关闭状态
+    const payModal = document.getElementById('payModal');
+    if (payModal) payModal.style.display = 'none';
+    
     // 确保数据已加载
     if (offlineSupplierList.length === 0) {
         await loadOfflineSupplier();
@@ -1069,6 +1073,7 @@ async function initPayRecordPage() {
     initPaySupplierSelect();
     refreshPayRecordList();
 }
+
 function initPaySupplierSelect() {
     const filterSel = document.getElementById('paySupplierFilter');
     filterSel.innerHTML = '<option value="">全部供应商</option>';
@@ -1165,6 +1170,10 @@ async function deletePayRecord(id) {
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 async function initInvoiceBackPage() {
+    // ✅ 关键修复：先确保弹窗是关闭状态
+    const invoiceBackModal = document.getElementById('invoiceBackModal');
+    if (invoiceBackModal) invoiceBackModal.style.display = 'none';
+    
     if (offlineSupplierList.length === 0) {
         await loadOfflineSupplier();
     }
@@ -1172,6 +1181,7 @@ async function initInvoiceBackPage() {
     initInvoiceBackSupplierSelect();
     refreshInvoiceBackList();
 }
+
 function initInvoiceBackSupplierSelect() {
     const filterSel = document.getElementById('invoiceBackSupplierFilter');
     filterSel.innerHTML = '<option value="">全部供应商</option>';
