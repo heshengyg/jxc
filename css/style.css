@@ -13,6 +13,9 @@ body { background: #f5f7fa; padding: 20px; }
 .tab-btn.active { background: #2d8cf0; color: white; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+#goods.tab-content.active {
+    display: block;
+}
 
 .stat-bar { margin-bottom: 10px; color: #666; font-size: 14px; }
 .search-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }

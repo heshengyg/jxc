@@ -83,21 +83,27 @@ function closeMsg() {
 }
 
 // 标签页切换
-// 标签页切换
 function switchTab(tabId) {
     console.log('切换到Tab:', tabId);
     
-    // 隐藏所有tab内容
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    // 1. 隐藏所有tab内容 - 包括 #goods 内部和外部的
+    document.querySelectorAll('.tab-content').forEach(t => {
+        t.classList.remove('active');
+        t.style.display = 'none';
+    });
+    
+    // 2. 显示目标Tab
     const targetTab = document.getElementById(tabId);
     if (targetTab) {
         targetTab.classList.add('active');
+        targetTab.style.display = 'block';
+        console.log('✅ 显示Tab:', tabId);
     } else {
-        console.warn('找不到Tab元素:', tabId);
+        console.warn('❌ 找不到Tab元素:', tabId);
         return;
     }
     
-    // 切换按钮样式
+    // 3. 切换按钮样式
     document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tabs .tab-btn').forEach(b => {
         const onclickAttr = b.getAttribute('onclick');
@@ -106,25 +112,21 @@ function switchTab(tabId) {
         }
     });
     
-    // 加载对应数据
+    // 4. 加载对应数据
     try {
         console.log('加载数据:', tabId);
         switch(tabId) {
             case 'stockIn':
                 if (typeof loadStockIn === 'function') loadStockIn();
-                else console.warn('loadStockIn 未定义');
                 break;
             case 'stockOut':
                 if (typeof loadStockOut === 'function') loadStockOut();
-                else console.warn('loadStockOut 未定义');
                 break;
             case 'stockView':
                 if (typeof loadStockStock === 'function') loadStockStock();
-                else console.warn('loadStockStock 未定义');
                 break;
             case 'finance':
                 if (typeof loadTaxRateList === 'function') loadTaxRateList();
-                else console.warn('loadTaxRateList 未定义');
                 break;
             default:
                 break;
@@ -133,7 +135,6 @@ function switchTab(tabId) {
         console.error('加载Tab数据失败:', e);
     }
 }
-
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
  * 按【供应商+商品名+规格+入库单价+生产日期/到期日期】合并批次库存
