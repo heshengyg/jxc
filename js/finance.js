@@ -1876,25 +1876,24 @@ pageData.forEach((row, index) => {  // ✅ 添加 index 参数
         <td>${row.record_date}</td>
     </tr>`;
 });
-// ✅ 汇总行
-const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
-tbody.innerHTML += `
-<tr style="background:#f0f4f8;font-weight:bold;">
-    <td colspan="7" style="text-align:right;">汇总：</td>
-    <td>${summary.in_num}</td>
-    <td></td>
-    <td>${formatMoney(summary.totalAmount)}</td>
-    <td>${formatMoney(summary.noTaxTotal)}</td>
-    <td>${formatMoney(summary.taxTotal)}</td>
-    <td ${remainColor}>${formatMoney(summary.remainAmount)}</td>
-    <td></td>
-</tr>`;
+    // ✅ 汇总行
+    const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
+    tbody.innerHTML += `
+    <tr style="background:#f0f4f8;font-weight:bold;">
+        <td colspan="7" style="text-align:right;">汇总：</td>
+        <td>${summary.in_num}</td>
+        <td></td>
+        <td>${formatMoney(summary.totalAmount)}</td>
+        <td>${formatMoney(summary.noTaxTotal)}</td>
+        <td>${formatMoney(summary.taxTotal)}</td>
+        <td ${remainColor}>${formatMoney(summary.remainAmount)}</td>
+        <td></td>
+    </tr>`;
+    
+    renderFinancePagination('stockInCheck');
+}  // ✅ 这个 } 结束 searchStockInCheck 函数
 
-renderFinancePagination('stockInCheck');
-
-/**
- * 重置入库对账搜索条件
- */
+// ===================== resetStockInCheck 函数（独立在外部） =====================
 function resetStockInCheck() {
     document.getElementById('checkInSettle').value = '';
     document.getElementById('checkInInvoice').value = '';
@@ -1909,7 +1908,6 @@ function resetStockInCheck() {
     document.getElementById('checkInGoodsListBox').style.display = 'none';
     searchStockInCheck();
 }
-
 // ===================== 入库对账 - 供应商搜索下拉 =====================
 function showCheckInSupplierList() {
     const list = window._checkInSupplierList || [];
