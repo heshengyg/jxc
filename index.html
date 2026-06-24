@@ -710,14 +710,22 @@ document.addEventListener('click', function(e) {
         <!-- ✅ 供应商：带搜索下拉 -->
         <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
             <label>供应商：</label>
-            <input type="text" id="checkInSupplierSearchInput" placeholder="搜索/选择供应商" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+            <input type="text" id="checkInSupplierSearchInput" 
+                   placeholder="搜索/选择供应商" 
+                   onclick="showCheckInSupplierList()" 
+                   oninput="filterCheckInSupplierList()" 
+                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
             <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
         
         <!-- ✅ 商品名：带搜索下拉 -->
         <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
             <label>商品名：</label>
-            <input type="text" id="checkInGoodsSearchInput" placeholder="搜索/选择商品" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+            <input type="text" id="checkInGoodsSearchInput" 
+                   placeholder="搜索/选择商品" 
+                   onclick="showCheckInGoodsList()" 
+                   oninput="filterCheckInGoodsList()" 
+                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
             <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
         

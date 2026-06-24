@@ -1669,7 +1669,8 @@ function searchStockInCheck() {
     const taxRate = document.getElementById('checkInTaxRateSearch').value;
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
-    
+
+let list = [...allStockInList];    
   
     // 筛选条件
     if (settle) list = list.filter(i => i.settleType === settle);
