@@ -2333,7 +2333,7 @@ function searchStockOutCheck() {
             const goods = allGoodsList.find(g => 
                 g.name === i.goodsName && 
                 g.supplier === i.supplier && 
-                g.spec === i.spec
+                (g.spec || '') === (i.spec || '')
             );
             const rate = goods ? String(goods.tax_rate || '') : '';
             return rate === taxRate;
@@ -2342,13 +2342,27 @@ function searchStockOutCheck() {
     
     // 处理每条记录
     let processedList = list.map(row => {
-        const goods = allGoodsList.find(g => 
+    // ✅ 先尝试完整匹配（含规格）
+    let goods = allGoodsList.find(g => {
+        const gSpec = g.spec || '';
+        const rowSpec = row.spec || '';
+        return g.name === row.goodsName && 
+               g.supplier === row.supplier && 
+               gSpec === rowSpec;
+    });
+    
+    // ✅ 如果没找到，忽略规格再匹配
+    let taxRateVal = 0;
+    if (goods) {
+        taxRateVal = Number(goods.tax_rate || 0);
+    } else {
+        const goodsNoSpec = allGoodsList.find(g => 
             g.name === row.goodsName && 
-            g.supplier === row.supplier && 
-            g.spec === row.spec
+            g.supplier === row.supplier
         );
+        taxRateVal = goodsNoSpec ? Number(goodsNoSpec.tax_rate || 0) : 0;
+    }
         
-        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
         const channel = row.settleType || (goods ? goods.channel : '');
         const outPrice = Number(row.outPrice) || 0;
         const salePrice = Number(row.salePrice) || 0;
@@ -2368,10 +2382,8 @@ function searchStockOutCheck() {
         const taxDecimal = taxRateVal / 100;
         
         if (taxDecimal > 0) {
-            // 计算出库不含税金额和税额
             outNoTaxAmount = outAmount / (1 + taxDecimal);
             outTax = outAmount - outNoTaxAmount;
-            // 计算销售不含税金额和税额
             saleNoTaxAmount = saleAmount / (1 + taxDecimal);
             saleTax = saleAmount - saleNoTaxAmount;
         } else {
@@ -2402,7 +2414,7 @@ function searchStockOutCheck() {
             recordDate: recordDate
         };
     });
-    
+      
     // 汇总处理
     if (groupSupplier || groupGoods) {
         const groupMap = {};
@@ -2545,7 +2557,7 @@ function resetStockOutCheck() {
 }
 
 /**
- * 导出入库对账表
+ * 导出出库对账表
  */
 function exportStockOutCheckExcel() {
     // 先执行查询获取最新数据
