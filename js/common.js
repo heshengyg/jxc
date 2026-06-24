@@ -112,7 +112,31 @@ function switchTab(tabId) {
         }
     });
     
-    // 4. 加载对应数据
+    // 4. ✅ 如果切换到商品管理，重新激活默认子Tab
+    if (tabId === 'goods') {
+        // 激活商品信息子Tab
+        const goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
+        if (goodsInfoBtn) {
+            // 移除所有子Tab的active状态
+            document.querySelectorAll('#goods .finance-sub-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            goodsInfoBtn.classList.add('active');
+            
+            // 显示商品信息内容，隐藏结算类型内容
+            const goodsInfoContent = document.getElementById('sub-goodsInfo');
+            const settleTypeContent = document.getElementById('sub-settleType');
+            if (goodsInfoContent) goodsInfoContent.style.display = 'block';
+            if (settleTypeContent) settleTypeContent.style.display = 'none';
+            
+            // 重新加载商品列表
+            if (typeof loadGoods === 'function') {
+                loadGoods();
+            }
+        }
+    }
+    
+    // 5. 加载对应数据
     try {
         console.log('加载数据:', tabId);
         switch(tabId) {
@@ -135,6 +159,7 @@ function switchTab(tabId) {
         console.error('加载Tab数据失败:', e);
     }
 }
+
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
  * 按【供应商+商品名+规格+入库单价+生产日期/到期日期】合并批次库存
