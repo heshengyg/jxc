@@ -312,6 +312,7 @@ async function loadStockOut() {
         });
         const allData = await fetchAll.json();
         allStockOut = allData;
+        window.allStockOut = allData;   // ✅ 新增：暴露到全局，供财务模块使用
         document.getElementById('outTotalCount').textContent = allData.length;
         outCurrentPage = 1;
         filterStockOut();
@@ -319,7 +320,6 @@ async function loadStockOut() {
         showMsg('加载出库记录失败：' + e.message);
     }
 }
-
 // 搜索筛选
 function filterStockOut() {
     let field = document.getElementById('outSearchField').value;
