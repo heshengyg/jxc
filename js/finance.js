@@ -1819,76 +1819,78 @@ let list = [...allStockInList];
     }
     
     // 分页处理
-    const cfg = financePageConfig.stockInCheck;
-    cfg.total = processedList.length;
-    const start = (cfg.current - 1) * cfg.pageSize;
-    const pageData = processedList.slice(start, start + cfg.pageSize);
-    
-    // 渲染表格
-    const tbody = document.getElementById('stockInCheckList');
-    tbody.innerHTML = '';
-    
-    if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
-        renderFinancePagination('stockInCheck');
-        return;
+const cfg = financePageConfig.stockInCheck;
+cfg.total = processedList.length;
+const start = (cfg.current - 1) * cfg.pageSize;
+const pageData = processedList.slice(start, start + cfg.pageSize);
+
+// 渲染表格
+const tbody = document.getElementById('stockInCheckList');
+tbody.innerHTML = '';
+
+if (pageData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+    renderFinancePagination('stockInCheck');
+    return;
+}
+
+pageData.forEach((row, index) => {  // ✅ 添加 index 参数
+    let invoiceClass = '';
+    if (row.invoice_status === '已开票') {
+        invoiceClass = 'bg-green-invoice';
+    } else if (row.invoice_status === '未开票') {
+        invoiceClass = 'bg-yellow-invoice';
     }
     
-    pageData.forEach(row => {
-        let invoiceClass = '';
-        if (row.invoice_status === '已开票') {
-            invoiceClass = 'bg-green-invoice';
-        } else if (row.invoice_status === '未开票') {
-            invoiceClass = 'bg-yellow-invoice';
-        }
-        
-        let payClass = '';
-        if (row.isPay === '已付清') {
-            payClass = 'bg-green-invoice';
-        } else if (row.isPay === '未付清') {
-            payClass = 'bg-yellow-invoice';
-        }
-        
-        // 发票结余红色字体
-        let remainColor = '';
-        if (!isNaN(row.remainAmount) && row.remainAmount < 0) {
-            remainColor = 'style="color:red;"';
-        }
-        
-        tbody.innerHTML += `
-        <tr>
-            <td>${row.supplier}</td>
-            <td>${row.goodsName}</td>
-            <td>${row.spec || ''}</td>
-            <td>${row.tax_rate_display}</td>
-            <td class="${invoiceClass}">${row.invoice_status || ''}</td>
-            <td>${row.in_price_display}</td>
-            <td>${row.in_num}</td>
-            <td class="${payClass}">${row.isPay}</td>
-            <td>${formatMoney(row.totalAmount)}</td>
-            <td>${formatMoney(row.noTaxTotal)}</td>
-            <td>${formatMoney(row.taxTotal)}</td>
-            <td ${remainColor}>${formatMoney(row.remainAmount)}</td>
-            <td>${row.record_date}</td>
-        </tr>`;
-    });
+    let payClass = '';
+    if (row.isPay === '已付清') {
+        payClass = 'bg-green-invoice';
+    } else if (row.isPay === '未付清') {
+        payClass = 'bg-yellow-invoice';
+    }
     
-    // ✅ 汇总行
-    const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
+    // 发票结余红色字体
+    let remainColor = '';
+    if (!isNaN(row.remainAmount) && row.remainAmount < 0) {
+        remainColor = 'style="color:red;"';
+    }
+    
+    // 计算序号（当前页起始序号）
+    const seq = start + index + 1;
+    
     tbody.innerHTML += `
-    <tr style="background:#f0f4f8;font-weight:bold;">
-        <td colspan="6" style="text-align:right;">汇总：</td>
-        <td>${summary.in_num}</td>
-        <td></td>
-        <td>${formatMoney(summary.totalAmount)}</td>
-        <td>${formatMoney(summary.noTaxTotal)}</td>
-        <td>${formatMoney(summary.taxTotal)}</td>
-        <td ${remainColor}>${formatMoney(summary.remainAmount)}</td>
-        <td></td>
+    <tr>
+        <td>${seq}</td>  <!-- ✅ 新增序号列 -->
+        <td>${row.supplier}</td>
+        <td>${row.goodsName}</td>
+        <td>${row.spec || ''}</td>
+        <td>${row.tax_rate_display}</td>
+        <td class="${invoiceClass}">${row.invoice_status || ''}</td>
+        <td>${row.in_price_display}</td>
+        <td>${row.in_num}</td>
+        <td class="${payClass}">${row.isPay}</td>
+        <td>${formatMoney(row.totalAmount)}</td>
+        <td>${formatMoney(row.noTaxTotal)}</td>
+        <td>${formatMoney(row.taxTotal)}</td>
+        <td ${remainColor}>${formatMoney(row.remainAmount)}</td>
+        <td>${row.record_date}</td>
     </tr>`;
-    
-    renderFinancePagination('stockInCheck');
-}
+});
+// ✅ 汇总行
+const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
+tbody.innerHTML += `
+<tr style="background:#f0f4f8;font-weight:bold;">
+    <td colspan="7" style="text-align:right;">汇总：</td>
+    <td>${summary.in_num}</td>
+    <td></td>
+    <td>${formatMoney(summary.totalAmount)}</td>
+    <td>${formatMoney(summary.noTaxTotal)}</td>
+    <td>${formatMoney(summary.taxTotal)}</td>
+    <td ${remainColor}>${formatMoney(summary.remainAmount)}</td>
+    <td></td>
+</tr>`;
+
+renderFinancePagination('stockInCheck');
 
 /**
  * 重置入库对账搜索条件
@@ -2150,22 +2152,23 @@ function exportStockInCheckExcel() {
     });
     
     // 构建导出数据
-    const header = ["供应商", "商品名称", "规格", "税率", "发票状态", "入库单价", "入库数量", "是否付清", "含税入库金额", "不含税金额", "税额", "发票结余", "录入日期"];
-    const expData = processedList.map(row => [
-        row.supplier,
-        row.goodsName,
-        row.spec,
-        row.tax_rate_display,
-        row.invoice_status || '',
-        row.in_price_display,
-        row.in_num,
-        row.isPay,
-        formatMoney(row.totalAmount),
-        formatMoney(row.noTaxTotal),
-        formatMoney(row.taxTotal),
-        formatMoney(row.remainAmount),
-        row.record_date
-    ]);
+    const header = ["序号", "供应商", "商品名称", "规格", "税率", "发票状态", "入库单价", "入库数量", "是否付清", "含税入库金额", "不含税金额", "税额", "发票结余", "录入日期"];
+const expData = processedList.map((row, idx) => [
+    idx + 1,  // ✅ 序号
+    row.supplier,
+    row.goodsName,
+    row.spec,
+    row.tax_rate_display,
+    row.invoice_status || '',
+    row.in_price_display,
+    row.in_num,
+    row.isPay,
+    formatMoney(row.totalAmount),
+    formatMoney(row.noTaxTotal),
+    formatMoney(row.taxTotal),
+    formatMoney(row.remainAmount),
+    row.record_date
+]);
     
     // 添加汇总行
     expData.push([
