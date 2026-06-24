@@ -124,6 +124,65 @@
     </div>
 </div>
 
+<!-- 子Tab：结算类型 -->
+<div id="sub-settleType" class="finance-sub-content" style="display:none;">
+    <h4>结算类型管理</h4>
+    <div class="stat-bar">
+        共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
+    </div>
+    <div class="search-bar">
+        <button class="btn btn-primary" onclick="openSettleForm()">新增结算类型</button>
+        <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
+        <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
+        <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
+        
+        <!-- 供应商搜索下拉 -->
+        <select id="settleSupplierSearch" onchange="filterSettleList()">
+            <option value="">全部供应商</option>
+        </select>
+        
+        <!-- 结算方式搜索下拉 -->
+        <select id="settleChannelSearch" onchange="filterSettleList()">
+            <option value="">全部结算方式</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
+        </select>
+        
+        <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>供应商</th>
+                    <th>结算方式</th>
+                    <th>涉及商品数</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="settleTypeList"></tbody>
+        </table>
+    </div>
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="settlePageSize" onchange="changeSettlePageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="settleCurrentPage">1</span> / <span id="settleTotalPages">1</span> 页
+        </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="settleGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="settlePrevPage()">上一页</button>
+            <span id="settlePageNumbers"></span>
+            <button class="page-btn" onclick="settleNextPage()">下一页</button>
+            <button class="page-btn" onclick="settleGoToPage(settleTotalPages)">末页</button>
+        </div>
+    </div>
+</div>
+
     <!-- 入库管理 -->
     <div id="stockIn" class="tab-content">
         <h3>入库管理</h3>
