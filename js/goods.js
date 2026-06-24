@@ -1,3 +1,13 @@
+
+// ========== 全局变量 ==========
+let allGoods = [];
+let filteredGoods = [];
+let currentPage = 1;
+let pageSize = 10;
+let totalPages = 1;
+let sortField = '';
+let sortAsc = true;
+
 // ========== 结算类型相关全局变量 ==========
 let settleData = [];          // 所有结算类型数据
 let filteredSettle = [];      // 筛选后的结算类型
@@ -440,7 +450,19 @@ async function loadGoods() {
         let totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
         
-        filterGoods();
+        // 调用filterGoods前确保元素存在
+        let searchField = document.getElementById('searchField');
+        if (searchField) {
+            filterGoods();
+        } else {
+            // 如果元素不存在，直接渲染所有数据
+            filteredGoods = [...allGoods];
+            let searchCount = document.getElementById('searchCount');
+            if (searchCount) searchCount.textContent = filteredGoods.length;
+            currentPage = 1;
+            renderPagination();
+            renderGoods();
+        }
         
         // 静默加载结算类型数据
         await loadSettleListSilently();
@@ -565,10 +587,20 @@ function resetSearch() {
 }
 
 function filterGoods() {
-    let field = document.getElementById('searchField').value;
-    let kw = document.getElementById('searchKeyword').value.toLowerCase();
+    let searchField = document.getElementById('searchField');
+    let searchKeyword = document.getElementById('searchKeyword');
+    let searchCount = document.getElementById('searchCount');
+    
+    // 如果元素不存在，直接返回
+    if (!searchField || !searchKeyword || !searchCount) {
+        console.warn('搜索元素不存在');
+        return;
+    }
+    
+    let field = searchField.value;
+    let kw = searchKeyword.value.toLowerCase();
     filteredGoods = allGoods.filter(item => String(item[field]||'').toLowerCase().includes(kw));
-    document.getElementById('searchCount').textContent = filteredGoods.length;
+    searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
     renderGoods();
@@ -595,36 +627,46 @@ function updateSortIcon() {
 }
 
 async function renderGoods() {
-    let start = (currentPage-1)*pageSize;
-    let pageData = filteredGoods.slice(start, start+pageSize);
-    let tb = document.getElementById('goodsList'); tb.innerHTML = '';
+    let tb = document.getElementById('goodsList');
+    if (!tb) {
+        console.warn('goodsList元素不存在');
+        return;
+    }
+    
+    let start = (currentPage - 1) * pageSize;
+    let pageData = filteredGoods.slice(start, start + pageSize);
+    tb.innerHTML = '';
+    
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        return;
+    }
+    
     for(let idx = 0; idx < pageData.length; idx++){
         const item = pageData[idx];
-        // 保质期：有数值才拼接，无则返回空字符串
         let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
-        let expire = calculateExpireDays(item.shelf_life_num, item.shelf_life_unit);
-        let onlineCost = formatMoney(item.online_cost);
+        let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
+        let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
         let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
-        // 编辑按钮始终可用，删除按钮参照in.js样式置灰
+        
         let delBtn = isUsed 
             ? `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`
             : `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
+            
         let html = `
             <tr>
                 <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
-                <td>${start+idx+1}</td>
-                <td>${item.supplier||''}</td>
-                <td>${item.name||''}</td>
-                <td>${item.spec||'-'}</td>
-                <td>${item.channel||''}</td>
-                <td>${formatMoney(item.sale_price)}</td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.name || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.channel || ''}</td>
+                <td>${formatMoney ? formatMoney(item.sale_price) : (item.sale_price || 0)}</td>
                 <td>${onlineCost}</td>
-                <!-- 修复：税率带%展示 -->
                 <td>${item.tax_rate ? item.tax_rate + '%' : ''}</td>
-                <!-- 保质期无值直接空白，不再显示“无” -->
                 <td>${shelfText}</td>
                 <td>${expire}</td>
-                <td>${item.warn_num||0}</td>
+                <td>${item.warn_num || 0}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openEditForm(${item.id})">编辑</button>
                     ${delBtn}
@@ -634,13 +676,19 @@ async function renderGoods() {
         tb.innerHTML += html;
     }
 }
+
 function renderPagination() {
     totalPages = Math.ceil(filteredGoods.length / pageSize) || 1;
-    document.getElementById('currentPage').textContent = currentPage;
-    document.getElementById('totalPages').textContent = totalPages;
+    
+    let currentPageEl = document.getElementById('currentPage');
+    let totalPagesEl = document.getElementById('totalPages');
+    if (currentPageEl) currentPageEl.textContent = currentPage;
+    if (totalPagesEl) totalPagesEl.textContent = totalPages;
 
     let pgBox = document.getElementById('pageNumbers');
+    if (!pgBox) return;
     pgBox.innerHTML = '';
+    
     let s = Math.max(1, currentPage - 2);
     let e = Math.min(totalPages, s + 4);
     for (let i = s; i <= e; i++) {
@@ -651,8 +699,7 @@ function renderPagination() {
         pgBox.appendChild(btn);
     }
 
-    // ✅ 通过位置获取：第一个=首页，第二个=上一页，倒数第二个=下一页，倒数第一个=末页
-    let btns = document.querySelectorAll('#goods .page-controls .page-btn');
+    let btns = document.querySelectorAll('#sub-goodsInfo .page-controls .page-btn');
     if (btns.length >= 4) {
         btns[0].disabled = (currentPage === 1);
         btns[1].disabled = (currentPage === 1);
@@ -660,7 +707,6 @@ function renderPagination() {
         btns[btns.length - 1].disabled = (currentPage === totalPages);
     }
 }
-
 function goToPage(p){ if(p<1||p>totalPages)return; currentPage=p; renderPagination(); renderGoods(); }
 function prevPage(){ goToPage(currentPage-1); }
 function nextPage(){ goToPage(currentPage+1); }
@@ -888,16 +934,15 @@ function exportExcel(){
     XLSX.writeFile(wb,"商品列表.xlsx");
 }
 // ========== 页面初始化 ==========
-// 默认激活商品信息Tab
 document.addEventListener('DOMContentLoaded', function() {
-    // 确保商品信息Tab处于激活状态
+    // 默认激活商品信息Tab
     let goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
     if (goodsInfoBtn) {
         goodsInfoBtn.classList.add('active');
         document.querySelector('#goods .finance-sub-btn[data-tab="settleType"]')?.classList.remove('active');
     }
     
-    // 显示商品信息内容，隐藏结算类型内容
+    // 显示商品信息，隐藏结算类型
     let goodsInfoContent = document.getElementById('sub-goodsInfo');
     let settleTypeContent = document.getElementById('sub-settleType');
     if (goodsInfoContent) goodsInfoContent.style.display = 'block';
