@@ -1,3 +1,7 @@
+// 刷新商品列表
+function refreshGoods() {
+    loadGoods();
+}
 // ========== 校验商品是否存在入库记录 ==========
 async function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
     try {
@@ -40,9 +44,15 @@ async function loadSettleList() {
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
         
+        // 先加载商品数据用于计算数量
+        let goodsRes = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        let goodsList = goodsRes.ok ? await goodsRes.json() : [];
+        
         // 计算每个供应商涉及的商品数
         for (let item of list) {
-            let goodsCount = allGoods ? allGoods.filter(g => g.supplier === item.supplier).length : 0;
+            let goodsCount = goodsList.filter(g => g.supplier === item.supplier).length;
             item.count = goodsCount;
         }
         
@@ -260,7 +270,9 @@ async function submitSettleForm() {
         }
         
         closeSettleModal();
-        loadSettleList();
+        // 先重新加载商品数据，再加载结算类型
+        await loadGoods();
+        await loadSettleList();
         loadSupplierSelect();
     } catch (e) {
         showMsg('操作失败：' + e.message);

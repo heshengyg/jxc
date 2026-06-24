@@ -84,18 +84,31 @@ function closeMsg() {
 
 // 标签页切换
 function switchTab(tabId) {
+    // 隐藏所有tab内容
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.add('active');
+    
+    // 切换按钮样式 - 使用querySelector根据onclick属性查找
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    if (tabId === 'stockIn') loadStockIn();
-    // 切换到出库：先加载入库数据，再加载出库数据
+    const targetBtn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    // 加载对应数据
+    if (tabId === 'stockIn') {
+        if (typeof loadStockIn === 'function') loadStockIn();
+    }
     if (tabId === 'stockOut') {
-        loadStockIn();
-        loadStockOut();
+        if (typeof loadStockIn === 'function') loadStockIn();
+        if (typeof loadStockOut === 'function') loadStockOut();
+    }
+    if (tabId === 'stockView') {
+        if (typeof loadStockStock === 'function') loadStockStock();
+    }
+    if (tabId === 'finance') {
+        if (typeof loadTaxRateList === 'function') loadTaxRateList();
     }
 }
-
 // 点击空白关闭下拉框
 document.addEventListener('click', function(e){
     if(!e.target.closest('.search-select-wrap')){
