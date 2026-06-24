@@ -2290,7 +2290,8 @@ document.addEventListener('click', function(e) {
 
 function initStockOutCheckPage() {
     financePageConfig.stockOutCheck.current = 1;
-    initCheckMonthSelect('checkOutMonth');
+    // ✅ 修改：使用出库月份下拉（从出库表读取）
+    initCheckOutMonthSelect('checkOutMonth');
     
     // 从出库表读取数据
     const outData = window.allStockOut || [];
@@ -2308,7 +2309,6 @@ function initStockOutCheckPage() {
     
     renderFinancePagination('stockOutCheck');
 }
-
 // 新增：出库月份下拉初始化
 function initCheckOutMonthSelect(selId) {
     const sel = document.getElementById(selId);
