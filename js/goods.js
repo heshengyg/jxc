@@ -5,6 +5,368 @@ let settleCurrentPage = 1;
 let settlePageSize = 10;
 let settleTotalPages = 1;
 
+// ========== 结算类型管理 ==========
+// 加载结算类型列表
+async function loadSettleList() {
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!res.ok) throw new Error('读取失败');
+        let list = await res.json();
+        
+        // 按供应商分组，取第一个商品的channel作为结算方式
+        let map = new Map();
+        list.forEach(item => {
+            if (item.supplier) {
+                if (!map.has(item.supplier)) {
+                    map.set(item.supplier, {
+                        supplier: item.supplier,
+                        channel: item.channel || '线上',
+                        count: 0
+                    });
+                }
+                map.get(item.supplier).count += 1;
+            }
+        });
+        settleData = Array.from(map.values());
+        
+        // 更新供应商下拉列表
+        updateSettleSupplierFilter();
+        
+        document.getElementById('settleTotalCount').textContent = settleData.length;
+        filteredSettle = [...settleData];
+        document.getElementById('settleSearchCount').textContent = filteredSettle.length;
+        renderSettlePagination();
+        renderSettleList();
+    } catch (e) {
+        showMsg('加载结算类型失败：' + e.message);
+    }
+}
+
+// 更新结算类型供应商筛选下拉
+function updateSettleSupplierFilter() {
+    let select = document.getElementById('settleSupplierSearch');
+    let currentValue = select.value;
+    select.innerHTML = '<option value="">全部供应商</option>';
+    let suppliers = settleData.map(s => s.supplier).sort();
+    suppliers.forEach(sup => {
+        let opt = document.createElement('option');
+        opt.value = sup;
+        opt.textContent = sup;
+        select.appendChild(opt);
+    });
+    select.value = currentValue;
+}
+
+// 筛选结算类型列表
+function filterSettleList() {
+    let supplier = document.getElementById('settleSupplierSearch').value;
+    let channel = document.getElementById('settleChannelSearch').value;
+    
+    filteredSettle = settleData.filter(item => {
+        let matchSupplier = !supplier || item.supplier === supplier;
+        let matchChannel = !channel || item.channel === channel;
+        return matchSupplier && matchChannel;
+    });
+    
+    document.getElementById('settleSearchCount').textContent = filteredSettle.length;
+    settleCurrentPage = 1;
+    renderSettlePagination();
+    renderSettleList();
+}
+
+// 重置结算类型搜索
+function resetSettleSearch() {
+    document.getElementById('settleSupplierSearch').value = '';
+    document.getElementById('settleChannelSearch').value = '';
+    filterSettleList();
+}
+
+function refreshSettleList() {
+    loadSettleList();
+}
+
+function renderSettleList() {
+    let start = (settleCurrentPage - 1) * settlePageSize;
+    let pageData = filteredSettle.slice(start, start + settlePageSize);
+    let tb = document.getElementById('settleTypeList');
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        return;
+    }
+    pageData.forEach((item, idx) => {
+        let html = `
+            <tr>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier}</td>
+                <td>${item.channel}</td>
+                <td>${item.count}</td>
+                <td>
+                    <button class="btn btn-primary" onclick="openSettleEditForm('${item.supplier}')">编辑</button>
+                    <button class="btn btn-danger" onclick="deleteSettleType('${item.supplier}')">删除</button>
+                </td>
+            </tr>
+        `;
+        tb.innerHTML += html;
+    });
+}
+
+function renderSettlePagination() {
+    settleTotalPages = Math.ceil(filteredSettle.length / settlePageSize) || 1;
+    document.getElementById('settleCurrentPage').textContent = settleCurrentPage;
+    document.getElementById('settleTotalPages').textContent = settleTotalPages;
+
+    let pgBox = document.getElementById('settlePageNumbers');
+    pgBox.innerHTML = '';
+    let s = Math.max(1, settleCurrentPage - 2);
+    let e = Math.min(settleTotalPages, s + 4);
+    for (let i = s; i <= e; i++) {
+        let btn = document.createElement('button');
+        btn.className = 'page-btn ' + (i === settleCurrentPage ? 'active' : '');
+        btn.innerText = i;
+        btn.onclick = () => settleGoToPage(i);
+        pgBox.appendChild(btn);
+    }
+
+    let btns = document.querySelectorAll('#sub-settleType .page-controls .page-btn');
+    if (btns.length >= 4) {
+        btns[0].disabled = (settleCurrentPage === 1);
+        btns[1].disabled = (settleCurrentPage === 1);
+        btns[btns.length - 2].disabled = (settleCurrentPage === settleTotalPages);
+        btns[btns.length - 1].disabled = (settleCurrentPage === settleTotalPages);
+    }
+}
+
+function settleGoToPage(p) { 
+    if (p < 1 || p > settleTotalPages) return; 
+    settleCurrentPage = p; 
+    renderSettlePagination(); 
+    renderSettleList(); 
+}
+
+function settlePrevPage() { settleGoToPage(settleCurrentPage - 1); }
+function settleNextPage() { settleGoToPage(settleCurrentPage + 1); }
+
+function changeSettlePageSize() { 
+    settlePageSize = +document.getElementById('settlePageSize').value; 
+    settleCurrentPage = 1; 
+    renderSettlePagination(); 
+    renderSettleList(); 
+}
+
+// 新增结算类型
+function openSettleForm() {
+    let supplier = prompt('请输入供应商名称：');
+    if (!supplier || !supplier.trim()) return;
+    supplier = supplier.trim();
+    
+    // 检查是否已存在
+    if (settleData.some(s => s.supplier === supplier)) {
+        showMsg('该供应商已存在！');
+        return;
+    }
+    
+    let channel = confirm('是否设为线下结算？\n点击"确定"为线下，点击"取消"为线上');
+    let channelValue = channel ? '线下' : '线上';
+    
+    // 创建一条示例商品记录来建立结算类型
+    createSettleTypeRecord(supplier, channelValue);
+}
+
+async function createSettleTypeRecord(supplier, channel) {
+    try {
+        // 创建一条临时商品记录来建立结算类型
+        let data = {
+            supplier: supplier,
+            name: '临时商品_请编辑',  // 标记为临时，便于识别
+            spec: null,
+            channel: channel,
+            tax_rate: '',
+            sale_price: 0.01,
+            online_cost: null,
+            warn_num: null,
+            shelf_life_num: null,
+            shelf_life_unit: null
+        };
+        
+        await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        showMsg(`新增供应商"${supplier}"成功，结算方式：${channel}`);
+        loadSettleList();
+        loadGoods(); // 刷新商品列表
+    } catch (e) {
+        showMsg('新增失败：' + e.message);
+    }
+}
+
+// 编辑结算类型
+function openSettleEditForm(supplier) {
+    let item = settleData.find(s => s.supplier === supplier);
+    if (!item) return;
+    
+    let newChannel = confirm(`当前"${supplier}"的结算方式为"${item.channel}"，\n点击"确定"切换为线下，点击"取消"切换为线上`);
+    let channelValue = newChannel ? '线下' : '线上';
+    
+    if (channelValue === item.channel) {
+        showMsg('结算方式未发生变化');
+        return;
+    }
+    
+    saveSettleType(supplier, channelValue);
+}
+
+async function saveSettleType(supplier, newChannel) {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/goods?supplier=eq.${encodeURIComponent(supplier)}`, {
+            method: 'PATCH',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ channel: newChannel })
+        });
+        showMsg(`"${supplier}"的结算方式已更新为"${newChannel}"`);
+        loadSettleList();
+        loadGoods();
+    } catch (e) {
+        showMsg('更新失败：' + e.message);
+    }
+}
+
+// 删除结算类型（删除该供应商的所有商品）
+async function deleteSettleType(supplier) {
+    // 检查该供应商下是否有商品已被入库引用
+    let goodsList = allGoods.filter(g => g.supplier === supplier);
+    let hasUsed = false;
+    for (let item of goodsList) {
+        if (await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)) {
+            hasUsed = true;
+            break;
+        }
+    }
+    
+    if (hasUsed) {
+        showMsg(`供应商"${supplier}"下存在已入库的商品，无法删除！`);
+        return;
+    }
+    
+    if (!confirm(`确定要删除供应商"${supplier}"及其所有商品吗？\n（共${goodsList.length}条商品记录）`)) return;
+    
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/goods?supplier=eq.${encodeURIComponent(supplier)}`, {
+            method: 'DELETE',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        showMsg(`已删除供应商"${supplier}"`);
+        loadSettleList();
+        loadGoods();
+    } catch (e) {
+        showMsg('删除失败：' + e.message);
+    }
+}
+
+// ========== 结算类型导入导出 ==========
+// 下载导入模板
+function downloadSettleTemplate() {
+    let h = ["供应商", "结算方式"];
+    let ws = XLSX.utils.aoa_to_sheet([h]);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "模板");
+    XLSX.writeFile(wb, "结算类型导入模板.xlsx");
+}
+
+// 批量导入结算类型
+async function importSettleExcel() {
+    let fileInput = document.getElementById('settleFileInput');
+    let file = fileInput.files[0];
+    if (!file) return showMsg('请选择文件');
+    
+    let reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, { type: 'array' });
+            let sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let json = XLSX.utils.sheet_to_json(sheet);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (let row of json) {
+                let supplier = row['供应商']?.trim();
+                let channel = row['结算方式']?.trim();
+                
+                if (!supplier || !channel) {
+                    failCount++;
+                    continue;
+                }
+                
+                if (!['线上', '线下'].includes(channel)) {
+                    failCount++;
+                    continue;
+                }
+                
+                // 检查是否已存在
+                if (settleData.some(s => s.supplier === supplier)) {
+                    failCount++;
+                    continue;
+                }
+                
+                try {
+                    await createSettleTypeRecord(supplier, channel);
+                    successCount++;
+                } catch (err) {
+                    failCount++;
+                }
+            }
+            
+            showMsg(`导入完成：成功 ${successCount} 条，失败 ${failCount} 条`);
+            fileInput.value = '';
+            loadSettleList();
+            loadGoods();
+        } catch (err) {
+            showMsg('导入失败：' + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// 导出结算类型Excel
+function exportSettleExcel() {
+    if (filteredSettle.length === 0) {
+        showMsg("暂无数据可导出");
+        return;
+    }
+    
+    let header = ["序号", "供应商", "结算方式", "涉及商品数"];
+    let exportData = filteredSettle.map((item, idx) => [
+        idx + 1,
+        item.supplier || "",
+        item.channel || "",
+        item.count || 0
+    ]);
+    
+    let ws = XLSX.utils.aoa_to_sheet([header, ...exportData]);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "结算类型列表");
+    XLSX.writeFile(wb, "结算类型列表.xlsx");
+}
+
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
     // 切换按钮样式
@@ -94,13 +456,47 @@ async function loadGoods() {
         window.allGoods = allGoods;
         document.getElementById('totalCount').textContent = allGoods.length;
         filterGoods();
-        // 同时加载结算类型
-        loadSettleList();
+        
+        // 只在商品信息Tab激活时加载结算类型
+        let activeTab = document.querySelector('#goods .finance-sub-btn.active');
+        if (activeTab && activeTab.dataset.tab === 'settleType') {
+            loadSettleList();
+        } else {
+            // 后台静默加载结算类型数据，但不要触发UI更新
+            await loadSettleListSilently();
+        }
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
     }
 }
 
+// 静默加载结算类型（不触发UI更新）
+async function loadSettleListSilently() {
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!res.ok) throw new Error('读取失败');
+        let list = await res.json();
+        
+        let map = new Map();
+        list.forEach(item => {
+            if (item.supplier) {
+                if (!map.has(item.supplier)) {
+                    map.set(item.supplier, {
+                        supplier: item.supplier,
+                        channel: item.channel || '线上',
+                        count: 0
+                    });
+                }
+                map.get(item.supplier).count += 1;
+            }
+        });
+        settleData = Array.from(map.values());
+    } catch (e) {
+        console.error('静默加载结算类型失败：', e.message);
+    }
+}
 // 加载供应商下拉列表（从结算类型中获取）
 function loadSupplierSelect() {
     let select = document.getElementById('add_supplier');
@@ -517,3 +913,20 @@ function exportExcel(){
     XLSX.utils.book_append_sheet(wb,ws,"商品列表");
     XLSX.writeFile(wb,"商品列表.xlsx");
 }
+// ========== 页面初始化 ==========
+// 默认激活商品信息Tab
+document.addEventListener('DOMContentLoaded', function() {
+    // 确保商品信息Tab处于激活状态
+    let goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
+    if (goodsInfoBtn) {
+        goodsInfoBtn.classList.add('active');
+        document.querySelector('#goods .finance-sub-btn[data-tab="settleType"]')?.classList.remove('active');
+    }
+    
+    // 显示商品信息内容，隐藏结算类型内容
+    document.getElementById('sub-goodsInfo').style.display = 'block';
+    document.getElementById('sub-settleType').style.display = 'none';
+    
+    // 加载商品数据
+    loadGoods();
+});
