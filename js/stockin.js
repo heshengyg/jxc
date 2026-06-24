@@ -1,3 +1,20 @@
+// ========== 入库管理加载函数 ==========
+function loadStockIn() {
+    console.log('✅ 入库管理加载中...');
+    // 调用原有的刷新函数
+    if (typeof refreshStockIn === 'function') {
+        refreshStockIn();
+    } else if (typeof loadStockInData === 'function') {
+        loadStockInData();
+    } else {
+        // 如果没有任何加载函数，直接渲染已有的数据
+        renderStockInList();
+    }
+}
+
+// 如果原文件有 refreshStockIn 但没有 loadStockIn，添加这个别名
+// 或者直接在文件末尾添加：
+// window.loadStockIn = refreshStockIn;
 // ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;

@@ -83,43 +83,56 @@ function closeMsg() {
 }
 
 // 标签页切换
+// 标签页切换
 function switchTab(tabId) {
+    console.log('切换到Tab:', tabId);
+    
     // 隐藏所有tab内容
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     const targetTab = document.getElementById(tabId);
-    if (targetTab) targetTab.classList.add('active');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    } else {
+        console.warn('找不到Tab元素:', tabId);
+        return;
+    }
     
-    // 切换按钮样式 - 使用querySelector根据onclick属性查找
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const targetBtn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
-    if (targetBtn) targetBtn.classList.add('active');
+    // 切换按钮样式
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        const onclickAttr = b.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(`'${tabId}'`)) {
+            b.classList.add('active');
+        }
+    });
     
     // 加载对应数据
-    if (tabId === 'stockIn') {
-        if (typeof loadStockIn === 'function') loadStockIn();
-    }
-    if (tabId === 'stockOut') {
-        if (typeof loadStockIn === 'function') loadStockIn();
-        if (typeof loadStockOut === 'function') loadStockOut();
-    }
-    if (tabId === 'stockView') {
-        if (typeof loadStockStock === 'function') loadStockStock();
-    }
-    if (tabId === 'finance') {
-        if (typeof loadTaxRateList === 'function') loadTaxRateList();
+    try {
+        console.log('加载数据:', tabId);
+        switch(tabId) {
+            case 'stockIn':
+                if (typeof loadStockIn === 'function') loadStockIn();
+                else console.warn('loadStockIn 未定义');
+                break;
+            case 'stockOut':
+                if (typeof loadStockOut === 'function') loadStockOut();
+                else console.warn('loadStockOut 未定义');
+                break;
+            case 'stockView':
+                if (typeof loadStockStock === 'function') loadStockStock();
+                else console.warn('loadStockStock 未定义');
+                break;
+            case 'finance':
+                if (typeof loadTaxRateList === 'function') loadTaxRateList();
+                else console.warn('loadTaxRateList 未定义');
+                break;
+            default:
+                break;
+        }
+    } catch (e) {
+        console.error('加载Tab数据失败:', e);
     }
 }
-// 点击空白关闭下拉框
-document.addEventListener('click', function(e){
-    if(!e.target.closest('.search-select-wrap')){
-        document.getElementById('supListBox').style.display = 'none';
-        document.getElementById('goodsListBox').style.display = 'none';
-        // 关闭出库下拉
-        document.getElementById('outSupListBox').style.display = 'none';
-        document.getElementById('outGoodsListBox').style.display = 'none';
-    }
-});
-
 
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**
