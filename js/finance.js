@@ -4,7 +4,7 @@ let offlineSupplierList = [];
 let monthDistinctList = [];
 
 // 安全兼容全局商品，防止页面加载顺序报错
-let allGoodsList = window.allGofunction initStockInCheckPage() {ods || [];
+let allGoodsList = window.allGoods || [];
 let allStockInList = [];
 let allPayList = [];
 let allInvoiceBackList = [];
