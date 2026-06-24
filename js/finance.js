@@ -205,6 +205,14 @@ async function loadAllInvoiceBack() {
     allInvoiceBackList = await res.json();
 }
 
+// ✅ 新增：加载全部出库记录
+async function loadAllStockOut() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    window.allStockOut = await res.json();
+}
+
 // 当前子页面初始化分发
 async function initCurrentSubPage() {
     switch (currFinanceSub) {
@@ -220,6 +228,18 @@ async function initCurrentSubPage() {
     }
 }
 
+// 财务基础数据初始化（全局只加载一次）
+async function initFinanceBaseData() {
+    await Promise.all([
+        loadOfflineSupplier(),
+        loadDistinctMonth(),
+        loadAllGoods(),
+        loadAllStockIn(),
+        loadAllPayment(),
+        loadAllInvoiceBack(),
+        loadAllStockOut()   // ✅ 新增：加载出库数据
+    ]);
+}
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
