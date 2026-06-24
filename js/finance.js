@@ -1637,25 +1637,13 @@ function initStockInCheckPage() {
     financePageConfig.stockInCheck.current = 1;
     initCheckMonthSelect('checkInMonth');
     
-    // 初始化供应商下拉（从入库表读取）
-    const supplierSelect = document.getElementById('checkInSupplierSearch');
-    if (supplierSelect) {
-        supplierSelect.innerHTML = '<option value="">全部供应商</option>';
-        const suppliers = [...new Set(allStockInList.map(item => item.supplier).filter(Boolean))];
-        suppliers.forEach(s => {
-            supplierSelect.innerHTML += `<option value="${s}">${s}</option>`;
-        });
-    }
+    // ✅ 初始化供应商下拉数据
+    const suppliers = [...new Set(allStockInList.map(item => item.supplier).filter(Boolean))];
+    window._checkInSupplierList = suppliers;
     
-    // 初始化商品名称下拉（从入库表读取）
-    const goodsSelect = document.getElementById('checkInGoodsSearch');
-    if (goodsSelect) {
-        goodsSelect.innerHTML = '<option value="">全部商品</option>';
-        const goodsNames = [...new Set(allStockInList.map(item => item.goodsName).filter(Boolean))];
-        goodsNames.forEach(g => {
-            goodsSelect.innerHTML += `<option value="${g}">${g}</option>`;
-        });
-    }
+    // ✅ 初始化商品名称下拉数据
+    const goodsNames = [...new Set(allStockInList.map(item => item.goodsName).filter(Boolean))];
+    window._checkInGoodsList = goodsNames;
     
     const tbody = document.getElementById('stockInCheckList');
     if (tbody) tbody.innerHTML = '';
@@ -1675,14 +1663,14 @@ function searchStockInCheck() {
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
-    const supplier = document.getElementById('checkInSupplierSearch')?.value || '';
-    const goodsName = document.getElementById('checkInGoodsSearch')?.value || '';
-    const taxRate = document.getElementById('checkInTaxRateSearch')?.value || '';
+    // ✅ 从输入框获取值
+    const supplier = document.getElementById('checkInSupplierSearchInput').value.trim();
+    const goodsName = document.getElementById('checkInGoodsSearchInput').value.trim();
+    const taxRate = document.getElementById('checkInTaxRateSearch').value;
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
     
-    let list = [...allStockInList];
-    
+  
     // 筛选条件
     if (settle) list = list.filter(i => i.settleType === settle);
     if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
@@ -1908,13 +1896,294 @@ function resetStockInCheck() {
     document.getElementById('checkInSettle').value = '';
     document.getElementById('checkInInvoice').value = '';
     document.getElementById('checkInMonth').value = '';
-    document.getElementById('checkInSupplierSearch').value = '';
-    document.getElementById('checkInGoodsSearch').value = '';
+    document.getElementById('checkInSupplierSearchInput').value = '';
+    document.getElementById('checkInGoodsSearchInput').value = '';
     document.getElementById('checkInTaxRateSearch').value = '';
     document.getElementById('checkInSupplierGroup').checked = false;
     document.getElementById('checkInGoodsGroup').checked = false;
+    // 关闭下拉框
+    document.getElementById('checkInSupplierListBox').style.display = 'none';
+    document.getElementById('checkInGoodsListBox').style.display = 'none';
     searchStockInCheck();
 }
+
+// ===================== 入库对账 - 供应商搜索下拉 =====================
+function showCheckInSupplierList() {
+    const list = window._checkInSupplierList || [];
+    renderCheckInSupplierList(list);
+    document.getElementById('checkInSupplierListBox').style.display = 'block';
+}
+
+function filterCheckInSupplierList() {
+    const kw = document.getElementById('checkInSupplierSearchInput').value.toLowerCase();
+    const list = (window._checkInSupplierList || []).filter(s => s.toLowerCase().includes(kw));
+    renderCheckInSupplierList(list);
+    document.getElementById('checkInSupplierListBox').style.display = 'block';
+}
+
+function renderCheckInSupplierList(list) {
+    const box = document.getElementById('checkInSupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('checkInSupplierSearchInput').value = s;
+            document.getElementById('checkInSupplierListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// ===================== 入库对账 - 商品名称搜索下拉 =====================
+function showCheckInGoodsList() {
+    const list = window._checkInGoodsList || [];
+    renderCheckInGoodsList(list);
+    document.getElementById('checkInGoodsListBox').style.display = 'block';
+}
+
+function filterCheckInGoodsList() {
+    const kw = document.getElementById('checkInGoodsSearchInput').value.toLowerCase();
+    const list = (window._checkInGoodsList || []).filter(s => s.toLowerCase().includes(kw));
+    renderCheckInGoodsList(list);
+    document.getElementById('checkInGoodsListBox').style.display = 'block';
+}
+
+function renderCheckInGoodsList(list) {
+    const box = document.getElementById('checkInGoodsListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('checkInGoodsSearchInput').value = s;
+            document.getElementById('checkInGoodsListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// ===================== 入库对账 - 点击空白关闭下拉 =====================
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#checkInSupplierSearchInput') && !e.target.closest('#checkInSupplierListBox')) {
+        document.getElementById('checkInSupplierListBox').style.display = 'none';
+    }
+    if (!e.target.closest('#checkInGoodsSearchInput') && !e.target.closest('#checkInGoodsListBox')) {
+        document.getElementById('checkInGoodsListBox').style.display = 'none';
+    }
+});
+
+/**
+ * 导出入库对账表
+ */
+function exportStockInCheckExcel() {
+    // 先执行查询获取最新数据
+    searchStockInCheck();
+    
+    // 获取当前筛选后的数据
+    const settle = document.getElementById('checkInSettle').value;
+    const invStatus = document.getElementById('checkInInvoice').value;
+    const month = document.getElementById('checkInMonth').value;
+    const supplier = document.getElementById('checkInSupplierSearchInput').value.trim();
+    const goodsName = document.getElementById('checkInGoodsSearchInput').value.trim();
+    const taxRate = document.getElementById('checkInTaxRateSearch').value;
+    const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
+    const groupGoods = document.getElementById('checkInGoodsGroup').checked;
+    
+    let list = [...allStockInList];
+    
+    if (settle) list = list.filter(i => i.settleType === settle);
+    if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
+    if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+    if (supplier) list = list.filter(i => i.supplier === supplier);
+    if (goodsName) list = list.filter(i => i.goodsName === goodsName);
+    if (taxRate !== '') {
+        list = list.filter(i => {
+            const goods = allGoodsList.find(g => 
+                g.name === i.goodsName && 
+                g.supplier === i.supplier && 
+                g.spec === i.spec
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            return rate === taxRate;
+        });
+    }
+    
+    // 处理数据
+    let processedList = list.map(row => {
+        const goods = allGoodsList.find(g => 
+            g.name === row.goodsName && 
+            g.supplier === row.supplier && 
+            g.spec === row.spec
+        );
+        
+        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+        const channel = row.settleType || (goods ? goods.channel : '');
+        const inPrice = Number(row.in_price) || 0;
+        const qty = Number(row.in_num) || 0;
+        const totalAmount = inPrice * qty;
+        
+        let noTaxTotal = 0;
+        let taxTotal = 0;
+        let isPay = '';
+        let remainAmount = '';
+        let taxRateDisplay = '';
+        let inPriceDisplay = '';
+        const recordDate = row.record_date || '';
+        
+        if (channel === '线上') {
+            taxRateDisplay = '';
+            inPriceDisplay = formatMoney(inPrice);
+            noTaxTotal = 0;
+            taxTotal = 0;
+            isPay = '';
+            remainAmount = '';
+        } else {
+            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+            inPriceDisplay = formatMoney(inPrice);
+            
+            const taxDecimal = taxRateVal / 100;
+            if (taxDecimal > 0) {
+                const noTaxPrice = inPrice / (1 + taxDecimal);
+                noTaxTotal = noTaxPrice * qty;
+                taxTotal = totalAmount - noTaxTotal;
+            } else {
+                noTaxTotal = totalAmount;
+                taxTotal = 0;
+            }
+            
+            const supplierPay = allPayList
+                .filter(p => p.supplier === row.supplier)
+                .reduce((sum, p) => sum + Number(p.payment_amount), 0);
+            isPay = supplierPay >= totalAmount ? '已付清' : '未付清';
+            
+            const backTotal = allInvoiceBackList
+                .filter(b => b.supplier === row.supplier)
+                .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
+            remainAmount = backTotal - totalAmount;
+        }
+        
+        return {
+            supplier: row.supplier,
+            goodsName: row.goodsName,
+            spec: row.spec || '',
+            tax_rate_display: taxRateDisplay,
+            invoice_status: row.invoice_status || '',
+            in_price_display: inPriceDisplay,
+            in_num: qty,
+            isPay: isPay,
+            totalAmount: totalAmount,
+            noTaxTotal: noTaxTotal,
+            taxTotal: taxTotal,
+            remainAmount: remainAmount,
+            record_date: recordDate
+        };
+    });
+    
+    // 汇总处理
+    if (groupSupplier || groupGoods) {
+        const groupMap = {};
+        processedList.forEach(row => {
+            const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    supplier: row.supplier,
+                    goodsName: row.goodsName,
+                    spec: row.spec || '',
+                    tax_rate_display: row.tax_rate_display,
+                    invoice_status: row.invoice_status || '',
+                    in_price_display: '￥0.00',
+                    in_num: 0,
+                    isPay: row.isPay,
+                    totalAmount: 0,
+                    noTaxTotal: 0,
+                    taxTotal: 0,
+                    remainAmount: 0,
+                    record_date: row.record_date || '',
+                    count: 0
+                };
+            }
+            const g = groupMap[key];
+            g.in_num += Number(row.in_num);
+            g.totalAmount += row.totalAmount;
+            g.noTaxTotal += row.noTaxTotal;
+            g.taxTotal += row.taxTotal;
+            g.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
+            g.count++;
+            if (g.count === 1) {
+                g.in_price_display = row.in_price_display;
+                g.record_date = row.record_date;
+            }
+        });
+        processedList = Object.values(groupMap);
+    }
+    
+    // 计算汇总行
+    let summary = {
+        in_num: 0,
+        totalAmount: 0,
+        noTaxTotal: 0,
+        taxTotal: 0,
+        remainAmount: 0
+    };
+    processedList.forEach(row => {
+        summary.in_num += Number(row.in_num);
+        summary.totalAmount += Number(row.totalAmount);
+        summary.noTaxTotal += Number(row.noTaxTotal);
+        summary.taxTotal += Number(row.taxTotal);
+        summary.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
+    });
+    
+    // 构建导出数据
+    const header = ["供应商", "商品名称", "规格", "税率", "发票状态", "入库单价", "入库数量", "是否付清", "含税入库金额", "不含税金额", "税额", "发票结余", "录入日期"];
+    const expData = processedList.map(row => [
+        row.supplier,
+        row.goodsName,
+        row.spec,
+        row.tax_rate_display,
+        row.invoice_status || '',
+        row.in_price_display,
+        row.in_num,
+        row.isPay,
+        formatMoney(row.totalAmount),
+        formatMoney(row.noTaxTotal),
+        formatMoney(row.taxTotal),
+        formatMoney(row.remainAmount),
+        row.record_date
+    ]);
+    
+    // 添加汇总行
+    expData.push([
+        "汇总", "", "", "", "", "",
+        summary.in_num, "",
+        formatMoney(summary.totalAmount),
+        formatMoney(summary.noTaxTotal),
+        formatMoney(summary.taxTotal),
+        formatMoney(summary.remainAmount),
+        ""
+    ]);
+    
+    const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "入库对账表");
+    XLSX.writeFile(wb, `入库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showMsg('导出成功');
+}
+
 // ===================== ⑧出库对账 =====================
 function initStockOutCheckPage() {
     financePageConfig.stockOutCheck.current = 1;

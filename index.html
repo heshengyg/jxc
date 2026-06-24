@@ -687,34 +687,41 @@ document.addEventListener('click', function(e) {
 <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
     <h4>入库财务对账表</h4>
     <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <!-- 结算方式 -->
         <label>结算方式：</label>
         <select id="checkInSettle">
             <option value="">全部</option>
             <option value="线上">线上</option>
             <option value="线下">线下</option>
         </select>
+        
+        <!-- 发票状态 -->
         <label>发票状态：</label>
         <select id="checkInInvoice">
             <option value="">全部</option>
             <option value="已开票">已开票</option>
             <option value="未开票">未开票</option>
         </select>
+        
+        <!-- 入库月份 -->
         <label>入库月份：</label>
         <select id="checkInMonth"></select>
         
-        <!-- ✅ 新增：供应商搜索下拉 -->
-        <label>供应商：</label>
-        <select id="checkInSupplierSearch">
-            <option value="">全部供应商</option>
-        </select>
+        <!-- ✅ 供应商：带搜索下拉 -->
+        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+            <label>供应商：</label>
+            <input type="text" id="checkInSupplierSearchInput" placeholder="搜索/选择供应商" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+            <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        </div>
         
-        <!-- ✅ 新增：商品名称搜索下拉 -->
-        <label>商品名：</label>
-        <select id="checkInGoodsSearch">
-            <option value="">全部商品</option>
-        </select>
+        <!-- ✅ 商品名：带搜索下拉 -->
+        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+            <label>商品名：</label>
+            <input type="text" id="checkInGoodsSearchInput" placeholder="搜索/选择商品" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+            <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        </div>
         
-        <!-- ✅ 新增：税率搜索下拉 -->
+        <!-- ✅ 税率搜索下拉 -->
         <label>税率：</label>
         <select id="checkInTaxRateSearch">
             <option value="">全部税率</option>
@@ -723,10 +730,14 @@ document.addEventListener('click', function(e) {
             <option value="13">13%</option>
         </select>
         
+        <!-- 汇总选项 -->
         <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
         <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
+        
+        <!-- 按钮 -->
         <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
         <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
+        <button class="btn btn-success" onclick="exportStockInCheckExcel()">导出入库对账表</button>
     </div>
     
     <!-- ✅ 统计信息 -->
