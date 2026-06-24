@@ -2746,13 +2746,620 @@ function exportStockOutCheckExcel() {
     showMsg('导出成功');
 }
 // ===================== ⑨月期初库存 =====================
+
+// 期初库存 - 供应商搜索下拉
+function showBeginSupplierList() {
+    const list = window._beginSupplierList || [];
+    renderBeginSupplierList(list);
+    document.getElementById('beginSupplierListBox').style.display = 'block';
+}
+
+function filterBeginSupplierList() {
+    const kw = document.getElementById('beginSupplierSearchInput').value.toLowerCase();
+    const list = (window._beginSupplierList || []).filter(s => s.toLowerCase().includes(kw));
+    renderBeginSupplierList(list);
+    document.getElementById('beginSupplierListBox').style.display = 'block';
+}
+
+function renderBeginSupplierList(list) {
+    const box = document.getElementById('beginSupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('beginSupplierSearchInput').value = s;
+            document.getElementById('beginSupplierListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 期初库存 - 商品名称搜索下拉
+function showBeginGoodsList() {
+    const list = window._beginGoodsList || [];
+    renderBeginGoodsList(list);
+    document.getElementById('beginGoodsListBox').style.display = 'block';
+}
+
+function filterBeginGoodsList() {
+    const kw = document.getElementById('beginGoodsSearchInput').value.toLowerCase();
+    const list = (window._beginGoodsList || []).filter(s => s.toLowerCase().includes(kw));
+    renderBeginGoodsList(list);
+    document.getElementById('beginGoodsListBox').style.display = 'block';
+}
+
+function renderBeginGoodsList(list) {
+    const box = document.getElementById('beginGoodsListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('beginGoodsSearchInput').value = s;
+            document.getElementById('beginGoodsListBox').style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#beginSupplierSearchInput') && !e.target.closest('#beginSupplierListBox')) {
+        document.getElementById('beginSupplierListBox').style.display = 'none';
+    }
+    if (!e.target.closest('#beginGoodsSearchInput') && !e.target.closest('#beginGoodsListBox')) {
+        document.getElementById('beginGoodsListBox').style.display = 'none';
+    }
+});
+
+/**
+ * 计算截止到某月末的批次库存
+ * @param {string} supplier 供应商
+ * @param {string} goodsName 商品名
+ * @param {string} spec 规格
+ * @param {number} inPrice 入库单价
+ * @param {string} produceDate 生产日期
+ * @param {string} expireDate 到期日期
+ * @param {string} endDate 截止日期（月末）
+ * @returns {number} 月末库存数量
+ */
+function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expireDate, endDate) {
+    // 1. 获取该批次的所有入库记录（截止到 endDate）
+    const inRecords = allStockInList.filter(item => {
+        const itemKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
+        const batchKey = `${supplier}|${goodsName}|${spec || ''}|${inPrice || 0}|${produceDate || ''}|${expireDate || ''}`;
+        return itemKey === batchKey && item.record_date && item.record_date <= endDate;
+    });
+    
+    if (inRecords.length === 0) return 0;
+    
+    // 2. 计算入库总量
+    let totalIn = 0;
+    const inIds = [];
+    inRecords.forEach(rec => {
+        totalIn += Number(rec.in_num || 0);
+        inIds.push(rec.id);
+    });
+    
+    // 3. 计算该批次的出库总量（截止到 endDate，通过 inRecordId 关联）
+    let totalOut = 0;
+    const outData = window.allStockOut || [];
+    outData.forEach(out => {
+        if (out.recordDate && out.recordDate <= endDate && inIds.includes(out.inRecordId)) {
+            totalOut += Number(out.outNum || 0);
+        }
+    });
+    
+    return Math.max(0, totalIn - totalOut);
+}
+
 function initMonthBeginPage() {
     financePageConfig.monthBeginStock.current = 1;
-    initCheckMonthSelect('beginMonth');
+    
+    // 初始化月份下拉
+    initBeginMonthSelect('beginMonth');
+    
+    // 从入库表读取数据
+    const inData = allStockInList || [];
+    
+    // ✅ 初始化供应商下拉数据
+    const suppliers = [...new Set(inData.map(item => item.supplier).filter(Boolean))];
+    window._beginSupplierList = suppliers;
+    
+    // ✅ 初始化商品名称下拉数据
+    const goodsNames = [...new Set(inData.map(item => item.goodsName).filter(Boolean))];
+    window._beginGoodsList = goodsNames;
+    
     const tbody = document.getElementById('monthBeginStockList');
-    tbody.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+    
     renderFinancePagination('monthBeginStock');
 }
+
+/**
+ * 期初库存月份下拉初始化（从入库表读取所有月份）
+ */
+function initBeginMonthSelect(selId) {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '<option value="">请选择月份</option>';
+    
+    // 从入库表读取所有月份
+    const monthSet = new Set();
+    allStockInList.forEach(item => {
+        if (item.record_date) {
+            monthSet.add(item.record_date.substring(0, 7));
+        }
+    });
+    // 如果有出库记录，也加入月份
+    const outData = window.allStockOut || [];
+    outData.forEach(item => {
+        if (item.recordDate) {
+            monthSet.add(item.recordDate.substring(0, 7));
+        }
+    });
+    const monthList = Array.from(monthSet).sort().reverse();
+    monthList.forEach(m => {
+        sel.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+}
+
 function searchMonthBeginStock() {
-    showMsg('库存期初表需要实时库存结余计算逻辑，当前框架已完成');
+    financePageConfig.monthBeginStock.current = 1;
+    
+    // 获取所有筛选条件
+    const settle = document.getElementById('beginSettle').value;
+    const month = document.getElementById('beginMonth').value;
+    const supplier = document.getElementById('beginSupplierSearchInput').value.trim();
+    const goodsName = document.getElementById('beginGoodsSearchInput').value.trim();
+    const taxRate = document.getElementById('beginTaxRateSearch').value;
+    const groupSupplier = document.getElementById('beginSupplierGroup').checked;
+    const groupGoods = document.getElementById('beginGoodsGroup').checked;
+    
+    // 如果没有选择月份，提示
+    if (!month) {
+        showMsg('请先选择统计月份');
+        return;
+    }
+    
+    // 计算截止日期：选择月份的月末（如选6月，截止到5月31日）
+    const year = parseInt(month.substring(0, 4));
+    const monthNum = parseInt(month.substring(5, 7));
+    // 截止日期 = 所选月份的前一个月的最后一天
+    const endDate = new Date(year, monthNum - 1, 0); // 月份从0开始，所以monthNum-1是所选月份，0是前一天
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    // 1. 获取所有入库记录（按批次分组）
+    const batchMap = new Map();
+    allStockInList.forEach(item => {
+        // 只处理记录日期 <= 截止日期的
+        if (!item.record_date || item.record_date > endDateStr) return;
+        
+        // 结算方式筛选
+        if (settle && item.settleType !== settle) return;
+        
+        // 供应商筛选
+        if (supplier && item.supplier !== supplier) return;
+        
+        // 商品名筛选
+        if (goodsName && item.goodsName !== goodsName) return;
+        
+        // 税率筛选（需要从商品表获取税率）
+        let taxRateVal = 0;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goodsName && 
+                g.supplier === item.supplier && 
+                (g.spec || '') === (item.spec || '')
+            );
+            taxRateVal = goods ? String(goods.tax_rate || '') : '';
+            if (taxRateVal !== taxRate) return;
+        }
+        
+        // 批次key：供应商+商品名+规格+入库单价+生产日期+到期日期
+        const batchKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
+        
+        if (!batchMap.has(batchKey)) {
+            batchMap.set(batchKey, {
+                supplier: item.supplier,
+                goodsName: item.goodsName,
+                spec: item.spec || '',
+                inPrice: item.in_price || 0,
+                produceDate: item.produce_date || '',
+                expireDate: item.expire_date || '',
+                totalIn: 0,
+                inRecordIds: []
+            });
+        }
+        const batch = batchMap.get(batchKey);
+        batch.totalIn += Number(item.in_num || 0);
+        batch.inRecordIds.push(item.id);
+    });
+    
+    // 2. 计算每个批次的出库量（截止到 endDateStr）
+    const outData = window.allStockOut || [];
+    const batchResults = [];
+    
+    batchMap.forEach((batch, key) => {
+        // 计算该批次的出库量
+        let totalOut = 0;
+        outData.forEach(out => {
+            if (out.recordDate && out.recordDate <= endDateStr && batch.inRecordIds.includes(out.inRecordId)) {
+                totalOut += Number(out.outNum || 0);
+            }
+        });
+        
+        const monthEndStock = Math.max(0, batch.totalIn - totalOut);
+        if (monthEndStock > 0) {
+            batchResults.push({
+                ...batch,
+                monthEndStock: monthEndStock
+            });
+        }
+    });
+    
+    // 3. 处理每条记录，计算金额
+    let processedList = batchResults.map(row => {
+        // 获取商品信息（税率）
+        const goods = allGoodsList.find(g => 
+            g.name === row.goodsName && 
+            g.supplier === row.supplier && 
+            (g.spec || '') === (row.spec || '')
+        );
+        
+        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+        const channel = row.settleType || (goods ? goods.channel : '');
+        const inPrice = row.inPrice;
+        const qty = row.monthEndStock;
+        const totalAmount = inPrice * qty;
+        
+        let noTaxTotal = 0;
+        let taxTotal = 0;
+        let taxRateDisplay = '';
+        
+        if (channel === '线上') {
+            taxRateDisplay = '';
+            noTaxTotal = totalAmount;
+            taxTotal = 0;
+        } else {
+            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+            const taxDecimal = taxRateVal / 100;
+            if (taxDecimal > 0) {
+                noTaxTotal = totalAmount / (1 + taxDecimal);
+                taxTotal = totalAmount - noTaxTotal;
+            } else {
+                noTaxTotal = totalAmount;
+                taxTotal = 0;
+            }
+        }
+        
+        return {
+            supplier: row.supplier,
+            goodsName: row.goodsName,
+            spec: row.spec,
+            tax_rate_display: taxRateDisplay,
+            inPrice: formatMoney(inPrice),
+            monthEndStock: qty,
+            totalAmount: totalAmount,
+            noTaxTotal: noTaxTotal,
+            taxTotal: taxTotal
+        };
+    });
+    
+    // 4. 汇总处理
+    if (groupSupplier || groupGoods) {
+        const groupMap = {};
+        processedList.forEach(row => {
+            const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    supplier: row.supplier,
+                    goodsName: row.goodsName,
+                    spec: row.spec || '',
+                    tax_rate_display: row.tax_rate_display,
+                    inPrice: row.inPrice,
+                    monthEndStock: 0,
+                    totalAmount: 0,
+                    noTaxTotal: 0,
+                    taxTotal: 0,
+                    count: 0
+                };
+            }
+            const g = groupMap[key];
+            g.monthEndStock += Number(row.monthEndStock);
+            g.totalAmount += Number(row.totalAmount);
+            g.noTaxTotal += Number(row.noTaxTotal);
+            g.taxTotal += Number(row.taxTotal);
+            g.count++;
+            if (g.count === 1) {
+                g.inPrice = row.inPrice;
+            }
+        });
+        processedList = Object.values(groupMap);
+    }
+    
+    // 5. 计算汇总行
+    let summary = {
+        monthEndStock: 0,
+        totalAmount: 0,
+        noTaxTotal: 0,
+        taxTotal: 0
+    };
+    processedList.forEach(row => {
+        summary.monthEndStock += Number(row.monthEndStock);
+        summary.totalAmount += Number(row.totalAmount);
+        summary.noTaxTotal += Number(row.noTaxTotal);
+        summary.taxTotal += Number(row.taxTotal);
+    });
+    
+    // 更新统计信息
+    const totalTip = document.getElementById('monthBeginStockTotalTip');
+    if (totalTip) {
+        totalTip.innerText = `截止 ${endDateStr}，共 ${processedList.length} 条库存记录，当前搜索结果 ${processedList.length} 条`;
+    }
+    
+    // 分页处理
+    const cfg = financePageConfig.monthBeginStock;
+    cfg.total = processedList.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = processedList.slice(start, start + cfg.pageSize);
+    
+    // 渲染表格
+    const tbody = document.getElementById('monthBeginStockList');
+    tbody.innerHTML = '';
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('monthBeginStock');
+        return;
+    }
+    
+    pageData.forEach((row, index) => {
+        const seq = start + index + 1;
+        
+        tbody.innerHTML += `
+        <tr>
+            <td>${seq}</td>
+            <td>${row.supplier}</td>
+            <td>${row.goodsName}</td>
+            <td>${row.spec || ''}</td>
+            <td>${row.tax_rate_display}</td>
+            <td>${row.inPrice}</td>
+            <td>${row.monthEndStock}</td>
+            <td>${formatMoney(row.totalAmount)}</td>
+            <td>${formatMoney(row.noTaxTotal)}</td>
+            <td>${formatMoney(row.taxTotal)}</td>
+        </tr>`;
+    });
+    
+    // ✅ 汇总行
+    tbody.innerHTML += `
+    <tr style="background:#f0f4f8;font-weight:bold;">
+        <td colspan="6" style="text-align:right;">汇总：</td>
+        <td>${summary.monthEndStock}</td>
+        <td>${formatMoney(summary.totalAmount)}</td>
+        <td>${formatMoney(summary.noTaxTotal)}</td>
+        <td>${formatMoney(summary.taxTotal)}</td>
+    </tr>`;
+    
+    renderFinancePagination('monthBeginStock');
+}
+
+/**
+ * 重置期初库存搜索条件
+ */
+function resetMonthBeginStock() {
+    document.getElementById('beginSettle').value = '';
+    document.getElementById('beginMonth').value = '';
+    document.getElementById('beginSupplierSearchInput').value = '';
+    document.getElementById('beginGoodsSearchInput').value = '';
+    document.getElementById('beginTaxRateSearch').value = '';
+    document.getElementById('beginSupplierGroup').checked = false;
+    document.getElementById('beginGoodsGroup').checked = false;
+    // 关闭下拉框
+    document.getElementById('beginSupplierListBox').style.display = 'none';
+    document.getElementById('beginGoodsListBox').style.display = 'none';
+    searchMonthBeginStock();
+}
+
+/**
+ * 导出处初库存表
+ */
+function exportMonthBeginStockExcel() {
+    // 先执行查询获取最新数据
+    searchMonthBeginStock();
+    
+    const settle = document.getElementById('beginSettle').value;
+    const month = document.getElementById('beginMonth').value;
+    const supplier = document.getElementById('beginSupplierSearchInput').value.trim();
+    const goodsName = document.getElementById('beginGoodsSearchInput').value.trim();
+    const taxRate = document.getElementById('beginTaxRateSearch').value;
+    const groupSupplier = document.getElementById('beginSupplierGroup').checked;
+    const groupGoods = document.getElementById('beginGoodsGroup').checked;
+    
+    if (!month) {
+        showMsg('请先选择统计月份');
+        return;
+    }
+    
+    const year = parseInt(month.substring(0, 4));
+    const monthNum = parseInt(month.substring(5, 7));
+    const endDate = new Date(year, monthNum - 1, 0);
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    // 重新计算数据（复用 searchMonthBeginStock 的逻辑，但为了导出直接重新计算）
+    const batchMap = new Map();
+    allStockInList.forEach(item => {
+        if (!item.record_date || item.record_date > endDateStr) return;
+        if (settle && item.settleType !== settle) return;
+        if (supplier && item.supplier !== supplier) return;
+        if (goodsName && item.goodsName !== goodsName) return;
+        
+        let taxRateVal = 0;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goodsName && 
+                g.supplier === item.supplier && 
+                (g.spec || '') === (item.spec || '')
+            );
+            taxRateVal = goods ? String(goods.tax_rate || '') : '';
+            if (taxRateVal !== taxRate) return;
+        }
+        
+        const batchKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
+        if (!batchMap.has(batchKey)) {
+            batchMap.set(batchKey, {
+                supplier: item.supplier,
+                goodsName: item.goodsName,
+                spec: item.spec || '',
+                inPrice: item.in_price || 0,
+                produceDate: item.produce_date || '',
+                expireDate: item.expire_date || '',
+                totalIn: 0,
+                inRecordIds: []
+            });
+        }
+        const batch = batchMap.get(batchKey);
+        batch.totalIn += Number(item.in_num || 0);
+        batch.inRecordIds.push(item.id);
+    });
+    
+    const outData = window.allStockOut || [];
+    const batchResults = [];
+    batchMap.forEach((batch) => {
+        let totalOut = 0;
+        outData.forEach(out => {
+            if (out.recordDate && out.recordDate <= endDateStr && batch.inRecordIds.includes(out.inRecordId)) {
+                totalOut += Number(out.outNum || 0);
+            }
+        });
+        const monthEndStock = Math.max(0, batch.totalIn - totalOut);
+        if (monthEndStock > 0) {
+            batchResults.push({ ...batch, monthEndStock });
+        }
+    });
+    
+    let processedList = batchResults.map(row => {
+        const goods = allGoodsList.find(g => 
+            g.name === row.goodsName && 
+            g.supplier === row.supplier && 
+            (g.spec || '') === (row.spec || '')
+        );
+        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+        const channel = row.settleType || (goods ? goods.channel : '');
+        const inPrice = row.inPrice;
+        const qty = row.monthEndStock;
+        const totalAmount = inPrice * qty;
+        let noTaxTotal = 0, taxTotal = 0;
+        let taxRateDisplay = '';
+        
+        if (channel === '线上') {
+            taxRateDisplay = '';
+            noTaxTotal = totalAmount;
+            taxTotal = 0;
+        } else {
+            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+            const taxDecimal = taxRateVal / 100;
+            if (taxDecimal > 0) {
+                noTaxTotal = totalAmount / (1 + taxDecimal);
+                taxTotal = totalAmount - noTaxTotal;
+            } else {
+                noTaxTotal = totalAmount;
+                taxTotal = 0;
+            }
+        }
+        return {
+            supplier: row.supplier,
+            goodsName: row.goodsName,
+            spec: row.spec,
+            tax_rate_display: taxRateDisplay,
+            inPrice: formatMoney(inPrice),
+            monthEndStock: qty,
+            totalAmount: totalAmount,
+            noTaxTotal: noTaxTotal,
+            taxTotal: taxTotal
+        };
+    });
+    
+    if (groupSupplier || groupGoods) {
+        const groupMap = {};
+        processedList.forEach(row => {
+            const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    supplier: row.supplier,
+                    goodsName: row.goodsName,
+                    spec: row.spec || '',
+                    tax_rate_display: row.tax_rate_display,
+                    inPrice: row.inPrice,
+                    monthEndStock: 0,
+                    totalAmount: 0,
+                    noTaxTotal: 0,
+                    taxTotal: 0,
+                    count: 0
+                };
+            }
+            const g = groupMap[key];
+            g.monthEndStock += Number(row.monthEndStock);
+            g.totalAmount += Number(row.totalAmount);
+            g.noTaxTotal += Number(row.noTaxTotal);
+            g.taxTotal += Number(row.taxTotal);
+            g.count++;
+            if (g.count === 1) {
+                g.inPrice = row.inPrice;
+            }
+        });
+        processedList = Object.values(groupMap);
+    }
+    
+    let summary = { monthEndStock: 0, totalAmount: 0, noTaxTotal: 0, taxTotal: 0 };
+    processedList.forEach(row => {
+        summary.monthEndStock += Number(row.monthEndStock);
+        summary.totalAmount += Number(row.totalAmount);
+        summary.noTaxTotal += Number(row.noTaxTotal);
+        summary.taxTotal += Number(row.taxTotal);
+    });
+    
+    const header = ["序号", "供应商", "商品名称", "规格", "税率", "入库单价", "月末库存", "含税库存金额", "不含税金额", "税额"];
+    const expData = processedList.map((row, idx) => [
+        idx + 1,
+        row.supplier,
+        row.goodsName,
+        row.spec,
+        row.tax_rate_display,
+        row.inPrice,
+        row.monthEndStock,
+        formatMoney(row.totalAmount),
+        formatMoney(row.noTaxTotal),
+        formatMoney(row.taxTotal)
+    ]);
+    
+    expData.push([
+        "汇总", "", "", "", "",
+        "",
+        summary.monthEndStock,
+        formatMoney(summary.totalAmount),
+        formatMoney(summary.noTaxTotal),
+        formatMoney(summary.taxTotal)
+    ]);
+    
+    const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "期初库存表");
+    XLSX.writeFile(wb, `期初库存表_${endDateStr}.xlsx`);
+    showMsg('导出成功');
 }
