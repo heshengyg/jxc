@@ -1,3 +1,25 @@
+// ========== 校验商品是否存在入库记录 ==========
+async function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_goods_stock_in`, {
+            method: "POST",
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                p_supplier: supplier,
+                p_goods_name: goodsName,
+                p_spec: spec
+            })
+        });
+        return await res.json();
+    } catch (err) {
+        console.error("校验状态失败", err);
+        return true; // 出错时默认返回true，防止误删
+    }
+}
 // ========== 结算类型相关全局变量 ==========
 let settleData = [];          // 所有结算类型数据
 let filteredSettle = [];      // 筛选后的结算类型
@@ -368,18 +390,36 @@ function exportSettleExcel() {
 
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
-    document.querySelectorAll('#goods .finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`).classList.add('active');
-    document.querySelectorAll('#goods .finance-sub-content').forEach(div => div.style.display = 'none');
-    document.getElementById(`sub-${tab}`).style.display = 'block';
+    // 切换按钮样式
+    const buttons = document.querySelectorAll('#goods .finance-sub-btn');
+    if (buttons.length === 0) {
+        console.warn('没有找到子Tab按钮');
+        return;
+    }
+    buttons.forEach(btn => btn.classList.remove('active'));
     
+    const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    // 切换内容
+    const contents = document.querySelectorAll('#goods .finance-sub-content');
+    contents.forEach(div => div.style.display = 'none');
+    
+    const targetContent = document.getElementById(`sub-${tab}`);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    } else {
+        console.warn(`找不到子Tab内容: sub-${tab}`);
+        return;
+    }
+    
+    // 加载对应数据
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
         loadGoods();
     }
 }
-
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
