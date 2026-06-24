@@ -2309,6 +2309,23 @@ function initStockOutCheckPage() {
     renderFinancePagination('stockOutCheck');
 }
 
+// 新增：出库月份下拉初始化
+function initCheckOutMonthSelect(selId) {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '<option value="">全部月份</option>';
+    const outData = window.allStockOut || [];
+    const monthSet = new Set();
+    outData.forEach(item => {
+        if (item.recordDate) {
+            monthSet.add(item.recordDate.substring(0, 7));
+        }
+    });
+    const monthList = Array.from(monthSet).sort().reverse();
+    monthList.forEach(m => {
+        sel.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+}
+
 function searchStockOutCheck() {
     financePageConfig.stockOutCheck.current = 1;
     
@@ -2393,7 +2410,12 @@ function searchStockOutCheck() {
             saleTax = 0;
         }
         
-        taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+        // ✅ 线上商品税率显示为空白
+if (channel === '线上') {
+    taxRateDisplay = '';
+} else {
+    taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+}
         outPriceDisplay = formatMoney(outPrice);
         salePriceDisplay = formatMoney(salePrice);
         
@@ -2622,7 +2644,7 @@ function exportStockOutCheckExcel() {
             supplier: row.supplier,
             goodsName: row.goodsName,
             spec: row.spec || '',
-            tax_rate_display: (taxRateVal > 0 ? taxRateVal + '%' : '0%'),
+            tax_rate_display: (row.settleType === '线上' ? '' : (taxRateVal > 0 ? taxRateVal + '%' : '0%')),
             outNum: qty,
             outPrice: formatMoney(outPrice),
             salePrice: formatMoney(salePrice),
