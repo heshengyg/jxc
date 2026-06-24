@@ -52,6 +52,59 @@
     <!-- 商品管理 -->
     <div id="goods" class="tab-content active">
         <h3>商品基础信息管理</h3>
+        <!-- ✅ 新增：结算类型管理子版块 -->
+    <div style="margin: 10px 0; padding: 12px 16px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <span style="font-weight: bold; font-size: 14px; color: #333;">📋 结算类型管理</span>
+                <span style="font-size: 13px; color: #666;">管理每个供应商的默认结算方式（线上/线下）</span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="openSettleTypeEdit()" style="padding: 4px 12px; font-size: 13px;">编辑结算类型</button>
+                <button class="btn btn-default" onclick="refreshSettleTypeList()" style="padding: 4px 12px; font-size: 13px;">刷新列表</button>
+            </div>
+        </div>
+        <div style="margin-top: 10px; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #e9ecef;">
+                        <th style="padding: 6px 10px; text-align: left; border: 1px solid #dee2e6;">序号</th>
+                        <th style="padding: 6px 10px; text-align: left; border: 1px solid #dee2e6;">供应商</th>
+                        <th style="padding: 6px 10px; text-align: left; border: 1px solid #dee2e6;">结算方式</th>
+                        <th style="padding: 6px 10px; text-align: left; border: 1px solid #dee2e6;">涉及商品数</th>
+                        <th style="padding: 6px 10px; text-align: left; border: 1px solid #dee2e6;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="settleTypeList">
+                    <tr><td colspan="5" style="text-align:center;color:#999;padding:10px;">暂无数据</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- 结算方式编辑弹窗 -->
+        <div id="settleTypeModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:20px;width:450px;border-radius:6px;margin:auto;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+                <h4>编辑供应商结算方式</h4>
+                <div style="margin:10px 0;">
+                    <label style="font-weight:bold;">供应商：</label>
+                    <input type="text" id="settleTypeSupplier" readonly style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;background:#f5f5f5;">
+                </div>
+                <div style="margin:10px 0;">
+                    <label style="font-weight:bold;">结算方式：</label>
+                    <select id="settleTypeChannel" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="线上">线上</option>
+                        <option value="线下">线下</option>
+                    </select>
+                </div>
+                <div style="margin:10px 0;font-size:13px;color:#666;background:#f8f9fa;padding:8px;border-radius:4px;">
+                    ⚠️ 修改后，该供应商下 <strong>所有商品</strong> 的结算方式将同步更新（包括已录入的入库记录不受影响）
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="saveSettleType()">保存</button>
+                    <button class="btn btn-default" onclick="closeSettleTypeModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
         <div class="stat-bar">
             共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
         </div>
@@ -1054,7 +1107,14 @@ document.addEventListener('click', function(e) {
         <input type="hidden" id="editId">
         <div class="form-group">
             <label>供应商：</label>
-            <input type="text" id="add_supplier" required>
+            <div style="position:relative;width:100%;">
+                <input type="text" id="add_supplier" required 
+                       onclick="showSupplierSelectList()" 
+                       oninput="filterSupplierSelectList()" 
+                       placeholder="搜索/选择供应商" 
+                       style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                <div id="supplierSelectListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
             <label>商品名称：</label>
             <input type="text" id="add_name" required>
             <label>规格：</label>
