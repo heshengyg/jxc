@@ -1637,7 +1637,7 @@ function initStockInCheckPage() {
     financePageConfig.stockInCheck.current = 1;
     initCheckMonthSelect('checkInMonth');
     
-    // ✅ 初始化供应商下拉（数据来自入库表 allStockInList）
+    // 初始化供应商下拉（从入库表读取）
     const supplierSelect = document.getElementById('checkInSupplierSearch');
     if (supplierSelect) {
         supplierSelect.innerHTML = '<option value="">全部供应商</option>';
@@ -1647,7 +1647,7 @@ function initStockInCheckPage() {
         });
     }
     
-    // ✅ 初始化商品名称下拉（数据来自入库表 allStockInList）
+    // 初始化商品名称下拉（从入库表读取）
     const goodsSelect = document.getElementById('checkInGoodsSearch');
     if (goodsSelect) {
         goodsSelect.innerHTML = '<option value="">全部商品</option>';
@@ -1660,12 +1660,6 @@ function initStockInCheckPage() {
     const tbody = document.getElementById('stockInCheckList');
     if (tbody) tbody.innerHTML = '';
     
-    // ✅ 统计信息已经存在于 index.html 中，不再动态创建
-    const totalTip = document.getElementById('stockInCheckTotalTip');
-    if (totalTip) {
-        totalTip.innerText = '共 0 条入库记录，当前搜索结果 0 条';
-    }
-    
     renderFinancePagination('stockInCheck');
 }
 
@@ -1677,7 +1671,7 @@ function initCheckMonthSelect(selId) {
 function searchStockInCheck() {
     financePageConfig.stockInCheck.current = 1;
     
-    // 获取筛选条件
+    // 获取所有筛选条件
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
@@ -1705,8 +1699,7 @@ function searchStockInCheck() {
             const rate = goods ? String(goods.tax_rate || '') : '';
             return rate === taxRate;
         });
-    }
-      
+    }      
     // 处理每条记录
     let processedList = list.map(row => {
         const goods = allGoodsList.find(g => 
@@ -1912,18 +1905,16 @@ function searchStockInCheck() {
  * 重置入库对账搜索条件
  */
 function resetStockInCheck() {
-    const fields = ['checkInSettle', 'checkInInvoice', 'checkInMonth', 'checkInSupplierSearch', 'checkInGoodsSearch', 'checkInTaxRateSearch'];
-    fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    const groupSupplier = document.getElementById('checkInSupplierGroup');
-    const groupGoods = document.getElementById('checkInGoodsGroup');
-    if (groupSupplier) groupSupplier.checked = false;
-    if (groupGoods) groupGoods.checked = false;
+    document.getElementById('checkInSettle').value = '';
+    document.getElementById('checkInInvoice').value = '';
+    document.getElementById('checkInMonth').value = '';
+    document.getElementById('checkInSupplierSearch').value = '';
+    document.getElementById('checkInGoodsSearch').value = '';
+    document.getElementById('checkInTaxRateSearch').value = '';
+    document.getElementById('checkInSupplierGroup').checked = false;
+    document.getElementById('checkInGoodsGroup').checked = false;
     searchStockInCheck();
 }
-
 // ===================== ⑧出库对账 =====================
 function initStockOutCheckPage() {
     financePageConfig.stockOutCheck.current = 1;
