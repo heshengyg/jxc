@@ -686,26 +686,57 @@ document.addEventListener('click', function(e) {
 <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
     <h4>入库财务对账表</h4>
     <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <!-- 结算方式 -->
         <label>结算方式：</label>
         <select id="checkInSettle">
             <option value="">全部</option>
             <option value="线上">线上</option>
             <option value="线下">线下</option>
         </select>
+        
+        <!-- 发票状态 -->
         <label>发票状态：</label>
         <select id="checkInInvoice">
             <option value="">全部</option>
             <option value="已开票">已开票</option>
             <option value="未开票">未开票</option>
         </select>
+        
+        <!-- 入库月份 -->
         <label>入库月份：</label>
         <select id="checkInMonth"></select>
+        
+        <!-- ✅ 供应商搜索下拉（数据来自入库表） -->
+        <label>供应商：</label>
+        <select id="checkInSupplierSearch">
+            <option value="">全部供应商</option>
+        </select>
+        
+        <!-- ✅ 商品名称搜索下拉（数据来自入库表） -->
+        <label>商品名：</label>
+        <select id="checkInGoodsSearch">
+            <option value="">全部商品</option>
+        </select>
+        
+        <!-- ✅ 税率搜索下拉 -->
+        <label>税率：</label>
+        <select id="checkInTaxRateSearch">
+            <option value="">全部税率</option>
+            <option value="0">0%</option>
+            <option value="9">9%</option>
+            <option value="13">13%</option>
+        </select>
+        
+        <!-- 汇总选项 -->
         <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
         <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
+        
+        <!-- 按钮 -->
         <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
+        <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
     </div>
     
-    <!-- ✅ 新增：统计信息 -->
+    <!-- ✅ 统计信息 -->
     <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
         共 0 条入库记录，当前搜索结果 0 条
     </div>
