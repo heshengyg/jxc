@@ -1,14 +1,3 @@
-// ========== 库存查看加载函数 ==========
-function loadStockStock() {
-    console.log('✅ 库存查看加载中...');
-    if (typeof loadStockView === 'function') {
-        loadStockView();
-    } else if (typeof refreshStockView === 'function') {
-        refreshStockView();
-    } else if (typeof loadStockData === 'function') {
-        loadStockData();
-    }
-}
 // 库存模块内部依赖函数（仅本文件使用，不影响其他模块）
 function getBzTotalDay(val, unit) {
     if (!val) return 0;

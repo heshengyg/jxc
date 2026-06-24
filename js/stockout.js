@@ -1,14 +1,3 @@
-// ========== 出库管理加载函数 ==========
-function loadStockOut() {
-    console.log('✅ 出库管理加载中...');
-    if (typeof refreshStockOut === 'function') {
-        refreshStockOut();
-    } else if (typeof loadStockOutData === 'function') {
-        loadStockOutData();
-    } else {
-        renderStockOutList();
-    }
-}
 // ===================== 出库模块 - 纯业务函数 =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];

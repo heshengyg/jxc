@@ -1,12 +1,3 @@
-// ========== 财务综合管理加载函数 ==========
-function loadTaxRateList() {
-    console.log('✅ 财务综合管理加载中...');
-    if (typeof refreshTaxList === 'function') {
-        refreshTaxList();
-    } else if (typeof loadFinanceData === 'function') {
-        loadFinanceData();
-    }
-}
 // ===================== 全局公共变量 =====================
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
