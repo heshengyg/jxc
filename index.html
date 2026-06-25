@@ -182,12 +182,11 @@
     </div>
 
     <!-- 子Tab：后台更换日期 -->
-    <div id="sub-dateChange" class="finance-sub-content" style="display:none;">
-        <h4>后台需更改日期的商品明细（每晨必看）</h4>
-        <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <span style="color:#ff6b6b; font-size:14px;">如有数据，①先全部更新后台后②更新③保存</span>
-            <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
-            <span id="dateChangeStatus" style="font-size:14px; color:#666;">✅ 所有商品日期已是最新</span>
+<div id="sub-dateChange" class="finance-sub-content" style="display:none;">
+    <h4>后台需更改日期的商品明细（每晨必看）</h4>
+    <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+        <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
+        <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
         </div>
         <div class="table-container">
             <table>

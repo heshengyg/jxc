@@ -1451,22 +1451,26 @@ async function updateSingleGoodsDate(id) {
         return;
     }
     
-    // 确认更新
-    let confirmMsg = `确认更新商品"${item.name}"的日期？\n`;
+    // 确定日期类型和值
+    let dateType = '';
+    let dateValue = '';
     if (earliest.produce_date) {
-        confirmMsg += `生产日期：${earliest.produce_date}`;
+        dateType = '生产日期';
+        dateValue = earliest.produce_date;
     } else if (earliest.expire_date) {
-        confirmMsg += `到期日期：${earliest.expire_date}`;
+        dateType = '到期日期';
+        dateValue = earliest.expire_date;
     } else {
         showMsg('该批次没有有效日期');
         return;
     }
     
+    // ✅ 修改确认弹窗内容
+    const confirmMsg = `确认平台已更新"${item.name}"日期？\n一旦更新数据消失（不可逆）！\n\n${dateType}：${dateValue}`;
     if (!confirm(confirmMsg)) return;
     
     try {
         const updateData = {};
-        // ✅ 使用正确的字段名 saved_produce_date 和 saved_expire_date
         if (earliest.produce_date) {
             updateData.saved_produce_date = earliest.produce_date;
         }
@@ -1511,7 +1515,8 @@ async function batchUpdateGoodsDate() {
         return;
     }
     
-    if (!confirm(`是否一键更新 ${needUpdateList.length} 条商品？\n\n请确认平台商品日期已更改为最新日期！`)) {
+    // ✅ 修改批量更新确认弹窗
+    if (!confirm(`⚠ 确认一键更新 ${needUpdateList.length} 条商品？\n\n点击后所有数据将完全消失（不可逆）！\n请确认平台商品日期都已更改为最新日期！`)) {
         return;
     }
     
