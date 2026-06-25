@@ -403,22 +403,22 @@ async function importStockInExcel() {
 async function loadStockIn() {
     await preLoadStockOutData();
     try {
-        // 一次性拉取全部入库记录（按id降序）
         const fetchAll = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         const allData = await fetchAll.json();
         allStockIn = allData;
         document.getElementById('inTotalCount').textContent = allData.length;
+        
+        // ✅ 确保缓存刷新
         refreshAllStockCache(allStockIn, allStockOut);
-        // 重置到第一页
+        
         inCurrentPage = 1;
         filterStockIn();
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
-
 // 搜索筛选
 function filterStockIn() {
     let field = document.getElementById('inSearchField').value;
@@ -450,10 +450,10 @@ function updateInSortIcon() {
     if(idx>-1) document.querySelectorAll('.inSortIcon')[idx].innerText = inSortAsc?'↑':'↓';
 }
 
-// 渲染入库表格【仅新增发票号码单元格，其余代码100%原样保留】
+// 渲染入库表格
 async function renderStockIn() {
-    let start = (inCurrentPage-1)*inPageSize;
-    let pageData = filteredStockIn.slice(start, start+inPageSize);
+    let start = (inCurrentPage - 1) * inPageSize;
+    let pageData = filteredStockIn.slice(start, start + inPageSize);
     let tb = document.getElementById('stockInList'); 
     if (!tb) {
         console.error('找不到入库列表DOM元素');
@@ -466,60 +466,66 @@ async function renderStockIn() {
     }
     let fullHtml = '';
     pageData.forEach((item, idx) => {
-    const cacheKey = `${item.supplier}|${item.goodsName}`;
-    const cache = stockDataCache.get(cacheKey);
-    const batchList = cache.batchList;
-    const batch = batchList.find(b => b.inRecords.some(inItem => inItem.id === item.id));
-    let batchRemain = batch ? batch.batchRemain : 0;
-    let totalStock = cache.totalStock;
+        const cacheKey = `${item.supplier}|${item.goodsName}`;
+        const cache = stockDataCache.get(cacheKey);
+        
+        // ✅ 修复：如果缓存不存在，使用默认值
+        let batchRemain = 0;
+        let totalStock = 0;
+        if (cache && cache.batchList) {
+            const batchList = cache.batchList;
+            const batch = batchList.find(b => b.inRecords && b.inRecords.some(inItem => inItem.id === item.id));
+            batchRemain = batch ? batch.batchRemain : 0;
+            totalStock = cache.totalStock || 0;
+        }
 
-    let amount = formatMoney((item.in_price || 0) * item.in_num);
-    let isUsed = idUsedMap[item.id];
-    let btnHtml = '';
-    
-    if(isUsed){
-        btnHtml = `
-            <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-            <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+        let amount = formatMoney((item.in_price || 0) * item.in_num);
+        let isUsed = idUsedMap[item.id];
+        let btnHtml = '';
+        
+        if(isUsed){
+            btnHtml = `
+                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+            `;
+        }else{
+            btnHtml = `
+                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+            `;
+        }
+        // 发票状态与背景色判断
+        let invoiceText = item.invoice_status || '';
+        let invoiceClass = '';
+        if (invoiceText === '未开票') {
+            invoiceClass = 'bg-yellow-invoice';
+        } else if (invoiceText === '已开票') {
+            invoiceClass = 'bg-green-invoice';
+        }
+        fullHtml += `
+            <tr>
+                <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.goodsName || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.settleType || ''}</td>
+                <td>${formatMoney(item.in_price)}</td>
+                <td>${item.in_num}</td>
+                <td>${amount}</td>
+                <td>${batchRemain}</td>
+                <td>${totalStock}</td>
+                <td class="${invoiceClass}">${invoiceText}</td>
+                <td>${item.invoice_no || ''}</td>
+                <td>${item.produce_date || ''}</td>
+                <td>${item.expire_date || ''}</td>
+                <td>${item.record_date || ''}</td>
+                <td>
+                    ${btnHtml}
+                </td>
+            </tr>
         `;
-    }else{
-        btnHtml = `
-            <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-            <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-        `;
-    }
-    // 发票状态与背景色判断
-    let invoiceText = item.invoice_status || '';
-    let invoiceClass = '';
-    if (invoiceText === '未开票') {
-        invoiceClass = 'bg-yellow-invoice';
-    } else if (invoiceText === '已开票') {
-        invoiceClass = 'bg-green-invoice';
-    }
-    fullHtml += `
-    <tr>
-        <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
-        <td>${start + idx + 1}</td>
-        <td>${item.supplier || ''}</td>
-        <td>${item.goodsName || ''}</td>
-        <td>${item.spec || '-'}</td>
-        <td>${item.settleType || ''}</td>
-        <td>${formatMoney(item.in_price)}</td>
-        <td>${item.in_num}</td>
-        <td>${amount}</td>
-        <td>${batchRemain}</td>
-        <td>${totalStock}</td>
-        <td class="${invoiceClass}">${invoiceText}</td>
-        <td>${item.invoice_no || ''}</td>
-        <td>${item.produce_date || ''}</td>
-        <td>${item.expire_date || ''}</td>
-        <td>${item.record_date || ''}</td>
-        <td>
-            ${btnHtml}
-        </td>
-    </tr>
-`;
-});
+    });
     tb.innerHTML = fullHtml;
 }
 
