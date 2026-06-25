@@ -1120,53 +1120,83 @@ document.addEventListener('click', function(e) {
 
 <!-- 商品弹窗 -->
 <div class="form-modal" id="formModal">
-    <div class="form-container">
+    <div class="form-container" style="max-width: 700px;">
         <h4 id="formTitle">新增商品</h4>
         <input type="hidden" id="editId">
-        <div class="form-group">
-            <label>供应商：</label>
-<div class="search-select-wrap">
-    <input class="search-select-input" id="addSupplierSearch" placeholder="搜索/选择供应商" onfocus="showAddSupplierList()" oninput="filterAddSupplierList()">
-    <div class="search-select-list" id="addSupplierListBox"></div>
-</div>
-<input type="hidden" id="add_supplier" required>
-            <label>商品名称：</label>
-            <input type="text" id="add_name" required>
-            <label>规格：</label>
-            <input type="text" id="add_spec">
+        
+        <!-- 第一行：供应商 + 商品名称 -->
+        <div class="form-group" style="display:flex; gap:15px; margin-bottom:12px;">
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">供应商：</label>
+                <div class="search-select-wrap" style="flex:1; min-width:150px;">
+                    <input class="search-select-input" id="addSupplierSearch" placeholder="搜索/选择供应商" onfocus="showAddSupplierList()" oninput="filterAddSupplierList()" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+                    <div class="search-select-list" id="addSupplierListBox"></div>
+                </div>
+                <input type="hidden" id="add_supplier" required>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">商品名称：</label>
+                <input type="text" id="add_name" required style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
         </div>
-        <div class="form-group">
-            <label>销售渠道：</label>
-            <!-- 销售渠道改为只读，由供应商自动带出 -->
-            <input type="text" id="add_channel" readonly placeholder="选择供应商后自动带出">
-            <label>商品税率：</label>
-            <select id="add_tax_rate">
-                <option value="">空</option>
-                <option value="0">0%</option>
-                <option value="9">9%</option>
-                <option value="13">13%</option>
-            </select>
-            <label>销售单价：</label>
-            <input type="number" id="add_sale_price" step="0.01" min="0" required>
-            <label>线上成本价：</label>
-            <input type="number" id="add_online_cost" step="0.01" min="0" placeholder="线上可填，线下禁用">
+        
+        <!-- 第二行：规格 + 销售渠道 -->
+        <div class="form-group" style="display:flex; gap:15px; margin-bottom:12px;">
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">规格：</label>
+                <input type="text" id="add_spec" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">销售渠道：</label>
+                <input type="text" id="add_channel" readonly placeholder="选择供应商后自动带出" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5;">
+            </div>
         </div>
-        <div class="form-group">
-            <label>保质期时长：</label>
-            <input type="number" id="add_shelf_life_num" min="0" placeholder="留空表示无保质期">
-            <label>保质期单位：</label>
-            <select id="add_shelf_life_unit">
-                <option value="">无</option>
-                <option value="天">天</option>
-                <option value="个月">个月</option>
-                <option value="年">年</option>
-            </select>
-            <label>预警阈值：</label>
-            <input type="number" id="add_warn_num" min="0" placeholder="库存预警数量">
+        
+        <!-- 第三行：税率 + 销售单价 + 线上成本价 -->
+        <div class="form-group" style="display:flex; gap:15px; margin-bottom:12px;">
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">税率：</label>
+                <select id="add_tax_rate" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+                    <option value="">空</option>
+                    <option value="0">0%</option>
+                    <option value="9">9%</option>
+                    <option value="13">13%</option>
+                </select>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap;">销售单价：</label>
+                <input type="number" id="add_sale_price" step="0.01" min="0" required style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap; font-size:13px;">线上成本价：</label>
+                <input type="number" id="add_online_cost" step="0.01" min="0" placeholder="线上可填" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
         </div>
-        <div class="form-actions">
-            <button class="btn btn-primary" onclick="submitForm()">提交</button>
-            <button class="btn" onclick="closeForm()">取消</button>
+        
+        <!-- 第四行：保质期时长 + 保质期单位 + 预警阈值 -->
+        <div class="form-group" style="display:flex; gap:15px; margin-bottom:12px;">
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap; font-size:13px;">保质期时长：</label>
+                <input type="number" id="add_shelf_life_num" min="0" placeholder="留空无保质期" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap; font-size:13px;">保质期单位：</label>
+                <select id="add_shelf_life_unit" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+                    <option value="">无</option>
+                    <option value="天">天</option>
+                    <option value="个月">个月</option>
+                    <option value="年">年</option>
+                </select>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+                <label style="width:70px; text-align:right; font-weight:bold; white-space:nowrap; font-size:13px;">预警阈值：</label>
+                <input type="number" id="add_warn_num" min="0" placeholder="库存预警数量" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+        </div>
+        
+        <div class="form-actions" style="text-align:center; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
+            <button class="btn btn-primary" onclick="submitForm()" style="padding:8px 40px;">提交</button>
+            <button class="btn btn-default" onclick="closeForm()" style="padding:8px 40px; margin-left:10px;">取消</button>
         </div>
     </div>
 </div>
