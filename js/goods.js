@@ -1082,9 +1082,7 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
         }
         
         // ✅ 按日期排序：取日期最早的批次
-        // 有生产日期的按生产日期升序，有到期日期的按到期日期升序
         batchList.sort(function(a, b) {
-            // 获取批次的日期（生产日期或到期日期）
             const getDate = function(item) {
                 if (item.produce_date && item.produce_date !== '-') {
                     return { date: new Date(item.produce_date), type: 'produce' };
@@ -1101,14 +1099,37 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             if (!dateA) return 1;
             if (!dateB) return -1;
             
-            // 按日期升序（最早的在前）
             return dateA.date - dateB.date;
         });
         
         // 取排序后的第一个批次（最早批次）
         const earliest = batchList[0];
         
-        // 确定日期类型：优先生产日期，否则到期日期
+        // ✅ 获取该批次对应的入库记录，提取录入日期
+        let recordDate = null;
+        if (earliest && allStockIn) {
+            // 查找该批次对应的入库记录（匹配供应商+商品名+规格+生产/到期日期）
+            const matchedIn = allStockIn.find(function(item) {
+                const matchSupplier = item.supplier === supplier;
+                const matchGoods = item.goodsName === goodsName;
+                const matchSpec = item.spec === (spec || null) || (item.spec === null && spec === '-');
+                
+                // 匹配生产日期或到期日期
+                let matchDate = false;
+                if (earliest.produce_date && earliest.produce_date !== '-') {
+                    matchDate = item.produce_date === earliest.produce_date;
+                } else if (earliest.expire_date && earliest.expire_date !== '-') {
+                    matchDate = item.expire_date === earliest.expire_date;
+                }
+                
+                return matchSupplier && matchGoods && matchSpec && matchDate;
+            });
+            if (matchedIn) {
+                recordDate = matchedIn.record_date;
+            }
+        }
+        
+        // 确定日期类型
         let produceDate = null;
         let expireDate = null;
         let dateType = '';
@@ -1128,7 +1149,7 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             produce_date: produceDate,
             expire_date: expireDate,
             batchRemain: earliest.batchRemain || 0,
-            recordDate: null,
+            recordDate: recordDate,  // ✅ 新增：录入日期
             bzStatusText: earliest.bzStatusText || '',
             countDownText: earliest.countDownText || '',
             dateType: dateType,
@@ -1200,7 +1221,6 @@ function checkNeedDateUpdate(goodsItem) {
         const currentDate = new Date(earliest.produce_date);
         const currentDateStr = currentDate.toISOString().split('T')[0];
         
-        // 判断保质期是否>60天，决定比对方式
         let shelfDays = 0;
         if (goodsItem.shelf_life_num && goodsItem.shelf_life_unit) {
             switch (goodsItem.shelf_life_unit) {
@@ -1253,7 +1273,6 @@ function checkNeedDateUpdate(goodsItem) {
         displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
     };
 }
-
 /**
  * 获取所有需要更新日期的商品列表
  */
@@ -1380,7 +1399,6 @@ function renderDateChangeList() {
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // ✅ 直接从 earliestBatch 获取已计算好的保质期状态和倒计时
         let statusText = '无';
         let statusColor = '#999';
         let countDownText = '';
@@ -1389,28 +1407,21 @@ function renderDateChangeList() {
             statusText = item.earliestBatch.bzStatusText;
             countDownText = item.earliestBatch.countDownText || '';
             
-            // 根据状态设置颜色
             switch(statusText) {
-                case '过期':
-                    statusColor = '#ff4d4f';
-                    break;
-                case '临期':
-                    statusColor = '#faad14';
-                    break;
-                case '打折':
-                    statusColor = '#1890ff';
-                    break;
-                case '正常':
-                    statusColor = '#52c41a';
-                    break;
-                default:
-                    statusColor = '#999';
+                case '过期': statusColor = '#ff4d4f'; break;
+                case '临期': statusColor = '#faad14'; break;
+                case '打折': statusColor = '#1890ff'; break;
+                case '正常': statusColor = '#52c41a'; break;
+                default: statusColor = '#999';
             }
         }
         
         const rowNum = start + idx + 1;
         const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
-        const recordDateStr = item.recordDate ? new Date(item.recordDate).toISOString().split('T')[0] : '-';
+        // ✅ 使用 earliestBatch 中的 recordDate
+        const recordDateStr = item.earliestBatch && item.earliestBatch.recordDate 
+            ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
+            : '-';
         
         const html = `
             <tr>
