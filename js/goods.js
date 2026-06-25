@@ -1,5 +1,5 @@
-// 刷新商品列表
-let isLoadingGoods = false;  // ✅ 添加这行，防止重复加载
+let isLoadingGoods = false;  // ✅ 添加这行
+let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // 刷新商品列表
 function refreshGoods() {
@@ -440,7 +440,7 @@ function switchGoodsSubTab(tab) {
         targetBtn.classList.add('active');
     }
     
-    // ✅ 切换内容 - 先全部隐藏，再显示目标
+    // 切换内容
     const contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(function(div) {
         div.style.display = 'none';
@@ -459,8 +459,8 @@ function switchGoodsSubTab(tab) {
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-        // ✅ 如果已经有数据，重新渲染即可
-        if (allGoods && allGoods.length > 0) {
+        // ✅ 如果已经有数据，重新渲染即可，不需要重新加载
+        if (allGoods && allGoods.length > 0 && isGoodsLoaded) {
             currentPage = 1;
             filterGoods();
         } else {
@@ -470,7 +470,6 @@ function switchGoodsSubTab(tab) {
         loadDateChangeTab();
     }
 }
-
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -504,9 +503,17 @@ function clearSort() {
 }
 
 async function loadGoods() {
-    // ✅ 防止重复加载
+    // ✅ 如果正在加载或已经加载完成，直接返回
     if (isLoadingGoods) {
         console.log('商品数据正在加载中，跳过重复请求');
+        return;
+    }
+    // ✅ 如果已经加载完成且有数据，不重新加载
+    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+        console.log('商品数据已加载，直接渲染');
+        // 重新渲染当前数据
+        currentPage = 1;
+        filterGoods();
         return;
     }
     
@@ -519,10 +526,14 @@ async function loadGoods() {
         let list = await res.json();
         allGoods = list.sort((a, b) => b.id - a.id);
         window.allGoods = allGoods;
+        isGoodsLoaded = true;  // ✅ 标记已加载
         
         // ✅ 检查元素是否存在再操作
         let totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
+        
+        // ✅ 强制重置到第一页
+        currentPage = 1;
         
         let searchField = document.getElementById('searchField');
         if (searchField) {
@@ -531,7 +542,6 @@ async function loadGoods() {
             filteredGoods = [...allGoods];
             let searchCount = document.getElementById('searchCount');
             if (searchCount) searchCount.textContent = filteredGoods.length;
-            currentPage = 1;
             renderPagination();
             renderGoods();
         }
@@ -544,7 +554,6 @@ async function loadGoods() {
         isLoadingGoods = false;
     }
 }
-
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -717,32 +726,26 @@ function filterGoods() {
     let field = searchField.value;
     let kw = searchKeyword.value.toLowerCase();
     
-    // ✅ 确保 allGoods 是数组
+    // ✅ 确保 allGoods 是数组且没有重复
     if (!allGoods || !Array.isArray(allGoods)) {
         console.warn('allGoods 不是有效数组');
         filteredGoods = [];
     } else {
-        filteredGoods = allGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+        // ✅ 去重：根据 id 去重
+        const uniqueMap = new Map();
+        allGoods.forEach(item => {
+            if (!uniqueMap.has(item.id)) {
+                uniqueMap.set(item.id, item);
+            }
+        });
+        const uniqueGoods = Array.from(uniqueMap.values());
+        
+        filteredGoods = uniqueGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
     }
     
     searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
-    renderGoods();
-}
-function sortTable(field) {
-    sortField = (sortField === field) ? field : field;
-    sortAsc = (sortField === field) ? !sortAsc : true;
-    filteredGoods.sort((a, b) => {
-        let va = a[sortField] || '', vb = b[sortField] || '';
-        if (['sale_price', 'online_cost', 'warn_num', 'shelf_life_num'].includes(sortField)) {
-            va = Number(va) || 0;
-            vb = Number(vb) || 0;
-            return sortAsc ? va - vb : vb - va;
-        }
-        return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-    });
-    updateSortIcon();
     renderGoods();
 }
 
