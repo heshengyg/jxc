@@ -238,8 +238,33 @@ async function submitSettleForm() {
         return;
     }
     
+    // ✅ 检查供应商+结算方式是否重复
+    let isDuplicate = settleData.some(item => {
+        // 如果是编辑模式，排除自身
+        if (id && item.id == id) return false;
+        return item.supplier === supplier && item.channel === channel;
+    });
+    
+    if (isDuplicate) {
+        showMsg(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
+        return;
+    }
+    
     try {
         if (id) {
+            // 编辑时也要检查：如果修改了结算方式，检查是否与其他记录重复
+            let currentItem = settleData.find(s => s.id == id);
+            if (currentItem && currentItem.channel !== channel) {
+                // 检查新的结算方式是否与其他记录重复
+                let conflict = settleData.some(item => {
+                    return item.id != id && item.supplier === supplier && item.channel === channel;
+                });
+                if (conflict) {
+                    showMsg(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
+                    return;
+                }
+            }
+            
             await fetch(`${SUPABASE_URL}/rest/v1/settle_types?id=eq.${id}`, {
                 method: 'PATCH',
                 headers: {
@@ -251,11 +276,6 @@ async function submitSettleForm() {
             });
             showMsg('结算类型更新成功！');
         } else {
-            if (settleData.some(s => s.supplier === supplier)) {
-                showMsg('该供应商已存在！');
-                return;
-            }
-            
             await fetch(`${SUPABASE_URL}/rest/v1/settle_types`, {
                 method: 'POST',
                 headers: {
@@ -739,7 +759,12 @@ function changePageSize() {
 
 function toggleSelectAll() {
     let all = document.getElementById('selectAll').checked;
-    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = all);
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        // 只勾选未被禁用的checkbox
+        if (!cb.disabled) {
+            cb.checked = all;
+        }
+    });
 }
 
 function closeForm() {
@@ -844,12 +869,32 @@ async function deleteGoods(id) {
 
 async function batchDelete() {
     let ids = [];
-    document.querySelectorAll('.item-checkbox').forEach(cb => ids.push(cb.value));
-    if (ids.length === 0) return showMsg('请选择数据');
+    let hasDisabled = false;
     
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        if (cb.checked) {
+            // 如果checkbox被禁用（即有入库记录），标记并跳过
+            if (cb.disabled) {
+                hasDisabled = true;
+            } else {
+                ids.push(cb.value);
+            }
+        }
+    });
+    
+    if (ids.length === 0) {
+        if (hasDisabled) {
+            showMsg('选中的商品中存在已录入入库单据的数据，无法删除！');
+        } else {
+            showMsg('请选择数据');
+        }
+        return;
+    }
+    
+    // 再次校验选中的商品是否真的可以删除（双重保险）
     let hasUsed = false;
     for (let id of ids) {
-        let item = allGoods.find(g => g.id === id);
+        let item = allGoods.find(g => g.id == id);
         if (item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)) {
             hasUsed = true;
             break;
@@ -859,6 +904,7 @@ async function batchDelete() {
         showMsg('选中商品中存在已录入入库单据的数据，无法批量删除！');
         return;
     }
+    
     if (!confirm(`确定删除${ids.length}条？`)) return;
     for (let id of ids) {
         await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
