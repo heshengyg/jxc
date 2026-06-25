@@ -469,12 +469,15 @@ async function renderStockIn() {
         const cacheKey = `${item.supplier}|${item.goodsName}`;
         const cache = stockDataCache.get(cacheKey);
         
-        // ✅ 修复：如果缓存不存在，使用默认值
+        // ✅ 修复：更完善的缓存检查
         let batchRemain = 0;
         let totalStock = 0;
-        if (cache && cache.batchList) {
+        if (cache && cache.batchList && cache.batchList.length > 0) {
             const batchList = cache.batchList;
-            const batch = batchList.find(b => b.inRecords && b.inRecords.some(inItem => inItem.id === item.id));
+            const batch = batchList.find(b => {
+                if (!b || !b.inRecords) return false;
+                return b.inRecords.some(inItem => inItem.id === item.id);
+            });
             batchRemain = batch ? batch.batchRemain : 0;
             totalStock = cache.totalStock || 0;
         }
