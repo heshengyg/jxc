@@ -1416,9 +1416,22 @@ function renderDateChangeList() {
             }
         }
         
+        // ✅ 确定日期类型显示文字和颜色
+        let dateTypeDisplay = '';
+        let dateTypeColor = '';
+        if (item.dateType === '生产日期') {
+            dateTypeDisplay = '生产';
+            dateTypeColor = '#d4edda';  // 浅绿色
+        } else if (item.dateType === '到期日期') {
+            dateTypeDisplay = '到期';
+            dateTypeColor = '#f8d7da';  // 浅红色
+        } else {
+            dateTypeDisplay = item.dateType || '';
+            dateTypeColor = '#f5f5f5';
+        }
+        
         const rowNum = start + idx + 1;
         const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
-        // ✅ 使用 earliestBatch 中的 recordDate
         const recordDateStr = item.earliestBatch && item.earliestBatch.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
@@ -1434,7 +1447,7 @@ function renderDateChangeList() {
                 <td style="color:${statusColor};">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
-                <td>${item.dateType || ''}</td>
+                <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
                 <td>${item.displayValue || ''}</td>
                 <td>
                     <button class="btn btn-primary" onclick="updateSingleGoodsDate(${item.id})" style="padding:4px 12px; font-size:12px;">更新</button>
@@ -1444,7 +1457,6 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
-
 /**
  * 单条更新商品日期
  */
