@@ -450,8 +450,11 @@ function switchGoodsSubTab(tab) {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
         loadGoods();
+    } else if (tab === 'dateChange') {
+        loadDateChangeTab();
     }
 }
+
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -1029,3 +1032,456 @@ document.addEventListener('DOMContentLoaded', function() {
     
     loadGoods();
 });
+
+// ============================================================
+// ========== 后台更换日期模块 ==========
+// ============================================================
+
+// 日期更换相关变量
+let dateChangeData = [];
+let filteredDateChange = [];
+let dateChangeCurrentPage = 1;
+let dateChangePageSize = 10;
+let dateChangeTotalPages = 1;
+
+/**
+ * 获取商品当前库存中的最早批次日期
+ * @param {string} supplier - 供应商
+ * @param {string} goodsName - 商品名
+ * @param {string} spec - 规格
+ * @returns {Object} { produce_date, expire_date, batchRemain, recordDate }
+ */
+function getEarliestBatchDate(supplier, goodsName, spec) {
+    try {
+        // 从库存缓存中获取批次列表
+        const key = `${supplier}|${goodsName}`;
+        const cached = stockDataCache ? stockDataCache.get(key) : null;
+        let batchList = cached ? cached.batchList : getStockBatchList(supplier, goodsName);
+        
+        if (!batchList || batchList.length === 0) {
+            return null;
+        }
+        
+        // 取第一个批次（按生产日期升序，生产日期相同按到期日期升序）
+        const earliest = batchList[0];
+        return {
+            produce_date: earliest.produce_date || null,
+            expire_date: earliest.expire_date || null,
+            batchRemain: earliest.batchRemain || 0,
+            recordDate: earliest.inRecords && earliest.inRecords[0] ? earliest.inRecords[0].record_date : null
+        };
+    } catch (e) {
+        console.error('获取最早批次日期失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 判断商品是否需要更新日期
+ * @param {Object} goodsItem - 商品对象
+ * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
+ */
+function checkNeedDateUpdate(goodsItem) {
+    // 获取最早批次日期
+    const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec);
+    if (!earliest || earliest.batchRemain <= 0) {
+        return { needUpdate: false, earliest: null };
+    }
+    
+    // 获取已保存的日期
+    const savedProduce = goodsItem.saved_produce_date;
+    const savedExpire = goodsItem.saved_expire_date;
+    
+    // 判断哪个日期需要更新
+    let needUpdate = false;
+    let dateType = '';
+    let dateValue = null;
+    
+    // 检查生产日期
+    if (earliest.produce_date) {
+        const savedDate = savedProduce ? new Date(savedProduce).toISOString().split('T')[0] : null;
+        const currentDate = new Date(earliest.produce_date).toISOString().split('T')[0];
+        if (savedDate !== currentDate) {
+            needUpdate = true;
+            dateType = '生产日期';
+            dateValue = earliest.produce_date;
+        }
+    }
+    
+    // 检查到期日期（如果生产日期没有变化，检查到期日期）
+    if (!needUpdate && earliest.expire_date) {
+        const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
+        const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
+        if (savedDate !== currentDate) {
+            needUpdate = true;
+            dateType = '到期日期';
+            dateValue = earliest.expire_date;
+        }
+    }
+    
+    // 如果生产日期有变化但到期日期也有变化，优先显示生产日期
+    if (needUpdate && !dateType && earliest.produce_date) {
+        dateType = '生产日期';
+        dateValue = earliest.produce_date;
+    }
+    
+    return {
+        needUpdate,
+        earliest,
+        dateType,
+        dateValue,
+        // 返回需要显示的值
+        displayValue: dateValue ? formatDateValue(dateValue, dateType) : ''
+    };
+}
+
+/**
+ * 格式化日期显示
+ * @param {string} dateStr - 日期字符串
+ * @param {string} dateType - '生产日期' 或 '到期日期'
+ * @returns {string} 格式化后的日期
+ */
+function formatDateValue(dateStr, dateType) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // 到期日期：永远显示 年月日
+    if (dateType === '到期日期') {
+        return `${year}年${month}月${day}日`;
+    }
+    
+    // 生产日期：根据保质期判断
+    // 从商品信息中获取保质期
+    const goodsItem = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+    let shelfDays = 0;
+    if (goodsItem && goodsItem.shelf_life_num && goodsItem.shelf_life_unit) {
+        switch (goodsItem.shelf_life_unit) {
+            case '天': shelfDays = goodsItem.shelf_life_num; break;
+            case '个月': shelfDays = goodsItem.shelf_life_num * 30; break;
+            case '年': shelfDays = goodsItem.shelf_life_num * 365; break;
+        }
+    }
+    
+    if (shelfDays > 60) {
+        return `${year}年${month}月`;
+    } else {
+        return `${year}年${month}月${day}日`;
+    }
+}
+
+/**
+ * 获取所有需要更新日期的商品列表
+ */
+function getNeedUpdateGoodsList() {
+    const result = [];
+    if (!allGoods) return result;
+    
+    for (const item of allGoods) {
+        const check = checkNeedDateUpdate(item);
+        if (check.needUpdate && check.earliest) {
+            result.push({
+                ...item,
+                earliestBatch: check.earliest,
+                dateType: check.dateType,
+                dateValue: check.dateValue,
+                displayValue: check.displayValue,
+                batchRemain: check.earliest.batchRemain,
+                recordDate: check.earliest.recordDate
+            });
+        }
+    }
+    return result;
+}
+
+/**
+ * 加载后台更换日期列表
+ */
+function loadDateChangeTab() {
+    console.log('加载后台更换日期...');
+    dateChangeData = getNeedUpdateGoodsList();
+    filteredDateChange = [...dateChangeData];
+    
+    // 更新按钮状态
+    updateDateChangeButton();
+    
+    // 更新状态文字
+    const statusEl = document.getElementById('dateChangeStatus');
+    if (statusEl) {
+        if (dateChangeData.length > 0) {
+            statusEl.textContent = `需更新：${dateChangeData.length} 条`;
+            statusEl.style.color = '#ff6b6b';
+        } else {
+            statusEl.textContent = '✅ 所有商品日期已是最新';
+            statusEl.style.color = '#52c41a';
+        }
+    }
+    
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
+
+/**
+ * 更新"需更新"按钮状态
+ */
+function updateDateChangeButton() {
+    const btn = document.getElementById('batchUpdateDateBtn');
+    if (!btn) return;
+    const count = dateChangeData.length;
+    
+    if (count > 0) {
+        btn.style.background = '#ff4d4f';
+        btn.style.color = '#fff';
+        btn.style.fontWeight = 'bold';
+        btn.style.cursor = 'pointer';
+        btn.textContent = `需更新 (${count})`;
+        btn.disabled = false;
+    } else {
+        btn.style.background = '#d9d9d9';
+        btn.style.color = '#999';
+        btn.style.fontWeight = 'normal';
+        btn.style.cursor = 'not-allowed';
+        btn.textContent = '需更新 (0)';
+        btn.disabled = true;
+    }
+}
+
+/**
+ * 渲染日期更换列表
+ */
+function renderDateChangeList() {
+    const tb = document.getElementById('dateChangeList');
+    if (!tb) return;
+    
+    const start = (dateChangeCurrentPage - 1) * dateChangePageSize;
+    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);
+    
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
+        return;
+    }
+    
+    tb.innerHTML = '';
+    pageData.forEach((item, idx) => {
+        // 计算保质期状态
+        let statusText = '';
+        let statusColor = '';
+        if (item.earliestBatch.expire_date) {
+            const now = new Date();
+            const expire = new Date(item.earliestBatch.expire_date);
+            const daysLeft = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
+            if (daysLeft < 0) {
+                statusText = '过期';
+                statusColor = '#ff4d4f';
+            } else if (daysLeft <= 7) {
+                statusText = '临期';
+                statusColor = '#faad14';
+            } else {
+                statusText = '正常';
+                statusColor = '#52c41a';
+            }
+        } else {
+            statusText = '无';
+            statusColor = '#999';
+        }
+        
+        // 状态倒计
+        let countDownText = '';
+        if (item.earliestBatch.expire_date) {
+            const now = new Date();
+            const expire = new Date(item.earliestBatch.expire_date);
+            const daysLeft = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
+            countDownText = daysLeft > 0 ? `${daysLeft}天` : '已过期';
+        }
+        
+        const rowNum = start + idx + 1;
+        const html = `
+            <tr>
+                <td>${rowNum}</td>
+                <td>${item.recordDate || '-'}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.name || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.batchRemain || 0}</td>
+                <td style="color:${statusColor};">${statusText}</td>
+                <td>${countDownText}</td>
+                <td>${item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-'}</td>
+                <td>${item.dateType || ''}</td>
+                <td>${item.displayValue || ''}</td>
+                <td>
+                    <button class="btn btn-primary" onclick="updateSingleGoodsDate(${item.id})" style="padding:4px 12px; font-size:12px;">更新</button>
+                </td>
+            </tr>
+        `;
+        tb.innerHTML += html;
+    });
+}
+
+/**
+ * 单条更新商品日期
+ */
+async function updateSingleGoodsDate(id) {
+    const item = allGoods.find(g => g.id === id);
+    if (!item) {
+        showMsg('找不到该商品');
+        return;
+    }
+    
+    // 获取最新批次日期
+    const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
+    if (!earliest || earliest.batchRemain <= 0) {
+        showMsg('该商品暂无库存批次');
+        return;
+    }
+    
+    // 确认更新
+    const confirmMsg = `确认更新商品"${item.name}"的日期？\n生产日期：${earliest.produce_date || '无'}\n到期日期：${earliest.expire_date || '无'}`;
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        const updateData = {};
+        if (earliest.produce_date) {
+            updateData.saved_produce_date = earliest.produce_date;
+        }
+        if (earliest.expire_date) {
+            updateData.saved_expire_date = earliest.expire_date;
+        }
+        updateData.saved_date_updated_at = new Date().toISOString();
+        
+        await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        showMsg(`✅ 商品"${item.name}"日期更新成功！`);
+        await loadGoods();
+        loadDateChangeTab();
+    } catch (e) {
+        showMsg('更新失败：' + e.message);
+        console.error(e);
+    }
+}
+
+/**
+ * 批量更新所有商品日期（一键更新）
+ */
+async function batchUpdateGoodsDate() {
+    const needUpdateList = getNeedUpdateGoodsList();
+    if (needUpdateList.length === 0) {
+        showMsg('没有需要更新的商品');
+        return;
+    }
+    
+    if (!confirm(`是否一键更新 ${needUpdateList.length} 条商品？\n\n请确认平台商品日期已更改为最新日期！`)) {
+        return;
+    }
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const item of needUpdateList) {
+        try {
+            const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
+            if (!earliest || earliest.batchRemain <= 0) continue;
+            
+            const updateData = {};
+            if (earliest.produce_date) {
+                updateData.saved_produce_date = earliest.produce_date;
+            }
+            if (earliest.expire_date) {
+                updateData.saved_expire_date = earliest.expire_date;
+            }
+            updateData.saved_date_updated_at = new Date().toISOString();
+            
+            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            successCount++;
+        } catch (e) {
+            failCount++;
+            console.error('更新失败:', item.name, e);
+        }
+    }
+    
+    showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
+    await loadGoods();
+    loadDateChangeTab();
+}
+
+// ========== 日期更换分页 ==========
+function renderDateChangePagination() {
+    dateChangeTotalPages = Math.ceil(filteredDateChange.length / dateChangePageSize) || 1;
+    document.getElementById('dateChangeCurrentPage').textContent = dateChangeCurrentPage;
+    document.getElementById('dateChangeTotalPages').textContent = dateChangeTotalPages;
+    
+    const pgBox = document.getElementById('dateChangePageNumbers');
+    if (!pgBox) return;
+    pgBox.innerHTML = '';
+    
+    let s = Math.max(1, dateChangeCurrentPage - 2);
+    let e = Math.min(dateChangeTotalPages, s + 4);
+    for (let i = s; i <= e; i++) {
+        let btn = document.createElement('button');
+        btn.className = 'page-btn ' + (i === dateChangeCurrentPage ? 'active' : '');
+        btn.innerText = i;
+        btn.onclick = () => dateChangeGoToPage(i);
+        pgBox.appendChild(btn);
+    }
+    
+    const btns = document.querySelectorAll('#sub-dateChange .page-controls .page-btn');
+    if (btns.length >= 4) {
+        btns[0].disabled = (dateChangeCurrentPage === 1);
+        btns[1].disabled = (dateChangeCurrentPage === 1);
+        btns[btns.length - 2].disabled = (dateChangeCurrentPage === dateChangeTotalPages);
+        btns[btns.length - 1].disabled = (dateChangeCurrentPage === dateChangeTotalPages);
+    }
+}
+
+function dateChangeGoToPage(p) {
+    if (p < 1 || p > dateChangeTotalPages) return;
+    dateChangeCurrentPage = p;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
+
+function dateChangePrevPage() { dateChangeGoToPage(dateChangeCurrentPage - 1); }
+function dateChangeNextPage() { dateChangeGoToPage(dateChangeCurrentPage + 1); }
+
+function changeDateChangePageSize() {
+    dateChangePageSize = +document.getElementById('dateChangePageSize').value;
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
+
+// ========== 扩展 switchGoodsSubTab 支持 dateChange ==========
+// 修改原有的 switchGoodsSubTab 函数
+// 注意：如果原有函数已存在，请合并以下逻辑
+/*
+function switchGoodsSubTab(tab) {
+    // ... 原有代码 ...
+    
+    // 在加载数据部分添加
+    if (tab === 'settleType') {
+        loadSettleList();
+    } else if (tab === 'goodsInfo') {
+        loadGoods();
+    } else if (tab === 'dateChange') {
+        loadDateChangeTab();
+    }
+}
+*/
