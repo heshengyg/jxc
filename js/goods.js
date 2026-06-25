@@ -1081,21 +1081,65 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             return null;
         }
         
-        // 取第一个批次
+        // ✅ 按日期排序：取日期最早的批次
+        // 有生产日期的按生产日期升序，有到期日期的按到期日期升序
+        batchList.sort(function(a, b) {
+            // 获取批次的日期（生产日期或到期日期）
+            const getDate = function(item) {
+                if (item.produce_date && item.produce_date !== '-') {
+                    return { date: new Date(item.produce_date), type: 'produce' };
+                } else if (item.expire_date && item.expire_date !== '-') {
+                    return { date: new Date(item.expire_date), type: 'expire' };
+                }
+                return null;
+            };
+            
+            const dateA = getDate(a);
+            const dateB = getDate(b);
+            
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+            
+            // 按日期升序（最早的在前）
+            return dateA.date - dateB.date;
+        });
+        
+        // 取排序后的第一个批次（最早批次）
         const earliest = batchList[0];
+        
+        // 确定日期类型：优先生产日期，否则到期日期
+        let produceDate = null;
+        let expireDate = null;
+        let dateType = '';
+        let dateValue = null;
+        
+        if (earliest.produce_date && earliest.produce_date !== '-') {
+            produceDate = earliest.produce_date;
+            dateType = '生产日期';
+            dateValue = earliest.produce_date;
+        } else if (earliest.expire_date && earliest.expire_date !== '-') {
+            expireDate = earliest.expire_date;
+            dateType = '到期日期';
+            dateValue = earliest.expire_date;
+        }
+        
         return {
-            produce_date: earliest.produce_date !== '-' ? earliest.produce_date : null,
-            expire_date: earliest.expire_date !== '-' ? earliest.expire_date : null,
+            produce_date: produceDate,
+            expire_date: expireDate,
             batchRemain: earliest.batchRemain || 0,
             recordDate: null,
             bzStatusText: earliest.bzStatusText || '',
-            countDownText: earliest.countDownText || ''
+            countDownText: earliest.countDownText || '',
+            dateType: dateType,
+            dateValue: dateValue
         };
     } catch (e) {
         console.error('获取最早批次日期失败:', e);
         return null;
     }
 }
+
 /**
  * 格式化日期显示
  * @param {string} dateStr - 日期字符串
@@ -1143,6 +1187,7 @@ function checkNeedDateUpdate(goodsItem) {
         return { needUpdate: false, earliest: null };
     }
     
+    // 获取已保存的日期
     const savedProduce = goodsItem.saved_produce_d || goodsItem.saved_produce_date;
     const savedExpire = goodsItem.saved_expire_dat || goodsItem.saved_expire_date;
     
@@ -1150,6 +1195,7 @@ function checkNeedDateUpdate(goodsItem) {
     let dateType = '';
     let dateValue = null;
     
+    // 检查生产日期
     if (earliest.produce_date) {
         const savedDate = savedProduce ? new Date(savedProduce).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.produce_date).toISOString().split('T')[0];
@@ -1160,6 +1206,7 @@ function checkNeedDateUpdate(goodsItem) {
         }
     }
     
+    // 检查到期日期
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
@@ -1178,7 +1225,6 @@ function checkNeedDateUpdate(goodsItem) {
         displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
     };
 }
-
 /**
  * 获取所有需要更新日期的商品列表
  */
@@ -1377,7 +1423,16 @@ async function updateSingleGoodsDate(id) {
     }
     
     // 确认更新
-    const confirmMsg = `确认更新商品"${item.name}"的日期？\n生产日期：${earliest.produce_date || '无'}\n到期日期：${earliest.expire_date || '无'}`;
+    let confirmMsg = `确认更新商品"${item.name}"的日期？\n`;
+    if (earliest.produce_date) {
+        confirmMsg += `生产日期：${earliest.produce_date}`;
+    } else if (earliest.expire_date) {
+        confirmMsg += `到期日期：${earliest.expire_date}`;
+    } else {
+        showMsg('该批次没有有效日期');
+        return;
+    }
+    
     if (!confirm(confirmMsg)) return;
     
     try {
@@ -1408,7 +1463,6 @@ async function updateSingleGoodsDate(id) {
         console.error(e);
     }
 }
-
 /**
  * 批量更新所有商品日期（一键更新）
  */
