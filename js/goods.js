@@ -1187,9 +1187,9 @@ function checkNeedDateUpdate(goodsItem) {
         return { needUpdate: false, earliest: null };
     }
     
-    // 获取已保存的日期
-    const savedProduce = goodsItem.saved_produce_d || goodsItem.saved_produce_date;
-    const savedExpire = goodsItem.saved_expire_dat || goodsItem.saved_expire_date;
+    // ✅ 使用正确的字段名
+    const savedProduce = goodsItem.saved_produce_date;
+    const savedExpire = goodsItem.saved_expire_date;
     
     let needUpdate = false;
     let dateType = '';
@@ -1214,20 +1214,16 @@ function checkNeedDateUpdate(goodsItem) {
         if (savedProduce) {
             const savedDate = new Date(savedProduce);
             if (shelfDays > 60) {
-                // 保质期>60天：只比较年月
                 savedDateStr = `${savedDate.getFullYear()}-${String(savedDate.getMonth() + 1).padStart(2, '0')}`;
             } else {
-                // 保质期<=60天：比较年月日
                 savedDateStr = savedDate.toISOString().split('T')[0];
             }
         }
         
         let currentCompareStr = null;
         if (shelfDays > 60) {
-            // 保质期>60天：只比较年月
             currentCompareStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
         } else {
-            // 保质期<=60天：比较年月日
             currentCompareStr = currentDateStr;
         }
         
@@ -1238,7 +1234,7 @@ function checkNeedDateUpdate(goodsItem) {
         }
     }
     
-    // 检查到期日期（到期日期永远显示年月日，所以用完整日期比对）
+    // 检查到期日期
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
@@ -1470,16 +1466,16 @@ async function updateSingleGoodsDate(id) {
     
     try {
         const updateData = {};
+        // ✅ 使用正确的字段名 saved_produce_date 和 saved_expire_date
         if (earliest.produce_date) {
-            // ✅ 保存完整日期，但比对时根据规则决定比较年月还是年月日
-            updateData.saved_produce_d = earliest.produce_date;
+            updateData.saved_produce_date = earliest.produce_date;
         }
         if (earliest.expire_date) {
-            updateData.saved_expire_dat = earliest.expire_date;
+            updateData.saved_expire_date = earliest.expire_date;
         }
-        updateData.save_date_upda = new Date().toISOString();
+        updateData.saved_date_updated_at = new Date().toISOString();
         
-        await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
             method: 'PATCH',
             headers: {
                 apikey: SUPABASE_KEY,
@@ -1488,6 +1484,13 @@ async function updateSingleGoodsDate(id) {
             },
             body: JSON.stringify(updateData)
         });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('更新失败:', errorText);
+            showMsg('更新失败：' + errorText);
+            return;
+        }
         
         showMsg(`✅ 商品"${item.name}"日期更新成功！`);
         await loadGoods();
@@ -1522,14 +1525,14 @@ async function batchUpdateGoodsDate() {
             
             const updateData = {};
             if (earliest.produce_date) {
-                updateData.saved_produce_d = earliest.produce_date;
+                updateData.saved_produce_date = earliest.produce_date;
             }
             if (earliest.expire_date) {
-                updateData.saved_expire_dat = earliest.expire_date;
+                updateData.saved_expire_date = earliest.expire_date;
             }
-            updateData.save_date_upda = new Date().toISOString();
+            updateData.saved_date_updated_at = new Date().toISOString();
             
-            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
                 headers: {
                     apikey: SUPABASE_KEY,
@@ -1538,7 +1541,13 @@ async function batchUpdateGoodsDate() {
                 },
                 body: JSON.stringify(updateData)
             });
-            successCount++;
+            
+            if (response.ok) {
+                successCount++;
+            } else {
+                failCount++;
+                console.error('更新失败:', item.name, await response.text());
+            }
         } catch (e) {
             failCount++;
             console.error('更新失败:', item.name, e);
