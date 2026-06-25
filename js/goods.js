@@ -440,7 +440,7 @@ function switchGoodsSubTab(tab) {
         targetBtn.classList.add('active');
     }
     
-    // 切换内容
+    // ✅ 切换内容 - 先全部隐藏，再显示目标
     const contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(function(div) {
         div.style.display = 'none';
@@ -459,11 +459,18 @@ function switchGoodsSubTab(tab) {
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-        loadGoods();
+        // ✅ 如果已经有数据，重新渲染即可
+        if (allGoods && allGoods.length > 0) {
+            currentPage = 1;
+            filterGoods();
+        } else {
+            loadGoods();
+        }
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
     }
 }
+
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
