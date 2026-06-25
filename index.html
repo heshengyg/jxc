@@ -60,130 +60,67 @@
     </div>
 
     <!-- 子Tab：商品信息（原有） -->
-    <div id="sub-goodsInfo" class="finance-sub-content">
-        <!-- 原有内容保持不变 -->
-    </div>
-
-    <!-- 子Tab：结算类型（原有） -->
-    <div id="sub-settleType" class="finance-sub-content" style="display:none;">
-        <!-- 原有内容保持不变 -->
-    </div>
-
-    <!-- 子Tab：后台更换日期（新增） -->
-    <div id="sub-dateChange" class="finance-sub-content" style="display:none;">
-        <h4>后台需更改日期的商品明细（每晨必看）</h4>
-        <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <span style="color:#ff6b6b; font-size:14px;">如有数据，①先全部更新后台后②更新③保存</span>
-            <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer;">需更新</button>
-            <span id="dateChangeStatus" style="font-size:14px; color:#666;"></span>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>序列</th>
-                        <th>录入日期</th>
-                        <th>供应商</th>
-                        <th>商品名</th>
-                        <th>规格</th>
-                        <th>批次库存</th>
-                        <th>保质期状态</th>
-                        <th>状态倒计</th>
-                        <th>日期</th>
-                        <th colspan="2">需更新日期字段</th>
-                        <th>操作</th>
-                    </tr>
-                    <tr>
-                        <th colspan="9"></th>
-                        <th>字段名</th>
-                        <th>日期值</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="dateChangeList">
-                    <tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination">
-            <div class="page-info">
-                每页显示 <select id="dateChangePageSize" onchange="changeDateChangePageSize()">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                </select> 条，当前第 <span id="dateChangeCurrentPage">1</span> / <span id="dateChangeTotalPages">1</span> 页
-            </div>
-            <div class="page-controls">
-                <button class="page-btn" onclick="dateChangeGoToPage(1)">首页</button>
-                <button class="page-btn" onclick="dateChangePrevPage()">上一页</button>
-                <span id="dateChangePageNumbers"></span>
-                <button class="page-btn" onclick="dateChangeNextPage()">下一页</button>
-                <button class="page-btn" onclick="dateChangeGoToPage(dateChangeTotalPages)">末页</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 子Tab：结算类型 -->
-<div id="sub-settleType" class="finance-sub-content" style="display:none;">
-    <h4>结算类型管理</h4>
+<div id="sub-goodsInfo" class="finance-sub-content">
+    <h4>商品基础信息管理</h4>
     <div class="stat-bar">
-        共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
+        共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
     </div>
     <div class="search-bar">
-        <button class="btn btn-primary" onclick="openSettleForm()">新增结算类型</button>
-        <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
-        <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
-        <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
-        <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
-        
-        <!-- 供应商搜索下拉 -->
-        <select id="settleSupplierSearch" onchange="filterSettleList()">
-            <option value="">全部供应商</option>
+        <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
+        <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
+        <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
+        <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
+        <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button>
+        <button class="btn btn-default" onclick="clearSort()">清除排序</button>
+
+        <select id="searchField">
+            <option value="name">按商品名搜索</option>
+            <option value="supplier">按供应商搜索</option>
+            <option value="channel">按渠道搜索</option>
         </select>
-        
-        <!-- 结算方式搜索下拉 -->
-        <select id="settleChannelSearch" onchange="filterSettleList()">
-            <option value="">全部结算方式</option>
-            <option value="线上">线上</option>
-            <option value="线下">线下</option>
-        </select>
-        
-        <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
+        <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
+        <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
     </div>
     <div class="table-container">
         <table>
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 选择</th>
                     <th>序号</th>
-                    <th>供应商</th>
-                    <th>结算方式</th>
-                    <th>涉及商品数</th>
+                    <th class="sortable" onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('online_cost')">线上成本价 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('tax_rate')">税率 <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
+                    <th>临期天数</th>
+                    <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
                     <th>操作</th>
                 </tr>
             </thead>
-            <tbody id="settleTypeList"></tbody>
+            <tbody id="goodsList"></tbody>
         </table>
     </div>
     <div class="pagination">
         <div class="page-info">
-            每页显示 <select id="settlePageSize" onchange="changeSettlePageSize()">
+            每页显示 <select id="pageSize" onchange="changePageSize()">
                 <option value="5">5</option>
                 <option value="10" selected>10</option>
                 <option value="20">20</option>
-            </select> 条，当前第 <span id="settleCurrentPage">1</span> / <span id="settleTotalPages">1</span> 页
+            </select> 条，当前第 <span id="currentPage">1</span> / <span id="totalPages">1</span> 页
         </div>
         <div class="page-controls">
-            <button class="page-btn" onclick="settleGoToPage(1)">首页</button>
-            <button class="page-btn" onclick="settlePrevPage()">上一页</button>
-            <span id="settlePageNumbers"></span>
-            <button class="page-btn" onclick="settleNextPage()">下一页</button>
-            <button class="page-btn" onclick="settleGoToPage(settleTotalPages)">末页</button>
+            <button class="page-btn" onclick="goToPage(1)">首页</button>
+            <button class="page-btn" onclick="prevPage()">上一页</button>
+            <span id="pageNumbers"></span>
+            <button class="page-btn" onclick="nextPage()">下一页</button>
+            <button class="page-btn" onclick="goToPage(totalPages)">末页</button>
         </div>
     </div>
 </div>
-</div> 
-
 
     <!-- 入库管理 -->
     <div id="stockIn" class="tab-content">

@@ -433,15 +433,19 @@ function switchGoodsSubTab(tab) {
     const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
     if (targetBtn) targetBtn.classList.add('active');
     
-    // 切换内容
+    // ✅ 切换内容 - 显示/隐藏
     const contents = document.querySelectorAll('#goods .finance-sub-content');
-    contents.forEach(div => div.style.display = 'none');
+    contents.forEach(div => {
+        div.style.display = 'none';
+    });
     
     const targetContent = document.getElementById(`sub-${tab}`);
     if (targetContent) {
         targetContent.style.display = 'block';
+        console.log(`✅ 显示子Tab: ${tab}`);
     } else {
         console.warn(`找不到子Tab内容: sub-${tab}`);
+        // ✅ 如果找不到内容，尝试创建提示
         return;
     }
     
@@ -497,6 +501,7 @@ async function loadGoods() {
         allGoods = list.sort((a, b) => b.id - a.id);
         window.allGoods = allGoods;
         
+        // ✅ 检查元素是否存在再操作
         let totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
         
@@ -518,7 +523,6 @@ async function loadGoods() {
         console.error(e);
     }
 }
-
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -722,10 +726,11 @@ function updateSortIcon() {
 async function renderGoods() {
     let tb = document.getElementById('goodsList');
     if (!tb) {
-        console.warn('goodsList元素不存在');
+        // ✅ 如果元素不存在，等待100ms后重试
+        console.warn('goodsList元素不存在，等待重试...');
+        setTimeout(() => renderGoods(), 100);
         return;
-    }
-    
+    }    
     let start = (currentPage - 1) * pageSize;
     let pageData = filteredGoods.slice(start, start + pageSize);
     tb.innerHTML = '';
@@ -1019,20 +1024,25 @@ function exportExcel() {
 
 // ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
+    // 默认激活商品信息
     let goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
     if (goodsInfoBtn) {
         goodsInfoBtn.classList.add('active');
         document.querySelector('#goods .finance-sub-btn[data-tab="settleType"]')?.classList.remove('active');
+        document.querySelector('#goods .finance-sub-btn[data-tab="dateChange"]')?.classList.remove('active');
     }
     
+    // 显示商品信息，隐藏其他
     let goodsInfoContent = document.getElementById('sub-goodsInfo');
     let settleTypeContent = document.getElementById('sub-settleType');
+    let dateChangeContent = document.getElementById('sub-dateChange');
+    
     if (goodsInfoContent) goodsInfoContent.style.display = 'block';
     if (settleTypeContent) settleTypeContent.style.display = 'none';
+    if (dateChangeContent) dateChangeContent.style.display = 'none';
     
     loadGoods();
 });
-
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
