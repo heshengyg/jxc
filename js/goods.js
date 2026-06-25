@@ -1175,40 +1175,10 @@ function checkNeedDateUpdate(goodsItem) {
     }
     
     return {
-        needUpdate,
-        earliest,
-        dateType,
-        dateValue,
-        displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
-    };
-}    
-    // 如果生产日期没有变化，检查到期日期
-    if (!needUpdate && earliest.expire_date) {
-        const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
-        const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
-        if (savedDate !== currentDate) {
-            needUpdate = true;
-            dateType = '到期日期';
-            dateValue = earliest.expire_date;
-        }
-    }
-    
-    // 如果生产日期有变化，优先显示生产日期
-    if (!needUpdate && earliest.produce_date) {
-        const savedDate = savedProduce ? new Date(savedProduce).toISOString().split('T')[0] : null;
-        const currentDate = new Date(earliest.produce_date).toISOString().split('T')[0];
-        if (savedDate !== currentDate) {
-            needUpdate = true;
-            dateType = '生产日期';
-            dateValue = earliest.produce_date;
-        }
-    }
-    
-    return {
-        needUpdate,
-        earliest,
-        dateType,
-        dateValue,
+        needUpdate: needUpdate,
+        earliest: earliest,
+        dateType: dateType,
+        dateValue: dateValue,
         displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
     };
 }
@@ -1236,6 +1206,7 @@ function getNeedUpdateGoodsList() {
     }
     return result;
 }
+
 /**
  * 加载后台更换日期列表
  */
@@ -1244,12 +1215,11 @@ function loadDateChangeTab() {
     
     // 确保 allGoods 已加载
     if (!allGoods || allGoods.length === 0) {
-        loadGoods().then(() => {
-            // 确保库存数据已加载
+        loadGoods().then(function() {
             if (typeof loadStockStock === 'function') {
                 loadStockStock();
             }
-            setTimeout(() => {
+            setTimeout(function() {
                 dateChangeData = getNeedUpdateGoodsList();
                 filteredDateChange = [...dateChangeData];
                 updateDateChangeButton();
@@ -1259,7 +1229,7 @@ function loadDateChangeTab() {
                 renderDateChangeList();
             }, 500);
         });
-        return;  // ✅ 这里 return 是合法的，在 then 回调之后
+        return;
     }
     
     // 确保库存数据已加载
@@ -1267,7 +1237,7 @@ function loadDateChangeTab() {
         loadStockStock();
     }
     
-    setTimeout(() => {
+    setTimeout(function() {
         dateChangeData = getNeedUpdateGoodsList();
         filteredDateChange = [...dateChangeData];
         updateDateChangeButton();
@@ -1276,7 +1246,7 @@ function loadDateChangeTab() {
         renderDateChangePagination();
         renderDateChangeList();
     }, 300);
-}    
+}   
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
     updateDateChangeButton();
