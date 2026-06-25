@@ -428,24 +428,27 @@ function switchGoodsSubTab(tab) {
         console.warn('没有找到子Tab按钮');
         return;
     }
-    buttons.forEach(btn => btn.classList.remove('active'));
+    buttons.forEach(function(btn) {
+        btn.classList.remove('active');
+    });
     
-    const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
-    if (targetBtn) targetBtn.classList.add('active');
+    const targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + tab + '"]');
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
     
-    // ✅ 切换内容 - 显示/隐藏
+    // 切换内容
     const contents = document.querySelectorAll('#goods .finance-sub-content');
-    contents.forEach(div => {
+    contents.forEach(function(div) {
         div.style.display = 'none';
     });
     
-    const targetContent = document.getElementById(`sub-${tab}`);
+    const targetContent = document.getElementById('sub-' + tab);
     if (targetContent) {
         targetContent.style.display = 'block';
-        console.log(`✅ 显示子Tab: ${tab}`);
+        console.log('显示子Tab:', tab);
     } else {
-        console.warn(`找不到子Tab内容: sub-${tab}`);
-        // ✅ 如果找不到内容，尝试创建提示
+        console.warn('找不到子Tab内容: sub-' + tab);
         return;
     }
     
@@ -458,7 +461,6 @@ function switchGoodsSubTab(tab) {
         loadDateChangeTab();
     }
 }
-
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -1063,29 +1065,29 @@ let dateChangeTotalPages = 1;
  */
 function getEarliestBatchDate(supplier, goodsName, spec) {
     try {
-        // ✅ 直接从 allStockBatchList 中查找（库存表已计算好所有数据）
+        // 直接从 allStockBatchList 中查找
         if (!allStockBatchList || allStockBatchList.length === 0) {
             return null;
         }
         
         // 筛选出该商品的所有批次
-        const batchList = allStockBatchList.filter(item => 
-            item.supplier === supplier && 
-            item.goodsName === goodsName && 
-            item.spec === (spec || '-')
-        );
+        const batchList = allStockBatchList.filter(function(item) {
+            return item.supplier === supplier && 
+                   item.goodsName === goodsName && 
+                   item.spec === (spec || '-');
+        });
         
         if (!batchList || batchList.length === 0) {
             return null;
         }
         
-        // 取第一个批次（已经按生产日期升序排列）
+        // 取第一个批次
         const earliest = batchList[0];
         return {
             produce_date: earliest.produce_date !== '-' ? earliest.produce_date : null,
             expire_date: earliest.expire_date !== '-' ? earliest.expire_date : null,
             batchRemain: earliest.batchRemain || 0,
-            recordDate: null, // allStockBatchList 中没有录入日期，保持null
+            recordDate: null,
             bzStatusText: earliest.bzStatusText || '',
             countDownText: earliest.countDownText || ''
         };
@@ -1240,11 +1242,11 @@ function getNeedUpdateGoodsList() {
 function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // 确保 allGoods 和 allStockBatchList 已加载
+    // 确保 allGoods 已加载
     if (!allGoods || allGoods.length === 0) {
         loadGoods().then(() => {
             // 确保库存数据已加载
-            if (typeof loadStockStock === 'function' && (!allStockBatchList || allStockBatchList.length === 0)) {
+            if (typeof loadStockStock === 'function') {
                 loadStockStock();
             }
             setTimeout(() => {
@@ -1255,26 +1257,26 @@ function loadDateChangeTab() {
                 dateChangeCurrentPage = 1;
                 renderDateChangePagination();
                 renderDateChangeList();
-            }, 300);
+            }, 500);
         });
-        return;
+        return;  // ✅ 这里 return 是合法的，在 then 回调之后
     }
     
     // 确保库存数据已加载
-    if (typeof loadStockStock === 'function' && (!allStockBatchList || allStockBatchList.length === 0)) {
+    if (typeof loadStockStock === 'function') {
         loadStockStock();
-        setTimeout(() => {
-            dateChangeData = getNeedUpdateGoodsList();
-            filteredDateChange = [...dateChangeData];
-            updateDateChangeButton();
-            updateDateChangeStatus();
-            dateChangeCurrentPage = 1;
-            renderDateChangePagination();
-            renderDateChangeList();
-        }, 300);
-        return;
     }
     
+    setTimeout(() => {
+        dateChangeData = getNeedUpdateGoodsList();
+        filteredDateChange = [...dateChangeData];
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
+    }, 300);
+}    
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
     updateDateChangeButton();
