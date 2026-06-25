@@ -451,7 +451,6 @@ function updateInSortIcon() {
 }
 
 // 渲染入库表格
-// 渲染入库表格
 async function renderStockIn() {
     let start = (inCurrentPage - 1) * inPageSize;
     let pageData = filteredStockIn.slice(start, start + inPageSize);
@@ -537,6 +536,12 @@ async function renderStockIn() {
         }
     }
     tb.innerHTML = fullHtml;
+}
+
+// ✅ 强制重新计算高度
+if (tb.parentElement) {
+    tb.parentElement.style.maxHeight = 'none';
+    tb.parentElement.style.height = 'auto';
 }
 // 分页渲染
 function renderInPagination() {

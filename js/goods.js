@@ -1095,8 +1095,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (settleTypeContent) settleTypeContent.style.display = 'none';
     if (dateChangeContent) dateChangeContent.style.display = 'none';
     
-    // ✅ 只加载一次
-    loadGoods();
+    // ✅ 改为调用 refreshGoods，与手动点击刷新列表保持一致
+    refreshGoods();
 });
 // ============================================================
 // ========== 后台更换日期模块 ==========
