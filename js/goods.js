@@ -1138,13 +1138,11 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
  * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
  */
 function checkNeedDateUpdate(goodsItem) {
-    // 获取最早批次日期（包含已计算的保质期状态）
     const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec);
     if (!earliest || earliest.batchRemain <= 0) {
         return { needUpdate: false, earliest: null };
     }
     
-    // 获取已保存的日期
     const savedProduce = goodsItem.saved_produce_d || goodsItem.saved_produce_date;
     const savedExpire = goodsItem.saved_expire_dat || goodsItem.saved_expire_date;
     
@@ -1152,7 +1150,6 @@ function checkNeedDateUpdate(goodsItem) {
     let dateType = '';
     let dateValue = null;
     
-    // 检查生产日期
     if (earliest.produce_date) {
         const savedDate = savedProduce ? new Date(savedProduce).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.produce_date).toISOString().split('T')[0];
@@ -1163,7 +1160,6 @@ function checkNeedDateUpdate(goodsItem) {
         }
     }
     
-    // 如果生产日期没有变化，检查到期日期
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
@@ -1246,15 +1242,8 @@ function loadDateChangeTab() {
         renderDateChangePagination();
         renderDateChangeList();
     }, 300);
-}   
-    dateChangeData = getNeedUpdateGoodsList();
-    filteredDateChange = [...dateChangeData];
-    updateDateChangeButton();
-    updateDateChangeStatus();
-    dateChangeCurrentPage = 1;
-    renderDateChangePagination();
-    renderDateChangeList();
 }
+
 /**
  * 更新状态文字
  */
