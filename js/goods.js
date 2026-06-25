@@ -1059,34 +1059,41 @@ let dateChangeTotalPages = 1;
  * @param {string} supplier - 供应商
  * @param {string} goodsName - 商品名
  * @param {string} spec - 规格
- * @returns {Object} { produce_date, expire_date, batchRemain, recordDate }
+ * @returns {Object} { produce_date, expire_date, batchRemain, recordDate, bzStatusText, countDownText }
  */
 function getEarliestBatchDate(supplier, goodsName, spec) {
     try {
-        // 从库存缓存中获取批次列表
-        let batchList = [];
-        if (typeof getStockBatchList === 'function') {
-            batchList = getStockBatchList(supplier, goodsName);
+        // ✅ 直接从 allStockBatchList 中查找（库存表已计算好所有数据）
+        if (!allStockBatchList || allStockBatchList.length === 0) {
+            return null;
         }
+        
+        // 筛选出该商品的所有批次
+        const batchList = allStockBatchList.filter(item => 
+            item.supplier === supplier && 
+            item.goodsName === goodsName && 
+            item.spec === (spec || '-')
+        );
         
         if (!batchList || batchList.length === 0) {
             return null;
         }
         
-        // 取第一个批次（按生产日期升序，生产日期相同按到期日期升序）
+        // 取第一个批次（已经按生产日期升序排列）
         const earliest = batchList[0];
         return {
-            produce_date: earliest.produce_date || null,
-            expire_date: earliest.expire_date || null,
+            produce_date: earliest.produce_date !== '-' ? earliest.produce_date : null,
+            expire_date: earliest.expire_date !== '-' ? earliest.expire_date : null,
             batchRemain: earliest.batchRemain || 0,
-            recordDate: earliest.inRecords && earliest.inRecords[0] ? earliest.inRecords[0].record_date : null
+            recordDate: null, // allStockBatchList 中没有录入日期，保持null
+            bzStatusText: earliest.bzStatusText || '',
+            countDownText: earliest.countDownText || ''
         };
     } catch (e) {
         console.error('获取最早批次日期失败:', e);
         return null;
     }
 }
-
 /**
  * 格式化日期显示
  * @param {string} dateStr - 日期字符串
@@ -1129,17 +1136,16 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
  * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
  */
 function checkNeedDateUpdate(goodsItem) {
-    // 获取最早批次日期
+    // 获取最早批次日期（包含已计算的保质期状态）
     const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec);
     if (!earliest || earliest.batchRemain <= 0) {
         return { needUpdate: false, earliest: null };
     }
     
-    // 获取已保存的日期（注意数据库字段名）
+    // 获取已保存的日期
     const savedProduce = goodsItem.saved_produce_d || goodsItem.saved_produce_date;
     const savedExpire = goodsItem.saved_expire_dat || goodsItem.saved_expire_date;
     
-    // 判断哪个日期需要更新
     let needUpdate = false;
     let dateType = '';
     let dateValue = null;
@@ -1155,6 +1161,25 @@ function checkNeedDateUpdate(goodsItem) {
         }
     }
     
+    // 如果生产日期没有变化，检查到期日期
+    if (!needUpdate && earliest.expire_date) {
+        const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
+        const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
+        if (savedDate !== currentDate) {
+            needUpdate = true;
+            dateType = '到期日期';
+            dateValue = earliest.expire_date;
+        }
+    }
+    
+    return {
+        needUpdate,
+        earliest,
+        dateType,
+        dateValue,
+        displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
+    };
+}    
     // 如果生产日期没有变化，检查到期日期
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
@@ -1209,17 +1234,36 @@ function getNeedUpdateGoodsList() {
     }
     return result;
 }
-
 /**
  * 加载后台更换日期列表
  */
 function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // 确保 allGoods 已加载
+    // 确保 allGoods 和 allStockBatchList 已加载
     if (!allGoods || allGoods.length === 0) {
-        // 如果商品数据未加载，先加载
         loadGoods().then(() => {
+            // 确保库存数据已加载
+            if (typeof loadStockStock === 'function' && (!allStockBatchList || allStockBatchList.length === 0)) {
+                loadStockStock();
+            }
+            setTimeout(() => {
+                dateChangeData = getNeedUpdateGoodsList();
+                filteredDateChange = [...dateChangeData];
+                updateDateChangeButton();
+                updateDateChangeStatus();
+                dateChangeCurrentPage = 1;
+                renderDateChangePagination();
+                renderDateChangeList();
+            }, 300);
+        });
+        return;
+    }
+    
+    // 确保库存数据已加载
+    if (typeof loadStockStock === 'function' && (!allStockBatchList || allStockBatchList.length === 0)) {
+        loadStockStock();
+        setTimeout(() => {
             dateChangeData = getNeedUpdateGoodsList();
             filteredDateChange = [...dateChangeData];
             updateDateChangeButton();
@@ -1227,22 +1271,18 @@ function loadDateChangeTab() {
             dateChangeCurrentPage = 1;
             renderDateChangePagination();
             renderDateChangeList();
-        });
+        }, 300);
         return;
     }
     
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
-    
-    // 更新按钮状态
     updateDateChangeButton();
     updateDateChangeStatus();
-    
     dateChangeCurrentPage = 1;
     renderDateChangePagination();
     renderDateChangeList();
 }
-
 /**
  * 更新状态文字
  */
@@ -1304,35 +1344,32 @@ function renderDateChangeList() {
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // 计算保质期状态
-        let statusText = '';
-        let statusColor = '';
-        if (item.earliestBatch && item.earliestBatch.expire_date) {
-            const now = new Date();
-            const expire = new Date(item.earliestBatch.expire_date);
-            const daysLeft = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
-            if (daysLeft < 0) {
-                statusText = '过期';
-                statusColor = '#ff4d4f';
-            } else if (daysLeft <= 7) {
-                statusText = '临期';
-                statusColor = '#faad14';
-            } else {
-                statusText = '正常';
-                statusColor = '#52c41a';
-            }
-        } else {
-            statusText = '无';
-            statusColor = '#999';
-        }
-        
-        // 状态倒计
+        // ✅ 直接从 earliestBatch 获取已计算好的保质期状态和倒计时
+        let statusText = '无';
+        let statusColor = '#999';
         let countDownText = '';
-        if (item.earliestBatch && item.earliestBatch.expire_date) {
-            const now = new Date();
-            const expire = new Date(item.earliestBatch.expire_date);
-            const daysLeft = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
-            countDownText = daysLeft > 0 ? `${daysLeft}天` : '已过期';
+        
+        if (item.earliestBatch && item.earliestBatch.bzStatusText) {
+            statusText = item.earliestBatch.bzStatusText;
+            countDownText = item.earliestBatch.countDownText || '';
+            
+            // 根据状态设置颜色
+            switch(statusText) {
+                case '过期':
+                    statusColor = '#ff4d4f';
+                    break;
+                case '临期':
+                    statusColor = '#faad14';
+                    break;
+                case '打折':
+                    statusColor = '#1890ff';
+                    break;
+                case '正常':
+                    statusColor = '#52c41a';
+                    break;
+                default:
+                    statusColor = '#999';
+            }
         }
         
         const rowNum = start + idx + 1;
