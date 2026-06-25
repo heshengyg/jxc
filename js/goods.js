@@ -1197,16 +1197,48 @@ function checkNeedDateUpdate(goodsItem) {
     
     // 检查生产日期
     if (earliest.produce_date) {
-        const savedDate = savedProduce ? new Date(savedProduce).toISOString().split('T')[0] : null;
-        const currentDate = new Date(earliest.produce_date).toISOString().split('T')[0];
-        if (savedDate !== currentDate) {
+        const currentDate = new Date(earliest.produce_date);
+        const currentDateStr = currentDate.toISOString().split('T')[0];
+        
+        // 判断保质期是否>60天，决定比对方式
+        let shelfDays = 0;
+        if (goodsItem.shelf_life_num && goodsItem.shelf_life_unit) {
+            switch (goodsItem.shelf_life_unit) {
+                case '天': shelfDays = parseInt(goodsItem.shelf_life_num); break;
+                case '个月': shelfDays = parseInt(goodsItem.shelf_life_num) * 30; break;
+                case '年': shelfDays = parseInt(goodsItem.shelf_life_num) * 365; break;
+            }
+        }
+        
+        let savedDateStr = null;
+        if (savedProduce) {
+            const savedDate = new Date(savedProduce);
+            if (shelfDays > 60) {
+                // 保质期>60天：只比较年月
+                savedDateStr = `${savedDate.getFullYear()}-${String(savedDate.getMonth() + 1).padStart(2, '0')}`;
+            } else {
+                // 保质期<=60天：比较年月日
+                savedDateStr = savedDate.toISOString().split('T')[0];
+            }
+        }
+        
+        let currentCompareStr = null;
+        if (shelfDays > 60) {
+            // 保质期>60天：只比较年月
+            currentCompareStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+            // 保质期<=60天：比较年月日
+            currentCompareStr = currentDateStr;
+        }
+        
+        if (savedDateStr !== currentCompareStr) {
             needUpdate = true;
             dateType = '生产日期';
             dateValue = earliest.produce_date;
         }
     }
     
-    // 检查到期日期
+    // 检查到期日期（到期日期永远显示年月日，所以用完整日期比对）
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
@@ -1225,6 +1257,7 @@ function checkNeedDateUpdate(goodsItem) {
         displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
     };
 }
+
 /**
  * 获取所有需要更新日期的商品列表
  */
@@ -1438,6 +1471,7 @@ async function updateSingleGoodsDate(id) {
     try {
         const updateData = {};
         if (earliest.produce_date) {
+            // ✅ 保存完整日期，但比对时根据规则决定比较年月还是年月日
             updateData.saved_produce_d = earliest.produce_date;
         }
         if (earliest.expire_date) {
@@ -1463,6 +1497,7 @@ async function updateSingleGoodsDate(id) {
         console.error(e);
     }
 }
+
 /**
  * 批量更新所有商品日期（一键更新）
  */
