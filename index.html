@@ -1125,10 +1125,11 @@ document.addEventListener('click', function(e) {
         <input type="hidden" id="editId">
         <div class="form-group">
             <label>供应商：</label>
-            <!-- 将原 input 改为 select -->
-            <select id="add_supplier" required onchange="onSupplierChange()">
-                <option value="">请选择供应商</option>
-            </select>
+<div class="search-select-wrap">
+    <input class="search-select-input" id="addSupplierSearch" placeholder="搜索/选择供应商" onfocus="showAddSupplierList()" oninput="filterAddSupplierList()">
+    <div class="search-select-list" id="addSupplierListBox"></div>
+</div>
+<input type="hidden" id="add_supplier" required>
             <label>商品名称：</label>
             <input type="text" id="add_name" required>
             <label>规格：</label>

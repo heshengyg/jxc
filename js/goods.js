@@ -546,6 +546,61 @@ function loadSupplierSelect() {
     });
 }
 
+// ========== 商品弹窗供应商搜索下拉 ==========
+function showAddSupplierList() {
+    const box = document.getElementById('addSupplierListBox');
+    if (!box) return;
+    const searchInput = document.getElementById('addSupplierSearch');
+    if (!searchInput) return;
+    
+    // 从settleData获取供应商列表
+    let suppliers = settleData.map(s => s.supplier).sort();
+    box.innerHTML = '';
+    suppliers.forEach(sup => {
+        let div = document.createElement('div');
+        div.textContent = sup;
+        div.onclick = function() {
+            searchInput.value = sup;
+            document.getElementById('add_supplier').value = sup;
+            box.style.display = 'none';
+            onSupplierChange();
+        };
+        box.appendChild(div);
+    });
+    box.style.display = 'block';
+}
+
+function filterAddSupplierList() {
+    const box = document.getElementById('addSupplierListBox');
+    if (!box) return;
+    const searchInput = document.getElementById('addSupplierSearch');
+    if (!searchInput) return;
+    
+    let keyword = searchInput.value.toLowerCase();
+    let suppliers = settleData.map(s => s.supplier).sort();
+    box.innerHTML = '';
+    suppliers.filter(s => s.toLowerCase().includes(keyword)).forEach(sup => {
+        let div = document.createElement('div');
+        div.textContent = sup;
+        div.onclick = function() {
+            searchInput.value = sup;
+            document.getElementById('add_supplier').value = sup;
+            box.style.display = 'none';
+            onSupplierChange();
+        };
+        box.appendChild(div);
+    });
+    box.style.display = 'block';
+}
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
+        const box = document.getElementById('addSupplierListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
 function onSupplierChange() {
     let supplier = document.getElementById('add_supplier').value;
     let channelInput = document.getElementById('add_channel');
@@ -564,9 +619,11 @@ function openAddForm() {
     document.getElementById('formTitle').innerText = '新增商品';
     document.getElementById('editId').value = '';
     document.querySelectorAll('#formModal .form-group input,#formModal .form-group select').forEach(el => {
-        if (el.id !== 'add_supplier') el.value = '';
+        if (el.id !== 'addSupplierSearch') el.value = '';
     });
-    loadSupplierSelect();
+    // 清空供应商搜索框和隐藏值
+    document.getElementById('addSupplierSearch').value = '';
+    document.getElementById('add_supplier').value = '';
     document.getElementById('add_channel').value = '';
     document.getElementById('add_supplier').disabled = false;
     document.getElementById('add_name').disabled = false;
@@ -582,7 +639,8 @@ async function openEditForm(id) {
     document.getElementById('formTitle').innerText = '编辑商品';
     document.getElementById('editId').value = id;
     
-    loadSupplierSelect();
+    // 设置供应商搜索框和隐藏值
+    document.getElementById('addSupplierSearch').value = item.supplier || '';
     document.getElementById('add_supplier').value = item.supplier || '';
     document.getElementById('add_name').value = item.name || '';
     document.getElementById('add_spec').value = item.spec || '';
@@ -782,7 +840,7 @@ function isDuplicate(supplier, name, spec, editId) {
 
 async function submitForm() {
     let editId = document.getElementById('editId').value;
-    let supplier = document.getElementById('add_supplier').value;
+    let supplier = document.getElementById('add_supplier').value;  // 从隐藏域获取
     let name = document.getElementById('add_name').value;
     let spec = document.getElementById('add_spec').value;
     let channel = document.getElementById('add_channel').value;
@@ -932,9 +990,11 @@ function exportExcel() {
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商", "商品名称", "规格", "销售渠道", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期"];
+    // ✅ 增加"临期天数"和"操作"列，共11列
+    let header = ["供应商", "商品名称", "规格", "销售渠道", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期", "临期天数"];
     let exportData = filteredGoods.map(item => {
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit || ''}` : "";
+        let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         return [
             item.supplier || "",
             item.name || "",
@@ -944,7 +1004,8 @@ function exportExcel() {
             item.tax_rate ? item.tax_rate + '%' : "",
             item.online_cost || 0,
             item.warn_num || 0,
-            shelf
+            shelf,
+            expire  // ✅ 新增临期天数
         ];
     });
     let ws = XLSX.utils.aoa_to_sheet([header, ...exportData]);
