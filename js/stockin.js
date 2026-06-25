@@ -497,28 +497,28 @@ async function renderStockIn() {
         invoiceClass = 'bg-green-invoice';
     }
     fullHtml += `
-        <tr>
-            <td><input type="checkbox" class="in-item-checkbox" value="${item.id}"></td>
-            <td>${start + idx + 1}</td>
-            <td>${item.supplier || ''}</td>
-            <td>${item.goodsName || ''}</td>
-            <td>${item.spec || '-'}</td>
-            <td>${item.settleType || ''}</td>
-            <td>${formatMoney(item.in_price)}</td>
-            <td>${item.in_num}</td>
-            <td>${amount}</td>
-            <td>${batchRemain}</td>
-            <td>${totalStock}</td>
-            <td class="${invoiceClass}">${invoiceText}</td>
-            <td>${item.invoice_no || ''}</td>
-            <td>${item.produce_date || ''}</td>
-            <td>${item.expire_date || ''}</td>
-            <td>${item.record_date || ''}</td>   <!-- ✅ 新增：录入日期 -->
-            <td>
-                ${btnHtml}
-            </td>
-        </tr>
-    `;
+    <tr>
+        <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
+        <td>${start + idx + 1}</td>
+        <td>${item.supplier || ''}</td>
+        <td>${item.goodsName || ''}</td>
+        <td>${item.spec || '-'}</td>
+        <td>${item.settleType || ''}</td>
+        <td>${formatMoney(item.in_price)}</td>
+        <td>${item.in_num}</td>
+        <td>${amount}</td>
+        <td>${batchRemain}</td>
+        <td>${totalStock}</td>
+        <td class="${invoiceClass}">${invoiceText}</td>
+        <td>${item.invoice_no || ''}</td>
+        <td>${item.produce_date || ''}</td>
+        <td>${item.expire_date || ''}</td>
+        <td>${item.record_date || ''}</td>
+        <td>
+            ${btnHtml}
+        </td>
+    </tr>
+`;
 });
     tb.innerHTML = fullHtml;
 }
@@ -556,12 +556,16 @@ function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
 function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
 
-// 全选
+// 全选 - 只勾选未被禁用的checkbox
 function inToggleSelectAll(){
     let all = document.getElementById('inSelectAll').checked;
-    document.querySelectorAll('.in-item-checkbox').forEach(cb=>cb.checked=all);
+    document.querySelectorAll('.in-item-checkbox').forEach(function(cb) {
+        // ✅ 只勾选未被禁用的checkbox（即有出库记录的被禁用，不可勾选）
+        if (!cb.disabled) {
+            cb.checked = all;
+        }
+    });
 }
-
 // 单条删除（后端校验）
 async function deleteStockIn(id){
     if (await checkInUsedByOut(id)) {
@@ -579,32 +583,53 @@ async function deleteStockIn(id){
     }catch(e){ showMsg('删除失败'); }
 }
 
-// 批量删除（后端校验）
+// 批量删除（后端校验）- 跳过已被禁用的行
 async function batchDeleteStockIn(){
     let ids = [];
-    document.querySelectorAll('.in-item-checkbox').forEach(cb=>{
-        if(cb.checked) ids.push(cb.value);
+    let hasDisabled = false;
+    
+    document.querySelectorAll('.in-item-checkbox').forEach(function(cb) {
+        if (cb.checked) {
+            // ✅ 如果checkbox被禁用（即有出库记录），标记并跳过
+            if (cb.disabled) {
+                hasDisabled = true;
+            } else {
+                ids.push(cb.value);
+            }
+        }
     });
-    if(ids.length===0) return showMsg('请选择数据');
-    let usedIds = [];
-    for(let id of ids){
-        if(await checkInUsedByOut(id)) usedIds.push(id);
-    }
-    if (usedIds.length > 0) {
-        showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法批量删除！`);
+    
+    if (ids.length === 0) {
+        if (hasDisabled) {
+            showMsg('选中的记录中存在已生成出库单据的数据，无法删除！');
+        } else {
+            showMsg('请选择数据');
+        }
         return;
     }
-    if(!confirm(`确定删除${ids.length}条？`))return;
-    for(let id of ids){
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`,{
-            method:'DELETE',
-            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+    
+    // 再次校验选中的记录是否真的可以删除（双重保险）
+    let usedIds = [];
+    for (let id of ids) {
+        if (await checkInUsedByOut(id)) {
+            usedIds.push(id);
+        }
+    }
+    if (usedIds.length > 0) {
+        showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法删除！`);
+        return;
+    }
+    
+    if (!confirm(`确定删除${ids.length}条？`)) return;
+    for (let id of ids) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
     }
     showMsg('批量删除成功');
     await loadStockIn();
 }
-
 // 清空排序、重置搜索
 function clearInSort(){
     inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();

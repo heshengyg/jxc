@@ -189,3 +189,9 @@ tbody tr:hover { background-color: #e6f7ef; }
 .finance-sub-content {
     display: block;
 }
+.table-container { 
+    max-height: 500px; 
+    overflow: auto;  /* 同时支持横向和纵向滚动 */
+    border: 1px solid #eee; 
+    border-radius: 4px; 
+}
