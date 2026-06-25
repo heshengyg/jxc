@@ -425,7 +425,6 @@ function exportSettleExcel() {
 
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
-    // 切换按钮样式
     const buttons = document.querySelectorAll('#goods .finance-sub-btn');
     if (buttons.length === 0) {
         console.warn('没有找到子Tab按钮');
@@ -440,7 +439,6 @@ function switchGoodsSubTab(tab) {
         targetBtn.classList.add('active');
     }
     
-    // 切换内容
     const contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(function(div) {
         div.style.display = 'none';
@@ -455,12 +453,11 @@ function switchGoodsSubTab(tab) {
         return;
     }
     
-    // 加载对应数据
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-        // ✅ 如果已经有数据，重新渲染即可，不需要重新加载
-        if (allGoods && allGoods.length > 0 && isGoodsLoaded) {
+        // ✅ 如果数据已加载，直接渲染
+        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
             currentPage = 1;
             filterGoods();
         } else {
@@ -470,6 +467,7 @@ function switchGoodsSubTab(tab) {
         loadDateChangeTab();
     }
 }
+
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -503,17 +501,27 @@ function clearSort() {
 }
 
 async function loadGoods() {
-    // ✅ 如果正在加载或已经加载完成，直接返回
+    // ✅ 如果正在加载，跳过
     if (isLoadingGoods) {
         console.log('商品数据正在加载中，跳过重复请求');
         return;
     }
-    // ✅ 如果已经加载完成且有数据，不重新加载
+    
+    // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
     if (isGoodsLoaded && allGoods && allGoods.length > 0) {
         console.log('商品数据已加载，直接渲染');
-        // 重新渲染当前数据
-        currentPage = 1;
-        filterGoods();
+        // 确保 filteredGoods 正确
+        let searchField = document.getElementById('searchField');
+        if (searchField) {
+            filterGoods();
+        } else {
+            filteredGoods = [...allGoods];
+            let searchCount = document.getElementById('searchCount');
+            if (searchCount) searchCount.textContent = filteredGoods.length;
+            currentPage = 1;
+            renderPagination();
+            renderGoods();
+        }
         return;
     }
     
@@ -526,14 +534,10 @@ async function loadGoods() {
         let list = await res.json();
         allGoods = list.sort((a, b) => b.id - a.id);
         window.allGoods = allGoods;
-        isGoodsLoaded = true;  // ✅ 标记已加载
+        isGoodsLoaded = true;
         
-        // ✅ 检查元素是否存在再操作
         let totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
-        
-        // ✅ 强制重置到第一页
-        currentPage = 1;
         
         let searchField = document.getElementById('searchField');
         if (searchField) {
@@ -542,6 +546,7 @@ async function loadGoods() {
             filteredGoods = [...allGoods];
             let searchCount = document.getElementById('searchCount');
             if (searchCount) searchCount.textContent = filteredGoods.length;
+            currentPage = 1;
             renderPagination();
             renderGoods();
         }
@@ -554,6 +559,7 @@ async function loadGoods() {
         isLoadingGoods = false;
     }
 }
+
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -726,12 +732,10 @@ function filterGoods() {
     let field = searchField.value;
     let kw = searchKeyword.value.toLowerCase();
     
-    // ✅ 确保 allGoods 是数组且没有重复
     if (!allGoods || !Array.isArray(allGoods)) {
-        console.warn('allGoods 不是有效数组');
         filteredGoods = [];
     } else {
-        // ✅ 去重：根据 id 去重
+        // ✅ 使用 Map 去重，确保相同 id 只保留一个
         const uniqueMap = new Map();
         allGoods.forEach(item => {
             if (!uniqueMap.has(item.id)) {
@@ -1083,7 +1087,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('#goods .finance-sub-btn[data-tab="dateChange"]')?.classList.remove('active');
     }
     
-    // 显示商品信息，隐藏其他
     let goodsInfoContent = document.getElementById('sub-goodsInfo');
     let settleTypeContent = document.getElementById('sub-settleType');
     let dateChangeContent = document.getElementById('sub-dateChange');
@@ -1092,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (settleTypeContent) settleTypeContent.style.display = 'none';
     if (dateChangeContent) dateChangeContent.style.display = 'none';
     
+    // ✅ 只加载一次
     loadGoods();
 });
 // ============================================================
