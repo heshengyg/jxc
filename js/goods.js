@@ -1,4 +1,7 @@
 // 刷新商品列表
+let isLoadingGoods = false;  // ✅ 添加这行，防止重复加载
+
+// 刷新商品列表
 function refreshGoods() {
     loadGoods();
 }
@@ -494,7 +497,14 @@ function clearSort() {
 }
 
 async function loadGoods() {
+    // ✅ 防止重复加载
+    if (isLoadingGoods) {
+        console.log('商品数据正在加载中，跳过重复请求');
+        return;
+    }
+    
     try {
+        isLoadingGoods = true;
         let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
@@ -523,8 +533,11 @@ async function loadGoods() {
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
         console.error(e);
+    } finally {
+        isLoadingGoods = false;
     }
 }
+
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -696,13 +709,20 @@ function filterGoods() {
     
     let field = searchField.value;
     let kw = searchKeyword.value.toLowerCase();
-    filteredGoods = allGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+    
+    // ✅ 确保 allGoods 是数组
+    if (!allGoods || !Array.isArray(allGoods)) {
+        console.warn('allGoods 不是有效数组');
+        filteredGoods = [];
+    } else {
+        filteredGoods = allGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+    }
+    
     searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
     renderGoods();
 }
-
 function sortTable(field) {
     sortField = (sortField === field) ? field : field;
     sortAsc = (sortField === field) ? !sortAsc : true;
@@ -728,11 +748,17 @@ function updateSortIcon() {
 async function renderGoods() {
     let tb = document.getElementById('goodsList');
     if (!tb) {
-        // ✅ 如果元素不存在，等待100ms后重试
         console.warn('goodsList元素不存在，等待重试...');
         setTimeout(() => renderGoods(), 100);
         return;
-    }    
+    }
+    
+    // ✅ 确保 filteredGoods 是数组且数据正确
+    if (!filteredGoods || filteredGoods.length === 0) {
+        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        return;
+    }
+    
     let start = (currentPage - 1) * pageSize;
     let pageData = filteredGoods.slice(start, start + pageSize);
     tb.innerHTML = '';
@@ -744,6 +770,10 @@ async function renderGoods() {
     
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
+        // ✅ 使用 idx 作为当前页内的序号，而不是全局序号
+        // 但序列号应该是全局的：start + idx + 1
+        // 从截图看，序列号是 1,2,1,3,2,4,3,5,4 说明 start 计算有问题
+        
         let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
@@ -752,11 +782,14 @@ async function renderGoods() {
         let delBtn = isUsed 
             ? `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`
             : `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
+        
+        // ✅ 序列号使用 start + idx + 1
+        const seqNum = start + idx + 1;
             
         let html = `
             <tr>
                 <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
-                <td>${start + idx + 1}</td>
+                <td>${seqNum}</td>
                 <td>${item.supplier || ''}</td>
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
@@ -776,9 +809,15 @@ async function renderGoods() {
         tb.innerHTML += html;
     }
 }
-
 function renderPagination() {
-    totalPages = Math.ceil(filteredGoods.length / pageSize) || 1;
+    // ✅ 确保 filteredGoods 是数组
+    const totalItems = Array.isArray(filteredGoods) ? filteredGoods.length : 0;
+    totalPages = Math.ceil(totalItems / pageSize) || 1;
+    
+    // ✅ 确保 currentPage 不超过总页数
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
     
     let currentPageEl = document.getElementById('currentPage');
     let totalPagesEl = document.getElementById('totalPages');
