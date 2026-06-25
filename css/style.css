@@ -190,8 +190,9 @@ tbody tr:hover { background-color: #e6f7ef; }
     display: block;
 }
 .table-container { 
-    min-height: 8000px;
-    overflow-x: auto;  /* 横向滚动 */
+    /* max-height: 500px; */
+    overflow: auto;
     border: 1px solid #eee; 
     border-radius: 4px; 
+    margin-bottom: 15px;
 }
