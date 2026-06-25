@@ -190,9 +190,7 @@ tbody tr:hover { background-color: #e6f7ef; }
     display: block;
 }
 .table-container { 
-    /* max-height: 500px; */
     overflow: auto;
     border: 1px solid #eee; 
     border-radius: 4px; 
-    margin-bottom: 15px;
 }
