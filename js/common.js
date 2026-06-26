@@ -179,10 +179,9 @@ function getStockBatchList(supplier, goodsName) {
         item.supplier === supplier && item.goodsName === goodsName
     );
 
-    // 2. 按批次合并：key = 供应商+商品名+规格+入库单价+生产日期+到期日期
+    // 2. 按批次合并
     let batchMap = {};
     inList.forEach(inItem => {
-        // 【唯一修改处】新增 in_price 进入批次唯一标识
         let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
@@ -202,14 +201,37 @@ function getStockBatchList(supplier, goodsName) {
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
-   // 3. 统计每个批次已出库总量 + 已退货总量
+    // 3. ✅ 统计每个批次已出库总量 + 已退货总量
     Object.values(batchMap).forEach(batch => {
         let outTotal = 0;
         let returnTotal = 0;
         
-        // 统计出库（原有逻辑）
+        // 统计出库
         allStockOut.forEach(out => {
-            // ... 原有出库统计代码 ...
+            if (out.supplier === supplier && out.goodsName === goodsName) {
+                if (out.outDetail) {
+                    try {
+                        let detailList = typeof out.outDetail === 'string' 
+                            ? JSON.parse(out.outDetail) 
+                            : out.outDetail;
+                        if (Array.isArray(detailList)) {
+                            detailList.forEach(detail => {
+                                let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
+                                if (isInBatch) {
+                                    outTotal += Number(detail.useNum);
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('解析outDetail失败', out.outDetail, e);
+                    }
+                } else if (out.inRecordId) {
+                    let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
+                    if (isInBatch) {
+                        outTotal += Number(out.outNum);
+                    }
+                }
+            }
         });
         
         // ✅ 新增：统计退货
@@ -230,9 +252,8 @@ function getStockBatchList(supplier, goodsName) {
     // 4. 过滤库存为0的批次
     let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
 
-    // ========== 核心修改：先按生产/到期排序，同日期再按【批次最早入库ID升序】 ==========
+    // 排序
     batchList.sort((a, b) => {
-        // 第一优先级：生产日期
         if (a.produce_date && b.produce_date) {
             let pdDiff = new Date(a.produce_date) - new Date(b.produce_date);
             if (pdDiff !== 0) return pdDiff;
@@ -240,13 +261,11 @@ function getStockBatchList(supplier, goodsName) {
         if (a.produce_date) return -1;
         if (b.produce_date) return 1;
 
-        // 第二优先级：到期日期
         if (a.expire_date && b.expire_date) {
             let edDiff = new Date(a.expire_date) - new Date(b.expire_date);
             if (edDiff !== 0) return edDiff;
         }
 
-        // 第三优先级：生产/到期完全相同时 → 取批次内第一条入库ID，升序（先录入先出库）
         let aFirstId = a.inRecords[0] ? Number(a.inRecords[0].id) : 0;
         let bFirstId = b.inRecords[0] ? Number(b.inRecords[0].id) : 0;
         return aFirstId - bFirstId;
