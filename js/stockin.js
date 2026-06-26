@@ -569,8 +569,12 @@ function renderInPagination() {
 function inGoToPage(p){ if(p<1||p>inTotalPages)return; inCurrentPage=p; renderInPagination(); renderStockIn(); }
 function inPrevPage(){ inGoToPage(inCurrentPage-1); }
 function inNextPage(){ inGoToPage(inCurrentPage+1); }
-function changeInPageSize(){ inPageSize=+document.getElementById('inPageSize').value; inCurrentPage=1; renderInPagination(); }
-
+function changeInPageSize(){
+    inPageSize = +document.getElementById('inPageSize').value;
+    inCurrentPage = 1;
+    renderInPagination();
+    renderStockIn();  // ✅ 添加这行
+}
 // 全选 - 只勾选未被禁用的checkbox
 function inToggleSelectAll(){
     let all = document.getElementById('inSelectAll').checked;
