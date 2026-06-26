@@ -1397,54 +1397,50 @@ function getNeedUpdateGoodsList() {
 function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // ✅ 如果商品数据未加载，先加载
-    if (!allGoods || allGoods.length === 0) {
-        loadGoods().then(function() {
-            // 商品加载完成后，加载库存数据
-            if (typeof loadStockStock === 'function') {
-                loadStockStock();
-            }
-            // 延迟执行，等待库存数据加载
-            setTimeout(function() {
-                dateChangeData = getNeedUpdateGoodsList();
-                filteredDateChange = [...dateChangeData];
-                updateDateChangeButton();
-                updateDateChangeStatus();
-                dateChangeCurrentPage = 1;
-                renderDateChangePagination();
-                renderDateChangeList();
-            }, 500);
-        });
-        return;
-    }
-    
-    // ✅ 如果库存数据未加载，加载库存数据
-    if (!allStockBatchList || allStockBatchList.length === 0) {
-        if (typeof loadStockStock === 'function') {
-            loadStockStock();
-        }
-        // 延迟执行，等待库存数据加载
-        setTimeout(function() {
-            dateChangeData = getNeedUpdateGoodsList();
-            filteredDateChange = [...dateChangeData];
-            updateDateChangeButton();
-            updateDateChangeStatus();
-            dateChangeCurrentPage = 1;
-            renderDateChangePagination();
-            renderDateChangeList();
-        }, 500);
-        return;
-    }
-    
-    // ✅ 数据都已存在，直接渲染
+    // ✅ 强制重新计算，不使用缓存
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
-    updateDateChangeButton();
-    updateDateChangeStatus();
+    
+    console.log('需要更新的商品数量:', dateChangeData.length);
+    
+    // 更新按钮状态
+    const btn = document.getElementById('batchUpdateDateBtn');
+    if (btn) {
+        const count = dateChangeData.length;
+        if (count > 0) {
+            btn.style.background = '#ff4d4f';
+            btn.style.color = '#ffffff';
+            btn.style.fontWeight = 'bold';
+            btn.style.cursor = 'pointer';
+            btn.textContent = `需更新 (${count})`;
+            btn.disabled = false;
+        } else {
+            btn.style.background = '#d9d9d9';
+            btn.style.color = '#999999';
+            btn.style.fontWeight = 'normal';
+            btn.style.cursor = 'not-allowed';
+            btn.textContent = '需更新 (0)';
+            btn.disabled = true;
+        }
+    }
+    
+    // 更新状态文字
+    const statusEl = document.getElementById('dateChangeStatus');
+    if (statusEl) {
+        if (dateChangeData.length > 0) {
+            statusEl.textContent = `需更新：${dateChangeData.length} 条`;
+            statusEl.style.color = '#ff6b6b';
+        } else {
+            statusEl.textContent = '✅ 所有商品日期已是最新';
+            statusEl.style.color = '#52c41a';
+        }
+    }
+    
     dateChangeCurrentPage = 1;
     renderDateChangePagination();
     renderDateChangeList();
 }
+
 /**
  * 更新状态文字
  */
@@ -1495,10 +1491,16 @@ function renderDateChangeList() {
         console.warn('dateChangeList元素不存在');
         return;
     }
-    tb.innerHTML = ''; // 强制清空旧内容，触发DOM重绘
+    
+    console.log('渲染日期更换列表，数据量:', filteredDateChange.length);
+    
+    tb.innerHTML = '';
     
     const start = (dateChangeCurrentPage - 1) * dateChangePageSize;
-    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);    
+    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);
+    
+    console.log('当前页数据量:', pageData.length);
+    
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
         return;
