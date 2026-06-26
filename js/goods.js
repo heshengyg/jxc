@@ -458,18 +458,20 @@ function switchGoodsSubTab(tab) {
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-    // 先重置页码，延迟渲染，等待DOM完全显示
-    currentPage = 1;
-const goodsTbody = document.getElementById('goodsList');
-if(goodsTbody) goodsTbody.innerHTML = '';
-setTimeout(() => {
-    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-        filterGoods();
-    } else {
-        loadGoods();
+        currentPage = 1;
+        const goodsTbody = document.getElementById('goodsList');
+        if(goodsTbody) goodsTbody.innerHTML = '';
+        setTimeout(() => {
+            if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+                filterGoods();
+            } else {
+                loadGoods();
+            }
+        }, 50);
+    } else if (tab === 'dateChange') {
+        // ✅ 添加这一行
+        loadDateChangeTab();
     }
-}, 50);
-}
 }
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
@@ -1421,48 +1423,43 @@ function getNeedUpdateGoodsList() {
 function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // ✅ 强制重新计算，不使用缓存
-    dateChangeData = getNeedUpdateGoodsList();
-    filteredDateChange = [...dateChangeData];
-    
-    console.log('需要更新的商品数量:', dateChangeData.length);
-    
-    // 更新按钮状态
-    const btn = document.getElementById('batchUpdateDateBtn');
-    if (btn) {
-        const count = dateChangeData.length;
-        if (count > 0) {
-            btn.style.background = '#ff4d4f';
-            btn.style.color = '#ffffff';
-            btn.style.fontWeight = 'bold';
-            btn.style.cursor = 'pointer';
-            btn.textContent = `需更新 (${count})`;
-            btn.disabled = false;
-        } else {
-            btn.style.background = '#d9d9d9';
-            btn.style.color = '#999999';
-            btn.style.fontWeight = 'normal';
-            btn.style.cursor = 'not-allowed';
-            btn.textContent = '需更新 (0)';
-            btn.disabled = true;
+    // 先确保商品数据已加载
+    function checkAndLoad() {
+        if (!allGoods || allGoods.length === 0) {
+            console.log('商品数据未加载，先加载商品...');
+            loadGoods();
+            setTimeout(checkAndLoad, 300);
+            return;
         }
+        
+        if (!allStockBatchList || allStockBatchList.length === 0) {
+            console.log('库存批次数据未加载，先加载库存...');
+            if (typeof loadStockStock === 'function') {
+                loadStockStock();
+            }
+            setTimeout(checkAndLoad, 500);
+            return;
+        }
+        
+        // 数据都存在，执行加载
+        console.log('数据已就绪，开始加载列表...');
+        doLoadDateChange();
     }
     
-    // 更新状态文字
-    const statusEl = document.getElementById('dateChangeStatus');
-    if (statusEl) {
-        if (dateChangeData.length > 0) {
-            statusEl.textContent = `需更新：${dateChangeData.length} 条`;
-            statusEl.style.color = '#ff6b6b';
-        } else {
-            statusEl.textContent = '✅ 所有商品日期已是最新';
-            statusEl.style.color = '#52c41a';
-        }
+    function doLoadDateChange() {
+        dateChangeData = getNeedUpdateGoodsList();
+        filteredDateChange = [...dateChangeData];
+        
+        console.log('需要更新的商品数量:', dateChangeData.length);
+        
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
     }
     
-    dateChangeCurrentPage = 1;
-    renderDateChangePagination();
-    renderDateChangeList();
+    checkAndLoad();
 }
 
 /**
