@@ -335,14 +335,10 @@ function renderReturnGoodsList(list) {
             document.getElementById('returnSettleType').value = goods.channel || '';
             document.getElementById('returnSalePrice').value = formatMoney(goods.sale_price);
             box.style.display = 'none';
-            
-            // 如果供应商未选，自动填充供应商
-            if (!returnSelectedSupplier && goods.supplier) {
-                returnSelectedSupplier = goods.supplier;
-                document.getElementById('returnSupplierSearch').value = goods.supplier;
-            }
-            
+            // ✅ 不再自动填充供应商
+            // 更新规格列表
             updateReturnSpecList();
+            // 更新批次列表
             updateReturnBatchList();
         };
         box.appendChild(div);
@@ -451,70 +447,86 @@ function updateReturnBatchList() {
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
     
-    // 如果没有供应商也没有商品，显示提示
+    // 如果没有任何条件，显示提示
     if (!supplier && !goodsName) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
         return;
     }
     
-    // 如果有商品名但没有供应商，尝试自动匹配
-    let targetSupplier = supplier;
-    let targetGoods = goodsName;
-    
-    if (!targetSupplier && targetGoods) {
-        const matched = allGoods.filter(g => g.name === targetGoods);
-        if (matched.length === 1) {
-            targetSupplier = matched[0].supplier;
-            returnSelectedSupplier = targetSupplier;
-            document.getElementById('returnSupplierSearch').value = targetSupplier;
-        } else if (matched.length > 1) {
-            container.innerHTML = `<div style="padding:20px;text-align:center;color:#ff6b6b;">商品"${targetGoods}"有多个供应商，请先选择供应商</div>`;
-            return;
-        }
+    // 获取所有批次
+    let allBatches = [];
+    if (supplier && goodsName) {
+        // 有供应商 + 商品名：精确匹配
+        allBatches = getStockBatchList(supplier, goodsName);
+    } else if (supplier) {
+        // 只有供应商：获取该供应商所有商品的所有批次
+        const goodsList = allGoods.filter(g => g.supplier === supplier);
+        goodsList.forEach(g => {
+            const batches = getStockBatchList(supplier, g.name);
+            batches.forEach(b => {
+                // 检查是否已经存在（避免重复）
+                const exists = allBatches.some(existing => 
+                    existing.goodsName === b.goodsName && 
+                    existing.spec === b.spec &&
+                    existing.inRecords && b.inRecords &&
+                    existing.inRecords[0]?.id === b.inRecords[0]?.id
+                );
+                if (!exists) {
+                    allBatches.push(b);
+                }
+            });
+        });
+    } else if (goodsName) {
+        // 只有商品名：搜索所有供应商中该商品的有库存批次
+        const matchedGoods = allGoods.filter(g => g.name === goodsName);
+        matchedGoods.forEach(g => {
+            const batches = getStockBatchList(g.supplier, g.name);
+            batches.forEach(b => {
+                const exists = allBatches.some(existing => 
+                    existing.goodsName === b.goodsName && 
+                    existing.spec === b.spec &&
+                    existing.inRecords && b.inRecords &&
+                    existing.inRecords[0]?.id === b.inRecords[0]?.id
+                );
+                if (!exists) {
+                    allBatches.push(b);
+                }
+            });
+        });
     }
     
-    if (!targetSupplier) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商</div>';
-        return;
-    }
-    
-    // 获取批次列表
-    let batchList = getStockBatchList(targetSupplier, targetGoods || '');
-    
-    // 如果有商品名，过滤
-    if (targetGoods) {
-        batchList = batchList.filter(b => b.goodsName === targetGoods);
-    }
-    
-    // 如果有规格，过滤
+    // 如果选了规格，进一步过滤
     if (spec && spec !== '全部规格' && spec !== '-') {
-        batchList = batchList.filter(b => (b.spec || '') === spec);
+        allBatches = allBatches.filter(b => (b.spec || '') === spec);
     }
     
     // 只显示有库存的批次
-    batchList = batchList.filter(b => b.batchRemain > 0);
+    allBatches = allBatches.filter(b => b.batchRemain > 0);
     
-    if (batchList.length === 0) {
+    if (allBatches.length === 0) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无有库存的批次</div>';
         return;
     }
     
-    // 渲染批次列表 - 生产日期和到期日期分两列
+    // 渲染批次列表
     let html = `
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
                 <tr style="background:#f5f7fa;">
                     <th style="padding:8px;border:1px solid #ddd;text-align:center;width:50px;">选择</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">供应商</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">商品名</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">规格</th>
                     <th style="padding:8px;border:1px solid #ddd;text-align:center;">生产日期</th>
                     <th style="padding:8px;border:1px solid #ddd;text-align:center;">到期日期</th>
-                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:100px;">入库单价</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:90px;">入库单价</th>
                     <th style="padding:8px;border:1px solid #ddd;text-align:center;width:80px;">批次库存</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
-    batchList.forEach((batch, idx) => {
+    allBatches.forEach((batch, idx) => {
         const produceDate = batch.produce_date && batch.produce_date !== '-' ? batch.produce_date : '-';
         const expireDate = batch.expire_date && batch.expire_date !== '-' ? batch.expire_date : '-';
         const isSelected = batch.inRecords && batch.inRecords[0] && selectedBatchInRecordId === batch.inRecords[0].id;
@@ -524,6 +536,9 @@ function updateReturnBatchList() {
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">
                     <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onchange="selectReturnBatch(${idx})">
                 </td>
+                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.supplier}</td>
+                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.goodsName}</td>
+                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.spec || '-'}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${produceDate}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${expireDate}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatMoney(batch.inRecords && batch.inRecords[0] ? batch.inRecords[0].in_price : 0)}</td>
@@ -537,38 +552,65 @@ function updateReturnBatchList() {
 }
 
 function selectReturnBatch(index) {
-    const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
-    const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
+    const container = document.getElementById('returnBatchListContainer');
+    // 从表格中获取批次数据
+    const rows = container.querySelectorAll('tbody tr');
+    if (index >= rows.length) return;
+    
+    const row = rows[index];
+    const cells = row.querySelectorAll('td');
+    // 供应商在第2列（索引1），商品名在第3列（索引2）
+    const supplier = cells[1]?.textContent.trim() || '';
+    const goodsName = cells[2]?.textContent.trim() || '';
+    const spec = cells[3]?.textContent.trim() || '';
+    const inPriceText = cells[6]?.textContent.trim() || '￥0.00';
+    const batchRemain = parseInt(cells[7]?.textContent.trim()) || 0;
     
     if (!supplier || !goodsName) {
-        showMsg('请先选择供应商和商品');
+        showMsg('批次数据异常');
         return;
     }
     
+    // 获取批次详情
     let batchList = getStockBatchList(supplier, goodsName);
-    const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
-    if (spec && spec !== '全部规格' && spec !== '-') {
+    if (spec && spec !== '-') {
         batchList = batchList.filter(b => (b.spec || '') === spec);
     }
     batchList = batchList.filter(b => b.batchRemain > 0);
     
-    if (index >= batchList.length) return;
+    // 找到匹配的批次
+    let targetBatch = null;
+    for (const batch of batchList) {
+        if (batch.inRecords && batch.inRecords.length > 0) {
+            const inRecord = batch.inRecords[0];
+            const price = inRecord.in_price || 0;
+            if (price === parseFloat(inPriceText.replace('￥', '')) || 
+                Math.abs(price - parseFloat(inPriceText.replace('￥', ''))) < 0.01) {
+                targetBatch = batch;
+                break;
+            }
+        }
+    }
     
-    const batch = batchList[index];
-    if (!batch || !batch.inRecords || batch.inRecords.length === 0) {
-        showMsg('该批次数据异常');
+    if (!targetBatch) {
+        showMsg('找不到匹配的批次');
         return;
     }
     
-    const inRecord = batch.inRecords[0];
+    const inRecord = targetBatch.inRecords[0];
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
         inPrice: inRecord.in_price || 0,
-        batchRemain: batch.batchRemain,
-        produceDate: batch.produce_date || '',
-        expireDate: batch.expire_date || ''
+        batchRemain: targetBatch.batchRemain,
+        produceDate: targetBatch.produce_date || '',
+        expireDate: targetBatch.expire_date || ''
     };
+    
+    // 自动填充供应商和商品（仅用于提交，不反向联动下拉）
+    returnSelectedSupplier = supplier;
+    returnSelectedGoods = goodsName;
+    returnSelectedSpec = spec;
     
     const produceDisplay = selectedBatchData.produceDate || '-';
     const expireDisplay = selectedBatchData.expireDate || '-';
@@ -576,6 +618,9 @@ function selectReturnBatch(index) {
     document.getElementById('returnSelectedBatchInfo').innerHTML = `
         <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                <span><strong>供应商：</strong>${supplier}</span>
+                <span><strong>商品：</strong>${goodsName}</span>
+                <span><strong>规格：</strong>${spec || '-'}</span>
                 <span><strong>生产日期：</strong>${produceDisplay}</span>
                 <span><strong>到期日期：</strong>${expireDisplay}</span>
                 <span><strong>入库单价：</strong>${formatMoney(selectedBatchData.inPrice)}</span>
