@@ -1144,10 +1144,10 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
         
         // 筛选出该商品的所有批次
         const batchList = allStockBatchList.filter(function(item) {
-            return item.supplier === supplier && 
-                   item.goodsName === goodsName && 
-                   item.spec === (spec || '-');
-        });
+    return item.supplier === supplier && 
+           item.goodsName === goodsName && 
+           (item.spec === spec || (spec === '-' && (item.spec === null || item.spec === undefined)));
+});
         
         if (!batchList || batchList.length === 0) {
             return null;
@@ -1275,7 +1275,7 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
  * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
  */
 function checkNeedDateUpdate(goodsItem) {
-    const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec);
+    const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec || '-');
     if (!earliest || earliest.batchRemain <= 0) {
         return { needUpdate: false, earliest: null };
     }
@@ -1372,44 +1372,32 @@ function getNeedUpdateGoodsList() {
 /**
  * 加载后台更换日期列表
  */
-function loadDateChangeTab() {
+async function loadDateChangeTab() {
+    // 强制重置两个加载锁，清除旧缓存
+    isLoadingGoods = false;
+    isGoodsLoaded = false;
+    // 等待商品数据加载完成
+    await loadGoods();
+
+    // 拉取最新批次数据
+    let batchRes = await fetch(`${SUPABASE_URL}/rest/v1/allStockBatchList`);
+    allStockBatchList = await batchRes.json();
+    
     console.log('加载后台更换日期...');
-    
-    // 确保 allGoods 已加载
-    if (!allGoods || allGoods.length === 0) {
-        loadGoods().then(function() {
-            if (typeof loadStockStock === 'function') {
-                loadStockStock();
-            }
-            setTimeout(function() {
-                dateChangeData = getNeedUpdateGoodsList();
-                filteredDateChange = [...dateChangeData];
-                updateDateChangeButton();
-                updateDateChangeStatus();
-                dateChangeCurrentPage = 1;
-                renderDateChangePagination();
-                renderDateChangeList();
-            }, 500);
-        });
-        return;
-    }
-    
-    // 确保库存数据已加载
+
     if (typeof loadStockStock === 'function') {
         loadStockStock();
     }
-    
-    setTimeout(function() {
-        dateChangeData = getNeedUpdateGoodsList();
-        filteredDateChange = [...dateChangeData];
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    }, 300);
-}
 
+    // 直接渲染，删除300ms延时
+    dateChangeData = getNeedUpdateGoodsList();
+    filteredDateChange = [...dateChangeData];
+    updateDateChangeButton();
+    updateDateChangeStatus();
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
 /**
  * 更新状态文字
  */
@@ -1460,10 +1448,10 @@ function renderDateChangeList() {
         console.warn('dateChangeList元素不存在');
         return;
     }
+    tb.innerHTML = ''; // 强制清空旧内容，触发DOM重绘
     
     const start = (dateChangeCurrentPage - 1) * dateChangePageSize;
-    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);
-    
+    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);    
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
         return;
