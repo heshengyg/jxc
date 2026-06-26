@@ -303,6 +303,70 @@
         </div>
     </div>
 
+<!-- ✅ 退货管理 -->
+    <div id="returnGoods" class="tab-content">
+        <h3>退货管理</h3>
+        <div class="stat-bar">
+            共 <span id="returnTotalCount">0</span> 条退货记录，当前搜索结果 <span id="returnSearchCount">0</span> 条
+        </div>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
+            <button class="btn btn-success" onclick="downloadReturnTemplate()">下载导入模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('returnFileInput').click()">批量导入</button>
+            <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
+            <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
+            <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
+            <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
+
+            <select id="returnSearchField">
+                <option value="supplier">按供应商搜索</option>
+                <option value="goods_name">按商品名搜索</option>
+            </select>
+            <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
+            <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="returnSelectAll" onchange="returnToggleSelectAll()"> 选择</th>
+                        <th>序号</th>
+                        <th class="sortable" onclick="returnSortTable('supplier')">供应商 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('goods_name')">商品名 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('spec')">规格 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('settle_type')">结算方式 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('in_price')">退货单价 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('return_num')">退货数量 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('return_amount')">退货金额 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('sale_price')">销售单价 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('sale_amount')">销售金额 <span class="returnSortIcon"></span></th>
+                        <th class="sortable" onclick="returnSortTable('record_date')">录入日期 <span class="returnSortIcon"></span></th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="returnGoodsList"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <div class="page-info">
+                每页显示 <select id="returnPageSize" onchange="changeReturnPageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="returnCurrentPage">1</span> / <span id="returnTotalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="returnGoToPage(1)">首页</button>
+                <button class="page-btn" onclick="returnPrevPage()">上一页</button>
+                <span id="returnPageNumbers"></span>
+                <button class="page-btn" onclick="returnNextPage()">下一页</button>
+                <button class="page-btn" onclick="returnGoToPage(returnTotalPages)">末页</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ========== 新增：出库管理模块 ========== -->
     <div id="stockOut" class="tab-content">
         <h3>出库管理</h3>
