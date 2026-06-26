@@ -1114,9 +1114,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (settleTypeContent) settleTypeContent.style.display = 'none';
     if (dateChangeContent) dateChangeContent.style.display = 'none';
     
-    // ✅ 改为调用 refreshGoods，与手动点击刷新列表保持一致
+    // ✅ 加载商品数据
     refreshGoods();
+    
+    // ✅ 加载库存数据（供后台更换日期使用）
+    if (typeof loadStockStock === 'function') {
+        loadStockStock();
+    }
 });
+
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
@@ -1372,34 +1378,49 @@ function getNeedUpdateGoodsList() {
 /**
  * 加载后台更换日期列表
  */
-async function loadDateChangeTab() {
+function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // ✅ 先确保商品数据已加载
+    // ✅ 如果商品数据未加载，先加载
     if (!allGoods || allGoods.length === 0) {
-        await loadGoods();
+        loadGoods().then(function() {
+            // 商品加载完成后，加载库存数据
+            if (typeof loadStockStock === 'function') {
+                loadStockStock();
+            }
+            // 延迟执行，等待库存数据加载
+            setTimeout(function() {
+                dateChangeData = getNeedUpdateGoodsList();
+                filteredDateChange = [...dateChangeData];
+                updateDateChangeButton();
+                updateDateChangeStatus();
+                dateChangeCurrentPage = 1;
+                renderDateChangePagination();
+                renderDateChangeList();
+            }, 500);
+        });
+        return;
     }
     
-    // ✅ 确保库存批次数据已加载（从 stockStock.js 中获取）
-    if (typeof loadStockStock === 'function') {
-        // 如果 allStockBatchList 为空，调用 loadStockStock 加载
-        if (!allStockBatchList || allStockBatchList.length === 0) {
-            console.log('加载库存批次数据...');
-            await loadStockStock();
-            console.log('库存批次数据加载完成，共', allStockBatchList ? allStockBatchList.length : 0, '条');
-        }
-    }
-    
-    // ✅ 如果 allStockBatchList 仍然为空，可能是数据还没准备好，延迟重试
+    // ✅ 如果库存数据未加载，加载库存数据
     if (!allStockBatchList || allStockBatchList.length === 0) {
-        console.log('库存批次数据为空，等待重试...');
+        if (typeof loadStockStock === 'function') {
+            loadStockStock();
+        }
+        // 延迟执行，等待库存数据加载
         setTimeout(function() {
-            loadDateChangeTab();
+            dateChangeData = getNeedUpdateGoodsList();
+            filteredDateChange = [...dateChangeData];
+            updateDateChangeButton();
+            updateDateChangeStatus();
+            dateChangeCurrentPage = 1;
+            renderDateChangePagination();
+            renderDateChangeList();
         }, 500);
         return;
     }
     
-    // ✅ 重新计算需要更新的商品列表
+    // ✅ 数据都已存在，直接渲染
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
     updateDateChangeButton();
@@ -1408,7 +1429,6 @@ async function loadDateChangeTab() {
     renderDateChangePagination();
     renderDateChangeList();
 }
-
 /**
  * 更新状态文字
  */
