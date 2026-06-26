@@ -1,4 +1,8 @@
-// ===================== 全局变量区（所有模块仅在此声明） =====================
+// ===================== 全局变量区（所有模块仅在此声明） 
+// 退货模块
+let allReturnGoods = [];
+let filteredReturnGoods = [];
+=====================
 // 页面缓存：存储入库、出库已加载分页数据，切换不用重新请求
 let pageCache = {
     stockIn: { data: null, page: 1 },
@@ -143,6 +147,9 @@ function switchTab(tabId) {
             case 'stockIn':
                 if (typeof loadStockIn === 'function') loadStockIn();
                 break;
+            case 'returnGoods':  // ✅ 新增退货管理
+                if (typeof loadReturnGoods === 'function') loadReturnGoods();
+                break;
             case 'stockOut':
                 if (typeof loadStockOut === 'function') loadStockOut();
                 break;
@@ -195,38 +202,29 @@ function getStockBatchList(supplier, goodsName) {
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
-    // 3. 统计每个批次已出库总量（关键修复：解析JSON字符串）
+   // 3. 统计每个批次已出库总量 + 已退货总量
     Object.values(batchMap).forEach(batch => {
         let outTotal = 0;
+        let returnTotal = 0;
+        
+        // 统计出库（原有逻辑）
         allStockOut.forEach(out => {
-            if (out.supplier === supplier && out.goodsName === goodsName) {
-                if (out.outDetail) {
-                    try {
-                        // 先判断outDetail是不是字符串，如果是则解析
-                        let detailList = typeof out.outDetail === 'string' 
-                            ? JSON.parse(out.outDetail) 
-                            : out.outDetail;
-                        if (Array.isArray(detailList)) {
-                            detailList.forEach(detail => {
-                                let isInBatch = batch.inRecords.some(inItem => inItem.id === detail.inRecordId);
-                                if (isInBatch) {
-                                    outTotal += Number(detail.useNum);
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        console.error('解析outDetail失败', out.outDetail, e);
-                    }
-                } else if (out.inRecordId) {
-                    // 兼容旧版出库记录
-                    let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
+            // ... 原有出库统计代码 ...
+        });
+        
+        // ✅ 新增：统计退货
+        if (allReturnGoods && allReturnGoods.length > 0) {
+            allReturnGoods.forEach(returnItem => {
+                if (returnItem.supplier === supplier && returnItem.goods_name === goodsName) {
+                    let isInBatch = batch.inRecords.some(inItem => inItem.id === returnItem.in_record_id);
                     if (isInBatch) {
-                        outTotal += Number(out.outNum);
+                        returnTotal += Number(returnItem.return_num);
                     }
                 }
-            }
-        });
-        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
+            });
+        }
+        
+        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal - returnTotal);
     });
 
     // 4. 过滤库存为0的批次
