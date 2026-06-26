@@ -1372,25 +1372,49 @@ function checkNeedDateUpdate(goodsItem) {
  */
 function getNeedUpdateGoodsList() {
     const result = [];
-    if (!allGoods || allGoods.length === 0) return result;
+    if (!allGoods || allGoods.length === 0) {
+        console.log('allGoods 为空');
+        return result;
+    }
+    
+    console.log('开始遍历商品，总数:', allGoods.length);
     
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
+        console.log('商品:', item.name, 'needUpdate:', check.needUpdate);
+        
         if (check.needUpdate && check.earliest) {
+            console.log('✅ 添加商品到列表:', item.name);
+            
+            // ✅ 手动构造数据，不使用扩展运算符
             result.push({
-                ...item,
+                id: item.id,
+                supplier: item.supplier || '',
+                name: item.name || '',
+                spec: item.spec || '-',
+                channel: item.channel || '',
+                sale_price: item.sale_price || 0,
+                online_cost: item.online_cost || 0,
+                tax_rate: item.tax_rate || '',
+                warn_num: item.warn_num || 0,
+                shelf_life_num: item.shelf_life_num || '',
+                shelf_life_unit: item.shelf_life_unit || '',
+                saved_produce_date: item.saved_produce_date || null,
+                saved_expire_date: item.saved_expire_date || null,
+                saved_date_updated_at: item.saved_date_updated_at || null,
                 earliestBatch: check.earliest,
                 dateType: check.dateType,
                 dateValue: check.dateValue,
-                displayValue: check.displayValue,
+                displayValue: check.displayValue || '',
                 batchRemain: check.earliest.batchRemain || 0,
                 recordDate: check.earliest.recordDate || null
             });
         }
     }
+    
+    console.log('需要更新的商品总数:', result.length);
     return result;
 }
-
 /**
  * 加载后台更换日期列表
  */
