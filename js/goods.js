@@ -1401,6 +1401,7 @@ async function loadDateChangeTab() {
         renderDateChangeList();
     }, 300);
 }
+}
     
     // 确保库存数据已加载
     if (typeof loadStockStock === 'function') {
