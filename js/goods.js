@@ -760,6 +760,12 @@ function updateSortIcon() {
 }
 
 async function renderGoods() {
+    // 【新增兜底代码：最开头强制获取并清空表格，防止旧数据残留重复渲染】
+    const goodsTbody = document.getElementById('goodsList');
+    if (goodsTbody) {
+        goodsTbody.innerHTML = '';
+    }
+
     let tb = document.getElementById('goodsList');
     if (!tb) {
         console.warn('goodsList元素不存在，等待重试...');

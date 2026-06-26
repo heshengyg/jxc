@@ -538,11 +538,6 @@ async function renderStockIn() {
     tb.innerHTML = fullHtml;
 }
 
-// ✅ 强制重新计算高度
-if (tb.parentElement) {
-    tb.parentElement.style.maxHeight = 'none';
-    tb.parentElement.style.height = 'auto';
-}
 // 分页渲染
 function renderInPagination() {
     inTotalPages = Math.ceil(filteredStockIn.length / inPageSize) || 1;
