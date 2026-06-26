@@ -1148,18 +1148,23 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             return null;
         }
         
-        // 筛选出该商品的所有批次
+        // ✅ 筛选出该商品的所有批次 - 修复 spec 匹配
         const batchList = allStockBatchList.filter(function(item) {
-    return item.supplier === supplier && 
-           item.goodsName === goodsName && 
-           (item.spec === spec || (spec === '-' && (item.spec === null || item.spec === undefined)));
-});
+            // 供应商和商品名必须匹配
+            if (item.supplier !== supplier || item.goodsName !== goodsName) {
+                return false;
+            }
+            // 规格匹配：如果商品规格为null或'-'，匹配库存中规格为'-'或null的
+            const itemSpec = item.spec || '-';
+            const targetSpec = spec || '-';
+            return itemSpec === targetSpec;
+        });
         
         if (!batchList || batchList.length === 0) {
             return null;
         }
         
-        // ✅ 按日期排序：取日期最早的批次
+        // ✅ 按日期排序：有生产日期的按生产日期升序，有到期日期的按到期日期升序
         batchList.sort(function(a, b) {
             const getDate = function(item) {
                 if (item.produce_date && item.produce_date !== '-') {
@@ -1173,26 +1178,28 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             const dateA = getDate(a);
             const dateB = getDate(b);
             
+            // 都没有日期
             if (!dateA && !dateB) return 0;
             if (!dateA) return 1;
             if (!dateB) return -1;
             
+            // 按日期升序（最早的在前）
             return dateA.date - dateB.date;
         });
         
         // 取排序后的第一个批次（最早批次）
         const earliest = batchList[0];
         
+        console.log('最早批次:', earliest.goodsName, '生产日期:', earliest.produce_date, '到期日期:', earliest.expire_date);
+        
         // ✅ 获取该批次对应的入库记录，提取录入日期
         let recordDate = null;
         if (earliest && allStockIn) {
-            // 查找该批次对应的入库记录（匹配供应商+商品名+规格+生产/到期日期）
             const matchedIn = allStockIn.find(function(item) {
                 const matchSupplier = item.supplier === supplier;
                 const matchGoods = item.goodsName === goodsName;
                 const matchSpec = item.spec === (spec || null) || (item.spec === null && spec === '-');
                 
-                // 匹配生产日期或到期日期
                 let matchDate = false;
                 if (earliest.produce_date && earliest.produce_date !== '-') {
                     matchDate = item.produce_date === earliest.produce_date;
@@ -1227,7 +1234,7 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             produce_date: produceDate,
             expire_date: expireDate,
             batchRemain: earliest.batchRemain || 0,
-            recordDate: recordDate,  // ✅ 新增：录入日期
+            recordDate: recordDate,
             bzStatusText: earliest.bzStatusText || '',
             countDownText: earliest.countDownText || '',
             dateType: dateType,
@@ -1286,9 +1293,12 @@ function checkNeedDateUpdate(goodsItem) {
         return { needUpdate: false, earliest: null };
     }
     
-    // ✅ 使用正确的字段名
     const savedProduce = goodsItem.saved_produce_date;
     const savedExpire = goodsItem.saved_expire_date;
+    
+    console.log('检查商品:', goodsItem.name);
+    console.log('  最早批次生产日期:', earliest.produce_date);
+    console.log('  已保存生产日期:', savedProduce);
     
     let needUpdate = false;
     let dateType = '';
@@ -1325,10 +1335,13 @@ function checkNeedDateUpdate(goodsItem) {
             currentCompareStr = currentDateStr;
         }
         
+        console.log('  比对:', savedDateStr, 'vs', currentCompareStr);
+        
         if (savedDateStr !== currentCompareStr) {
             needUpdate = true;
             dateType = '生产日期';
             dateValue = earliest.produce_date;
+            console.log('  ✅ 需要更新');
         }
     }
     
@@ -1336,10 +1349,12 @@ function checkNeedDateUpdate(goodsItem) {
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
+        
         if (savedDate !== currentDate) {
             needUpdate = true;
             dateType = '到期日期';
             dateValue = earliest.expire_date;
+            console.log('  ✅ 需要更新（到期日期）');
         }
     }
     
@@ -1351,6 +1366,7 @@ function checkNeedDateUpdate(goodsItem) {
         displayValue: dateValue ? formatDateTimeValue(dateValue, dateType, goodsItem) : ''
     };
 }
+
 /**
  * 获取所有需要更新日期的商品列表
  */
