@@ -1372,7 +1372,11 @@ function getNeedUpdateGoodsList() {
 /**
  * 加载后台更换日期列表
  */
-function loadDateChangeTab() {
+async function loadDateChangeTab() {
+    // 每次进入都重新拉最新批次，避免缓存导致日期不更新
+    let batchRes = await fetch(`${SUPABASE_URL}/rest/v1/allStockBatchList`);
+    allStockBatchList = await batchRes.json();
+    
     console.log('加载后台更换日期...');
     
     // 确保 allGoods 已加载
