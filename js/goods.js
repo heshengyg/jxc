@@ -1,3 +1,4 @@
+let goodsUsedCache = new Map();
 let isLoadingGoods = false;  // ✅ 添加这行
 let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
@@ -295,8 +296,8 @@ async function submitSettleForm() {
         
         closeSettleModal();
         // 先重新加载商品数据，再加载结算类型
-        await loadGoods();
-        await loadSettleList();
+        loadGoods();
+        loadSettleList();
         loadSupplierSelect();
     } catch (e) {
         showMsg('操作失败：' + e.message);
@@ -459,14 +460,15 @@ function switchGoodsSubTab(tab) {
     } else if (tab === 'goodsInfo') {
     // 先重置页码，延迟渲染，等待DOM完全显示
     currentPage = 1;
-    setTimeout(() => {
-        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-            filterGoods();
-        } else {
-            loadGoods();
-        }
-    }, 50);
-}
+const goodsTbody = document.getElementById('goodsList');
+if(goodsTbody) goodsTbody.innerHTML = '';
+setTimeout(() => {
+    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+        filterGoods();
+    } else {
+        loadGoods();
+    }
+}, 50);
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
@@ -753,7 +755,18 @@ function filterGoods() {
     searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
-    renderGoods();
+
+    // 批量预查当前页商品是否被使用
+    (async () => {
+        const start = (currentPage - 1) * pageSize;
+        const pageData = filteredGoods.slice(start, start + pageSize);
+        goodsUsedCache.clear();
+        for(const item of pageData) {
+            const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+            goodsUsedCache.set(item.id, used);
+        }
+        renderGoods();
+    })();
 }
 
 function updateSortIcon() {
@@ -762,8 +775,7 @@ function updateSortIcon() {
     if (idx > -1) document.querySelectorAll('.sort-icon')[idx].innerText = sortAsc ? '↑' : '↓';
 }
 
-async function renderGoods() {
-    // 【新增兜底代码：最开头强制获取并清空表格，防止旧数据残留重复渲染】
+function renderGoods() {
     const goodsTbody = document.getElementById('goodsList');
     if (goodsTbody) {
         goodsTbody.innerHTML = '';
@@ -776,7 +788,6 @@ async function renderGoods() {
         return;
     }
     
-    // ✅ 确保 filteredGoods 是数组且数据正确
     if (!filteredGoods || filteredGoods.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">暂无数据</td></tr>';
         return;
@@ -793,22 +804,18 @@ async function renderGoods() {
     
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
-        // ✅ 使用 idx 作为当前页内的序号，而不是全局序号
-        // 但序列号应该是全局的：start + idx + 1
-        // 从截图看，序列号是 1,2,1,3,2,4,3,5,4 说明 start 计算有问题
-        
+        const seqNum = start + idx + 1;
+
         let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
-        let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+        // 从缓存读取，不再await
+        let isUsed = goodsUsedCache.get(item.id) ?? false;
         
         let delBtn = isUsed 
             ? `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`
             : `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
         
-        // ✅ 序列号使用 start + idx + 1
-        const seqNum = start + idx + 1;
-            
         let html = `
             <tr>
                 <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
@@ -832,6 +839,7 @@ async function renderGoods() {
         tb.innerHTML += html;
     }
 }
+
 function renderPagination() {
     // ✅ 确保 filteredGoods 是数组
     const totalItems = Array.isArray(filteredGoods) ? filteredGoods.length : 0;
