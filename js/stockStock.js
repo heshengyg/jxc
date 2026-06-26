@@ -467,8 +467,8 @@ function changeStockPageSize() {
     stockPageSize = Number(document.getElementById('stockPageSize').value);
     stockCurrentPage = 1;
     renderStockPagination();
+    renderStockTable();  // ✅ 添加这行，重新渲染表格
 }
-
 /**
  * 导出库存Excel（表头严格匹配指定列名，末尾追加全局汇总行）
  */
