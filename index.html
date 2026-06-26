@@ -55,7 +55,7 @@
     <!-- 子Tab导航 -->
     <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
-        <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">结算类型</button>
+        <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
         <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">后台更换日期</button>
     </div>
 
@@ -122,14 +122,14 @@
     </div>
 </div>
 
-<!-- 子Tab：结算类型 -->
+<!-- 子Tab：供应商管理 -->
     <div id="sub-settleType" class="finance-sub-content" style="display:none;">
-        <h4>结算类型管理</h4>
+        <h4>供应商管理</h4>
         <div class="stat-bar">
             共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
         </div>
         <div class="search-bar">
-            <button class="btn btn-primary" onclick="openSettleForm()">新增结算类型</button>
+            <button class="btn btn-primary" onclick="openSettleForm()">供应商管理</button>
             <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
             <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
             <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
@@ -1268,10 +1268,10 @@ document.addEventListener('DOMContentLoaded',async function(){
 });
 </script>
 
-<!-- 结算类型弹窗 -->
+<!-- 供应商管理弹窗 -->
 <div id="settleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
     <div style="background:#fff;padding:30px;width:420px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <h4 id="settleModalTitle" style="margin-top:0;">新增结算类型</h4>
+        <h4 id="settleModalTitle" style="margin-top:0;">新增供应商</h4>
         <input type="hidden" id="settleEditId">
         <div class="form-group" style="margin:15px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">供应商 <span style="color:red;">*</span></label>
@@ -1291,7 +1291,7 @@ document.addEventListener('DOMContentLoaded',async function(){
     </div>
 </div>
 
-<!-- 结算类型批量导入文件选择框 -->
+<!-- 供应商批量导入文件选择框 -->
 <input type="file" id="settleFileInput" accept=".xlsx,.xls" onchange="importSettleExcel()" hidden>
 </body>
 </html>
