@@ -470,6 +470,7 @@ setTimeout(() => {
     }
 }, 50);
 }
+}
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
