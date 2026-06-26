@@ -3,6 +3,7 @@ let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // 刷新商品列表
 function refreshGoods() {
+    if(isLoadingGoods) return;
     loadGoods();
 }
 // ========== 校验商品是否存在入库记录 ==========
@@ -510,6 +511,9 @@ async function loadGoods() {
     // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
     if (isGoodsLoaded && allGoods && allGoods.length > 0) {
         console.log('商品数据已加载，直接渲染');
+    // ============ 新增2行：渲染前强制清空表格 ============
+    const goodsTbody = document.getElementById('goodsList');
+    if(goodsTbody) goodsTbody.innerHTML = '';
         // 确保 filteredGoods 正确
         let searchField = document.getElementById('searchField');
         if (searchField) {

@@ -27,7 +27,6 @@ body { background: #f5f7fa; padding: 20px; }
 .btn-danger { background: #ff4d4f; color: white; }
 .btn-default { background: #ccc; color: #333; }
 
-.table-container { max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { 
     border: 1px solid #ccc; 
@@ -190,7 +189,8 @@ tbody tr:hover { background-color: #e6f7ef; }
     display: block;
 }
 .table-container { 
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto; 
     border: 1px solid #eee; 
     border-radius: 4px; 
 }
