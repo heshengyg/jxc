@@ -1,7 +1,5 @@
 // ===================== 退货管理模块 =====================
 // 全局变量
-let allReturnGoods = [];
-let filteredReturnGoods = [];
 let returnCurrentPage = 1;
 let returnPageSize = 10;
 let returnTotalPages = 1;
