@@ -1373,15 +1373,13 @@ function getNeedUpdateGoodsList() {
  * 加载后台更换日期列表
  */
 async function loadDateChangeTab() {
-    // 等待正在进行的商品加载完成，避免直接拦截
-    while (isLoadingGoods) {
-        await new Promise(res => setTimeout(res, 50));
-    }
-    // 强制刷新商品缓存，拉取最新saved_*字段
+    // 强制重置两个加载锁，清除旧缓存
+    isLoadingGoods = false;
     isGoodsLoaded = false;
+    // 必须加 await，等待商品数据完全请求返回
     await loadGoods();
 
-    // 拉最新批次
+    // 拉取最新批次数据
     let batchRes = await fetch(`${SUPABASE_URL}/rest/v1/allStockBatchList`);
     allStockBatchList = await batchRes.json();
     
@@ -1400,7 +1398,7 @@ async function loadDateChangeTab() {
         renderDateChangePagination();
         renderDateChangeList();
     }, 300);
-}    
+} 
 
 /**
  * 更新状态文字
