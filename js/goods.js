@@ -1400,24 +1400,7 @@ async function loadDateChangeTab() {
         renderDateChangePagination();
         renderDateChangeList();
     }, 300);
-}
-}
-    
-    // 确保库存数据已加载
-    if (typeof loadStockStock === 'function') {
-        loadStockStock();
-    }
-    
-    setTimeout(function() {
-        dateChangeData = getNeedUpdateGoodsList();
-        filteredDateChange = [...dateChangeData];
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    }, 300);
-}
+}    
 
 /**
  * 更新状态文字
