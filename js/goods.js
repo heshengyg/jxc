@@ -457,15 +457,14 @@ function switchGoodsSubTab(tab) {
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-        // ✅ 如果数据已加载，直接渲染
-        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-            currentPage = 1;
-            filterGoods();
-        } else {
-            loadGoods();
-        }
-    } else if (tab === 'dateChange') {
-        loadDateChangeTab();
+    // 切换商品列表页强制重置第一页、清空表格
+    currentPage = 1;
+    const goodsTbody = document.getElementById('goodsList');
+    if(goodsTbody) goodsTbody.innerHTML = '';
+    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+        filterGoods();
+    } else {
+        loadGoods();
     }
 }
 
@@ -511,10 +510,8 @@ async function loadGoods() {
     // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
     if (isGoodsLoaded && allGoods && allGoods.length > 0) {
         console.log('商品数据已加载，直接渲染');
-    // ============ 新增2行：渲染前强制清空表格 ============
-    const goodsTbody = document.getElementById('goodsList');
-    if(goodsTbody) goodsTbody.innerHTML = '';
-        // 确保 filteredGoods 正确
+        const goodsTbody = document.getElementById('goodsList');
+        if(goodsTbody) goodsTbody.innerHTML = '';
         let searchField = document.getElementById('searchField');
         if (searchField) {
             filterGoods();
@@ -536,7 +533,17 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
-        allGoods = list.sort((a, b) => b.id - a.id);
+
+        // ========== 修复：1、先根据ID去重 2、再按ID倒序排序 ==========
+        const uniqueMap = new Map();
+        list.forEach(item => {
+            if (!uniqueMap.has(item.id)) {
+                uniqueMap.set(item.id, item);
+            }
+        });
+        // 去重后再排序：ID从大到小（最新创建的商品排在最前面）
+        allGoods = Array.from(uniqueMap.values()).sort((a, b) => b.id - a.id);
+        
         window.allGoods = allGoods;
         isGoodsLoaded = true;
         
@@ -739,16 +746,7 @@ function filterGoods() {
     if (!allGoods || !Array.isArray(allGoods)) {
         filteredGoods = [];
     } else {
-        // ✅ 使用 Map 去重，确保相同 id 只保留一个
-        const uniqueMap = new Map();
-        allGoods.forEach(item => {
-            if (!uniqueMap.has(item.id)) {
-                uniqueMap.set(item.id, item);
-            }
-        });
-        const uniqueGoods = Array.from(uniqueMap.values());
-        
-        filteredGoods = uniqueGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+        filteredGoods = allGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
     }
     
     searchCount.textContent = filteredGoods.length;
