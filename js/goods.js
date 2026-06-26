@@ -1003,6 +1003,10 @@ function closeForm() {
 }
 
 function isDuplicate(supplier, name, spec, editId) {
+    // ✅ 确保 allGoods 是最新的
+    if (!allGoods || allGoods.length === 0) {
+        return false;
+    }
     return allGoods.some(item => {
         if (editId && +item.id === +editId) return false;
         return (item.supplier || '').trim() === supplier.trim()
@@ -1067,7 +1071,8 @@ async function submitForm() {
             showMsg('新增成功');
         }
         closeForm();
-        loadGoods();
+        // ✅ 强制重新加载商品数据，绕过缓存
+        await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
         }
@@ -1089,7 +1094,8 @@ async function deleteGoods(id) {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         showMsg('删除成功');
-        loadGoods();
+        // ✅ 强制重新加载商品数据，绕过缓存
+        await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
         }
@@ -1104,7 +1110,6 @@ async function batchDelete() {
     
     document.querySelectorAll('.item-checkbox').forEach(cb => {
         if (cb.checked) {
-            // 如果checkbox被禁用（即有入库记录），标记并跳过
             if (cb.disabled) {
                 hasDisabled = true;
             } else {
@@ -1122,7 +1127,6 @@ async function batchDelete() {
         return;
     }
     
-    // 再次校验选中的商品是否真的可以删除（双重保险）
     let hasUsed = false;
     for (let id of ids) {
         let item = allGoods.find(g => g.id == id);
@@ -1144,7 +1148,8 @@ async function batchDelete() {
         });
     }
     showMsg('批量删除成功');
-    loadGoods();
+    // ✅ 强制重新加载商品数据，绕过缓存
+    await loadGoods(true);
     if (typeof loadAllGoods === 'function') {
         await loadAllGoods();
     }
