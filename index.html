@@ -129,29 +129,31 @@
             共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
         </div>
         <div class="search-bar">
-            <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
-            <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
-            <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
-            <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
-            
-            <!-- 供应商搜索下拉 - 原来是 select，改为搜索下拉 -->
-<div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-    <label>供应商：</label>
-    <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:180px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-    <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-</div>
-<input type="hidden" id="settleSupplierSearch" value="">
-            
-            <!-- 结算方式搜索下拉 -->
-            <select id="settleChannelSearch" onchange="filterSettleList()">
-                <option value="">全部结算方式</option>
-                <option value="线上">线上</option>
-                <option value="线下">线下</option>
-            </select>
-            
-            <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
+    <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
+    <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
+    <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
+    <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
+    <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
+    
+    <!-- ✅ 供应商搜索下拉 - 同一行 -->
+    <div style="display:flex;align-items:center;gap:6px;">
+        <label style="white-space:nowrap;font-weight:bold;">供应商：</label>
+        <div style="position:relative;display:inline-block;">
+            <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+            <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+    </div>
+    <input type="hidden" id="settleSupplierSearch" value="">
+    
+    <!-- 结算方式搜索下拉 -->
+    <select id="settleChannelSearch" onchange="filterSettleList()" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;">
+        <option value="">全部结算方式</option>
+        <option value="线上">线上</option>
+        <option value="线下">线下</option>
+    </select>
+    
+    <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
+</div>
         <div class="table-container">
             <table>
                 <thead>
