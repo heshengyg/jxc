@@ -457,15 +457,15 @@ function switchGoodsSubTab(tab) {
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
-    // 切换商品列表页强制重置第一页、清空表格
+    // 先重置页码，延迟渲染，等待DOM完全显示
     currentPage = 1;
-    const goodsTbody = document.getElementById('goodsList');
-    if(goodsTbody) goodsTbody.innerHTML = '';
-    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-        filterGoods();
-    } else {
-        loadGoods();
-    }
+    setTimeout(() => {
+        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+            filterGoods();
+        } else {
+            loadGoods();
+        }
+    }, 50);
 }
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
@@ -510,6 +510,7 @@ async function loadGoods() {
     // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
     if (isGoodsLoaded && allGoods && allGoods.length > 0) {
         console.log('商品数据已加载，直接渲染');
+        // 仅做表格清空，不做全局数据修改
         const goodsTbody = document.getElementById('goodsList');
         if(goodsTbody) goodsTbody.innerHTML = '';
         let searchField = document.getElementById('searchField');
@@ -533,17 +534,8 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
-
-        // ========== 修复：1、先根据ID去重 2、再按ID倒序排序 ==========
-        const uniqueMap = new Map();
-        list.forEach(item => {
-            if (!uniqueMap.has(item.id)) {
-                uniqueMap.set(item.id, item);
-            }
-        });
-        // 去重后再排序：ID从大到小（最新创建的商品排在最前面）
-        allGoods = Array.from(uniqueMap.values()).sort((a, b) => b.id - a.id);
-        
+        // 恢复原始排序，不去重，避免全局变量篡改阻塞
+        allGoods = list.sort((a, b) => b.id - a.id);
         window.allGoods = allGoods;
         isGoodsLoaded = true;
         
@@ -561,8 +553,8 @@ async function loadGoods() {
             renderPagination();
             renderGoods();
         }
-        
-        await loadSettleListSilently();
+        // 异步静默加载不阻塞主线程，去掉await防止卡死
+        loadSettleListSilently();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
         console.error(e);
@@ -746,7 +738,16 @@ function filterGoods() {
     if (!allGoods || !Array.isArray(allGoods)) {
         filteredGoods = [];
     } else {
-        filteredGoods = allGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+        // 保留筛选内局部去重，不修改全局allGoods，避免数据错乱卡死
+        const uniqueMap = new Map();
+        allGoods.forEach(item => {
+            if (!uniqueMap.has(item.id)) {
+                uniqueMap.set(item.id, item);
+            }
+        });
+        const uniqueGoods = Array.from(uniqueMap.values());
+        
+        filteredGoods = uniqueGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
     }
     
     searchCount.textContent = filteredGoods.length;
