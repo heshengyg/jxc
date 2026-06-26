@@ -1376,7 +1376,7 @@ async function loadDateChangeTab() {
     // 强制重置两个加载锁，清除旧缓存
     isLoadingGoods = false;
     isGoodsLoaded = false;
-    // 必须加 await，等待商品数据完全请求返回
+    // 等待商品数据加载完成
     await loadGoods();
 
     // 拉取最新批次数据
@@ -1389,17 +1389,15 @@ async function loadDateChangeTab() {
         loadStockStock();
     }
 
-    setTimeout(function() {
-        dateChangeData = getNeedUpdateGoodsList();
-        filteredDateChange = [...dateChangeData];
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    }, 300);
-} 
-
+    // 直接渲染，删除300ms延时
+    dateChangeData = getNeedUpdateGoodsList();
+    filteredDateChange = [...dateChangeData];
+    updateDateChangeButton();
+    updateDateChangeStatus();
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
 /**
  * 更新状态文字
  */
