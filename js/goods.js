@@ -1373,23 +1373,22 @@ function getNeedUpdateGoodsList() {
  * 加载后台更换日期列表
  */
 async function loadDateChangeTab() {
-    // 强制重置两个加载锁，清除旧缓存
-    isLoadingGoods = false;
-    isGoodsLoaded = false;
-    // 等待商品数据加载完成
-    await loadGoods();
-
-    // 拉取最新批次数据
-    let batchRes = await fetch(`${SUPABASE_URL}/rest/v1/allStockBatchList`);
-    allStockBatchList = await batchRes.json();
-    
     console.log('加载后台更换日期...');
-
-    if (typeof loadStockStock === 'function') {
-        loadStockStock();
+    
+    // ✅ 先确保商品数据已加载
+    if (!allGoods || allGoods.length === 0) {
+        await loadGoods();
     }
-
-    // 直接渲染，删除300ms延时
+    
+    // ✅ 确保库存批次数据已加载（从 stockStock.js 中获取）
+    if (typeof loadStockStock === 'function') {
+        // 如果 allStockBatchList 为空，调用 loadStockStock 加载
+        if (!allStockBatchList || allStockBatchList.length === 0) {
+            await loadStockStock();
+        }
+    }
+    
+    // ✅ 重新计算需要更新的商品列表
     dateChangeData = getNeedUpdateGoodsList();
     filteredDateChange = [...dateChangeData];
     updateDateChangeButton();
