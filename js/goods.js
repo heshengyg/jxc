@@ -1384,8 +1384,19 @@ async function loadDateChangeTab() {
     if (typeof loadStockStock === 'function') {
         // 如果 allStockBatchList 为空，调用 loadStockStock 加载
         if (!allStockBatchList || allStockBatchList.length === 0) {
+            console.log('加载库存批次数据...');
             await loadStockStock();
+            console.log('库存批次数据加载完成，共', allStockBatchList ? allStockBatchList.length : 0, '条');
         }
+    }
+    
+    // ✅ 如果 allStockBatchList 仍然为空，可能是数据还没准备好，延迟重试
+    if (!allStockBatchList || allStockBatchList.length === 0) {
+        console.log('库存批次数据为空，等待重试...');
+        setTimeout(function() {
+            loadDateChangeTab();
+        }, 500);
+        return;
     }
     
     // ✅ 重新计算需要更新的商品列表
@@ -1397,6 +1408,7 @@ async function loadDateChangeTab() {
     renderDateChangePagination();
     renderDateChangeList();
 }
+
 /**
  * 更新状态文字
  */
