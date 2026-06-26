@@ -879,6 +879,8 @@ async function submitReturnGoods() {
             showMsg(editId ? '编辑成功' : '退货成功');
             closeReturnForm();
             await loadReturnGoods();
+            // ✅ 清空缓存，强制重新计算
+            stockDataCache.clear();
             refreshAllStockCache(allStockIn, allStockOut);
             if (typeof loadStockStock === 'function') {
                 loadStockStock();
@@ -926,6 +928,8 @@ async function batchDeleteReturnGoods() {
     }
     showMsg('批量删除成功');
     await loadReturnGoods();
+    // ✅ 清空缓存，强制重新计算
+    stockDataCache.clear();
     refreshAllStockCache(allStockIn, allStockOut);
     if (typeof loadStockStock === 'function') {
         loadStockStock();
