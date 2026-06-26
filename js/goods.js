@@ -99,6 +99,7 @@ function updateSettleSupplierFilter() {
 
 // 筛选结算类型列表
 function filterSettleList() {
+    // ✅ 从隐藏域获取供应商值
     let supplier = document.getElementById('settleSupplierSearch').value;
     let channel = document.getElementById('settleChannelSearch').value;
     
@@ -116,8 +117,82 @@ function filterSettleList() {
     renderSettleList();
 }
 
+// ========== 供应商管理搜索下拉 ==========
+function showSettleSupplierList() {
+    const box = document.getElementById('settleSupplierListBox');
+    if (!box) return;
+    const searchInput = document.getElementById('settleSupplierSearchInput');
+    if (!searchInput) return;
+    
+    let suppliers = settleData.map(s => s.supplier).sort();
+    box.innerHTML = '';
+    if (suppliers.length === 0) {
+        box.innerHTML = '<div style="padding:8px;color:#999;">暂无供应商</div>';
+        box.style.display = 'block';
+        return;
+    }
+    suppliers.forEach(sup => {
+        let div = document.createElement('div');
+        div.textContent = sup;
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.onmouseover = function() { this.style.background = '#e5efff'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            searchInput.value = sup;
+            document.getElementById('settleSupplierSearch').value = sup;
+            box.style.display = 'none';
+            filterSettleList();
+        };
+        box.appendChild(div);
+    });
+    box.style.display = 'block';
+}
+
+function filterSettleSupplierList() {
+    const box = document.getElementById('settleSupplierListBox');
+    if (!box) return;
+    const searchInput = document.getElementById('settleSupplierSearchInput');
+    if (!searchInput) return;
+    
+    let keyword = searchInput.value.toLowerCase();
+    let suppliers = settleData.map(s => s.supplier).sort();
+    box.innerHTML = '';
+    let filtered = suppliers.filter(s => s.toLowerCase().includes(keyword));
+    if (filtered.length === 0) {
+        box.innerHTML = '<div style="padding:8px;color:#999;">无匹配供应商</div>';
+        box.style.display = 'block';
+        return;
+    }
+    filtered.forEach(sup => {
+        let div = document.createElement('div');
+        div.textContent = sup;
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.onmouseover = function() { this.style.background = '#e5efff'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            searchInput.value = sup;
+            document.getElementById('settleSupplierSearch').value = sup;
+            box.style.display = 'none';
+            filterSettleList();
+        };
+        box.appendChild(div);
+    });
+    box.style.display = 'block';
+}
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#settleSupplierSearchInput') && !e.target.closest('#settleSupplierListBox')) {
+        const box = document.getElementById('settleSupplierListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
 // 重置结算类型搜索
 function resetSettleSearch() {
+    document.getElementById('settleSupplierSearchInput').value = '';
     document.getElementById('settleSupplierSearch').value = '';
     document.getElementById('settleChannelSearch').value = '';
     filterSettleList();
@@ -138,11 +213,20 @@ function renderSettleList() {
         return;
     }
     pageData.forEach((item, idx) => {
+        // ✅ 根据结算方式设置颜色
+        let channelColor = '';
+        let channelDisplay = item.channel || '';
+        if (channelDisplay === '线上') {
+            channelColor = 'style="color:#52c41a;font-weight:bold;"';  // 浅绿色
+        } else if (channelDisplay === '线下') {
+            channelColor = 'style="color:#ff6b6b;font-weight:bold;"';  // 浅红色
+        }
+        
         let html = `
             <tr>
                 <td>${start + idx + 1}</td>
                 <td>${item.supplier}</td>
-                <td>${item.channel}</td>
+                <td ${channelColor}>${channelDisplay}</td>
                 <td>${item.count || 0}</td>
                 <td>
                     <button class="btn btn-primary" onclick="openSettleEditForm(${item.id})">编辑</button>

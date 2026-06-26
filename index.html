@@ -135,10 +135,13 @@
             <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
             <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
             
-            <!-- 供应商搜索下拉 -->
-            <select id="settleSupplierSearch" onchange="filterSettleList()">
-                <option value="">全部供应商</option>
-            </select>
+            <!-- 供应商搜索下拉 - 原来是 select，改为搜索下拉 -->
+<div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+    <label>供应商：</label>
+    <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:180px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+    <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+</div>
+<input type="hidden" id="settleSupplierSearch" value="">
             
             <!-- 结算方式搜索下拉 -->
             <select id="settleChannelSearch" onchange="filterSettleList()">
