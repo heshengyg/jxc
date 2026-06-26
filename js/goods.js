@@ -469,8 +469,8 @@ function switchGoodsSubTab(tab) {
             }
         }, 50);
     } else if (tab === 'dateChange') {
-    // ✅ 每次点击都强制刷新
-    loadDateChangeTab(true);
+    // ✅ 每次点击都重新加载
+    loadDateChangeTab();
 }
 }
 
@@ -1419,11 +1419,11 @@ function getNeedUpdateGoodsList() {
 }
 /**
  * 加载后台更换日期列表
- * @param {boolean} force - 是否强制刷新
  */
-function loadDateChangeTab(force) {
-    console.log('加载后台更换日期...', force ? '(强制刷新)' : '');
+function loadDateChangeTab() {
+    console.log('加载后台更换日期...');
     
+    // 先确保商品数据已加载
     function checkAndLoad() {
         if (!allGoods || allGoods.length === 0) {
             console.log('商品数据未加载，先加载商品...');
@@ -1432,24 +1432,18 @@ function loadDateChangeTab(force) {
             return;
         }
         
-        // ✅ 如果是强制刷新，直接执行加载，不检查库存数据是否已存在
-        if (force) {
-            console.log('强制刷新，直接加载列表...');
+        // ✅ 每次打开都重新加载库存数据，确保最新
+        console.log('重新加载库存数据...');
+        if (typeof loadStockStock === 'function') {
+            // 重置 allStockBatchList，强制重新加载
+            allStockBatchList = [];
+            loadStockStock();
+        }
+        
+        // 延迟等待数据加载完成
+        setTimeout(function() {
             doLoadDateChange();
-            return;
-        }
-        
-        if (!allStockBatchList || allStockBatchList.length === 0) {
-            console.log('库存批次数据未加载，先加载库存...');
-            if (typeof loadStockStock === 'function') {
-                loadStockStock();
-            }
-            setTimeout(checkAndLoad, 500);
-            return;
-        }
-        
-        console.log('数据已就绪，开始加载列表...');
-        doLoadDateChange();
+        }, 500);
     }
     
     function doLoadDateChange() {
@@ -1657,8 +1651,8 @@ async function updateSingleGoodsDate(id) {
         showMsg(`✅ 商品"${item.name}"日期更新成功！`);
         // ✅ 重新加载商品数据
         await loadGoods();
-        // ✅ 强制刷新后台更换日期列表
-        loadDateChangeTab(true);
+        // ✅ 强制刷新后台更换日期列表（会重新加载库存数据）
+        loadDateChangeTab();
     } catch (e) {
         showMsg('更新失败：' + e.message);
         console.error(e);
@@ -1721,7 +1715,7 @@ async function batchUpdateGoodsDate() {
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
     await loadGoods();
     // ✅ 强制刷新后台更换日期列表
-    loadDateChangeTab(true);
+    loadDateChangeTab();
 }
 
 // ========== 日期更换分页 ==========
