@@ -107,18 +107,31 @@ function calcStockWarnStatus(totalAllStock, warnStockThreshold) {
 }
 
 /**
- * 单个入库ID 剩余库存
+ * 单个入库ID 剩余库存（同时减去出库和退货）
  */
 function getInItemRemain(inRecordId) {
     let totalOut = 0;
+    let totalReturn = 0;
+    
+    // 统计出库
     allStockOut.forEach(out => {
         if (out.inRecordId == inRecordId) {
             totalOut += Number(out.outNum || 0);
         }
     });
+    
+    // ✅ 统计退货
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        allReturnGoods.forEach(returnItem => {
+            if (returnItem.in_record_id == inRecordId) {
+                totalReturn += Number(returnItem.return_num || 0);
+            }
+        });
+    }
+    
     let inItem = allStockIn.find(x => x.id == inRecordId);
     let inNum = inItem ? Number(inItem.in_num || 0) : 0;
-    return Math.max(0, inNum - totalOut);
+    return Math.max(0, inNum - totalOut - totalReturn);
 }
 
 /**
@@ -175,9 +188,13 @@ function bindNavClickRefresh() {
  * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
-    // 前置加载全局入库、出库数据
+    // 前置加载全局入库、出库、退货数据
     if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
+    // ✅ 确保退货数据已加载
+    if (allReturnGoods.length === 0 && typeof loadReturnGoods === 'function') {
+        await loadReturnGoods();
+    }
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
