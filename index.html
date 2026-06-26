@@ -1144,7 +1144,10 @@ document.addEventListener('click', function(e) {
 <!-- 退货弹窗 -->
 <div class="form-modal" id="returnModal">
     <div class="form-container" style="max-width: 820px; padding: 25px 30px;">
-        <h4 id="returnFormTitle" style="margin:0 0 20px 0; text-align:center; font-size:18px;">添加退货单据</h4>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h4 id="returnFormTitle" style="margin:0; font-size:18px;">添加退货单据</h4>
+            <button onclick="resetReturnSearch()" style="padding:4px 16px; border:1px solid #ddd; border-radius:4px; background:#fff; cursor:pointer; font-size:13px;">🔄 重置搜索</button>
+        </div>
         <input type="hidden" id="returnEditId">
         
         <!-- 第一行：供应商 -->
@@ -1152,14 +1155,14 @@ document.addEventListener('click', function(e) {
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">供应商：</label>
                 <div style="position:relative; flex:1; min-width:0;">
-                    <input type="text" id="returnSupplierSearch" placeholder="搜索/选择供应商" onfocus="showReturnSupplierList()" oninput="filterReturnSupplierList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
+                    <input type="text" id="returnSupplierSearch" placeholder="搜索/选择供应商" oninput="filterReturnSupplierList()" onfocus="showReturnSupplierList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
                     <div id="returnSupplierListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;"></div>
                 </div>
             </div>
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">商品名：</label>
                 <div style="position:relative; flex:1; min-width:0;">
-                    <input type="text" id="returnGoodsSearch" placeholder="选择供应商后可用" onfocus="showReturnGoodsList()" oninput="filterReturnGoodsList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; background:#fafafa;">
+                    <input type="text" id="returnGoodsSearch" placeholder="搜索/选择商品" oninput="filterReturnGoodsList()" onfocus="showReturnGoodsList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
                     <div id="returnGoodsListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;"></div>
                 </div>
                 <input type="hidden" id="returnCurGoodsId">
@@ -1171,7 +1174,7 @@ document.addEventListener('click', function(e) {
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">规格：</label>
                 <div style="position:relative; flex:1; min-width:0;">
-                    <input type="text" id="returnSpecSearch" placeholder="选择商品后可用" onfocus="showReturnSpecList()" oninput="filterReturnSpecList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; background:#fafafa;">
+                    <input type="text" id="returnSpecSearch" placeholder="搜索/选择规格" oninput="filterReturnSpecList()" onfocus="showReturnSpecList()" style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
                     <div id="returnSpecListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;"></div>
                 </div>
                 <input type="hidden" id="returnSpec" value="">
@@ -1186,7 +1189,7 @@ document.addEventListener('click', function(e) {
         <div style="margin-bottom:14px;">
             <label style="display:block;font-weight:bold;font-size:14px;margin-bottom:6px;">选择退货批次：</label>
             <div id="returnBatchListContainer" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;padding:6px;background:#fafafa;">
-                <div style="padding:20px;text-align:center;color:#999;">请先选择供应商</div>
+                <div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>
             </div>
         </div>
         
@@ -1226,6 +1229,7 @@ document.addEventListener('click', function(e) {
         </div>
     </div>
 </div>
+
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">
     <div class="form-container">

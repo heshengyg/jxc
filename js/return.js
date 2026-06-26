@@ -176,12 +176,41 @@ let returnSelectedSupplier = '';
 let returnSelectedGoods = '';
 let returnSelectedSpec = '';
 
+// ========== 重置弹窗搜索 ==========
+function resetReturnSearch() {
+    // 清空所有搜索框
+    document.getElementById('returnSupplierSearch').value = '';
+    document.getElementById('returnGoodsSearch').value = '';
+    document.getElementById('returnSpecSearch').value = '';
+    returnSelectedSupplier = '';
+    returnSelectedGoods = '';
+    returnSelectedSpec = '';
+    selectedBatchInRecordId = null;
+    selectedBatchData = null;
+    
+    // 清空商品ID和自动带出字段
+    document.getElementById('returnCurGoodsId').value = '';
+    document.getElementById('returnSpec').value = '';
+    document.getElementById('returnSettleType').value = '';
+    document.getElementById('returnSalePrice').value = '';
+    document.getElementById('returnInPrice').value = '';
+    document.getElementById('returnNum').value = '';
+    document.getElementById('returnBatchRemain').value = '';
+    document.getElementById('returnBatchRemainDisplay').textContent = '0';
+    
+    document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+    document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
+    
+    // 关闭所有下拉框
+    document.getElementById('returnSupplierListBox').style.display = 'none';
+    document.getElementById('returnGoodsListBox').style.display = 'none';
+    document.getElementById('returnSpecListBox').style.display = 'none';
+}
+
 // ========== 供应商搜索下拉 ==========
 function showReturnSupplierList() {
     const box = document.getElementById('returnSupplierListBox');
     if (!box) return;
-    const input = document.getElementById('returnSupplierSearch');
-    if (!input) return;
     
     returnAllSuppliers = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
     returnFilteredSuppliers = returnAllSuppliers;
@@ -196,18 +225,54 @@ function filterReturnSupplierList() {
     if (!input) return;
     
     const kw = input.value.toLowerCase();
+    returnAllSuppliers = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
     
-    // ✅ 如果有搜索关键词，从所有供应商中过滤
     if (kw.length > 0) {
         returnFilteredSuppliers = returnAllSuppliers.filter(s => s.toLowerCase().includes(kw));
-        renderReturnSupplierList(returnFilteredSuppliers);
-        box.style.display = 'block';
     } else {
-        // ✅ 如果清空搜索，显示所有供应商
         returnFilteredSuppliers = returnAllSuppliers;
-        renderReturnSupplierList(returnFilteredSuppliers);
-        box.style.display = 'block';
     }
+    renderReturnSupplierList(returnFilteredSuppliers);
+    box.style.display = 'block';
+}
+
+function renderReturnSupplierList(list) {
+    const box = document.getElementById('returnSupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:8px;color:#999;">无匹配供应商</div>';
+        return;
+    }
+    list.forEach(sup => {
+        const div = document.createElement('div');
+        div.textContent = sup;
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.onmouseover = function() { this.style.background = '#e5efff'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('returnSupplierSearch').value = sup;
+            returnSelectedSupplier = sup;
+            box.style.display = 'none';
+            // 商品搜索框保持原值，但列表过滤
+            updateReturnBatchList();
+            // 如果商品搜索框有值，自动匹配商品
+            const goodsSearch = document.getElementById('returnGoodsSearch').value.trim();
+            if (goodsSearch) {
+                const matchedGoods = allGoods.filter(g => g.supplier === sup && g.name === goodsSearch);
+                if (matchedGoods.length > 0) {
+                    returnSelectedGoods = goodsSearch;
+                    document.getElementById('returnCurGoodsId').value = matchedGoods[0].id;
+                    document.getElementById('returnSpec').value = matchedGoods[0].spec || '';
+                    document.getElementById('returnSettleType').value = matchedGoods[0].channel || '';
+                    document.getElementById('returnSalePrice').value = formatMoney(matchedGoods[0].sale_price);
+                    updateReturnSpecList();
+                    updateReturnBatchList();
+                }
+            }
+        };
+        box.appendChild(div);
+    });
 }
 
 // ========== 商品搜索下拉 ==========
@@ -215,15 +280,14 @@ function showReturnGoodsList() {
     const box = document.getElementById('returnGoodsListBox');
     if (!box) return;
     
-    // ✅ 如果没有选供应商，显示所有商品
-    if (!returnSelectedSupplier) {
-        const allGoodsList = allGoods.map(g => g).sort((a, b) => a.name.localeCompare(b.name));
-        renderReturnGoodsList(allGoodsList);
-        box.style.display = 'block';
-        return;
+    // 如果选了供应商，只显示该供应商的商品
+    if (returnSelectedSupplier) {
+        returnAllGoodsList = allGoods.filter(g => g.supplier === returnSelectedSupplier);
+        returnFilteredGoodsList = returnAllGoodsList;
+    } else {
+        returnAllGoodsList = allGoods.map(g => g);
+        returnFilteredGoodsList = returnAllGoodsList;
     }
-    
-    // ✅ 如果选了供应商，显示该供应商的商品
     renderReturnGoodsList(returnFilteredGoodsList);
     box.style.display = 'block';
 }
@@ -236,16 +300,13 @@ function filterReturnGoodsList() {
     
     const kw = input.value.toLowerCase();
     
-    // ✅ 如果没有选供应商，从所有商品中搜索
-    if (!returnSelectedSupplier) {
-        // 从所有商品中搜索
-        const allGoodsList = allGoods.filter(g => g.name.toLowerCase().includes(kw));
-        renderReturnGoodsList(allGoodsList);
-        box.style.display = 'block';
-        return;
+    // 如果选了供应商，只搜索该供应商的商品
+    if (returnSelectedSupplier) {
+        returnAllGoodsList = allGoods.filter(g => g.supplier === returnSelectedSupplier);
+    } else {
+        returnAllGoodsList = allGoods.map(g => g);
     }
     
-    // ✅ 如果选了供应商，从该供应商商品中搜索
     returnFilteredGoodsList = returnAllGoodsList.filter(g => g.name.toLowerCase().includes(kw));
     renderReturnGoodsList(returnFilteredGoodsList);
     box.style.display = 'block';
@@ -260,7 +321,8 @@ function renderReturnGoodsList(list) {
     }
     list.forEach(goods => {
         const div = document.createElement('div');
-        div.textContent = `${goods.name}${goods.spec ? ' (' + goods.spec + ')' : ''}`;
+        const specText = goods.spec ? ` (${goods.spec})` : '';
+        div.textContent = `${goods.name}${specText}`;
         div.style.padding = '6px 10px';
         div.style.cursor = 'pointer';
         div.onmouseover = function() { this.style.background = '#e5efff'; };
@@ -273,9 +335,14 @@ function renderReturnGoodsList(list) {
             document.getElementById('returnSettleType').value = goods.channel || '';
             document.getElementById('returnSalePrice').value = formatMoney(goods.sale_price);
             box.style.display = 'none';
-            // ✅ 更新规格列表
+            
+            // 如果供应商未选，自动填充供应商
+            if (!returnSelectedSupplier && goods.supplier) {
+                returnSelectedSupplier = goods.supplier;
+                document.getElementById('returnSupplierSearch').value = goods.supplier;
+            }
+            
             updateReturnSpecList();
-            // ✅ 更新批次列表
             updateReturnBatchList();
         };
         box.appendChild(div);
@@ -286,12 +353,28 @@ function renderReturnGoodsList(list) {
 function showReturnSpecList() {
     const box = document.getElementById('returnSpecListBox');
     if (!box) return;
-    if (!returnSelectedSupplier || !returnSelectedGoods) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商和商品</div>';
-        box.style.display = 'block';
-        return;
+    
+    const goodsName = document.getElementById('returnGoodsSearch').value.trim();
+    // 如果有选中的商品，从该商品获取规格
+    if (returnSelectedGoods || goodsName) {
+        const targetGoods = allGoods.find(g => g.name === (returnSelectedGoods || goodsName));
+        if (targetGoods) {
+            // 从库存批次中获取规格
+            const batchList = getStockBatchList(targetGoods.supplier, targetGoods.name);
+            const specSet = new Set();
+            batchList.forEach(batch => {
+                specSet.add(batch.spec || '');
+            });
+            returnAllSpecList = Array.from(specSet);
+            returnFilteredSpecList = returnAllSpecList;
+            renderReturnSpecList(returnFilteredSpecList);
+            box.style.display = 'block';
+            return;
+        }
     }
-    renderReturnSpecList(returnFilteredSpecList);
+    
+    // 没有选中的商品，显示空
+    box.innerHTML = '<div style="padding:8px;color:#999;">请先选择商品</div>';
     box.style.display = 'block';
 }
 
@@ -300,12 +383,6 @@ function filterReturnSpecList() {
     if (!box) return;
     const input = document.getElementById('returnSpecSearch');
     if (!input) return;
-    
-    if (!returnSelectedSupplier || !returnSelectedGoods) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商和商品</div>';
-        box.style.display = 'block';
-        return;
-    }
     
     const kw = input.value.toLowerCase();
     returnFilteredSpecList = returnAllSpecList.filter(s => (s || '-').toLowerCase().includes(kw));
@@ -320,6 +397,7 @@ function renderReturnSpecList(list) {
         box.innerHTML = '<div style="padding:8px;color:#999;">无匹配规格</div>';
         return;
     }
+    // 全部规格选项
     const allDiv = document.createElement('div');
     allDiv.textContent = '全部规格';
     allDiv.style.padding = '6px 10px';
@@ -354,47 +432,11 @@ function renderReturnSpecList(list) {
 
 // ========== 更新下拉列表数据 ==========
 function updateReturnGoodsList() {
-    if (!returnSelectedSupplier) {
-        returnAllGoodsList = [];
-        returnFilteredGoodsList = [];
-        return;
-    }
-    returnAllGoodsList = allGoods.filter(g => g.supplier === returnSelectedSupplier);
-    returnFilteredGoodsList = returnAllGoodsList;
-    if (!returnAllGoodsList.some(g => g.name === returnSelectedGoods)) {
-        returnSelectedGoods = '';
-        document.getElementById('returnGoodsSearch').value = '';
-        document.getElementById('returnCurGoodsId').value = '';
-        document.getElementById('returnSpec').value = '';
-        document.getElementById('returnSettleType').value = '';
-        document.getElementById('returnSalePrice').value = '';
-        returnSelectedSpec = '';
-        document.getElementById('returnSpecSearch').value = '';
-        returnAllSpecList = [];
-        returnFilteredSpecList = [];
-    }
+    // 此函数保留但不再必须
 }
 
 function updateReturnSpecList() {
-    if (!returnSelectedSupplier || !returnSelectedGoods) {
-        returnAllSpecList = [];
-        returnFilteredSpecList = [];
-        return;
-    }
-    const goods = allGoods.find(g => g.supplier === returnSelectedSupplier && g.name === returnSelectedGoods);
-    if (goods) {
-        const batchList = getStockBatchList(returnSelectedSupplier, returnSelectedGoods);
-        const specSet = new Set();
-        batchList.forEach(batch => {
-            specSet.add(batch.spec || '');
-        });
-        returnAllSpecList = Array.from(specSet);
-        returnFilteredSpecList = returnAllSpecList;
-        if (returnSelectedSpec && !returnAllSpecList.some(s => s === returnSelectedSpec)) {
-            returnSelectedSpec = '';
-            document.getElementById('returnSpecSearch').value = '';
-        }
-    }
+    // 此函数保留但不再必须
 }
 
 // ========== 更新批次列表 ==========
@@ -405,33 +447,51 @@ function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
     
-    // ✅ 如果没有选供应商但有商品搜索关键词，自动匹配
-    const goodsSearch = document.getElementById('returnGoodsSearch').value.trim();
-    if (!returnSelectedSupplier && goodsSearch) {
-        // 尝试自动匹配商品
-        const matchedGoods = allGoods.filter(g => g.name === goodsSearch);
-        if (matchedGoods.length === 1) {
-            returnSelectedSupplier = matchedGoods[0].supplier;
-            document.getElementById('returnSupplierSearch').value = returnSelectedSupplier;
-            updateReturnGoodsList();
-        }
-    }
+    const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
+    const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
+    const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
     
-    if (!returnSelectedSupplier) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请先选择供应商</div>';
+    // 如果没有供应商也没有商品，显示提示
+    if (!supplier && !goodsName) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
         return;
     }
     
-    let batchList = getStockBatchList(returnSelectedSupplier, returnSelectedGoods || '');
+    // 如果有商品名但没有供应商，尝试自动匹配
+    let targetSupplier = supplier;
+    let targetGoods = goodsName;
     
-    if (returnSelectedGoods) {
-        batchList = batchList.filter(b => b.goodsName === returnSelectedGoods);
+    if (!targetSupplier && targetGoods) {
+        const matched = allGoods.filter(g => g.name === targetGoods);
+        if (matched.length === 1) {
+            targetSupplier = matched[0].supplier;
+            returnSelectedSupplier = targetSupplier;
+            document.getElementById('returnSupplierSearch').value = targetSupplier;
+        } else if (matched.length > 1) {
+            container.innerHTML = `<div style="padding:20px;text-align:center;color:#ff6b6b;">商品"${targetGoods}"有多个供应商，请先选择供应商</div>`;
+            return;
+        }
     }
     
-    if (returnSelectedSpec) {
-        batchList = batchList.filter(b => (b.spec || '') === returnSelectedSpec);
+    if (!targetSupplier) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商</div>';
+        return;
     }
     
+    // 获取批次列表
+    let batchList = getStockBatchList(targetSupplier, targetGoods || '');
+    
+    // 如果有商品名，过滤
+    if (targetGoods) {
+        batchList = batchList.filter(b => b.goodsName === targetGoods);
+    }
+    
+    // 如果有规格，过滤
+    if (spec && spec !== '全部规格' && spec !== '-') {
+        batchList = batchList.filter(b => (b.spec || '') === spec);
+    }
+    
+    // 只显示有库存的批次
     batchList = batchList.filter(b => b.batchRemain > 0);
     
     if (batchList.length === 0) {
@@ -439,7 +499,7 @@ function updateReturnBatchList() {
         return;
     }
     
-    // ✅ 生产日期和到期日期分两列显示
+    // 渲染批次列表 - 生产日期和到期日期分两列
     let html = `
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
@@ -477,16 +537,18 @@ function updateReturnBatchList() {
 }
 
 function selectReturnBatch(index) {
-    const supplier = returnSelectedSupplier;
-    const goodsName = returnSelectedGoods;
+    const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
+    const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
+    
     if (!supplier || !goodsName) {
         showMsg('请先选择供应商和商品');
         return;
     }
     
     let batchList = getStockBatchList(supplier, goodsName);
-    if (returnSelectedSpec) {
-        batchList = batchList.filter(b => (b.spec || '') === returnSelectedSpec);
+    const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
+    if (spec && spec !== '全部规格' && spec !== '-') {
+        batchList = batchList.filter(b => (b.spec || '') === spec);
     }
     batchList = batchList.filter(b => b.batchRemain > 0);
     
@@ -508,7 +570,6 @@ function selectReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
-    // ✅ 显示生产日期和到期日期
     const produceDisplay = selectedBatchData.produceDate || '-';
     const expireDisplay = selectedBatchData.expireDate || '-';
     
@@ -533,37 +594,10 @@ function selectReturnBatch(index) {
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    returnSelectedSupplier = '';
-    returnSelectedGoods = '';
-    returnSelectedSpec = '';
-    selectedBatchInRecordId = null;
-    selectedBatchData = null;
-    
+    resetReturnSearch();
     document.getElementById('returnFormTitle').innerText = '添加退货单据';
     document.getElementById('returnEditId').value = '';
-    document.getElementById('returnSupplierSearch').value = '';
-    document.getElementById('returnGoodsSearch').value = '';
-    document.getElementById('returnSpecSearch').value = '';
-    document.getElementById('returnCurGoodsId').value = '';
-    document.getElementById('returnSpec').value = '';
-    document.getElementById('returnSettleType').value = '';
-    document.getElementById('returnSalePrice').value = '';
-    document.getElementById('returnInPrice').value = '';
-    document.getElementById('returnNum').value = '';
-    document.getElementById('returnBatchRemain').value = '';
-    document.getElementById('returnBatchRemainDisplay').textContent = '0';
-    document.getElementById('returnReason').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
-    document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请先选择供应商</div>';
-    
-    returnAllSuppliers = [];
-    returnFilteredSuppliers = [];
-    returnAllGoodsList = [];
-    returnFilteredGoodsList = [];
-    returnAllSpecList = [];
-    returnFilteredSpecList = [];
-    
     document.getElementById('returnModal').style.display = 'block';
 }
 
@@ -571,22 +605,21 @@ async function openReturnEditForm(id) {
     const item = allReturnGoods.find(x => x.id === id);
     if (!item) return;
     
+    resetReturnSearch();
+    
     document.getElementById('returnFormTitle').innerText = '编辑退货单据';
     document.getElementById('returnEditId').value = id;
     
+    // 设置供应商
     returnSelectedSupplier = item.supplier;
     document.getElementById('returnSupplierSearch').value = item.supplier;
-    updateReturnGoodsList();
     
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    // 设置商品
     returnSelectedGoods = item.goods_name;
     document.getElementById('returnGoodsSearch').value = item.goods_name;
     document.getElementById('returnCurGoodsId').value = item.in_record_id;
-    updateReturnSpecList();
     
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    // 设置规格
     returnSelectedSpec = item.spec || '';
     document.getElementById('returnSpecSearch').value = item.spec || '-';
     document.getElementById('returnSpec').value = item.spec || '';
@@ -639,8 +672,8 @@ function checkReturnNum() {
 // ========== 提交退货 ==========
 async function submitReturnGoods() {
     const editId = document.getElementById('returnEditId').value;
-    const supplier = returnSelectedSupplier;
-    const goodsName = returnSelectedGoods;
+    const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
+    const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     const goodsId = document.getElementById('returnCurGoodsId').value;
     const spec = document.getElementById('returnSpec').value;
     const settleType = document.getElementById('returnSettleType').value;
