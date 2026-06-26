@@ -553,13 +553,13 @@ function updateReturnBatchList() {
 
 function selectReturnBatch(index) {
     const container = document.getElementById('returnBatchListContainer');
-    // 从表格中获取批次数据
     const rows = container.querySelectorAll('tbody tr');
     if (index >= rows.length) return;
     
     const row = rows[index];
     const cells = row.querySelectorAll('td');
-    // 供应商在第2列（索引1），商品名在第3列（索引2）
+    
+    // ✅ 根据表格列顺序：选择(0) | 供应商(1) | 商品名(2) | 规格(3) | 生产日期(4) | 到期日期(5) | 入库单价(6) | 批次库存(7)
     const supplier = cells[1]?.textContent.trim() || '';
     const goodsName = cells[2]?.textContent.trim() || '';
     const spec = cells[3]?.textContent.trim() || '';
@@ -571,43 +571,48 @@ function selectReturnBatch(index) {
         return;
     }
     
-    // 获取批次详情
+    // 获取该供应商+商品的所有批次
     let batchList = getStockBatchList(supplier, goodsName);
+    batchList = batchList.filter(b => b.batchRemain > 0);
+    
+    // 根据规格过滤
     if (spec && spec !== '-') {
         batchList = batchList.filter(b => (b.spec || '') === spec);
     }
-    batchList = batchList.filter(b => b.batchRemain > 0);
     
-    // 找到匹配的批次
+    // 根据入库单价和批次库存匹配具体批次
+    const targetPrice = parseFloat(inPriceText.replace('￥', '').replace(/,/g, ''));
     let targetBatch = null;
+    let targetInRecord = null;
+    
     for (const batch of batchList) {
-        if (batch.inRecords && batch.inRecords.length > 0) {
-            const inRecord = batch.inRecords[0];
-            const price = inRecord.in_price || 0;
-            if (price === parseFloat(inPriceText.replace('￥', '')) || 
-                Math.abs(price - parseFloat(inPriceText.replace('￥', ''))) < 0.01) {
-                targetBatch = batch;
-                break;
-            }
+        if (!batch.inRecords || batch.inRecords.length === 0) continue;
+        const inRecord = batch.inRecords[0];
+        const price = inRecord.in_price || 0;
+        // 匹配入库单价
+        if (Math.abs(price - targetPrice) < 0.01) {
+            targetBatch = batch;
+            targetInRecord = inRecord;
+            break;
         }
     }
     
-    if (!targetBatch) {
+    if (!targetBatch || !targetInRecord) {
         showMsg('找不到匹配的批次');
         return;
     }
     
-    const inRecord = targetBatch.inRecords[0];
-    selectedBatchInRecordId = inRecord.id;
+    // ✅ 设置选中的批次ID
+    selectedBatchInRecordId = targetInRecord.id;
     selectedBatchData = {
-        inRecordId: inRecord.id,
-        inPrice: inRecord.in_price || 0,
+        inRecordId: targetInRecord.id,
+        inPrice: targetInRecord.in_price || 0,
         batchRemain: targetBatch.batchRemain,
         produceDate: targetBatch.produce_date || '',
         expireDate: targetBatch.expire_date || ''
     };
     
-    // 自动填充供应商和商品（仅用于提交，不反向联动下拉）
+    // 自动填充供应商和商品（用于提交）
     returnSelectedSupplier = supplier;
     returnSelectedGoods = goodsName;
     returnSelectedSpec = spec;
@@ -634,6 +639,7 @@ function selectReturnBatch(index) {
     document.getElementById('returnNum').max = selectedBatchData.batchRemain;
     document.getElementById('returnNum').value = '';
     
+    // ✅ 更新批次列表高亮
     updateReturnBatchList();
 }
 
@@ -730,10 +736,17 @@ async function submitReturnGoods() {
 
     if (!supplier) return showMsg('请选择供应商');
     if (!goodsName || !goodsId) return showMsg('请选择商品');
-    if (!selectedBatchInRecordId) return showMsg('请选择退货批次');
+    
+    // ✅ 检查是否选中批次
+    if (!selectedBatchInRecordId) {
+        showMsg('请选择退货批次');
+        return;
+    }
+    
     if (returnNum < 1) return showMsg('退货数量必须大于0');
     if (!recordDate) return showMsg('请选择录入日期');
 
+    // 检查批次库存（编辑时跳过）
     if (!editId) {
         const batchList = getStockBatchList(supplier, goodsName);
         let targetBatch = null;
@@ -752,7 +765,6 @@ async function submitReturnGoods() {
             return;
         }
     }
-
     const returnAmount = inPrice * returnNum;
     const saleAmount = salePrice * returnNum;
 
