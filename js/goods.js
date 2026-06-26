@@ -1144,10 +1144,10 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
         
         // 筛选出该商品的所有批次
         const batchList = allStockBatchList.filter(function(item) {
-            return item.supplier === supplier && 
-                   item.goodsName === goodsName && 
-                   item.spec === (spec || '-');
-        });
+    return item.supplier === supplier && 
+           item.goodsName === goodsName && 
+           (item.spec === spec || (spec === '-' && (item.spec === null || item.spec === undefined)));
+});
         
         if (!batchList || batchList.length === 0) {
             return null;
@@ -1275,7 +1275,7 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
  * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
  */
 function checkNeedDateUpdate(goodsItem) {
-    const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec);
+    const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec || '-');
     if (!earliest || earliest.batchRemain <= 0) {
         return { needUpdate: false, earliest: null };
     }
