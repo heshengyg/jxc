@@ -1373,30 +1373,34 @@ function getNeedUpdateGoodsList() {
  * 加载后台更换日期列表
  */
 async function loadDateChangeTab() {
-    // 每次进入都重新拉最新批次，避免缓存导致日期不更新
+    // 等待正在进行的商品加载完成，避免直接拦截
+    while (isLoadingGoods) {
+        await new Promise(res => setTimeout(res, 50));
+    }
+    // 强制刷新商品缓存，拉取最新saved_*字段
+    isGoodsLoaded = false;
+    await loadGoods();
+
+    // 拉最新批次
     let batchRes = await fetch(`${SUPABASE_URL}/rest/v1/allStockBatchList`);
     allStockBatchList = await batchRes.json();
     
     console.log('加载后台更换日期...');
-    
-    // 确保 allGoods 已加载
-    if (!allGoods || allGoods.length === 0) {
-        loadGoods().then(function() {
-            if (typeof loadStockStock === 'function') {
-                loadStockStock();
-            }
-            setTimeout(function() {
-                dateChangeData = getNeedUpdateGoodsList();
-                filteredDateChange = [...dateChangeData];
-                updateDateChangeButton();
-                updateDateChangeStatus();
-                dateChangeCurrentPage = 1;
-                renderDateChangePagination();
-                renderDateChangeList();
-            }, 500);
-        });
-        return;
+
+    if (typeof loadStockStock === 'function') {
+        loadStockStock();
     }
+
+    setTimeout(function() {
+        dateChangeData = getNeedUpdateGoodsList();
+        filteredDateChange = [...dateChangeData];
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
+    }, 300);
+}
     
     // 确保库存数据已加载
     if (typeof loadStockStock === 'function') {
