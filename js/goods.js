@@ -506,31 +506,38 @@ function clearSort() {
     loadGoods();
 }
 
-async function loadGoods() {
-    // ✅ 如果正在加载，跳过
-    if (isLoadingGoods) {
-        console.log('商品数据正在加载中，跳过重复请求');
-        return;
-    }
-    
-    // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
-    if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-        console.log('商品数据已加载，直接渲染');
-        // 仅做表格清空，不做全局数据修改
-        const goodsTbody = document.getElementById('goodsList');
-        if(goodsTbody) goodsTbody.innerHTML = '';
-        let searchField = document.getElementById('searchField');
-        if (searchField) {
-            filterGoods();
-        } else {
-            filteredGoods = [...allGoods];
-            let searchCount = document.getElementById('searchCount');
-            if (searchCount) searchCount.textContent = filteredGoods.length;
-            currentPage = 1;
-            renderPagination();
-            renderGoods();
+async function loadGoods(force) {
+    // ✅ 如果强制刷新，跳过缓存检查
+    if (force) {
+        console.log('强制刷新商品数据...');
+        isLoadingGoods = false;
+        isGoodsLoaded = false;
+        // 继续执行下面的加载逻辑
+    } else {
+        // ✅ 如果正在加载，跳过
+        if (isLoadingGoods) {
+            console.log('商品数据正在加载中，跳过重复请求');
+            return;
         }
-        return;
+        
+        // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
+        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+            console.log('商品数据已加载，直接渲染');
+            const goodsTbody = document.getElementById('goodsList');
+            if(goodsTbody) goodsTbody.innerHTML = '';
+            let searchField = document.getElementById('searchField');
+            if (searchField) {
+                filterGoods();
+            } else {
+                filteredGoods = [...allGoods];
+                let searchCount = document.getElementById('searchCount');
+                if (searchCount) searchCount.textContent = filteredGoods.length;
+                currentPage = 1;
+                renderPagination();
+                renderGoods();
+            }
+            return;
+        }
     }
     
     try {
@@ -540,7 +547,6 @@ async function loadGoods() {
         });
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
-        // 恢复原始排序，不去重，避免全局变量篡改阻塞
         allGoods = list.sort((a, b) => b.id - a.id);
         window.allGoods = allGoods;
         isGoodsLoaded = true;
@@ -559,7 +565,6 @@ async function loadGoods() {
             renderPagination();
             renderGoods();
         }
-        // 异步静默加载不阻塞主线程，去掉await防止卡死
         loadSettleListSilently();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
@@ -1423,7 +1428,6 @@ function getNeedUpdateGoodsList() {
 function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
-    // 先确保商品数据已加载
     function checkAndLoad() {
         if (!allGoods || allGoods.length === 0) {
             console.log('商品数据未加载，先加载商品...');
@@ -1435,12 +1439,10 @@ function loadDateChangeTab() {
         // ✅ 每次打开都重新加载库存数据，确保最新
         console.log('重新加载库存数据...');
         if (typeof loadStockStock === 'function') {
-            // 重置 allStockBatchList，强制重新加载
             allStockBatchList = [];
             loadStockStock();
         }
         
-        // 延迟等待数据加载完成
         setTimeout(function() {
             doLoadDateChange();
         }, 500);
@@ -1597,14 +1599,12 @@ async function updateSingleGoodsDate(id) {
         return;
     }
     
-    // 获取最新批次日期
     const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
     if (!earliest || earliest.batchRemain <= 0) {
         showMsg('该商品暂无库存批次');
         return;
     }
     
-    // 确定日期类型和值
     let dateType = '';
     let dateValue = '';
     if (earliest.produce_date) {
@@ -1649,9 +1649,9 @@ async function updateSingleGoodsDate(id) {
         }
         
         showMsg(`✅ 商品"${item.name}"日期更新成功！`);
-        // ✅ 重新加载商品数据
-        await loadGoods();
-        // ✅ 强制刷新后台更换日期列表（会重新加载库存数据）
+        // ✅ 强制重新加载商品数据
+        await loadGoods(true);
+        // ✅ 强制刷新后台更换日期列表
         loadDateChangeTab();
     } catch (e) {
         showMsg('更新失败：' + e.message);
@@ -1713,7 +1713,8 @@ async function batchUpdateGoodsDate() {
     }
     
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
-    await loadGoods();
+    // ✅ 强制重新加载商品数据
+    await loadGoods(true);
     // ✅ 强制刷新后台更换日期列表
     loadDateChangeTab();
 }
