@@ -464,7 +464,6 @@ function updateReturnBatchList() {
         goodsList.forEach(g => {
             const batches = getStockBatchList(supplier, g.name);
             batches.forEach(b => {
-                // 检查是否已经存在（避免重复）
                 const exists = allBatches.some(existing => 
                     existing.goodsName === b.goodsName && 
                     existing.spec === b.spec &&
@@ -508,7 +507,9 @@ function updateReturnBatchList() {
         return;
     }
     
-    // 渲染批次列表
+    // 存储批次数据到全局，供点击时使用
+    window._returnBatchListData = allBatches;
+    
     let html = `
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
@@ -534,7 +535,7 @@ function updateReturnBatchList() {
         html += `
             <tr ${selectBg}>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">
-                    <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onchange="selectReturnBatch(${idx})">
+                    <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onclick="selectReturnBatchByIndex(${idx})">
                 </td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.supplier}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.goodsName}</td>
@@ -641,6 +642,74 @@ function selectReturnBatch(index) {
     
     // ✅ 更新批次列表高亮
     updateReturnBatchList();
+}
+
+function selectReturnBatchByIndex(index) {
+    const allBatches = window._returnBatchListData || [];
+    if (index >= allBatches.length) {
+        showMsg('批次数据异常');
+        return;
+    }
+    
+    const batch = allBatches[index];
+    if (!batch || !batch.inRecords || batch.inRecords.length === 0) {
+        showMsg('该批次数据异常');
+        return;
+    }
+    
+    const inRecord = batch.inRecords[0];
+    selectedBatchInRecordId = inRecord.id;
+    selectedBatchData = {
+        inRecordId: inRecord.id,
+        inPrice: inRecord.in_price || 0,
+        batchRemain: batch.batchRemain,
+        produceDate: batch.produce_date || '',
+        expireDate: batch.expire_date || ''
+    };
+    
+    // 自动填充供应商和商品（用于提交）
+    returnSelectedSupplier = batch.supplier;
+    returnSelectedGoods = batch.goodsName;
+    returnSelectedSpec = batch.spec || '';
+    
+    // 回填搜索框
+    document.getElementById('returnSupplierSearch').value = batch.supplier;
+    document.getElementById('returnGoodsSearch').value = batch.goodsName;
+    document.getElementById('returnSpecSearch').value = batch.spec || '-';
+    document.getElementById('returnCurGoodsId').value = inRecord.id;
+    document.getElementById('returnSpec').value = batch.spec || '';
+    document.getElementById('returnSettleType').value = batch.settleType || '';
+    
+    // 获取销售单价（从商品信息中获取）
+    const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
+    document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
+    
+    const produceDisplay = selectedBatchData.produceDate || '-';
+    const expireDisplay = selectedBatchData.expireDate || '-';
+    
+    document.getElementById('returnSelectedBatchInfo').innerHTML = `
+        <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                <span><strong>供应商：</strong>${batch.supplier}</span>
+                <span><strong>商品：</strong>${batch.goodsName}</span>
+                <span><strong>规格：</strong>${batch.spec || '-'}</span>
+                <span><strong>生产日期：</strong>${produceDisplay}</span>
+                <span><strong>到期日期：</strong>${expireDisplay}</span>
+                <span><strong>入库单价：</strong>${formatMoney(selectedBatchData.inPrice)}</span>
+                <span><strong>批次库存：</strong><span style="color:#ff4d4f;font-weight:bold;">${selectedBatchData.batchRemain}</span></span>
+            </div>
+        </div>
+    `;
+    document.getElementById('returnInPrice').value = formatMoney(selectedBatchData.inPrice);
+    document.getElementById('returnBatchRemain').value = selectedBatchData.batchRemain;
+    document.getElementById('returnBatchRemainDisplay').textContent = selectedBatchData.batchRemain;
+    document.getElementById('returnNum').max = selectedBatchData.batchRemain;
+    document.getElementById('returnNum').value = '';
+    
+    // 更新列表高亮
+    updateReturnBatchList();
+    
+    console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
 }
 
 // ========== 打开退货弹窗 ==========
