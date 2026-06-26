@@ -196,45 +196,34 @@ function filterReturnSupplierList() {
     if (!input) return;
     
     const kw = input.value.toLowerCase();
-    returnFilteredSuppliers = returnAllSuppliers.filter(s => s.toLowerCase().includes(kw));
-    renderReturnSupplierList(returnFilteredSuppliers);
-    box.style.display = 'block';
-}
-
-function renderReturnSupplierList(list) {
-    const box = document.getElementById('returnSupplierListBox');
-    box.innerHTML = '';
-    if (list.length === 0) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">无匹配供应商</div>';
-        return;
+    
+    // ✅ 如果有搜索关键词，从所有供应商中过滤
+    if (kw.length > 0) {
+        returnFilteredSuppliers = returnAllSuppliers.filter(s => s.toLowerCase().includes(kw));
+        renderReturnSupplierList(returnFilteredSuppliers);
+        box.style.display = 'block';
+    } else {
+        // ✅ 如果清空搜索，显示所有供应商
+        returnFilteredSuppliers = returnAllSuppliers;
+        renderReturnSupplierList(returnFilteredSuppliers);
+        box.style.display = 'block';
     }
-    list.forEach(sup => {
-        const div = document.createElement('div');
-        div.textContent = sup;
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        div.onclick = function() {
-            document.getElementById('returnSupplierSearch').value = sup;
-            returnSelectedSupplier = sup;
-            box.style.display = 'none';
-            updateReturnGoodsList();
-            updateReturnBatchList();
-        };
-        box.appendChild(div);
-    });
 }
 
 // ========== 商品搜索下拉 ==========
 function showReturnGoodsList() {
     const box = document.getElementById('returnGoodsListBox');
     if (!box) return;
+    
+    // ✅ 如果没有选供应商，显示所有商品
     if (!returnSelectedSupplier) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商</div>';
+        const allGoodsList = allGoods.map(g => g).sort((a, b) => a.name.localeCompare(b.name));
+        renderReturnGoodsList(allGoodsList);
         box.style.display = 'block';
         return;
     }
+    
+    // ✅ 如果选了供应商，显示该供应商的商品
     renderReturnGoodsList(returnFilteredGoodsList);
     box.style.display = 'block';
 }
@@ -245,13 +234,18 @@ function filterReturnGoodsList() {
     const input = document.getElementById('returnGoodsSearch');
     if (!input) return;
     
+    const kw = input.value.toLowerCase();
+    
+    // ✅ 如果没有选供应商，从所有商品中搜索
     if (!returnSelectedSupplier) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商</div>';
+        // 从所有商品中搜索
+        const allGoodsList = allGoods.filter(g => g.name.toLowerCase().includes(kw));
+        renderReturnGoodsList(allGoodsList);
         box.style.display = 'block';
         return;
     }
     
-    const kw = input.value.toLowerCase();
+    // ✅ 如果选了供应商，从该供应商商品中搜索
     returnFilteredGoodsList = returnAllGoodsList.filter(g => g.name.toLowerCase().includes(kw));
     renderReturnGoodsList(returnFilteredGoodsList);
     box.style.display = 'block';
@@ -279,7 +273,9 @@ function renderReturnGoodsList(list) {
             document.getElementById('returnSettleType').value = goods.channel || '';
             document.getElementById('returnSalePrice').value = formatMoney(goods.sale_price);
             box.style.display = 'none';
+            // ✅ 更新规格列表
             updateReturnSpecList();
+            // ✅ 更新批次列表
             updateReturnBatchList();
         };
         box.appendChild(div);
@@ -409,6 +405,18 @@ function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
     
+    // ✅ 如果没有选供应商但有商品搜索关键词，自动匹配
+    const goodsSearch = document.getElementById('returnGoodsSearch').value.trim();
+    if (!returnSelectedSupplier && goodsSearch) {
+        // 尝试自动匹配商品
+        const matchedGoods = allGoods.filter(g => g.name === goodsSearch);
+        if (matchedGoods.length === 1) {
+            returnSelectedSupplier = matchedGoods[0].supplier;
+            document.getElementById('returnSupplierSearch').value = returnSelectedSupplier;
+            updateReturnGoodsList();
+        }
+    }
+    
     if (!returnSelectedSupplier) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请先选择供应商</div>';
         return;
@@ -431,23 +439,24 @@ function updateReturnBatchList() {
         return;
     }
     
+    // ✅ 生产日期和到期日期分两列显示
     let html = `
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
                 <tr style="background:#f5f7fa;">
-                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:60px;">选择</th>
-                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">生产/到期日期</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:50px;">选择</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">生产日期</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">到期日期</th>
                     <th style="padding:8px;border:1px solid #ddd;text-align:center;width:100px;">入库单价</th>
-                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:90px;">批次库存</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;width:80px;">批次库存</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
     batchList.forEach((batch, idx) => {
-        const dateDisplay = batch.produce_date && batch.produce_date !== '-' 
-            ? batch.produce_date 
-            : (batch.expire_date && batch.expire_date !== '-' ? batch.expire_date : '-');
+        const produceDate = batch.produce_date && batch.produce_date !== '-' ? batch.produce_date : '-';
+        const expireDate = batch.expire_date && batch.expire_date !== '-' ? batch.expire_date : '-';
         const isSelected = batch.inRecords && batch.inRecords[0] && selectedBatchInRecordId === batch.inRecords[0].id;
         const selectBg = isSelected ? 'style="background:#d4edda;"' : '';
         html += `
@@ -455,7 +464,8 @@ function updateReturnBatchList() {
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">
                     <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onchange="selectReturnBatch(${idx})">
                 </td>
-                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${dateDisplay}</td>
+                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${produceDate}</td>
+                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${expireDate}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatMoney(batch.inRecords && batch.inRecords[0] ? batch.inRecords[0].in_price : 0)}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:#ff4d4f;">${batch.batchRemain}</td>
             </tr>
@@ -498,10 +508,15 @@ function selectReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
+    // ✅ 显示生产日期和到期日期
+    const produceDisplay = selectedBatchData.produceDate || '-';
+    const expireDisplay = selectedBatchData.expireDate || '-';
+    
     document.getElementById('returnSelectedBatchInfo').innerHTML = `
         <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
-                <span><strong>生产/到期日期：</strong>${selectedBatchData.produceDate || selectedBatchData.expireDate || '-'}</span>
+                <span><strong>生产日期：</strong>${produceDisplay}</span>
+                <span><strong>到期日期：</strong>${expireDisplay}</span>
                 <span><strong>入库单价：</strong>${formatMoney(selectedBatchData.inPrice)}</span>
                 <span><strong>批次库存：</strong><span style="color:#ff4d4f;font-weight:bold;">${selectedBatchData.batchRemain}</span></span>
             </div>
