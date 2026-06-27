@@ -375,6 +375,7 @@ function refreshTaxList() {
 
     // 初始数据源：默认全部线下商品
     let list = [...allGoodsList.filter(g => g.channel === '线下')];
+    list.sort((a, b) => b.id - a.id);
 
     // 条件1：供应商筛选（选了才过滤，空则不过滤）
     if(selectSupplier){
