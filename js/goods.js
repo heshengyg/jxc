@@ -545,13 +545,10 @@ function switchGoodsSubTab(tab) {
         currentPage = 1;
         const goodsTbody = document.getElementById('goodsList');
         if(goodsTbody) goodsTbody.innerHTML = '';
-        setTimeout(() => {
-            if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-                filterGoods();
-            } else {
-                loadGoods();
-            }
-        }, 50);
+        // ========== 修改开始：直接强制刷新商品数据 ==========
+        // 移除缓存判断，每次切换到商品列表都强制从数据库重新加载
+        loadGoods(true);
+        // ========== 修改结束 ==========
     } else if (tab === 'dateChange') {
     // ✅ 每次点击都重新加载
     loadDateChangeTab();
@@ -604,24 +601,27 @@ async function loadGoods(force) {
             return;
         }
         
-        // ✅ 如果已经加载完成且有数据，直接重新渲染，不重新请求
-        if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-            console.log('商品数据已加载，直接渲染');
-            const goodsTbody = document.getElementById('goodsList');
-            if(goodsTbody) goodsTbody.innerHTML = '';
-            let searchField = document.getElementById('searchField');
-            if (searchField) {
-                filterGoods();
-            } else {
-                filteredGoods = [...allGoods];
-                let searchCount = document.getElementById('searchCount');
-                if (searchCount) searchCount.textContent = filteredGoods.length;
-                currentPage = 1;
-                renderPagination();
-                renderGoods();
-            }
-            return;
-        }
+        // ========== 修改开始：当切换到商品列表时，强制刷新数据 ==========
+        // ✅ 修改：不再使用缓存，每次都重新加载，确保数据最新
+        // 删除或注释掉这段缓存逻辑
+        // if (isGoodsLoaded && allGoods && allGoods.length > 0) {
+        //     console.log('商品数据已加载，直接渲染');
+        //     const goodsTbody = document.getElementById('goodsList');
+        //     if(goodsTbody) goodsTbody.innerHTML = '';
+        //     let searchField = document.getElementById('searchField');
+        //     if (searchField) {
+        //         filterGoods();
+        //     } else {
+        //         filteredGoods = [...allGoods];
+        //         let searchCount = document.getElementById('searchCount');
+        //         if (searchCount) searchCount.textContent = filteredGoods.length;
+        //         currentPage = 1;
+        //         renderPagination();
+        //         renderGoods();
+        //     }
+        //     return;
+        // }
+        // ========== 修改结束 ==========
     }
     
     try {
