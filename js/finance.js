@@ -1109,6 +1109,9 @@ function initPaySupplierSelect() {
 function refreshPayRecordList() {
     const filterSupplier = document.getElementById('paySupplierFilter').value;
     let list = [...allPayList];
+    // ========== 修改开始：按 id 倒序排列（最新添加的排最前） ==========
+    list.sort((a, b) => b.id - a.id);
+    // ========== 修改结束 ==========
     if (filterSupplier) list = list.filter(p => p.supplier === filterSupplier);
 
     const cfg = financePageConfig.payRecord;
@@ -1134,6 +1137,7 @@ function refreshPayRecordList() {
     });
     renderFinancePagination('payRecord');
 }
+
 function openPayAddModal() {
     currentPayEditId = null;
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
@@ -1242,6 +1246,9 @@ function initInvoiceBackSupplierSelect() {
 function refreshInvoiceBackList() {
     const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
     let list = [...allInvoiceBackList];
+    // ========== 修改开始：按 id 倒序排列（最新添加的排最前） ==========
+    list.sort((a, b) => b.id - a.id);
+    // ========== 修改结束 ==========
     if (filterSupplier) list = list.filter(i => i.supplier === filterSupplier);
 
     const cfg = financePageConfig.invoiceBack;
@@ -1268,6 +1275,7 @@ function refreshInvoiceBackList() {
     });
     renderFinancePagination('invoiceBack');
 }
+
 function openInvoiceBackAddModal() {
     currentInvoiceBackEditId = null;
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
