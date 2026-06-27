@@ -64,10 +64,12 @@ switchTab = async function (tabName) {   // ← 加上 async
 
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
+    // 保存 event 对象
+    const evt = event;
+    
     currFinanceSub = tabKey;
 
-    // ========== 修改开始：切换子版块时强制关闭所有弹窗 ==========
-    // 关闭所有可能打开的弹窗
+    // 切换子版块时强制关闭所有弹窗
     const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
     modals.forEach(id => {
         const modal = document.getElementById(id);
@@ -75,9 +77,8 @@ async function switchFinanceSubTab(tabKey) {
             modal.style.display = 'none';
         }
     });
-    // ========== 修改结束 ==========
 
-    // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
+    // 切换子页面前，清空所有9个财务分页，杜绝分页叠加
     const paginationIds = [
         'page_taxRate',
         'page_stockInPrint',
@@ -100,10 +101,14 @@ async function switchFinanceSubTab(tabKey) {
     document.getElementById(`sub-${tabKey}`).style.display = 'block';
 
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    if (event?.target?.classList.contains('finance-sub-btn')) {
-        event.target.classList.add('active');
+    // 使用保存的 event 对象
+    if (evt?.target?.classList?.contains('finance-sub-btn')) {
+        evt.target.classList.add('active');
     } else {
-        document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`).classList.add('active');
+        const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
+        if (targetBtn) {
+            targetBtn.classList.add('active');
+        }
     }
     
     await initCurrentSubPage();
