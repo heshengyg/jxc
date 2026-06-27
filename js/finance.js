@@ -284,17 +284,55 @@ async function loadAllStockOut() {
 }
 
 // 当前子页面初始化分发
+// 当前子页面初始化分发
 async function initCurrentSubPage() {
-    switch (currFinanceSub) {
-        case 'taxRate': initTaxRatePage(); break;
-        case 'stockInPrint': initStockInPrintPage(); break;
-        case 'payRecord': await initPayRecordPage(); break;
-        case 'invoiceBack': await initInvoiceBackPage(); break;
-        case 'paymentBoard': initPaymentBoardPage(); break;
-        case 'monthInvoiceBalance': initMonthBalancePage(); break;
-        case 'stockInCheck': initStockInCheckPage(); break;
-        case 'stockOutCheck': initStockOutCheckPage(); break;
-        case 'monthBeginStock': initMonthBeginPage(); break;
+    console.log('🔵 initCurrentSubPage 被调用, currFinanceSub:', currFinanceSub);
+    
+    try {
+        switch (currFinanceSub) {
+            case 'taxRate': 
+                console.log('✅ 执行 initTaxRatePage');
+                initTaxRatePage(); 
+                break;
+            case 'stockInPrint': 
+                console.log('✅ 执行 initStockInPrintPage');
+                initStockInPrintPage(); 
+                break;
+            case 'payRecord': 
+                console.log('✅ 执行 initPayRecordPage');
+                await initPayRecordPage(); 
+                break;
+            case 'invoiceBack': 
+                console.log('✅ 执行 initInvoiceBackPage');
+                await initInvoiceBackPage(); 
+                break;
+            case 'paymentBoard': 
+                console.log('✅ 执行 initPaymentBoardPage');
+                initPaymentBoardPage(); 
+                break;
+            case 'monthInvoiceBalance': 
+                console.log('✅ 执行 initMonthBalancePage');
+                initMonthBalancePage(); 
+                break;
+            case 'stockInCheck': 
+                console.log('✅ 执行 initStockInCheckPage');
+                initStockInCheckPage(); 
+                break;
+            case 'stockOutCheck': 
+                console.log('✅ 执行 initStockOutCheckPage');
+                initStockOutCheckPage(); 
+                break;
+            case 'monthBeginStock': 
+                console.log('✅ 执行 initMonthBeginPage');
+                initMonthBeginPage(); 
+                break;
+            default:
+                console.error('❌ 未知的 subTab:', currFinanceSub);
+        }
+        console.log('✅ initCurrentSubPage 执行完成');
+    } catch(e) {
+        console.error('❌ initCurrentSubPage 执行失败:', e);
+        console.error('错误堆栈:', e.stack);
     }
 }
 
@@ -1152,19 +1190,43 @@ function previewAndPrint() {
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 async function initPayRecordPage() {
-    // ✅ 关键修复：先确保弹窗是关闭状态
-    const payModal = document.getElementById('payModal');
-    if (payModal) payModal.style.display = 'none';
+    console.log('🔵 initPayRecordPage 被调用');
     
-    // 确保数据已加载
-    if (offlineSupplierList.length === 0) {
-        await loadOfflineSupplier();
+    try {
+        // ✅ 关键修复：先确保弹窗是关闭状态
+        const payModal = document.getElementById('payModal');
+        if (payModal) {
+            payModal.style.display = 'none';
+            console.log('✅ payModal 已关闭');
+        } else {
+            console.warn('⚠️ 找不到 payModal');
+        }
+        
+        if (offlineSupplierList.length === 0) {
+            console.log('⏳ offlineSupplierList 为空，正在加载...');
+            await loadOfflineSupplier();
+            console.log('✅ offlineSupplierList 加载完成，数量:', offlineSupplierList.length);
+        } else {
+            console.log('✅ offlineSupplierList 已有数据，数量:', offlineSupplierList.length);
+        }
+        
+        financePageConfig.payRecord.current = 1;
+        console.log('✅ financePageConfig.payRecord.current 已设置为 1');
+        
+        console.log('⏳ 执行 initPaySupplierSelect...');
+        initPaySupplierSelect();
+        console.log('✅ initPaySupplierSelect 执行完成');
+        
+        console.log('⏳ 执行 refreshPayRecordList...');
+        refreshPayRecordList();
+        console.log('✅ refreshPayRecordList 执行完成');
+        
+        console.log('✅ initPayRecordPage 执行完成');
+    } catch(e) {
+        console.error('❌ initPayRecordPage 执行失败:', e);
+        console.error('错误堆栈:', e.stack);
     }
-    financePageConfig.payRecord.current = 1;
-    initPaySupplierSelect();
-    refreshPayRecordList();
 }
-
 function initPaySupplierSelect() {
     const filterSel = document.getElementById('paySupplierFilter');
     filterSel.innerHTML = '<option value="">全部供应商</option>';
@@ -1321,18 +1383,43 @@ async function deletePayRecord(id) {
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 async function initInvoiceBackPage() {
-    // ✅ 关键修复：先确保弹窗是关闭状态
-    const invoiceBackModal = document.getElementById('invoiceBackModal');
-    if (invoiceBackModal) invoiceBackModal.style.display = 'none';
+    console.log('🔵 initInvoiceBackPage 被调用');
     
-    if (offlineSupplierList.length === 0) {
-        await loadOfflineSupplier();
+    try {
+        // ✅ 关键修复：先确保弹窗是关闭状态
+        const invoiceBackModal = document.getElementById('invoiceBackModal');
+        if (invoiceBackModal) {
+            invoiceBackModal.style.display = 'none';
+            console.log('✅ invoiceBackModal 已关闭');
+        } else {
+            console.warn('⚠️ 找不到 invoiceBackModal');
+        }
+        
+        if (offlineSupplierList.length === 0) {
+            console.log('⏳ offlineSupplierList 为空，正在加载...');
+            await loadOfflineSupplier();
+            console.log('✅ offlineSupplierList 加载完成，数量:', offlineSupplierList.length);
+        } else {
+            console.log('✅ offlineSupplierList 已有数据，数量:', offlineSupplierList.length);
+        }
+        
+        financePageConfig.invoiceBack.current = 1;
+        console.log('✅ financePageConfig.invoiceBack.current 已设置为 1');
+        
+        console.log('⏳ 执行 initInvoiceBackSupplierSelect...');
+        initInvoiceBackSupplierSelect();
+        console.log('✅ initInvoiceBackSupplierSelect 执行完成');
+        
+        console.log('⏳ 执行 refreshInvoiceBackList...');
+        refreshInvoiceBackList();
+        console.log('✅ refreshInvoiceBackList 执行完成');
+        
+        console.log('✅ initInvoiceBackPage 执行完成');
+    } catch(e) {
+        console.error('❌ initInvoiceBackPage 执行失败:', e);
+        console.error('错误堆栈:', e.stack);
     }
-    financePageConfig.invoiceBack.current = 1;
-    initInvoiceBackSupplierSelect();
-    refreshInvoiceBackList();
 }
-
 function initInvoiceBackSupplierSelect() {
     const filterSel = document.getElementById('invoiceBackSupplierFilter');
     const editSel = document.getElementById('invoiceBackSupplier');
