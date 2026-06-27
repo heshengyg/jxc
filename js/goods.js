@@ -40,7 +40,7 @@ let settleTotalPages = 1;
 // 加载结算类型列表（从独立的settle_types表）
 async function loadSettleList() {
     try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.desc`, {
             headers: { 
                 apikey: SUPABASE_KEY, 
                 Authorization: `Bearer ${SUPABASE_KEY}` 
