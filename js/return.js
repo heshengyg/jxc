@@ -257,6 +257,15 @@ function renderReturnSupplierList(list) {
             document.getElementById('returnSpecSearch').value = '';
             returnSelectedGoods = '';
             returnSelectedSpec = '';
+            // 清空选中的批次
+            selectedBatchInRecordId = null;
+            selectedBatchData = null;
+            document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+            document.getElementById('returnInPrice').value = '';
+            document.getElementById('returnBatchRemain').value = '';
+            document.getElementById('returnBatchRemainDisplay').textContent = '0';
+            document.getElementById('returnNum').value = '';
+            document.getElementById('returnNum').max = 0;
             updateReturnBatchList();
         };
         box.appendChild(div);
@@ -369,6 +378,15 @@ function renderReturnGoodsList(list) {
             // 清空规格选择
             returnSelectedSpec = '';
             document.getElementById('returnSpecSearch').value = '';
+            // 清空选中的批次
+            selectedBatchInRecordId = null;
+            selectedBatchData = null;
+            document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+            document.getElementById('returnInPrice').value = '';
+            document.getElementById('returnBatchRemain').value = '';
+            document.getElementById('returnBatchRemainDisplay').textContent = '0';
+            document.getElementById('returnNum').value = '';
+            document.getElementById('returnNum').max = 0;
             box.style.display = 'none';
             updateReturnBatchList();
         };
@@ -425,7 +443,7 @@ function renderReturnSpecList(list) {
     allDiv.onmouseover = function() { this.style.background = '#e5efff'; };
     allDiv.onmouseout = function() { this.style.background = 'transparent'; };
     allDiv.onclick = function() {
-        document.getElementById('returnSpecSearch').value = '全部规格';
+        document.getElementById('returnSpecSearch').value = '';
         returnSelectedSpec = '';
         box.style.display = 'none';
         updateReturnBatchList();
@@ -456,7 +474,10 @@ function updateReturnBatchList() {
     
     const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
-    const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
+    // 从规格搜索框读取值，用于过滤
+    const specInput = document.getElementById('returnSpecSearch').value.trim();
+    // 只有当规格搜索框有值，且不是默认值时，才进行规格过滤
+    const spec = (specInput && specInput !== '-' && specInput !== '全部规格') ? specInput : '';
     
     if (!supplier && !goodsName) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
@@ -506,7 +527,8 @@ function updateReturnBatchList() {
         });
     }
     
-    if (spec && spec !== '全部规格' && spec !== '-') {
+    // 只有当用户主动选择了规格时才过滤
+    if (spec) {
         allBatches = allBatches.filter(b => (b.spec || '') === spec);
     }
     
@@ -595,7 +617,7 @@ function toggleReturnBatch(index) {
         return;
     }
     
-    // 选中新批次
+    // 选中新批次 - 只记录选中状态，不改变过滤条件
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
@@ -605,13 +627,9 @@ function toggleReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
-    returnSelectedSupplier = batch.supplier;
-    returnSelectedGoods = batch.goodsName;
-    returnSelectedSpec = batch.spec || '';
-    
+    // 只更新搜索框的显示值，但不改变过滤变量 returnSelectedSupplier/Goods/Spec
     document.getElementById('returnSupplierSearch').value = batch.supplier;
     document.getElementById('returnGoodsSearch').value = batch.goodsName;
-    document.getElementById('returnSpecSearch').value = batch.spec || '-';
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
@@ -641,6 +659,7 @@ function toggleReturnBatch(index) {
     document.getElementById('returnNum').max = selectedBatchData.batchRemain;
     document.getElementById('returnNum').value = '';
     
+    // 只更新高亮状态，不重新过滤数据
     updateReturnBatchList();
     
     console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
