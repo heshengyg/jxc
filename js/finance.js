@@ -1,3 +1,11 @@
+// ===================== 格式化金额函数 =====================
+function formatMoney(value) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return '￥0.00';
+    }
+    return '￥' + Number(value).toFixed(2);
+}
+
 // ===================== 全局公共变量 =====================
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
