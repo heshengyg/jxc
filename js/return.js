@@ -80,7 +80,7 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表 ==========
+// ========== 渲染列表（移除编辑按钮） ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
@@ -111,7 +111,7 @@ function renderReturnList() {
                 <td>${formatMoney(item.sale_amount)}</td>
                 <td>${item.record_date || ''}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="openReturnEditForm(${item.id})">编辑</button>
+                    <!-- ✅ 删除编辑按钮，只保留删除 -->
                     <button class="btn btn-danger" onclick="deleteReturnGoods(${item.id})">删除</button>
                 </td>
             </tr>
@@ -164,7 +164,7 @@ function changeReturnPageSize() {
     renderReturnList();
 }
 
-// ========== 弹窗搜索下拉相关变量 ==========
+// ========== 弹窗搜索下拉相关变量（数据源改为 allStockIn） ==========
 let returnAllSuppliers = [];
 let returnFilteredSuppliers = [];
 let returnAllGoodsList = [];
@@ -178,7 +178,6 @@ let returnSelectedSpec = '';
 
 // ========== 重置弹窗搜索 ==========
 function resetReturnSearch() {
-    // 清空所有搜索框
     document.getElementById('returnSupplierSearch').value = '';
     document.getElementById('returnGoodsSearch').value = '';
     document.getElementById('returnSpecSearch').value = '';
@@ -188,7 +187,6 @@ function resetReturnSearch() {
     selectedBatchInRecordId = null;
     selectedBatchData = null;
     
-    // 清空商品ID和自动带出字段
     document.getElementById('returnCurGoodsId').value = '';
     document.getElementById('returnSpec').value = '';
     document.getElementById('returnSettleType').value = '';
@@ -201,18 +199,17 @@ function resetReturnSearch() {
     document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
     document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
     
-    // 关闭所有下拉框
     document.getElementById('returnSupplierListBox').style.display = 'none';
     document.getElementById('returnGoodsListBox').style.display = 'none';
     document.getElementById('returnSpecListBox').style.display = 'none';
 }
 
-// ========== 供应商搜索下拉 ==========
+// ========== 供应商搜索下拉（从 allStockIn 获取） ==========
 function showReturnSupplierList() {
     const box = document.getElementById('returnSupplierListBox');
     if (!box) return;
     
-    returnAllSuppliers = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
+    returnAllSuppliers = [...new Set(allStockIn.map(item => item.supplier).filter(s => s))].sort();
     returnFilteredSuppliers = returnAllSuppliers;
     renderReturnSupplierList(returnFilteredSuppliers);
     box.style.display = 'block';
@@ -225,7 +222,7 @@ function filterReturnSupplierList() {
     if (!input) return;
     
     const kw = input.value.toLowerCase();
-    returnAllSuppliers = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
+    returnAllSuppliers = [...new Set(allStockIn.map(item => item.supplier).filter(s => s))].sort();
     
     if (kw.length > 0) {
         returnFilteredSuppliers = returnAllSuppliers.filter(s => s.toLowerCase().includes(kw));
@@ -254,38 +251,41 @@ function renderReturnSupplierList(list) {
             document.getElementById('returnSupplierSearch').value = sup;
             returnSelectedSupplier = sup;
             box.style.display = 'none';
-            // 商品搜索框保持原值，但列表过滤
             updateReturnBatchList();
-            // 如果商品搜索框有值，自动匹配商品
-            const goodsSearch = document.getElementById('returnGoodsSearch').value.trim();
-            if (goodsSearch) {
-                const matchedGoods = allGoods.filter(g => g.supplier === sup && g.name === goodsSearch);
-                if (matchedGoods.length > 0) {
-                    returnSelectedGoods = goodsSearch;
-                    document.getElementById('returnCurGoodsId').value = matchedGoods[0].id;
-                    document.getElementById('returnSpec').value = matchedGoods[0].spec || '';
-                    document.getElementById('returnSettleType').value = matchedGoods[0].channel || '';
-                    document.getElementById('returnSalePrice').value = formatMoney(matchedGoods[0].sale_price);
-                    updateReturnSpecList();
-                    updateReturnBatchList();
-                }
-            }
         };
         box.appendChild(div);
     });
 }
 
-// ========== 商品搜索下拉 ==========
+// ========== 商品搜索下拉（从 allStockIn 获取） ==========
 function showReturnGoodsList() {
     const box = document.getElementById('returnGoodsListBox');
     if (!box) return;
     
-    // 如果选了供应商，只显示该供应商的商品
     if (returnSelectedSupplier) {
-        returnAllGoodsList = allGoods.filter(g => g.supplier === returnSelectedSupplier);
+        returnAllGoodsList = allStockIn
+            .filter(item => item.supplier === returnSelectedSupplier)
+            .map(item => ({ supplier: item.supplier, goodsName: item.goodsName, spec: item.spec || '' }));
+        // 去重
+        const uniqueMap = new Map();
+        returnAllGoodsList.forEach(item => {
+            const key = item.goodsName + '|' + item.spec;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, item);
+            }
+        });
+        returnAllGoodsList = Array.from(uniqueMap.values());
         returnFilteredGoodsList = returnAllGoodsList;
     } else {
-        returnAllGoodsList = allGoods.map(g => g);
+        const rawList = allStockIn.map(item => ({ supplier: item.supplier, goodsName: item.goodsName, spec: item.spec || '' }));
+        const uniqueMap = new Map();
+        rawList.forEach(item => {
+            const key = item.goodsName + '|' + item.spec;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, item);
+            }
+        });
+        returnAllGoodsList = Array.from(uniqueMap.values());
         returnFilteredGoodsList = returnAllGoodsList;
     }
     renderReturnGoodsList(returnFilteredGoodsList);
@@ -300,14 +300,33 @@ function filterReturnGoodsList() {
     
     const kw = input.value.toLowerCase();
     
-    // 如果选了供应商，只搜索该供应商的商品
     if (returnSelectedSupplier) {
-        returnAllGoodsList = allGoods.filter(g => g.supplier === returnSelectedSupplier);
+        const rawList = allStockIn
+            .filter(item => item.supplier === returnSelectedSupplier)
+            .map(item => ({ supplier: item.supplier, goodsName: item.goodsName, spec: item.spec || '' }));
+        const uniqueMap = new Map();
+        rawList.forEach(item => {
+            const key = item.goodsName + '|' + item.spec;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, item);
+            }
+        });
+        returnAllGoodsList = Array.from(uniqueMap.values());
     } else {
-        returnAllGoodsList = allGoods.map(g => g);
+        const rawList = allStockIn.map(item => ({ supplier: item.supplier, goodsName: item.goodsName, spec: item.spec || '' }));
+        const uniqueMap = new Map();
+        rawList.forEach(item => {
+            const key = item.goodsName + '|' + item.spec;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, item);
+            }
+        });
+        returnAllGoodsList = Array.from(uniqueMap.values());
     }
     
-    returnFilteredGoodsList = returnAllGoodsList.filter(g => g.name.toLowerCase().includes(kw));
+    returnFilteredGoodsList = returnAllGoodsList.filter(item => 
+        item.goodsName.toLowerCase().includes(kw) || (item.spec && item.spec.toLowerCase().includes(kw))
+    );
     renderReturnGoodsList(returnFilteredGoodsList);
     box.style.display = 'block';
 }
@@ -319,58 +338,55 @@ function renderReturnGoodsList(list) {
         box.innerHTML = '<div style="padding:8px;color:#999;">无匹配商品</div>';
         return;
     }
-    list.forEach(goods => {
+    list.forEach(item => {
         const div = document.createElement('div');
-        const specText = goods.spec ? ` (${goods.spec})` : '';
-        div.textContent = `${goods.name}${specText}`;
+        const specText = item.spec ? ` (${item.spec})` : '';
+        div.textContent = `${item.goodsName}${specText}`;
         div.style.padding = '6px 10px';
         div.style.cursor = 'pointer';
         div.onmouseover = function() { this.style.background = '#e5efff'; };
         div.onmouseout = function() { this.style.background = 'transparent'; };
         div.onclick = function() {
-            document.getElementById('returnGoodsSearch').value = goods.name;
-            returnSelectedGoods = goods.name;
-            document.getElementById('returnCurGoodsId').value = goods.id;
-            document.getElementById('returnSpec').value = goods.spec || '';
-            document.getElementById('returnSettleType').value = goods.channel || '';
-            document.getElementById('returnSalePrice').value = formatMoney(goods.sale_price);
+            document.getElementById('returnGoodsSearch').value = item.goodsName;
+            returnSelectedGoods = item.goodsName;
+            document.getElementById('returnSpec').value = item.spec || '';
+            // 从入库记录中获取结算方式和销售单价
+            const inRecord = allStockIn.find(record => 
+                record.supplier === returnSelectedSupplier && 
+                record.goodsName === item.goodsName && 
+                (record.spec || '') === (item.spec || '')
+            );
+            if (inRecord) {
+                document.getElementById('returnSettleType').value = inRecord.settleType || '';
+                const goodsInfo = allGoods.find(g => g.supplier === inRecord.supplier && g.name === inRecord.goodsName);
+                document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
+            }
             box.style.display = 'none';
-            // ✅ 不再自动填充供应商
-            // 更新规格列表
-            updateReturnSpecList();
-            // 更新批次列表
             updateReturnBatchList();
         };
         box.appendChild(div);
     });
 }
 
-// ========== 规格搜索下拉 ==========
+// ========== 规格搜索下拉（从 allStockIn 获取） ==========
 function showReturnSpecList() {
     const box = document.getElementById('returnSpecListBox');
     if (!box) return;
     
     const goodsName = document.getElementById('returnGoodsSearch').value.trim();
-    // 如果有选中的商品，从该商品获取规格
-    if (returnSelectedGoods || goodsName) {
-        const targetGoods = allGoods.find(g => g.name === (returnSelectedGoods || goodsName));
-        if (targetGoods) {
-            // 从库存批次中获取规格
-            const batchList = getStockBatchList(targetGoods.supplier, targetGoods.name);
-            const specSet = new Set();
-            batchList.forEach(batch => {
-                specSet.add(batch.spec || '');
-            });
-            returnAllSpecList = Array.from(specSet);
-            returnFilteredSpecList = returnAllSpecList;
-            renderReturnSpecList(returnFilteredSpecList);
-            box.style.display = 'block';
-            return;
-        }
+    if (!returnSelectedSupplier || !goodsName) {
+        box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商和商品</div>';
+        box.style.display = 'block';
+        return;
     }
     
-    // 没有选中的商品，显示空
-    box.innerHTML = '<div style="padding:8px;color:#999;">请先选择商品</div>';
+    const specList = allStockIn
+        .filter(item => item.supplier === returnSelectedSupplier && item.goodsName === goodsName)
+        .map(item => item.spec || '');
+    const uniqueSpecs = [...new Set(specList)];
+    returnAllSpecList = uniqueSpecs;
+    returnFilteredSpecList = returnAllSpecList;
+    renderReturnSpecList(returnFilteredSpecList);
     box.style.display = 'block';
 }
 
@@ -426,15 +442,6 @@ function renderReturnSpecList(list) {
     });
 }
 
-// ========== 更新下拉列表数据 ==========
-function updateReturnGoodsList() {
-    // 此函数保留但不再必须
-}
-
-function updateReturnSpecList() {
-    // 此函数保留但不再必须
-}
-
 // ========== 更新批次列表 ==========
 let selectedBatchInRecordId = null;
 let selectedBatchData = null;
@@ -447,22 +454,21 @@ function updateReturnBatchList() {
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     const spec = returnSelectedSpec || document.getElementById('returnSpecSearch').value.trim();
     
-    // 如果没有任何条件，显示提示
     if (!supplier && !goodsName) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
         return;
     }
     
-    // 获取所有批次
     let allBatches = [];
     if (supplier && goodsName) {
-        // 有供应商 + 商品名：精确匹配
         allBatches = getStockBatchList(supplier, goodsName);
     } else if (supplier) {
-        // 只有供应商：获取该供应商所有商品的所有批次
-        const goodsList = allGoods.filter(g => g.supplier === supplier);
-        goodsList.forEach(g => {
-            const batches = getStockBatchList(supplier, g.name);
+        const goodsList = allStockIn
+            .filter(item => item.supplier === supplier)
+            .map(item => item.goodsName);
+        const uniqueGoods = [...new Set(goodsList)];
+        uniqueGoods.forEach(gName => {
+            const batches = getStockBatchList(supplier, gName);
             batches.forEach(b => {
                 const exists = allBatches.some(existing => 
                     existing.goodsName === b.goodsName && 
@@ -476,10 +482,12 @@ function updateReturnBatchList() {
             });
         });
     } else if (goodsName) {
-        // 只有商品名：搜索所有供应商中该商品的有库存批次
-        const matchedGoods = allGoods.filter(g => g.name === goodsName);
-        matchedGoods.forEach(g => {
-            const batches = getStockBatchList(g.supplier, g.name);
+        const supplierList = allStockIn
+            .filter(item => item.goodsName === goodsName)
+            .map(item => item.supplier);
+        const uniqueSuppliers = [...new Set(supplierList)];
+        uniqueSuppliers.forEach(sup => {
+            const batches = getStockBatchList(sup, goodsName);
             batches.forEach(b => {
                 const exists = allBatches.some(existing => 
                     existing.goodsName === b.goodsName && 
@@ -494,12 +502,10 @@ function updateReturnBatchList() {
         });
     }
     
-    // 如果选了规格，进一步过滤
     if (spec && spec !== '全部规格' && spec !== '-') {
         allBatches = allBatches.filter(b => (b.spec || '') === spec);
     }
     
-    // 只显示有库存的批次
     allBatches = allBatches.filter(b => b.batchRemain > 0);
     
     if (allBatches.length === 0) {
@@ -507,7 +513,6 @@ function updateReturnBatchList() {
         return;
     }
     
-    // 存储批次数据到全局，供点击时使用
     window._returnBatchListData = allBatches;
     
     let html = `
@@ -552,98 +557,6 @@ function updateReturnBatchList() {
     container.innerHTML = html;
 }
 
-function selectReturnBatch(index) {
-    const container = document.getElementById('returnBatchListContainer');
-    const rows = container.querySelectorAll('tbody tr');
-    if (index >= rows.length) return;
-    
-    const row = rows[index];
-    const cells = row.querySelectorAll('td');
-    
-    // ✅ 根据表格列顺序：选择(0) | 供应商(1) | 商品名(2) | 规格(3) | 生产日期(4) | 到期日期(5) | 入库单价(6) | 批次库存(7)
-    const supplier = cells[1]?.textContent.trim() || '';
-    const goodsName = cells[2]?.textContent.trim() || '';
-    const spec = cells[3]?.textContent.trim() || '';
-    const inPriceText = cells[6]?.textContent.trim() || '￥0.00';
-    const batchRemain = parseInt(cells[7]?.textContent.trim()) || 0;
-    
-    if (!supplier || !goodsName) {
-        showMsg('批次数据异常');
-        return;
-    }
-    
-    // 获取该供应商+商品的所有批次
-    let batchList = getStockBatchList(supplier, goodsName);
-    batchList = batchList.filter(b => b.batchRemain > 0);
-    
-    // 根据规格过滤
-    if (spec && spec !== '-') {
-        batchList = batchList.filter(b => (b.spec || '') === spec);
-    }
-    
-    // 根据入库单价和批次库存匹配具体批次
-    const targetPrice = parseFloat(inPriceText.replace('￥', '').replace(/,/g, ''));
-    let targetBatch = null;
-    let targetInRecord = null;
-    
-    for (const batch of batchList) {
-        if (!batch.inRecords || batch.inRecords.length === 0) continue;
-        const inRecord = batch.inRecords[0];
-        const price = inRecord.in_price || 0;
-        // 匹配入库单价
-        if (Math.abs(price - targetPrice) < 0.01) {
-            targetBatch = batch;
-            targetInRecord = inRecord;
-            break;
-        }
-    }
-    
-    if (!targetBatch || !targetInRecord) {
-        showMsg('找不到匹配的批次');
-        return;
-    }
-    
-    // ✅ 设置选中的批次ID
-    selectedBatchInRecordId = targetInRecord.id;
-    selectedBatchData = {
-        inRecordId: targetInRecord.id,
-        inPrice: targetInRecord.in_price || 0,
-        batchRemain: targetBatch.batchRemain,
-        produceDate: targetBatch.produce_date || '',
-        expireDate: targetBatch.expire_date || ''
-    };
-    
-    // 自动填充供应商和商品（用于提交）
-    returnSelectedSupplier = supplier;
-    returnSelectedGoods = goodsName;
-    returnSelectedSpec = spec;
-    
-    const produceDisplay = selectedBatchData.produceDate || '-';
-    const expireDisplay = selectedBatchData.expireDate || '-';
-    
-    document.getElementById('returnSelectedBatchInfo').innerHTML = `
-        <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
-            <div style="display:flex;gap:20px;flex-wrap:wrap;">
-                <span><strong>供应商：</strong>${supplier}</span>
-                <span><strong>商品：</strong>${goodsName}</span>
-                <span><strong>规格：</strong>${spec || '-'}</span>
-                <span><strong>生产日期：</strong>${produceDisplay}</span>
-                <span><strong>到期日期：</strong>${expireDisplay}</span>
-                <span><strong>入库单价：</strong>${formatMoney(selectedBatchData.inPrice)}</span>
-                <span><strong>批次库存：</strong><span style="color:#ff4d4f;font-weight:bold;">${selectedBatchData.batchRemain}</span></span>
-            </div>
-        </div>
-    `;
-    document.getElementById('returnInPrice').value = formatMoney(selectedBatchData.inPrice);
-    document.getElementById('returnBatchRemain').value = selectedBatchData.batchRemain;
-    document.getElementById('returnBatchRemainDisplay').textContent = selectedBatchData.batchRemain;
-    document.getElementById('returnNum').max = selectedBatchData.batchRemain;
-    document.getElementById('returnNum').value = '';
-    
-    // ✅ 更新批次列表高亮
-    updateReturnBatchList();
-}
-
 function selectReturnBatchByIndex(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
@@ -667,12 +580,10 @@ function selectReturnBatchByIndex(index) {
         expireDate: batch.expire_date || ''
     };
     
-    // 自动填充供应商和商品（用于提交）
     returnSelectedSupplier = batch.supplier;
     returnSelectedGoods = batch.goodsName;
     returnSelectedSpec = batch.spec || '';
     
-    // 回填搜索框
     document.getElementById('returnSupplierSearch').value = batch.supplier;
     document.getElementById('returnGoodsSearch').value = batch.goodsName;
     document.getElementById('returnSpecSearch').value = batch.spec || '-';
@@ -680,7 +591,6 @@ function selectReturnBatchByIndex(index) {
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
     
-    // 获取销售单价（从商品信息中获取）
     const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
     document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
     
@@ -706,7 +616,6 @@ function selectReturnBatchByIndex(index) {
     document.getElementById('returnNum').max = selectedBatchData.batchRemain;
     document.getElementById('returnNum').value = '';
     
-    // 更新列表高亮
     updateReturnBatchList();
     
     console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
@@ -718,60 +627,6 @@ function openReturnAddForm() {
     document.getElementById('returnFormTitle').innerText = '添加退货单据';
     document.getElementById('returnEditId').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('returnModal').style.display = 'block';
-}
-
-async function openReturnEditForm(id) {
-    const item = allReturnGoods.find(x => x.id === id);
-    if (!item) return;
-    
-    resetReturnSearch();
-    
-    document.getElementById('returnFormTitle').innerText = '编辑退货单据';
-    document.getElementById('returnEditId').value = id;
-    
-    // 设置供应商
-    returnSelectedSupplier = item.supplier;
-    document.getElementById('returnSupplierSearch').value = item.supplier;
-    
-    // 设置商品
-    returnSelectedGoods = item.goods_name;
-    document.getElementById('returnGoodsSearch').value = item.goods_name;
-    document.getElementById('returnCurGoodsId').value = item.in_record_id;
-    
-    // 设置规格
-    returnSelectedSpec = item.spec || '';
-    document.getElementById('returnSpecSearch').value = item.spec || '-';
-    document.getElementById('returnSpec').value = item.spec || '';
-    document.getElementById('returnSettleType').value = item.settle_type || '';
-    document.getElementById('returnSalePrice').value = formatMoney(item.sale_price);
-    document.getElementById('returnInPrice').value = formatMoney(item.in_price);
-    document.getElementById('returnNum').value = item.return_num;
-    document.getElementById('returnReason').value = item.return_reason || '';
-    document.getElementById('returnRecordDate').value = item.record_date || '';
-    
-    selectedBatchInRecordId = item.in_record_id;
-    selectedBatchData = {
-        inRecordId: item.in_record_id,
-        inPrice: item.in_price,
-        batchRemain: 999,
-        produceDate: '',
-        expireDate: ''
-    };
-    document.getElementById('returnBatchRemain').value = 999;
-    document.getElementById('returnBatchRemainDisplay').textContent = '不限';
-    document.getElementById('returnNum').max = 999;
-    
-    document.getElementById('returnSelectedBatchInfo').innerHTML = `
-        <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
-            <div style="display:flex;gap:20px;flex-wrap:wrap;">
-                <span><strong>已选批次：</strong>${item.goods_name}</span>
-                <span><strong>入库单价：</strong>${formatMoney(item.in_price)}</span>
-            </div>
-        </div>
-    `;
-    
-    updateReturnBatchList();
     document.getElementById('returnModal').style.display = 'block';
 }
 
@@ -791,7 +646,6 @@ function checkReturnNum() {
 
 // ========== 提交退货 ==========
 async function submitReturnGoods() {
-    const editId = document.getElementById('returnEditId').value;
     const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     const goodsId = document.getElementById('returnCurGoodsId').value;
@@ -806,7 +660,6 @@ async function submitReturnGoods() {
     if (!supplier) return showMsg('请选择供应商');
     if (!goodsName || !goodsId) return showMsg('请选择商品');
     
-    // ✅ 检查是否选中批次
     if (!selectedBatchInRecordId) {
         showMsg('请选择退货批次');
         return;
@@ -815,25 +668,23 @@ async function submitReturnGoods() {
     if (returnNum < 1) return showMsg('退货数量必须大于0');
     if (!recordDate) return showMsg('请选择录入日期');
 
-    // 检查批次库存（编辑时跳过）
-    if (!editId) {
-        const batchList = getStockBatchList(supplier, goodsName);
-        let targetBatch = null;
-        for (const batch of batchList) {
-            if (batch.inRecords && batch.inRecords.some(r => r.id === selectedBatchInRecordId)) {
-                targetBatch = batch;
-                break;
-            }
-        }
-        if (!targetBatch) {
-            showMsg('该批次已无库存或已被删除');
-            return;
-        }
-        if (returnNum > targetBatch.batchRemain) {
-            showMsg(`退货数量不能大于批次库存（${targetBatch.batchRemain}）`);
-            return;
+    const batchList = getStockBatchList(supplier, goodsName);
+    let targetBatch = null;
+    for (const batch of batchList) {
+        if (batch.inRecords && batch.inRecords.some(r => r.id === selectedBatchInRecordId)) {
+            targetBatch = batch;
+            break;
         }
     }
+    if (!targetBatch) {
+        showMsg('该批次已无库存或已被删除');
+        return;
+    }
+    if (returnNum > targetBatch.batchRemain) {
+        showMsg(`退货数量不能大于批次库存（${targetBatch.batchRemain}）`);
+        return;
+    }
+    
     const returnAmount = inPrice * returnNum;
     const saleAmount = salePrice * returnNum;
 
@@ -860,26 +711,16 @@ async function submitReturnGoods() {
             'Prefer': 'return=representation'
         };
 
-        let res;
-        if (editId) {
-            res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods?id=eq.${editId}`, {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify(postData)
-            });
-        } else {
-            res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(postData)
-            });
-        }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(postData)
+        });
 
         if (res.status >= 200 && res.status < 300) {
-            showMsg(editId ? '编辑成功' : '退货成功');
+            showMsg('退货成功');
             closeReturnForm();
             await loadReturnGoods();
-            // ✅ 清空缓存，强制重新计算
             stockDataCache.clear();
             refreshAllStockCache(allStockIn, allStockOut);
             if (typeof loadStockStock === 'function') {
@@ -903,6 +744,7 @@ async function deleteReturnGoods(id) {
         });
         showMsg('删除成功');
         await loadReturnGoods();
+        stockDataCache.clear();
         refreshAllStockCache(allStockIn, allStockOut);
         if (typeof loadStockStock === 'function') {
             loadStockStock();
@@ -928,7 +770,6 @@ async function batchDeleteReturnGoods() {
     }
     showMsg('批量删除成功');
     await loadReturnGoods();
-    // ✅ 清空缓存，强制重新计算
     stockDataCache.clear();
     refreshAllStockCache(allStockIn, allStockOut);
     if (typeof loadStockStock === 'function') {
@@ -1005,8 +846,13 @@ async function importReturnExcel() {
                 
                 if (!supplier || !goodsName || returnNum < 1 || !recordDate) { failCount++; continue; }
                 
-                const goods = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-                if (!goods) { failCount++; continue; }
+                // 从入库记录中查找匹配的商品
+                const inRecord = allStockIn.find(item => 
+                    item.supplier === supplier && 
+                    item.goodsName === goodsName && 
+                    (item.spec || '') === (spec || '')
+                );
+                if (!inRecord) { failCount++; continue; }
                 
                 const batchList = getStockBatchList(supplier, goodsName);
                 if (batchList.length === 0) { failCount++; continue; }
@@ -1014,16 +860,17 @@ async function importReturnExcel() {
                 const firstBatch = batchList[0];
                 if (!firstBatch.inRecords || firstBatch.inRecords.length === 0) { failCount++; continue; }
                 
-                const inRecord = firstBatch.inRecords[0];
-                const inPrice = inRecord.in_price || 0;
-                const salePrice = goods.sale_price || 0;
+                const inRecordData = firstBatch.inRecords[0];
+                const inPrice = inRecordData.in_price || 0;
+                const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+                const salePrice = goodsInfo ? goodsInfo.sale_price : 0;
                 
                 if (returnNum > firstBatch.batchRemain) { failCount++; continue; }
                 
                 const postData = {
                     supplier, goods_name: goodsName, spec: spec || null,
-                    settle_type: settleType || goods.channel || '',
-                    in_record_id: inRecord.id, in_price: inPrice, return_num: returnNum,
+                    settle_type: settleType || inRecord.settleType || '',
+                    in_record_id: inRecordData.id, in_price: inPrice, return_num: returnNum,
                     return_amount: inPrice * returnNum, sale_price: salePrice,
                     sale_amount: salePrice * returnNum, record_date: recordDate,
                     return_reason: returnReason || null
