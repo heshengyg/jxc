@@ -64,56 +64,100 @@ switchTab = async function (tabName) {   // ← 加上 async
 
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
-    currFinanceSub = tabKey;
+    console.log('🔵 switchFinanceSubTab 被调用, tabKey:', tabKey);
+    
+    try {
+        currFinanceSub = tabKey;
+        console.log('✅ currFinanceSub 已设置:', currFinanceSub);
 
-    // 切换子版块时强制关闭所有弹窗
-    const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
-    modals.forEach(id => {
-        const modal = document.getElementById(id);
-        if (modal) {
-            modal.style.display = 'none';
+        // 切换子版块时强制关闭所有弹窗
+        const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
+        modals.forEach(id => {
+            try {
+                const modal = document.getElementById(id);
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            } catch(e) {
+                console.warn('关闭弹窗失败:', id, e);
+            }
+        });
+
+        // 切换子页面前，清空所有9个财务分页
+        const paginationIds = [
+            'page_taxRate',
+            'page_stockInPrint',
+            'page_payRecord',
+            'page_invoiceBack',
+            'page_paymentBoard',
+            'page_monthInvoiceBalance',
+            'page_stockInCheck',
+            'page_stockOutCheck',
+            'page_monthBeginStock'
+        ];
+        paginationIds.forEach(id => {
+            try {
+                const pageDom = document.getElementById(id);
+                if (pageDom) {
+                    pageDom.innerHTML = '';
+                }
+            } catch(e) {
+                console.warn('清空分页失败:', id, e);
+            }
+        });
+
+        console.log('✅ 准备隐藏所有子内容');
+        // 隐藏所有子内容
+        const contents = document.querySelectorAll('.finance-sub-content');
+        console.log('找到 .finance-sub-content 数量:', contents.length);
+        contents.forEach(el => {
+            try {
+                el.style.display = 'none';
+            } catch(e) {
+                console.warn('隐藏子内容失败:', e);
+            }
+        });
+        
+        // 显示目标子内容
+        console.log('✅ 准备显示目标子内容: sub-' + tabKey);
+        const targetContent = document.getElementById(`sub-${tabKey}`);
+        if (targetContent) {
+            targetContent.style.display = 'block';
+            console.log('✅ 目标子内容已显示');
+        } else {
+            console.error('❌ 找不到目标子内容: sub-' + tabKey);
         }
-    });
 
-    // 切换子页面前，清空所有9个财务分页，杜绝分页叠加
-    const paginationIds = [
-        'page_taxRate',
-        'page_stockInPrint',
-        'page_payRecord',
-        'page_invoiceBack',
-        'page_paymentBoard',
-        'page_monthInvoiceBalance',
-        'page_stockInCheck',
-        'page_stockOutCheck',
-        'page_monthBeginStock'
-    ];
-    paginationIds.forEach(id => {
-        const pageDom = document.getElementById(id);
-        if (pageDom) {
-            pageDom.innerHTML = '';
+        // 移除所有按钮的激活状态
+        console.log('✅ 准备更新按钮状态');
+        const btns = document.querySelectorAll('.finance-sub-btn');
+        console.log('找到 .finance-sub-btn 数量:', btns.length);
+        btns.forEach(btn => {
+            try {
+                btn.classList.remove('active');
+            } catch(e) {
+                console.warn('移除按钮激活状态失败:', e);
+            }
+        });
+        
+        // 激活目标按钮
+        const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
+        if (targetBtn) {
+            targetBtn.classList.add('active');
+            console.log('✅ 目标按钮已激活');
+        } else {
+            console.error('❌ 找不到目标按钮: .finance-sub-btn[data-tab="' + tabKey + '"]');
         }
-    });
-
-    // 隐藏所有子内容
-    document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
-    
-    // 显示目标子内容
-    const targetContent = document.getElementById(`sub-${tabKey}`);
-    if (targetContent) {
-        targetContent.style.display = 'block';
+        
+        // 初始化子页面
+        console.log('✅ 准备调用 initCurrentSubPage, currFinanceSub:', currFinanceSub);
+        await initCurrentSubPage();
+        console.log('✅ initCurrentSubPage 执行完成');
+        
+    } catch(e) {
+        console.error('❌ switchFinanceSubTab 执行失败:', e);
+        console.error('错误堆栈:', e.stack);
     }
-
-    // 移除所有按钮的激活状态
-    document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    
-    // 激活目标按钮（直接根据 tabKey 定位，不依赖 event 对象）
-    const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
-    if (targetBtn) {
-        targetBtn.classList.add('active');
-    }
-    
-    // 初始化子页面
-    await initCurrentSubPage();
 }
 
 // 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数，复用项目现有pagination样式）
