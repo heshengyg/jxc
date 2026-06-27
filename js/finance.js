@@ -51,24 +51,21 @@ let skipPrintAllChange = false;
 
 // 重写Tab切换，进入财务页先强制关闭税率弹窗，避免自动弹出
 const originSwitchTab = switchTab;
-switchTab = async function (tabName) {   // ← 加上 async
+switchTab = async function (tabName) {
     originSwitchTab(tabName);
     if (tabName === 'finance') {
         const taxModal = document.getElementById('taxModal');
         if (taxModal) taxModal.style.display = 'none';
-        await initFinanceBaseData();   // ← 加上 await
-        await switchFinanceSubTab('taxRate');   // ← 加上 await
+        await initFinanceBaseData();
+        await switchFinanceSubTab('taxRate');
         document.querySelector('.finance-sub-btn').classList.add('active');
     }
 }
 
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
-    console.log('🔵 switchFinanceSubTab 被调用, tabKey:', tabKey);
-    
     try {
         currFinanceSub = tabKey;
-        console.log('✅ currFinanceSub 已设置:', currFinanceSub);
 
         // 切换子版块时强制关闭所有弹窗
         const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
@@ -106,10 +103,8 @@ async function switchFinanceSubTab(tabKey) {
             }
         });
 
-        console.log('✅ 准备隐藏所有子内容');
         // 隐藏所有子内容
         const contents = document.querySelectorAll('.finance-sub-content');
-        console.log('找到 .finance-sub-content 数量:', contents.length);
         contents.forEach(el => {
             try {
                 el.style.display = 'none';
@@ -119,19 +114,13 @@ async function switchFinanceSubTab(tabKey) {
         });
         
         // 显示目标子内容
-        console.log('✅ 准备显示目标子内容: sub-' + tabKey);
         const targetContent = document.getElementById(`sub-${tabKey}`);
         if (targetContent) {
             targetContent.style.display = 'block';
-            console.log('✅ 目标子内容已显示');
-        } else {
-            console.error('❌ 找不到目标子内容: sub-' + tabKey);
         }
 
         // 移除所有按钮的激活状态
-        console.log('✅ 准备更新按钮状态');
         const btns = document.querySelectorAll('.finance-sub-btn');
-        console.log('找到 .finance-sub-btn 数量:', btns.length);
         btns.forEach(btn => {
             try {
                 btn.classList.remove('active');
@@ -144,29 +133,21 @@ async function switchFinanceSubTab(tabKey) {
         const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
         if (targetBtn) {
             targetBtn.classList.add('active');
-            console.log('✅ 目标按钮已激活');
-        } else {
-            console.error('❌ 找不到目标按钮: .finance-sub-btn[data-tab="' + tabKey + '"]');
         }
 
-        // ========== 新增：修复父容器高度，确保所有子版块都能显示 ==========
+        // 修复父容器高度，确保所有子版块都能显示
         const financeContainer = document.getElementById('finance');
         if (financeContainer) {
             financeContainer.style.height = 'auto';
             financeContainer.style.minHeight = '600px';
             financeContainer.style.overflow = 'visible';
-            console.log('✅ 父容器高度已修复');
         }
-        // ========== 新增结束 ==========
         
         // 初始化子页面
-        console.log('✅ 准备调用 initCurrentSubPage, currFinanceSub:', currFinanceSub);
         await initCurrentSubPage();
-        console.log('✅ initCurrentSubPage 执行完成');
         
     } catch(e) {
-        console.error('❌ switchFinanceSubTab 执行失败:', e);
-        console.error('错误堆栈:', e.stack);
+        console.error('switchFinanceSubTab 执行失败:', e);
     }
 }
  
@@ -174,7 +155,6 @@ async function switchFinanceSubTab(tabKey) {
 function renderFinancePagination(pageKey) {
     const cfg = financePageConfig[pageKey];
     const totalPages = Math.ceil(cfg.total / cfg.pageSize) || 1;
-    // 复用你系统已有的分页样式结构
     const pageHtml = `
         <div class="page-info">
             每页显示 <select onchange="changeFinancePageSize('${pageKey}',this.value)">
@@ -199,7 +179,7 @@ function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].pageSize = Number(size);
     financePageConfig[pageKey].current = 1;
     if(pageKey === 'stockInPrint'){
-        searchPrintStockIn(true);   // 明确传 true 重置
+        searchPrintStockIn(true);
     }else{
         initCurrentSubPage();
     }
@@ -211,7 +191,7 @@ function financeGoToPage(pageKey, targetPage) {
     if(targetPage < 1 || targetPage > totalPages) return;
     cfg.current = targetPage;
     if(pageKey === 'stockInPrint'){
-        searchPrintStockIn(false);   // ← 新增参数 false
+        searchPrintStockIn(false);
     }else{
         initCurrentSubPage();
     }
@@ -285,7 +265,7 @@ async function loadAllInvoiceBack() {
     allInvoiceBackList = await res.json();
 }
 
-// ✅ 新增：加载全部出库记录
+// 加载全部出库记录
 async function loadAllStockOut() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
@@ -294,55 +274,41 @@ async function loadAllStockOut() {
 }
 
 // 当前子页面初始化分发
-// 当前子页面初始化分发
 async function initCurrentSubPage() {
-    console.log('🔵 initCurrentSubPage 被调用, currFinanceSub:', currFinanceSub);
-    
     try {
         switch (currFinanceSub) {
             case 'taxRate': 
-                console.log('✅ 执行 initTaxRatePage');
                 initTaxRatePage(); 
                 break;
             case 'stockInPrint': 
-                console.log('✅ 执行 initStockInPrintPage');
                 initStockInPrintPage(); 
                 break;
             case 'payRecord': 
-                console.log('✅ 执行 initPayRecordPage');
                 await initPayRecordPage(); 
                 break;
             case 'invoiceBack': 
-                console.log('✅ 执行 initInvoiceBackPage');
                 await initInvoiceBackPage(); 
                 break;
             case 'paymentBoard': 
-                console.log('✅ 执行 initPaymentBoardPage');
                 initPaymentBoardPage(); 
                 break;
             case 'monthInvoiceBalance': 
-                console.log('✅ 执行 initMonthBalancePage');
                 initMonthBalancePage(); 
                 break;
             case 'stockInCheck': 
-                console.log('✅ 执行 initStockInCheckPage');
                 initStockInCheckPage(); 
                 break;
             case 'stockOutCheck': 
-                console.log('✅ 执行 initStockOutCheckPage');
                 initStockOutCheckPage(); 
                 break;
             case 'monthBeginStock': 
-                console.log('✅ 执行 initMonthBeginPage');
                 initMonthBeginPage(); 
                 break;
             default:
-                console.error('❌ 未知的 subTab:', currFinanceSub);
+                console.error('未知的 subTab:', currFinanceSub);
         }
-        console.log('✅ initCurrentSubPage 执行完成');
     } catch(e) {
-        console.error('❌ initCurrentSubPage 执行失败:', e);
-        console.error('错误堆栈:', e.stack);
+        console.error('initCurrentSubPage 执行失败:', e);
     }
 }
 
@@ -355,7 +321,7 @@ async function initFinanceBaseData() {
         loadAllStockIn(),
         loadAllPayment(),
         loadAllInvoiceBack(),
-        loadAllStockOut()   // ✅ 新增：加载出库数据
+        loadAllStockOut()
     ]);
 }
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
@@ -363,30 +329,25 @@ function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
     if(taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
-    // 确保自动执行表格刷新
     refreshTaxList();
 }
 function initTaxSupplierFilter() {
-    // 初始化供应商数据源：只线下商品供应商
     const supplierSet = new Set();
     allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
     currTaxSupplierList = Array.from(supplierSet);
 
-    // 初始化商品数据源：所有线下商品
     currTaxGoodsList = allGoodsList.filter(g => g.channel === '线下');
 
-    // 清空所有搜索框
     document.getElementById('taxSupplierSearch').value = '';
     document.getElementById('taxGoodsSearch').value = '';
     document.getElementById('taxRateSearch').value = '';
 
-    // 关闭所有下拉框
     document.getElementById('taxSupplierListBox').style.display = 'none';
     document.getElementById('taxGoodsListBox').style.display = 'none';
     document.getElementById('taxRateListBox').style.display = 'none';
 }
 
-// 供应商下拉相关函数（复刻入库搜索逻辑）
+// 供应商下拉相关函数
 function showTaxSupplierList(){
     renderTaxSupplierList(currTaxSupplierList);
     document.getElementById('taxSupplierListBox').style.display = 'block';
@@ -418,7 +379,7 @@ function renderTaxSupplierList(list){
     });
 }
 
-// 商品名称下拉相关函数（复刻入库搜索逻辑）
+// 商品名称下拉相关函数
 function showTaxGoodsList(){
     renderTaxGoodsList(currTaxGoodsList);
     document.getElementById('taxGoodsListBox').style.display = 'block';
@@ -450,7 +411,7 @@ function renderTaxGoodsList(list){
     });
 }
 
-// 税率下拉相关函数（复刻入库搜索逻辑）
+// 税率下拉相关函数
 function showTaxRateList(){
     renderTaxRateList(currTaxRateOptionList);
     document.getElementById('taxRateListBox').style.display = 'block';
@@ -483,55 +444,44 @@ function renderTaxRateList(list){
     });
 }
 
-// 多条件筛选刷新表格（点击按钮才执行，空条件默认查全部 + 分页处理）
+// 多条件筛选刷新表格
 function refreshTaxList() {
-    // 获取所有筛选条件
     const selectSupplier = document.getElementById('taxSupplierSearch').value.trim();
     const selectGoodsName = document.getElementById('taxGoodsSearch').value.trim();
     const selectTaxText = document.getElementById('taxRateSearch').value.trim();
     const filterChannel = document.getElementById('taxChannelFilter').value;
 
-    // 初始数据源：默认全部线下商品
     let list = [...allGoodsList.filter(g => g.channel === '线下')];
     list.sort((a, b) => b.id - a.id);
 
-    // 条件1：供应商筛选（选了才过滤，空则不过滤）
     if(selectSupplier){
         list = list.filter(g => g.supplier === selectSupplier);
     }
 
-    // 条件2：商品名称筛选
     if(selectGoodsName){
         list = list.filter(g => g.name === selectGoodsName);
     }
 
-    // 条件3：税率筛选
     if(selectTaxText){
         const targetTax = currTaxRateOptionList.find(item => item.text === selectTaxText);
         if(targetTax){
             if(targetTax.val === null){
-                // 筛选未设置税率
                 list = list.filter(g => g.tax_rate === null || g.tax_rate === undefined || g.tax_rate === '');
             }else if(targetTax.val !== ''){
-                // 筛选指定税率
                 list = list.filter(g => String(g.tax_rate) === targetTax.val);
             }
-            // val为空：全部税率，不筛选
         }
     }
 
-    // 条件4：结算方式筛选
     if(filterChannel){
         list = list.filter(g => g.channel === filterChannel);
     }
 
-    // 分页处理
     const cfg = financePageConfig.taxRate;
     cfg.total = list.length;
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(start, start + cfg.pageSize);
 
-    // 渲染表格
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
@@ -546,7 +496,6 @@ function refreshTaxList() {
             <td><button class="btn btn-primary" onclick="openTaxEdit(${item.id})">编辑税率</button></td>
         </tr>`;
     });
-    // 渲染分页底部
     renderFinancePagination('taxRate');
 }
 
@@ -554,7 +503,6 @@ function openTaxEdit(id) {
     document.getElementById('taxEditId').value = id;
     const row = allGoodsList.find(g => g.id === id);
     document.getElementById('taxRateSelect').value = row.tax_rate || '0';
-    // 弹窗强制最高层级，避免被表头遮挡
     const modalDom = document.getElementById('taxModal');
     modalDom.style.display = 'flex';
     modalDom.style.zIndex = '9999';
@@ -575,7 +523,6 @@ async function saveTaxData() {
         body: JSON.stringify({ tax_rate: taxRate })
     });
     await loadAllGoods();
-    // 新增：主动刷新商品页面数据，实现财务改完商品页立刻更新
     if(typeof loadGoods === 'function'){
         await loadGoods();
     }
@@ -588,21 +535,17 @@ async function saveTaxData() {
 let printStockInData = [];
 const printStyle = `
 <style media="print">
-/* 仅打印容器可见，预览正常不遮挡 */
 body{margin:0;padding:0;}
 body *{visibility:hidden;}
 #printPreviewWrap, #printPreviewWrap *{visibility:visible;}
 #printPreviewWrap{width:100%;}
-
 @page{
   size:A5 landscape;
-  margin:1.5cm; /* 小幅缩小边距给横向更多空间 */
+  margin:1.5cm;
   marks:none;
-  /* 强制禁止浏览器自动生成空白页 */
   break-before:avoid;
   break-after:avoid;
 }
-/* 单据强制顶部对齐，绝对不垂直居中 */
 .supplier-bill{
   width:100%;
   margin-top:0 !important;
@@ -622,7 +565,6 @@ body *{visibility:hidden;}
   font-size:12px;
   margin-bottom:8px;
 }
-/* 表格横向最大利用宽度，上限140%，左右居中 */
 .goods-table{
   width:clamp(100%,130%,140%);
   margin:0 auto;
@@ -652,15 +594,10 @@ function initStockInPrintPage() {
     cfg.sortField = 'record_date';
     cfg.sortType = 'desc';
 
-    // 【修复】所有下拉数据源100%来自入库表的线下数据，和商品表完全解耦
-    // 1. 线下供应商：从入库表去重获取
     printSupplierSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.supplier))];
-    // 2. 商品名称：从入库表对应供应商的线下数据去重获取
     printGoodsSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.goodsName))];
-    // 3. 规格：从入库表对应供应商的线下数据去重获取
     printSpecSearchList = [...new Set(allStockInList.filter(i=>i.settleType==='线下').map(i=>i.spec).filter(Boolean))];
 
-    // 清空筛选条件
     document.getElementById('printSupplierSearch').value = '';
     document.getElementById('printGoodsNameSearch').value = '';
     document.getElementById('printSpecSearch').value = '';
@@ -675,7 +612,6 @@ function initStockInPrintPage() {
     renderFinancePagination('stockInPrint');
 }
 
-// ========== 需求①：下拉带搜索函数 ==========
 // 供应商搜索下拉
 function showPrintSupplierList(){
     renderPrintSupplierList(printSupplierSearchList);
@@ -772,7 +708,7 @@ function renderPrintSpecList(list){
     });
 }
 
-// 全局点击空白关闭三个下拉框（修复下拉卡死、一直显示无匹配问题）
+// 全局点击空白关闭三个下拉框
 document.addEventListener('click',e=>{
     if(!e.target.closest('#printSupplierSearch') && !e.target.closest('#printSupplierListBox')){
         document.getElementById('printSupplierListBox').style.display='none';
@@ -785,7 +721,6 @@ document.addEventListener('click',e=>{
     }
 });
 
-// ========== 需求③默认最新日期在前、④列排序、清除排序 ==========
 function sortPrintTable(field){
     const cfg = financePageConfig.stockInPrint;
     if(cfg.sortField === field){
@@ -803,7 +738,6 @@ function clearPrintSort(){
     searchPrintStockIn();
 }
 
-// 筛选查询主函数
 function searchPrintStockIn(resetPage = true) {
     if (resetPage) {
         selectedPrintIds.clear();
@@ -861,7 +795,6 @@ function searchPrintStockIn(resetPage = true) {
         </tr>`;
     });
 
-    // 供应商汇总行渲染
     const groupMap = {};
     list.forEach(row=>{
         if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
@@ -882,8 +815,6 @@ function searchPrintStockIn(resetPage = true) {
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 
-    // ===== 关键：在分页渲染完成后重新绑定所有事件 =====
-    // 全选事件
     document.getElementById('printAllCheck').onchange = function () {
         if (skipPrintAllChange) {
             skipPrintAllChange = false;
@@ -898,7 +829,6 @@ function searchPrintStockIn(resetPage = true) {
         }
     };
 
-    // 手动勾选事件
     document.querySelectorAll('.print-checkbox').forEach(checkbox => {
         checkbox.onchange = function(){
             const id = Number(this.dataset.id);
@@ -914,7 +844,6 @@ function searchPrintStockIn(resetPage = true) {
         };
     });
 
-    // 同步全选按钮状态
     skipPrintAllChange = true;
     document.getElementById('printAllCheck').checked = (selectedPrintIds.size === printStockInData.length && printStockInData.length > 0);
     skipPrintAllChange = false;
@@ -926,7 +855,6 @@ function previewAndPrint() {
         return;
     }
 
-    // 从 printStockInData 中筛选出选中的记录
     const groupMap = {};
     printStockInData.forEach(row => {
         if (selectedPrintIds.has(row.id)) {
@@ -1037,17 +965,15 @@ function previewAndPrint() {
             size: A5 landscape;
             margin: 1.6cm 1.1cm 1.2cm 1.0cm;
         }
-
         .print-container {
             width: 100%;
             height: 100%;
         }
-
         .page-block {
             width: 100%;
             height: 100%;
-            position: relative;   /* 让页脚绝对定位 */
-            padding-bottom: 2.2cm; /* 为页脚预留空间（约40px） */
+            position: relative;
+            padding-bottom: 2.2cm;
             page-break-after: always;
             margin: 0;
             padding-left: 0;
@@ -1056,7 +982,6 @@ function previewAndPrint() {
         .page-block:last-child {
             page-break-after: avoid;
         }
-
         .bill-title {
             text-align: center;
             font-size: 22pt;
@@ -1073,14 +998,12 @@ function previewAndPrint() {
             padding: 0 2px;
         }
         .bill-header .label { font-weight: bold; }
-
-        /* 表格：宽度100%，列宽固定，不拉伸行高 */
         .goods-table {
             width: 100% !important;
             border-collapse: collapse;
             font-size: 11pt;
             table-layout: fixed;
-            margin-bottom: 0;  /* 让页脚独立 */
+            margin-bottom: 0;
         }
         .goods-table th, .goods-table td {
             border: 1px solid #000;
@@ -1088,7 +1011,7 @@ function previewAndPrint() {
             text-align: center;
             font-size: 11pt;
             word-break: break-word;
-            height: auto;      /* 不固定高度，由内容撑开 */
+            height: auto;
         }
         .goods-table th {
             border: 2px solid #000;
@@ -1096,8 +1019,6 @@ function previewAndPrint() {
             font-weight: bold;
             font-size: 12pt;
         }
-
-        /* 列宽百分比（总和100%） */
         .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 13%; }
         .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
         .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
@@ -1105,7 +1026,6 @@ function previewAndPrint() {
         .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 11%; }
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
         .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 16%; }
-
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
@@ -1116,8 +1036,6 @@ function previewAndPrint() {
             text-align: right;
             padding-right: 8px;
         }
-
-        /* 页脚：绝对定位到底部（距底部0.6cm，在页边距内） */
         .bill-footer {
             position: absolute;
             bottom: 0.6cm;
@@ -1135,8 +1053,6 @@ function previewAndPrint() {
             min-width: 120px;
             text-align: right;
         }
-
-        /* 屏幕预览辅助 */
         @media screen {
             .page-block {
                 border: 1px dashed #ccc;
@@ -1151,7 +1067,6 @@ function previewAndPrint() {
             .print-container { max-width: 1100px; margin: 0 auto; }
             .bill-footer { position: absolute; bottom: 0.6cm; left: 18px; right: 18px; }
         }
-
         @media print {
             html, body, .print-container, .page-block {
                 margin: 0 !important;
@@ -1168,10 +1083,7 @@ function previewAndPrint() {
             .page-block:last-child { page-break-after: avoid; }
             .bill-title { margin-top: 0 !important; padding-top: 0 !important; }
             .goods-table { width: 100% !important; }
-            .bill-footer { 
-                bottom: 0.6cm !important;
-            }
-            /* 防止表格被拉伸 */
+            .bill-footer { bottom: 0.6cm !important; }
             .goods-table td, .goods-table th { height: auto !important; }
         }
     </style>
@@ -1200,67 +1112,42 @@ function previewAndPrint() {
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 async function initPayRecordPage() {
-    console.log('🔵 initPayRecordPage 被调用');
-    
     try {
-        // ✅ 关键修复：先确保弹窗是关闭状态
         const payModal = document.getElementById('payModal');
         if (payModal) {
             payModal.style.display = 'none';
-            console.log('✅ payModal 已关闭');
-        } else {
-            console.warn('⚠️ 找不到 payModal');
         }
         
         if (offlineSupplierList.length === 0) {
-            console.log('⏳ offlineSupplierList 为空，正在加载...');
             await loadOfflineSupplier();
-            console.log('✅ offlineSupplierList 加载完成，数量:', offlineSupplierList.length);
-        } else {
-            console.log('✅ offlineSupplierList 已有数据，数量:', offlineSupplierList.length);
         }
-        
         financePageConfig.payRecord.current = 1;
-        console.log('✅ financePageConfig.payRecord.current 已设置为 1');
-        
-        console.log('⏳ 执行 initPaySupplierSelect...');
         initPaySupplierSelect();
-        console.log('✅ initPaySupplierSelect 执行完成');
-        
-        console.log('⏳ 执行 refreshPayRecordList...');
         refreshPayRecordList();
-        console.log('✅ refreshPayRecordList 执行完成');
-        
-        console.log('✅ initPayRecordPage 执行完成');
     } catch(e) {
-        console.error('❌ initPayRecordPage 执行失败:', e);
-        console.error('错误堆栈:', e.stack);
+        console.error('initPayRecordPage 执行失败:', e);
     }
 }
 function initPaySupplierSelect() {
     const filterSel = document.getElementById('paySupplierFilter');
-    filterSel.innerHTML = '<option value="">全部供应商</option>';
     const editSel = document.getElementById('paySupplier');
-    editSel.innerHTML = '';
+    filterSel.innerHTML = '<option value="">全部供应商</option>';
+    editSel.innerHTML = '<option value="">请选择供应商</option>';
     offlineSupplierList.forEach(s => {
         filterSel.innerHTML += `<option value="${s}">${s}</option>`;
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     
-    // ========== 修改开始：添加供应商选择变化事件 ==========
     editSel.onchange = function() {
         updatePayPayableDisplay(this.value);
     };
-    // ========== 修改结束 ==========
 }
 
 function refreshPayRecordList() {
     const filterSupplier = document.getElementById('paySupplierFilter').value;
     let list = [...allPayList];
-    // ========== 修改开始：按 id 倒序排列（最新添加的排最前） ==========
     list.sort((a, b) => b.id - a.id);
-    // ========== 修改结束 ==========
     if (filterSupplier) list = list.filter(p => p.supplier === filterSupplier);
 
     const cfg = financePageConfig.payRecord;
@@ -1292,9 +1179,11 @@ function openPayAddModal() {
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('payAmount').value = '';
     document.getElementById('payRemark').value = '';
-    // ========== 修改开始：清空应付账款显示 ==========
-    document.getElementById('payPayableDisplay').textContent = '请选择供应商';
-    // ========== 修改结束 ==========
+    const displayEl = document.getElementById('payPayableDisplay');
+    if (displayEl) {
+        displayEl.textContent = '请选择供应商';
+        displayEl.style.color = '#999';
+    }
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1307,15 +1196,13 @@ function openPayEdit(id) {
     document.getElementById('paySupplier').value = row.supplier;
     document.getElementById('payAmount').value = row.payment_amount;
     document.getElementById('payRemark').value = row.remark || '';
-    // ========== 修改开始：编辑时显示该供应商的应付账款 ==========
     updatePayPayableDisplay(row.supplier);
-    // ========== 修改结束 ==========
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
 }
 
-// ========== 新增：更新应付账款显示 ==========
+// ========== 更新应付账款显示 ==========
 function updatePayPayableDisplay(supplier) {
     const displayEl = document.getElementById('payPayableDisplay');
     if (!displayEl) return;
@@ -1326,23 +1213,18 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     
-    // 从收付款看板计算该供应商的应付账款
-    // 计算总货款（线下入库含税汇总）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // 计算累计实付款
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
     });
     
-    // 应付账款 = 总货款 - 累计实付款
     const payable = totalIn - totalPay;
     
-    // 显示
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
@@ -1373,8 +1255,6 @@ async function savePayRecord() {
     await loadAllPayment();
     refreshPayRecordList();
     showMsg('付款记录保存成功');
-    
-    // ✅ 新增：关闭弹窗并重置编辑ID
     closePayModal();
     currentPayEditId = null;
 }
@@ -1393,52 +1273,29 @@ async function deletePayRecord(id) {
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 async function initInvoiceBackPage() {
-    console.log('🔵 initInvoiceBackPage 被调用');
-    
     try {
-        // ✅ 关键修复：先确保弹窗是关闭状态
         const invoiceBackModal = document.getElementById('invoiceBackModal');
         if (invoiceBackModal) {
             invoiceBackModal.style.display = 'none';
-            console.log('✅ invoiceBackModal 已关闭');
-        } else {
-            console.warn('⚠️ 找不到 invoiceBackModal');
         }
         
         if (offlineSupplierList.length === 0) {
-            console.log('⏳ offlineSupplierList 为空，正在加载...');
             await loadOfflineSupplier();
-            console.log('✅ offlineSupplierList 加载完成，数量:', offlineSupplierList.length);
-        } else {
-            console.log('✅ offlineSupplierList 已有数据，数量:', offlineSupplierList.length);
         }
-        
         financePageConfig.invoiceBack.current = 1;
-        console.log('✅ financePageConfig.invoiceBack.current 已设置为 1');
-        
-        console.log('⏳ 执行 initInvoiceBackSupplierSelect...');
         initInvoiceBackSupplierSelect();
-        console.log('✅ initInvoiceBackSupplierSelect 执行完成');
-        
-        console.log('⏳ 执行 refreshInvoiceBackList...');
         refreshInvoiceBackList();
-        console.log('✅ refreshInvoiceBackList 执行完成');
-        
-        console.log('✅ initInvoiceBackPage 执行完成');
     } catch(e) {
-        console.error('❌ initInvoiceBackPage 执行失败:', e);
-        console.error('错误堆栈:', e.stack);
+        console.error('initInvoiceBackPage 执行失败:', e);
     }
 }
 function initInvoiceBackSupplierSelect() {
     const filterSel = document.getElementById('invoiceBackSupplierFilter');
     const editSel = document.getElementById('invoiceBackSupplier');
     filterSel.innerHTML = '<option value="">全部供应商</option>';
-    editSel.innerHTML = '';
+    editSel.innerHTML = '<option value="">请选择供应商</option>';
     
-    // ✅ 确保 offlineSupplierList 有数据
     if (offlineSupplierList.length === 0) {
-        // 如果为空，尝试重新加载
         loadOfflineSupplier().then(() => {
             offlineSupplierList.forEach(s => {
                 filterSel.innerHTML += `<option value="${s}">${s}</option>`;
@@ -1453,14 +1310,13 @@ function initInvoiceBackSupplierSelect() {
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
-// ========== 新增：供应商选择变化时更新发票结余 ==========
+    
     editSel.onchange = function() {
         updateInvoiceBackBalance(this.value);
     };
-    // ========== 新增结束 ==========
 }
 
-// ========== 新增：更新发票结余显示 ==========
+// ========== 更新发票结余显示 ==========
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (!displayEl) return;
@@ -1471,32 +1327,26 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
     
-    // 计算总货款（线下入库含税汇总）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // 计算累计发票返回金额
     let totalBack = 0;
     allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
         totalBack += Number(b.invoice_amount);
     });
     
-    // 发票结余 = 累计发票返回金额 - 总货款
     const balance = totalBack - totalIn;
     
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
 }
-// ========== 新增结束 ==========
 
 function refreshInvoiceBackList() {
     const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
     let list = [...allInvoiceBackList];
-    // ========== 修改开始：按 id 倒序排列（最新添加的排最前） ==========
     list.sort((a, b) => b.id - a.id);
-    // ========== 修改结束 ==========
     if (filterSupplier) list = list.filter(i => i.supplier === filterSupplier);
 
     const cfg = financePageConfig.invoiceBack;
@@ -1530,13 +1380,11 @@ function openInvoiceBackAddModal() {
     document.getElementById('invoiceBackAmount').value = '';
     document.getElementById('invoiceBackNo').value = '';
     document.getElementById('invoiceBackRemark').value = '';
-    // ========== 新增：清空发票结余显示 ==========
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (displayEl) {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
     }
-    // ========== 新增结束 ==========
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1550,9 +1398,7 @@ function openInvoiceBackEdit(id) {
     document.getElementById('invoiceBackAmount').value = row.invoice_amount;
     document.getElementById('invoiceBackNo').value = row.invoice_no || '';
     document.getElementById('invoiceBackRemark').value = row.remark || '';
-    // ========== 新增：编辑时显示该供应商的发票结余 ==========
     updateInvoiceBackBalance(row.supplier);
-    // ========== 新增结束 ==========
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1568,7 +1414,6 @@ async function saveInvoiceBackRecord() {
     const invNo = document.getElementById('invoiceBackNo').value.trim();
     const remark = document.getElementById('invoiceBackRemark').value.trim();
     
-    // 校验：日期、供应商、金额必须填写，金额必须大于0
     if (!backDate || !supplier || isNaN(amount) || amount <= 0) {
         return showMsg('请完善必填项（日期、供应商、金额必须大于0）');
     }
@@ -1582,18 +1427,6 @@ async function saveInvoiceBackRecord() {
     };
     
     try {
-        // ✅ 如果是编辑模式，先获取旧记录信息
-        let oldSupplier = supplier;
-        let oldAmount = 0;
-        if (currentInvoiceBackEditId) {
-            const oldRecord = allInvoiceBackList.find(i => i.id === currentInvoiceBackEditId);
-            if (oldRecord) {
-                oldSupplier = oldRecord.supplier;
-                oldAmount = Number(oldRecord.invoice_amount) || 0;
-            }
-        }
-        
-        // 1. 保存发票返回记录（新增或编辑）
         if (currentInvoiceBackEditId) {
             await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${currentInvoiceBackEditId}`, {
                 method: 'PATCH',
@@ -1616,19 +1449,11 @@ async function saveInvoiceBackRecord() {
             });
         }
         
-        // 2. 重新加载发票数据
         await loadAllInvoiceBack();
-        
-        // 3. ✅ 重新计算该供应商的核销状态（编辑或新增都需要重新计算）
         await recalculateInvoiceStatus(supplier);
-        
-        // 4. 重新加载入库数据
         await loadAllStockIn();
-        
-        // 5. 刷新当前页面列表
         refreshInvoiceBackList();
         
-        // 6. ✅ 刷新入库列表（调用 in.js 中的 loadStockIn）
         if (typeof window.loadStockIn === 'function') {
             await window.loadStockIn();
         } else if (typeof loadStockIn === 'function') {
@@ -1645,42 +1470,18 @@ async function saveInvoiceBackRecord() {
 }
 
 // ===================== 发票核销引擎 =====================
-
-/**
- * 发票核销主函数
- * @param {string} supplier 供应商名称
- * @param {number} invoiceAmount 发票金额
- * @param {string} invoiceNo 发票号码
- */
-/**
- * 发票核销主函数（简化版：统一调用 recalculateInvoiceStatus）
- * @param {string} supplier 供应商名称
- * @param {number} invoiceAmount 发票金额（保留参数，但不再使用）
- * @param {string} invoiceNo 发票号码（保留参数，但不再使用）
- */
 async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
     if (!supplier || invoiceAmount <= 0) return;
-
-    console.log(`开始核销：供应商 ${supplier}，发票金额 ${invoiceAmount}，发票号码 ${invoiceNo}`);
-    
-    // ✅ 直接调用重新核销函数（统一核销逻辑）
     await recalculateInvoiceStatus(supplier);
 }
-/**
- * 重新计算某供应商的发票核销状态（用于删除发票记录后回滚）
- * @param {string} supplier 供应商名称
- */
+
 async function recalculateInvoiceStatus(supplier) {
     if (!supplier) return;
 
-    console.log(`开始重新计算供应商 ${supplier} 的发票核销状态`);
-
-    // 1. 获取该供应商所有未删除的发票返回记录（按日期排序）
     const supplierInvoices = allInvoiceBackList
         .filter(inv => inv.supplier === supplier)
         .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
 
-    // 2. 获取该供应商所有线下入库记录（按入库日期排序）
     const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
@@ -1694,11 +1495,9 @@ async function recalculateInvoiceStatus(supplier) {
         .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
 
     if (inRecords.length === 0) {
-        console.log(`供应商 ${supplier} 没有线下入库记录`);
         return;
     }
 
-    // 3. 重置所有入库记录的发票状态为"未开票"，发票号码清空
     const headers = {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
@@ -1715,18 +1514,13 @@ async function recalculateInvoiceStatus(supplier) {
             })
         });
     }
-    console.log(`已重置 ${inRecords.length} 条入库记录为"未开票"`);
 
-    // 4. 如果没有发票记录，直接返回（已全部重置为未开票）
     if (supplierInvoices.length === 0) {
-        console.log(`供应商 ${supplier} 没有发票记录，已全部重置为未开票`);
         allStockInList = latestStockIn;
         return;
     }
 
-    // 5. 按顺序重新核销所有发票
     let remainingInRecords = [...inRecords];
-    let updateCount = 0;
 
     for (let invoice of supplierInvoices) {
         const invoiceAmount = Number(invoice.invoice_amount) || 0;
@@ -1749,7 +1543,6 @@ async function recalculateInvoiceStatus(supplier) {
             }
         }
 
-        // 更新这批记录
         for (let item of updatedIds) {
             await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
                 method: 'PATCH',
@@ -1759,24 +1552,18 @@ async function recalculateInvoiceStatus(supplier) {
                     invoice_no: invoice.invoice_no || null
                 })
             });
-            updateCount++;
-            // 从剩余记录中移除已完全核销的
             if (item.status === '已开票') {
                 remainingInRecords = remainingInRecords.filter(r => r.id !== item.id);
             }
         }
     }
 
-    console.log(`重新核销完成，共更新 ${updateCount} 条入库记录`);
-
-    // 6. 更新全局变量
     allStockInList = latestStockIn;
 }
 
 async function deleteInvoiceBackRecord(id) {
     if (!confirm('确定删除该发票返回记录？')) return;
     
-    // 1. 先获取要删除的记录信息（用于获取供应商）
     const recordToDelete = allInvoiceBackList.find(i => i.id === id);
     if (!recordToDelete) {
         showMsg('记录不存在');
@@ -1784,22 +1571,15 @@ async function deleteInvoiceBackRecord(id) {
     }
     const supplier = recordToDelete.supplier;
     
-    // 2. 删除记录
     await fetch(`${SUPABASE_URL}/rest/v1/finance_invoice?id=eq.${id}`, {
         method: 'DELETE',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
     
-    // 3. 重新加载发票数据
     await loadAllInvoiceBack();
-    
-    // 4. ✅ 重新计算该供应商的核销状态
     await recalculateInvoiceStatus(supplier);
-    
-    // 5. 刷新列表
     refreshInvoiceBackList();
     
-    // 6. 刷新入库列表
     if (typeof window.loadStockIn === 'function') {
         await window.loadStockIn();
     } else if (typeof loadStockIn === 'function') {
@@ -1818,16 +1598,13 @@ function renderPaymentBoard() {
     offlineSupplierList.forEach(s => {
         supplierGroup[s] = { totalIn: 0, totalPay: 0, totalBack: 0 };
     });
-    // 汇总线下入库总货款
     allStockInList.filter(i => i.settleType === '线下').forEach(item => {
         const total = Number(item.in_price) * Number(item.in_num);
         supplierGroup[item.supplier].totalIn += total;
     });
-    // 汇总付款
     allPayList.forEach(p => {
         supplierGroup[p.supplier].totalPay += Number(p.payment_amount);
     });
-    // 汇总发票返回
     allInvoiceBackList.forEach(b => {
         supplierGroup[b.supplier].totalBack += Number(b.invoice_amount);
     });
@@ -1877,17 +1654,14 @@ function searchMonthInvoiceBalance() {
     const searchKey = document.getElementById('monthBalanceSearch').value.trim().toLowerCase();
     if (!month) return showMsg('请选择统计月份');
     const supplierMap = {};
-    // 筛选当月线下入库
     const monthStock = allStockInList.filter(i => {
         return i.settleType === '线下' && i.record_date && i.record_date.substring(0, 7) === month;
     });
-    // 当月入库货款汇总
     monthStock.forEach(item => {
         const total = Number(item.in_price) * Number(item.in_num);
         if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
         supplierMap[item.supplier].inTotal += total;
     });
-    // 当月发票返回汇总
     const monthBack = allInvoiceBackList.filter(b => b.return_date && b.return_date.substring(0, 7) === month);
     monthBack.forEach(item => {
         if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
@@ -1924,11 +1698,9 @@ function initStockInCheckPage() {
     financePageConfig.stockInCheck.current = 1;
     initCheckMonthSelect('checkInMonth');
     
-    // ✅ 初始化供应商下拉数据
     const suppliers = [...new Set(allStockInList.map(item => item.supplier).filter(Boolean))];
     window._checkInSupplierList = suppliers;
     
-    // ✅ 初始化商品名称下拉数据
     const goodsNames = [...new Set(allStockInList.map(item => item.goodsName).filter(Boolean))];
     window._checkInGoodsList = goodsNames;
     
@@ -1946,20 +1718,17 @@ function initCheckMonthSelect(selId) {
 function searchStockInCheck() {
     financePageConfig.stockInCheck.current = 1;
     
-    // 获取所有筛选条件
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
-    // ✅ 从输入框获取值
     const supplier = document.getElementById('checkInSupplierSearchInput').value.trim();
     const goodsName = document.getElementById('checkInGoodsSearchInput').value.trim();
     const taxRate = document.getElementById('checkInTaxRateSearch').value;
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
 
-let list = [...allStockInList];    
+    let list = [...allStockInList];    
   
-    // 筛选条件
     if (settle) list = list.filter(i => i.settleType === settle);
     if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
     if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
@@ -1976,7 +1745,6 @@ let list = [...allStockInList];
             return rate === taxRate;
         });
     }      
-    // 处理每条记录
     let processedList = list.map(row => {
         const goods = allGoodsList.find(g => 
             g.name === row.goodsName && 
@@ -2045,7 +1813,6 @@ let list = [...allStockInList];
         };
     });
     
-    // 汇总处理
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2083,92 +1850,83 @@ let list = [...allStockInList];
         processedList = Object.values(groupMap);
     }
     
-    // 计算汇总行
-let summary = {
-    in_num: 0,
-    totalAmount: 0,
-    noTaxTotal: 0,
-    taxTotal: 0,
-    remainAmount: 0
-};
-processedList.forEach(row => {
-    summary.in_num += Number(row.in_num);
-    summary.totalAmount += Number(row.totalAmount);
-    summary.noTaxTotal += Number(row.noTaxTotal);
-    summary.taxTotal += Number(row.taxTotal);
-    // ========== 修改开始：确保 remainAmount 被正确累加 ==========
-    const remainVal = typeof row.remainAmount === 'number' ? row.remainAmount : Number(row.remainAmount);
-    if (!isNaN(remainVal)) {
-        summary.remainAmount += remainVal;
-    }
-    // ========== 修改结束 ==========
-});
+    let summary = {
+        in_num: 0,
+        totalAmount: 0,
+        noTaxTotal: 0,
+        taxTotal: 0,
+        remainAmount: 0
+    };
+    processedList.forEach(row => {
+        summary.in_num += Number(row.in_num);
+        summary.totalAmount += Number(row.totalAmount);
+        summary.noTaxTotal += Number(row.noTaxTotal);
+        summary.taxTotal += Number(row.taxTotal);
+        const remainVal = typeof row.remainAmount === 'number' ? row.remainAmount : Number(row.remainAmount);
+        if (!isNaN(remainVal)) {
+            summary.remainAmount += remainVal;
+        }
+    });
     
-    // 更新统计信息
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         totalTip.innerText = `共 ${allStockInList.length} 条入库记录，当前搜索结果 ${processedList.length} 条`;
     }
     
-    // 分页处理
-const cfg = financePageConfig.stockInCheck;
-cfg.total = processedList.length;
-const start = (cfg.current - 1) * cfg.pageSize;
-const pageData = processedList.slice(start, start + cfg.pageSize);
+    const cfg = financePageConfig.stockInCheck;
+    cfg.total = processedList.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = processedList.slice(start, start + cfg.pageSize);
 
-// 渲染表格
-const tbody = document.getElementById('stockInCheckList');
-tbody.innerHTML = '';
+    const tbody = document.getElementById('stockInCheckList');
+    tbody.innerHTML = '';
 
-if (pageData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
-    renderFinancePagination('stockInCheck');
-    return;
-}
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('stockInCheck');
+        return;
+    }
 
-pageData.forEach((row, index) => {  // ✅ 添加 index 参数
-    let invoiceClass = '';
-    if (row.invoice_status === '已开票') {
-        invoiceClass = 'bg-green-invoice';
-    } else if (row.invoice_status === '未开票') {
-        invoiceClass = 'bg-yellow-invoice';
-    }
-    
-    let payClass = '';
-    if (row.isPay === '已付清') {
-        payClass = 'bg-green-invoice';
-    } else if (row.isPay === '未付清') {
-        payClass = 'bg-yellow-invoice';
-    }
-    
-    // 发票结余红色字体
-    let remainColor = '';
-    if (!isNaN(row.remainAmount) && row.remainAmount < 0) {
-        remainColor = 'style="color:red;"';
-    }
-    
-    // 计算序号（当前页起始序号）
-    const seq = start + index + 1;
-    
-    tbody.innerHTML += `
-    <tr>
-        <td>${seq}</td>  <!-- ✅ 新增序号列 -->
-        <td>${row.supplier}</td>
-        <td>${row.goodsName}</td>
-        <td>${row.spec || ''}</td>
-        <td>${row.tax_rate_display}</td>
-        <td class="${invoiceClass}">${row.invoice_status || ''}</td>
-        <td>${row.in_price_display}</td>
-        <td>${row.in_num}</td>
-        <td class="${payClass}">${row.isPay}</td>
-        <td>${formatMoney(row.totalAmount)}</td>
-        <td>${formatMoney(row.noTaxTotal)}</td>
-        <td>${formatMoney(row.taxTotal)}</td>
-        <td ${remainColor}>${formatMoney(row.remainAmount)}</td>
-        <td>${row.record_date}</td>
-    </tr>`;
-});
-    // ✅ 汇总行
+    pageData.forEach((row, index) => {
+        let invoiceClass = '';
+        if (row.invoice_status === '已开票') {
+            invoiceClass = 'bg-green-invoice';
+        } else if (row.invoice_status === '未开票') {
+            invoiceClass = 'bg-yellow-invoice';
+        }
+        
+        let payClass = '';
+        if (row.isPay === '已付清') {
+            payClass = 'bg-green-invoice';
+        } else if (row.isPay === '未付清') {
+            payClass = 'bg-yellow-invoice';
+        }
+        
+        let remainColor = '';
+        if (!isNaN(row.remainAmount) && row.remainAmount < 0) {
+            remainColor = 'style="color:red;"';
+        }
+        
+        const seq = start + index + 1;
+        
+        tbody.innerHTML += `
+        <tr>
+            <td>${seq}</td>
+            <td>${row.supplier}</td>
+            <td>${row.goodsName}</td>
+            <td>${row.spec || ''}</td>
+            <td>${row.tax_rate_display}</td>
+            <td class="${invoiceClass}">${row.invoice_status || ''}</td>
+            <td>${row.in_price_display}</td>
+            <td>${row.in_num}</td>
+            <td class="${payClass}">${row.isPay}</td>
+            <td>${formatMoney(row.totalAmount)}</td>
+            <td>${formatMoney(row.noTaxTotal)}</td>
+            <td>${formatMoney(row.taxTotal)}</td>
+            <td ${remainColor}>${formatMoney(row.remainAmount)}</td>
+            <td>${row.record_date}</td>
+        </tr>`;
+    });
     const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
     tbody.innerHTML += `
     <tr style="background:#f0f4f8;font-weight:bold;">
@@ -2183,9 +1941,9 @@ pageData.forEach((row, index) => {  // ✅ 添加 index 参数
     </tr>`;
     
     renderFinancePagination('stockInCheck');
-}  // ✅ 这个 } 结束 searchStockInCheck 函数
+}
 
-// ===================== resetStockInCheck 函数（独立在外部） =====================
+// ===================== resetStockInCheck 函数 =====================
 function resetStockInCheck() {
     document.getElementById('checkInSettle').value = '';
     document.getElementById('checkInInvoice').value = '';
@@ -2195,7 +1953,6 @@ function resetStockInCheck() {
     document.getElementById('checkInTaxRateSearch').value = '';
     document.getElementById('checkInSupplierGroup').checked = false;
     document.getElementById('checkInGoodsGroup').checked = false;
-    // 关闭下拉框
     document.getElementById('checkInSupplierListBox').style.display = 'none';
     document.getElementById('checkInGoodsListBox').style.display = 'none';
     searchStockInCheck();
@@ -2284,10 +2041,8 @@ document.addEventListener('click', function(e) {
  * 导出入库对账表
  */
 function exportStockInCheckExcel() {
-    // 先执行查询获取最新数据
     searchStockInCheck();
     
-    // 获取当前筛选后的数据
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
@@ -2316,7 +2071,6 @@ function exportStockInCheckExcel() {
         });
     }
     
-    // 处理数据
     let processedList = list.map(row => {
         const goods = allGoodsList.find(g => 
             g.name === row.goodsName && 
@@ -2387,7 +2141,6 @@ function exportStockInCheckExcel() {
         };
     });
     
-    // 汇总处理
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2425,7 +2178,6 @@ function exportStockInCheckExcel() {
         processedList = Object.values(groupMap);
     }
     
-    // 计算汇总行
     let summary = {
         in_num: 0,
         totalAmount: 0,
@@ -2441,26 +2193,24 @@ function exportStockInCheckExcel() {
         summary.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
     });
     
-    // 构建导出数据
     const header = ["序号", "供应商", "商品名称", "规格", "税率", "发票状态", "入库单价", "入库数量", "是否付清", "含税入库金额", "不含税金额", "税额", "发票结余", "录入日期"];
-const expData = processedList.map((row, idx) => [
-    idx + 1,  // ✅ 序号
-    row.supplier,
-    row.goodsName,
-    row.spec,
-    row.tax_rate_display,
-    row.invoice_status || '',
-    row.in_price_display,
-    row.in_num,
-    row.isPay,
-    formatMoney(row.totalAmount),
-    formatMoney(row.noTaxTotal),
-    formatMoney(row.taxTotal),
-    formatMoney(row.remainAmount),
-    row.record_date
-]);
+    const expData = processedList.map((row, idx) => [
+        idx + 1,
+        row.supplier,
+        row.goodsName,
+        row.spec,
+        row.tax_rate_display,
+        row.invoice_status || '',
+        row.in_price_display,
+        row.in_num,
+        row.isPay,
+        formatMoney(row.totalAmount),
+        formatMoney(row.noTaxTotal),
+        formatMoney(row.taxTotal),
+        formatMoney(row.remainAmount),
+        row.record_date
+    ]);
     
-    // 添加汇总行
     expData.push([
         "汇总", "", "", "", "", "",
         summary.in_num, "",
@@ -2479,8 +2229,6 @@ const expData = processedList.map((row, idx) => [
 }
 
 // ===================== ⑧出库对账 =====================
-
-// 出库对账 - 供应商搜索下拉
 function showCheckOutSupplierList() {
     const list = window._checkOutSupplierList || [];
     renderCheckOutSupplierList(list);
@@ -2515,7 +2263,6 @@ function renderCheckOutSupplierList(list) {
     });
 }
 
-// 出库对账 - 商品名称搜索下拉
 function showCheckOutGoodsList() {
     const list = window._checkOutGoodsList || [];
     renderCheckOutGoodsList(list);
@@ -2550,7 +2297,6 @@ function renderCheckOutGoodsList(list) {
     });
 }
 
-// 点击空白关闭下拉
 document.addEventListener('click', function(e) {
     if (!e.target.closest('#checkOutSupplierSearchInput') && !e.target.closest('#checkOutSupplierListBox')) {
         document.getElementById('checkOutSupplierListBox').style.display = 'none';
@@ -2562,17 +2308,13 @@ document.addEventListener('click', function(e) {
 
 function initStockOutCheckPage() {
     financePageConfig.stockOutCheck.current = 1;
-    // ✅ 修改：使用出库月份下拉（从出库表读取）
     initCheckOutMonthSelect('checkOutMonth');
     
-    // 从出库表读取数据
     const outData = window.allStockOut || [];
     
-    // ✅ 初始化供应商下拉数据
     const suppliers = [...new Set(outData.map(item => item.supplier).filter(Boolean))];
     window._checkOutSupplierList = suppliers;
     
-    // ✅ 初始化商品名称下拉数据
     const goodsNames = [...new Set(outData.map(item => item.goodsName).filter(Boolean))];
     window._checkOutGoodsList = goodsNames;
     
@@ -2581,7 +2323,6 @@ function initStockOutCheckPage() {
     
     renderFinancePagination('stockOutCheck');
 }
-// 新增：出库月份下拉初始化
 function initCheckOutMonthSelect(selId) {
     const sel = document.getElementById(selId);
     sel.innerHTML = '<option value="">全部月份</option>';
@@ -2601,7 +2342,6 @@ function initCheckOutMonthSelect(selId) {
 function searchStockOutCheck() {
     financePageConfig.stockOutCheck.current = 1;
     
-    // 获取所有筛选条件
     const settle = document.getElementById('checkOutSettle').value;
     const month = document.getElementById('checkOutMonth').value;
     const supplier = document.getElementById('checkOutSupplierSearchInput').value.trim();
@@ -2612,7 +2352,6 @@ function searchStockOutCheck() {
     
     let list = window.allStockOut ? [...window.allStockOut] : [];
     
-    // 筛选条件
     if (settle) list = list.filter(i => i.settleType === settle);
     if (month) list = list.filter(i => i.recordDate && i.recordDate.substring(0, 7) === month);
     if (supplier) list = list.filter(i => i.supplier === supplier);
@@ -2629,28 +2368,25 @@ function searchStockOutCheck() {
         });
     }
     
-    // 处理每条记录
     let processedList = list.map(row => {
-    // ✅ 先尝试完整匹配（含规格）
-    let goods = allGoodsList.find(g => {
-        const gSpec = g.spec || '';
-        const rowSpec = row.spec || '';
-        return g.name === row.goodsName && 
-               g.supplier === row.supplier && 
-               gSpec === rowSpec;
-    });
-    
-    // ✅ 如果没找到，忽略规格再匹配
-    let taxRateVal = 0;
-    if (goods) {
-        taxRateVal = Number(goods.tax_rate || 0);
-    } else {
-        const goodsNoSpec = allGoodsList.find(g => 
-            g.name === row.goodsName && 
-            g.supplier === row.supplier
-        );
-        taxRateVal = goodsNoSpec ? Number(goodsNoSpec.tax_rate || 0) : 0;
-    }
+        let goods = allGoodsList.find(g => {
+            const gSpec = g.spec || '';
+            const rowSpec = row.spec || '';
+            return g.name === row.goodsName && 
+                   g.supplier === row.supplier && 
+                   gSpec === rowSpec;
+        });
+        
+        let taxRateVal = 0;
+        if (goods) {
+            taxRateVal = Number(goods.tax_rate || 0);
+        } else {
+            const goodsNoSpec = allGoodsList.find(g => 
+                g.name === row.goodsName && 
+                g.supplier === row.supplier
+            );
+            taxRateVal = goodsNoSpec ? Number(goodsNoSpec.tax_rate || 0) : 0;
+        }
         
         const channel = row.settleType || (goods ? goods.channel : '');
         const outPrice = Number(row.outPrice) || 0;
@@ -2682,12 +2418,11 @@ function searchStockOutCheck() {
             saleTax = 0;
         }
         
-        // ✅ 线上商品税率显示为空白
-if (channel === '线上') {
-    taxRateDisplay = '';
-} else {
-    taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
-}
+        if (channel === '线上') {
+            taxRateDisplay = '';
+        } else {
+            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+        }
         outPriceDisplay = formatMoney(outPrice);
         salePriceDisplay = formatMoney(salePrice);
         
@@ -2709,7 +2444,6 @@ if (channel === '线上') {
         };
     });
       
-    // 汇总处理
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2749,7 +2483,6 @@ if (channel === '线上') {
         processedList = Object.values(groupMap);
     }
     
-    // 计算汇总行
     let summary = {
         outNum: 0,
         outAmount: 0,
@@ -2769,19 +2502,16 @@ if (channel === '线上') {
         summary.saleTax += Number(row.saleTax);
     });
     
-    // 更新统计信息
     const totalTip = document.getElementById('stockOutCheckTotalTip');
     if (totalTip) {
         totalTip.innerText = `共 ${window.allStockOut ? window.allStockOut.length : 0} 条出库记录，当前搜索结果 ${processedList.length} 条`;
     }
     
-    // 分页处理
     const cfg = financePageConfig.stockOutCheck;
     cfg.total = processedList.length;
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = processedList.slice(start, start + cfg.pageSize);
     
-    // 渲染表格
     const tbody = document.getElementById('stockOutCheckList');
     tbody.innerHTML = '';
     
@@ -2814,7 +2544,6 @@ if (channel === '线上') {
         </tr>`;
     });
     
-    // ✅ 汇总行
     tbody.innerHTML += `
     <tr style="background:#f0f4f8;font-weight:bold;">
         <td colspan="5" style="text-align:right;">汇总：</td>
@@ -2833,9 +2562,6 @@ if (channel === '线上') {
     renderFinancePagination('stockOutCheck');
 }
 
-/**
- * 重置出库对账搜索条件
- */
 function resetStockOutCheck() {
     document.getElementById('checkOutSettle').value = '';
     document.getElementById('checkOutMonth').value = '';
@@ -2844,17 +2570,12 @@ function resetStockOutCheck() {
     document.getElementById('checkOutTaxRateSearch').value = '';
     document.getElementById('checkOutSupplierGroup').checked = false;
     document.getElementById('checkOutGoodsGroup').checked = false;
-    // 关闭下拉框
     document.getElementById('checkOutSupplierListBox').style.display = 'none';
     document.getElementById('checkOutGoodsListBox').style.display = 'none';
     searchStockOutCheck();
 }
 
-/**
- * 导出出库对账表
- */
 function exportStockOutCheckExcel() {
-    // 先执行查询获取最新数据
     searchStockOutCheck();
     
     const settle = document.getElementById('checkOutSettle').value;
@@ -3017,9 +2738,8 @@ function exportStockOutCheckExcel() {
     XLSX.writeFile(wb, `出库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
     showMsg('导出成功');
 }
-// ===================== ⑨月期初库存 =====================
 
-// 期初库存 - 供应商搜索下拉
+// ===================== ⑨月期初库存 =====================
 function showBeginSupplierList() {
     const list = window._beginSupplierList || [];
     renderBeginSupplierList(list);
@@ -3054,7 +2774,6 @@ function renderBeginSupplierList(list) {
     });
 }
 
-// 期初库存 - 商品名称搜索下拉
 function showBeginGoodsList() {
     const list = window._beginGoodsList || [];
     renderBeginGoodsList(list);
@@ -3089,7 +2808,6 @@ function renderBeginGoodsList(list) {
     });
 }
 
-// 点击空白关闭下拉
 document.addEventListener('click', function(e) {
     if (!e.target.closest('#beginSupplierSearchInput') && !e.target.closest('#beginSupplierListBox')) {
         document.getElementById('beginSupplierListBox').style.display = 'none';
@@ -3099,19 +2817,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-/**
- * 计算截止到某月末的批次库存
- * @param {string} supplier 供应商
- * @param {string} goodsName 商品名
- * @param {string} spec 规格
- * @param {number} inPrice 入库单价
- * @param {string} produceDate 生产日期
- * @param {string} expireDate 到期日期
- * @param {string} endDate 截止日期（月末）
- * @returns {number} 月末库存数量
- */
 function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expireDate, endDate) {
-    // 1. 获取该批次的所有入库记录（截止到 endDate）
     const inRecords = allStockInList.filter(item => {
         const itemKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
         const batchKey = `${supplier}|${goodsName}|${spec || ''}|${inPrice || 0}|${produceDate || ''}|${expireDate || ''}`;
@@ -3120,7 +2826,6 @@ function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expi
     
     if (inRecords.length === 0) return 0;
     
-    // 2. 计算入库总量
     let totalIn = 0;
     const inIds = [];
     inRecords.forEach(rec => {
@@ -3128,7 +2833,6 @@ function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expi
         inIds.push(rec.id);
     });
     
-    // 3. 计算该批次的出库总量（截止到 endDate，通过 inRecordId 关联）
     let totalOut = 0;
     const outData = window.allStockOut || [];
     outData.forEach(out => {
@@ -3143,17 +2847,13 @@ function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expi
 function initMonthBeginPage() {
     financePageConfig.monthBeginStock.current = 1;
     
-    // 初始化月份下拉
     initBeginMonthSelect('beginMonth');
     
-    // 从入库表读取数据
     const inData = allStockInList || [];
     
-    // ✅ 初始化供应商下拉数据
     const suppliers = [...new Set(inData.map(item => item.supplier).filter(Boolean))];
     window._beginSupplierList = suppliers;
     
-    // ✅ 初始化商品名称下拉数据
     const goodsNames = [...new Set(inData.map(item => item.goodsName).filter(Boolean))];
     window._beginGoodsList = goodsNames;
     
@@ -3163,21 +2863,16 @@ function initMonthBeginPage() {
     renderFinancePagination('monthBeginStock');
 }
 
-/**
- * 期初库存月份下拉初始化（从入库表读取所有月份）
- */
 function initBeginMonthSelect(selId) {
     const sel = document.getElementById(selId);
     sel.innerHTML = '<option value="">请选择月份</option>';
     
-    // 从入库表读取所有月份
     const monthSet = new Set();
     allStockInList.forEach(item => {
         if (item.record_date) {
             monthSet.add(item.record_date.substring(0, 7));
         }
     });
-    // 如果有出库记录，也加入月份
     const outData = window.allStockOut || [];
     outData.forEach(item => {
         if (item.recordDate) {
@@ -3193,7 +2888,6 @@ function initBeginMonthSelect(selId) {
 function searchMonthBeginStock() {
     financePageConfig.monthBeginStock.current = 1;
     
-    // 获取所有筛选条件
     const settle = document.getElementById('beginSettle').value;
     const month = document.getElementById('beginMonth').value;
     const supplier = document.getElementById('beginSupplierSearchInput').value.trim();
@@ -3202,35 +2896,24 @@ function searchMonthBeginStock() {
     const groupSupplier = document.getElementById('beginSupplierGroup').checked;
     const groupGoods = document.getElementById('beginGoodsGroup').checked;
     
-    // 如果没有选择月份，提示
     if (!month) {
         showMsg('请先选择统计月份');
         return;
     }
     
-    // 计算截止日期：选择月份的月末（如选6月，截止到5月31日）
     const year = parseInt(month.substring(0, 4));
     const monthNum = parseInt(month.substring(5, 7));
-    // 截止日期 = 所选月份的前一个月的最后一天
-    const endDate = new Date(year, monthNum - 1, 0); // 月份从0开始，所以monthNum-1是所选月份，0是前一天
+    const endDate = new Date(year, monthNum - 1, 0);
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    // 1. 获取所有入库记录（按批次分组）
     const batchMap = new Map();
     allStockInList.forEach(item => {
-        // 只处理记录日期 <= 截止日期的
         if (!item.record_date || item.record_date > endDateStr) return;
         
-        // 结算方式筛选
         if (settle && item.settleType !== settle) return;
-        
-        // 供应商筛选
         if (supplier && item.supplier !== supplier) return;
-        
-        // 商品名筛选
         if (goodsName && item.goodsName !== goodsName) return;
         
-        // 税率筛选（需要从商品表获取税率）
         let taxRateVal = 0;
         if (taxRate !== '') {
             const goods = allGoodsList.find(g => 
@@ -3242,7 +2925,6 @@ function searchMonthBeginStock() {
             if (taxRateVal !== taxRate) return;
         }
         
-        // 批次key：供应商+商品名+规格+入库单价+生产日期+到期日期
         const batchKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
         
         if (!batchMap.has(batchKey)) {
@@ -3262,12 +2944,10 @@ function searchMonthBeginStock() {
         batch.inRecordIds.push(item.id);
     });
     
-    // 2. 计算每个批次的出库量（截止到 endDateStr）
     const outData = window.allStockOut || [];
     const batchResults = [];
     
     batchMap.forEach((batch, key) => {
-        // 计算该批次的出库量
         let totalOut = 0;
         outData.forEach(out => {
             if (out.recordDate && out.recordDate <= endDateStr && batch.inRecordIds.includes(out.inRecordId)) {
@@ -3284,9 +2964,7 @@ function searchMonthBeginStock() {
         }
     });
     
-    // 3. 处理每条记录，计算金额
     let processedList = batchResults.map(row => {
-        // 获取商品信息（税率）
         const goods = allGoodsList.find(g => 
             g.name === row.goodsName && 
             g.supplier === row.supplier && 
@@ -3332,7 +3010,6 @@ function searchMonthBeginStock() {
         };
     });
     
-    // 4. 汇总处理
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -3364,7 +3041,6 @@ function searchMonthBeginStock() {
         processedList = Object.values(groupMap);
     }
     
-    // 5. 计算汇总行
     let summary = {
         monthEndStock: 0,
         totalAmount: 0,
@@ -3378,19 +3054,16 @@ function searchMonthBeginStock() {
         summary.taxTotal += Number(row.taxTotal);
     });
     
-    // 更新统计信息
     const totalTip = document.getElementById('monthBeginStockTotalTip');
     if (totalTip) {
         totalTip.innerText = `截止 ${endDateStr}，共 ${processedList.length} 条库存记录，当前搜索结果 ${processedList.length} 条`;
     }
     
-    // 分页处理
     const cfg = financePageConfig.monthBeginStock;
     cfg.total = processedList.length;
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = processedList.slice(start, start + cfg.pageSize);
     
-    // 渲染表格
     const tbody = document.getElementById('monthBeginStockList');
     tbody.innerHTML = '';
     
@@ -3418,7 +3091,6 @@ function searchMonthBeginStock() {
         </tr>`;
     });
     
-    // ✅ 汇总行
     tbody.innerHTML += `
     <tr style="background:#f0f4f8;font-weight:bold;">
         <td colspan="6" style="text-align:right;">汇总：</td>
@@ -3431,9 +3103,6 @@ function searchMonthBeginStock() {
     renderFinancePagination('monthBeginStock');
 }
 
-/**
- * 重置期初库存搜索条件
- */
 function resetMonthBeginStock() {
     document.getElementById('beginSettle').value = '';
     document.getElementById('beginMonth').value = '';
@@ -3442,17 +3111,12 @@ function resetMonthBeginStock() {
     document.getElementById('beginTaxRateSearch').value = '';
     document.getElementById('beginSupplierGroup').checked = false;
     document.getElementById('beginGoodsGroup').checked = false;
-    // 关闭下拉框
     document.getElementById('beginSupplierListBox').style.display = 'none';
     document.getElementById('beginGoodsListBox').style.display = 'none';
     searchMonthBeginStock();
 }
 
-/**
- * 导出处初库存表
- */
 function exportMonthBeginStockExcel() {
-    // 先执行查询获取最新数据
     searchMonthBeginStock();
     
     const settle = document.getElementById('beginSettle').value;
@@ -3473,7 +3137,6 @@ function exportMonthBeginStockExcel() {
     const endDate = new Date(year, monthNum - 1, 0);
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    // 重新计算数据（复用 searchMonthBeginStock 的逻辑，但为了导出直接重新计算）
     const batchMap = new Map();
     allStockInList.forEach(item => {
         if (!item.record_date || item.record_date > endDateStr) return;
