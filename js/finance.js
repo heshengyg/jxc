@@ -64,9 +64,6 @@ switchTab = async function (tabName) {   // ← 加上 async
 
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
-    // 保存 event 对象
-    const evt = event;
-    
     currFinanceSub = tabKey;
 
     // 切换子版块时强制关闭所有弹窗
@@ -97,20 +94,25 @@ async function switchFinanceSubTab(tabKey) {
         }
     });
 
+    // 隐藏所有子内容
     document.querySelectorAll('.finance-sub-content').forEach(el => el.style.display = 'none');
-    document.getElementById(`sub-${tabKey}`).style.display = 'block';
+    
+    // 显示目标子内容
+    const targetContent = document.getElementById(`sub-${tabKey}`);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
 
+    // 移除所有按钮的激活状态
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
-    // 使用保存的 event 对象
-    if (evt?.target?.classList?.contains('finance-sub-btn')) {
-        evt.target.classList.add('active');
-    } else {
-        const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
+    
+    // 激活目标按钮（添加空值判断）
+    const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
     }
     
+    // 初始化子页面
     await initCurrentSubPage();
 }
 
