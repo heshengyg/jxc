@@ -1614,7 +1614,7 @@ function renderDateChangeList() {
     console.log('当前页数据量:', pageData.length);
     
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
+        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
         return;
     }
     
@@ -1657,6 +1657,18 @@ function renderDateChangeList() {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
+        // ========== 修改开始：生成复制按钮的文字内容 ==========
+        // 根据日期类型和显示值生成复制内容
+        let copyText = '';
+        if (item.dateType === '生产日期' && item.displayValue) {
+            copyText = `（${item.displayValue}生产）`;
+        } else if (item.dateType === '到期日期' && item.displayValue) {
+            copyText = `（${item.displayValue}到期）`;
+        } else {
+            copyText = '';
+        }
+        // ========== 修改结束 ==========
+        
         const html = `
             <tr>
                 <td>${rowNum}</td>
@@ -1671,6 +1683,9 @@ function renderDateChangeList() {
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
                 <td>${item.displayValue || ''}</td>
                 <td>
+                    <!-- ========== 修改开始：添加复制按钮 ========== -->
+                    <button class="btn btn-success" onclick="copyDateText('${copyText.replace(/'/g, "\\'")}', this)" style="padding:4px 8px; font-size:12px; margin-right:4px;">复制</button>
+                    <!-- ========== 修改结束 ========== -->
                     <button class="btn btn-primary" onclick="updateSingleGoodsDate(${item.id})" style="padding:4px 12px; font-size:12px;">更新</button>
                 </td>
             </tr>
@@ -1678,6 +1693,65 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
+
+// ========== 新增：复制日期文本函数 ==========
+function copyDateText(text, btnElement) {
+    if (!text) {
+        showMsg('没有可复制的内容');
+        return;
+    }
+    
+    // 使用 navigator.clipboard 复制
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            // 复制成功，显示反馈
+            const originalText = btnElement.textContent;
+            btnElement.textContent = '√已复制';
+            btnElement.style.background = '#52c41a';
+            btnElement.style.color = '#ffffff';
+            
+            // 2秒后恢复
+            setTimeout(function() {
+                btnElement.textContent = '复制';
+                btnElement.style.background = '';
+                btnElement.style.color = '';
+            }, 2000);
+        }).catch(function() {
+            // 降级方案：使用 document.execCommand
+            fallbackCopy(text, btnElement);
+        });
+    } else {
+        // 降级方案
+        fallbackCopy(text, btnElement);
+    }
+}
+
+// 降级复制方案
+function fallbackCopy(text, btnElement) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        // 复制成功
+        const originalText = btnElement.textContent;
+        btnElement.textContent = '√已复制';
+        btnElement.style.background = '#52c41a';
+        btnElement.style.color = '#ffffff';
+        setTimeout(function() {
+            btnElement.textContent = '复制';
+            btnElement.style.background = '';
+            btnElement.style.color = '';
+        }, 2000);
+    } catch (e) {
+        showMsg('复制失败，请手动复制');
+    }
+    document.body.removeChild(textarea);
+}
+
 /**
  * 单条更新商品日期
  */
