@@ -627,9 +627,13 @@ function toggleReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
-    // 只更新搜索框的显示值，但不改变过滤变量 returnSelectedSupplier/Goods/Spec
+    // ========== 关键修改：不要更新商品搜索框的值 ==========
+    // 只更新供应商搜索框（因为可能跨供应商选择）
     document.getElementById('returnSupplierSearch').value = batch.supplier;
-    document.getElementById('returnGoodsSearch').value = batch.goodsName;
+    // ⚠️ 不要更新 returnSelectedGoods 和商品搜索框，保持用户之前的筛选状态
+    // document.getElementById('returnGoodsSearch').value = batch.goodsName;  // ← 注释掉这行！
+    // returnSelectedGoods = batch.goodsName;  // ← 注释掉这行！
+    
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
