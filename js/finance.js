@@ -1453,7 +1453,43 @@ function initInvoiceBackSupplierSelect() {
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
+// ========== 新增：供应商选择变化时更新发票结余 ==========
+    editSel.onchange = function() {
+        updateInvoiceBackBalance(this.value);
+    };
+    // ========== 新增结束 ==========
 }
+
+// ========== 新增：更新发票结余显示 ==========
+function updateInvoiceBackBalance(supplier) {
+    const displayEl = document.getElementById('invoiceBackBalanceDisplay');
+    if (!displayEl) return;
+    
+    if (!supplier) {
+        displayEl.textContent = '请选择供应商';
+        displayEl.style.color = '#999';
+        return;
+    }
+    
+    // 计算总货款（线下入库含税汇总）
+    let totalIn = 0;
+    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
+        totalIn += Number(item.in_price) * Number(item.in_num);
+    });
+    
+    // 计算累计发票返回金额
+    let totalBack = 0;
+    allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
+        totalBack += Number(b.invoice_amount);
+    });
+    
+    // 发票结余 = 累计发票返回金额 - 总货款
+    const balance = totalBack - totalIn;
+    
+    displayEl.textContent = `￥${balance.toFixed(2)}`;
+    displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+}
+// ========== 新增结束 ==========
 
 function refreshInvoiceBackList() {
     const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
@@ -1494,6 +1530,13 @@ function openInvoiceBackAddModal() {
     document.getElementById('invoiceBackAmount').value = '';
     document.getElementById('invoiceBackNo').value = '';
     document.getElementById('invoiceBackRemark').value = '';
+    // ========== 新增：清空发票结余显示 ==========
+    const displayEl = document.getElementById('invoiceBackBalanceDisplay');
+    if (displayEl) {
+        displayEl.textContent = '请选择供应商';
+        displayEl.style.color = '#999';
+    }
+    // ========== 新增结束 ==========
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1507,6 +1550,9 @@ function openInvoiceBackEdit(id) {
     document.getElementById('invoiceBackAmount').value = row.invoice_amount;
     document.getElementById('invoiceBackNo').value = row.invoice_no || '';
     document.getElementById('invoiceBackRemark').value = row.remark || '';
+    // ========== 新增：编辑时显示该供应商的发票结余 ==========
+    updateInvoiceBackBalance(row.supplier);
+    // ========== 新增结束 ==========
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
