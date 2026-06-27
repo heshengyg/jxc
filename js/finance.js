@@ -1818,20 +1818,25 @@ let list = [...allStockInList];
     }
     
     // 计算汇总行
-    let summary = {
-        in_num: 0,
-        totalAmount: 0,
-        noTaxTotal: 0,
-        taxTotal: 0,
-        remainAmount: 0
-    };
-    processedList.forEach(row => {
-        summary.in_num += Number(row.in_num);
-        summary.totalAmount += Number(row.totalAmount);
-        summary.noTaxTotal += Number(row.noTaxTotal);
-        summary.taxTotal += Number(row.taxTotal);
-        summary.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
-    });
+let summary = {
+    in_num: 0,
+    totalAmount: 0,
+    noTaxTotal: 0,
+    taxTotal: 0,
+    remainAmount: 0
+};
+processedList.forEach(row => {
+    summary.in_num += Number(row.in_num);
+    summary.totalAmount += Number(row.totalAmount);
+    summary.noTaxTotal += Number(row.noTaxTotal);
+    summary.taxTotal += Number(row.taxTotal);
+    // ========== 修改开始：确保 remainAmount 被正确累加 ==========
+    const remainVal = typeof row.remainAmount === 'number' ? row.remainAmount : Number(row.remainAmount);
+    if (!isNaN(remainVal)) {
+        summary.remainAmount += remainVal;
+    }
+    // ========== 修改结束 ==========
+});
     
     // 更新统计信息
     const totalTip = document.getElementById('stockInCheckTotalTip');
