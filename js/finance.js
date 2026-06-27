@@ -55,8 +55,19 @@ switchTab = async function (tabName) {   // ← 加上 async
 }
 
 // 财务子Tab切换
-async function switchFinanceSubTab(tabKey) {   // ← 加上 async
+async function switchFinanceSubTab(tabKey) {
     currFinanceSub = tabKey;
+
+    // ========== 修改开始：切换子版块时强制关闭所有弹窗 ==========
+    // 关闭所有可能打开的弹窗
+    const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
+    modals.forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    });
+    // ========== 修改结束 ==========
 
     // 【新增】切换子页面前，清空所有9个财务分页，杜绝分页叠加
     const paginationIds = [
@@ -87,7 +98,7 @@ async function switchFinanceSubTab(tabKey) {   // ← 加上 async
         document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`).classList.add('active');
     }
     
-    await initCurrentSubPage();   // ← 加上 await
+    await initCurrentSubPage();
 }
 
 // 财务分页公共渲染函数（统一分页底部UI：每页显示下拉、当前/总页数，复用项目现有pagination样式）
