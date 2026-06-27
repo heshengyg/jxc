@@ -1,16 +1,22 @@
-// ===================== ERP 系统设置（轻量版） =====================
+// ===================== ERP 系统设置（完整功能版） =====================
 let settingsData = {
     companyName: '',
     departments: ['管理员', '商品部', '库管员', '财务部', 'APP部'],
     members: [],
-    permissions: {}
+    permissions: {
+        '管理员': ['全部权限'],
+        '商品部': ['商品管理（查看、新增、编辑、删除、导入导出）'],
+        '库管员': ['入库管理、出库管理（查看、新增、编辑、删除）'],
+        '财务部': ['财务综合管理（查看、录入、编辑、删除）'],
+        'APP部': ['退货管理、库存查看（查看、新增）']
+    }
 };
 
-// ===== 初始化设置页面 =====
-function initSettingsPage() {
-    console.log('加载设置页面...');
+// ===== 初始化 =====
+function initSettings() {
+    console.log('🔧 加载系统设置...');
     loadSettings();
-    renderSettings();
+    renderAll();
     // 管理员显示设置Tab
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) {
@@ -18,7 +24,7 @@ function initSettingsPage() {
     }
 }
 
-// 加载设置
+// ===== 加载/保存 =====
 function loadSettings() {
     try {
         const saved = localStorage.getItem('erp_settings');
@@ -31,24 +37,25 @@ function loadSettings() {
     }
 }
 
-// 渲染设置页面
-function renderSettings() {
-    const companyNameEl = document.getElementById('companyName');
-    if (companyNameEl) {
-        companyNameEl.value = settingsData.companyName || '';
-    }
-    renderDepartments();
-    renderMembers();
-    renderPermissions();
-}
-
-// 保存设置
 function saveSettings() {
     try {
         localStorage.setItem('erp_settings', JSON.stringify(settingsData));
     } catch(e) {
         console.warn('保存设置失败');
     }
+}
+
+// ===== 渲染所有 =====
+function renderAll() {
+    renderCompanyName();
+    renderDepartments();
+    renderMembers();
+    renderPermissions();
+}
+
+function renderCompanyName() {
+    const el = document.getElementById('companyName');
+    if (el) el.value = settingsData.companyName || '';
 }
 
 // ===== 部门管理 =====
@@ -91,15 +98,20 @@ function addDepartment() {
     saveSettings();
     renderDepartments();
     input.value = '';
-    showMsg('部门添加成功');
+    showMsg('✅ 部门添加成功');
 }
 
 function deleteDepartment(index) {
     if (!confirm('确定删除该部门？')) return;
+    const deptName = settingsData.departments[index];
     settingsData.departments.splice(index, 1);
+    // 删除该部门的成员
+    if (settingsData.members) {
+        settingsData.members = settingsData.members.filter(m => m.department !== deptName);
+    }
     saveSettings();
-    renderDepartments();
-    showMsg('部门已删除');
+    renderAll();
+    showMsg('✅ 部门已删除');
 }
 
 // ===== 成员管理 =====
@@ -115,6 +127,7 @@ function renderMembers() {
             <span class="member-name">${member.name || '未知'}</span>
             <span style="color:#888;font-size:12px;">${member.department || '未分配'}</span>
             <span style="color:#888;font-size:12px;">${member.role || '普通用户'}</span>
+            <span style="color:#888;font-size:12px;">权限：${member.permission || '查看'}</span>
             <button class="btn btn-danger btn-sm" onclick="deleteMember(${index})">删除</button>
         `;
         container.appendChild(div);
@@ -135,13 +148,14 @@ function addMember() {
         name: name,
         password: pwd,
         department: dept,
-        role: '普通用户'
+        role: '普通用户',
+        permission: '查看'
     });
     saveSettings();
     renderMembers();
     nameEl.value = '';
     pwdEl.value = '';
-    showMsg('成员添加成功');
+    showMsg('✅ 成员添加成功');
 }
 
 function deleteMember(index) {
@@ -149,11 +163,37 @@ function deleteMember(index) {
     settingsData.members.splice(index, 1);
     saveSettings();
     renderMembers();
-    showMsg('成员已删除');
+    showMsg('✅ 成员已删除');
 }
 
 function loadDeptMembers() {
     renderMembers();
+}
+
+// ===== 权限管理 =====
+function renderPermissions() {
+    const container = document.getElementById('permissionList');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const roles = ['管理员', '商品部', '库管员', '财务部', 'APP部'];
+    const permMap = {
+        '管理员': '全部权限',
+        '商品部': '商品管理（查看、新增、编辑、删除、导入导出）',
+        '库管员': '入库管理、出库管理（查看、新增、编辑、删除）',
+        '财务部': '财务综合管理（查看、录入、编辑、删除）',
+        'APP部': '退货管理、库存查看（查看、新增）'
+    };
+    
+    roles.forEach(role => {
+        const div = document.createElement('div');
+        div.className = 'permission-item';
+        div.innerHTML = `
+            <span style="font-weight:600;">${role}</span>
+            <span style="color:#666;font-size:12px;">${permMap[role] || '无权限'}</span>
+        `;
+        container.appendChild(div);
+    });
 }
 
 // ===== 数据管理 =====
@@ -196,7 +236,7 @@ function importData() {
                 if (data.stockIn) { window.allStockInList = data.stockIn; }
                 if (data.stockOut) { window.allStockOut = data.stockOut; }
                 if (data.returnGoods) { window.allReturnGoods = data.returnGoods; }
-                if (data.settings) { 
+                if (data.settings) {
                     settingsData = data.settings;
                     saveSettings();
                 }
@@ -226,48 +266,46 @@ function selectBackupPath() {
     showMsg('请在备份时选择保存位置');
 }
 
-// ===== 权限管理 =====
-function renderPermissions() {
-    const container = document.getElementById('permissionList');
-    if (!container) return;
-    container.innerHTML = `
-        <div class="permission-item">
-            <span>管理员</span>
-            <span style="color:#ff4d4f;">全部权限</span>
-        </div>
-        <div class="permission-item">
-            <span>商品部</span>
-            <span>商品管理（查看、新增、编辑、删除、导入导出）</span>
-        </div>
-        <div class="permission-item">
-            <span>库管员</span>
-            <span>入库管理、出库管理（查看、新增、编辑、删除）</span>
-        </div>
-        <div class="permission-item">
-            <span>财务部</span>
-            <span>财务综合管理（查看、录入、编辑、删除）</span>
-        </div>
-        <div class="permission-item">
-            <span>APP部</span>
-            <span>退货管理、库存查看（查看、新增）</span>
-        </div>
-    `;
+// ===== 公司名称保存 =====
+function saveCompanyName() {
+    const el = document.getElementById('companyName');
+    if (el) {
+        settingsData.companyName = el.value.trim();
+        saveSettings();
+        showMsg('✅ 公司名称已保存');
+    }
 }
 
-// ===== 页面加载完成后初始化 =====
-// 使用 setTimeout 延迟初始化，避免阻塞主页面加载
-setTimeout(function() {
-    // 检查设置页面是否存在
-    if (document.getElementById('settings')) {
-        // 先加载保存的数据
-        loadSettings();
-        // 然后渲染
-        renderSettings();
-        // 管理员显示设置Tab
-        const settingsTab = document.getElementById('settingsTab');
-        if (settingsTab) {
-            settingsTab.style.display = 'inline-block';
-        }
-        console.log('✅ 系统设置模块已加载');
+// ===== LOGO 上传预览 =====
+document.addEventListener('DOMContentLoaded', function() {
+    const logoInput = document.getElementById('companyLogo');
+    const logoPreview = document.getElementById('logoPreview');
+    if (logoInput && logoPreview) {
+        logoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    logoPreview.src = ev.target.result;
+                    logoPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
     }
-}, 1000);
+    
+    // 公司名称输入框添加保存事件
+    const companyNameEl = document.getElementById('companyName');
+    if (companyNameEl) {
+        companyNameEl.addEventListener('change', saveCompanyName);
+        companyNameEl.addEventListener('blur', saveCompanyName);
+    }
+});
+
+// ===== 延迟初始化，不阻塞主页面 =====
+setTimeout(function() {
+    if (document.getElementById('settings')) {
+        initSettings();
+        console.log('✅ 系统设置模块已加载（完整版）');
+    }
+}, 800);
