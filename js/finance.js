@@ -6,6 +6,15 @@ function formatMoney(value) {
     return '￥' + Number(value).toFixed(2);
 }
 
+// ===================== 手写签名配置 =====================
+const SIGNATURE_CONFIG = {
+    // 库管员签字（留空则不显示图片，显示下划线）
+    storeKeeper: 'images/storeKeeper.png',
+    // 业务员签字（留空则不显示图片，显示下划线）
+    business: 'images/business.png',
+    // 财务审核签字（留空则不显示图片，显示下划线）
+    finance: 'images/finance.png'
+};
 // ===================== 全局公共变量 =====================
 let currFinanceSub = 'taxRate';
 let offlineSupplierList = [];
@@ -936,11 +945,11 @@ function previewAndPrint() {
                         <tbody>${tableRows}</tbody>
                     </table>
                     <div class="bill-footer">
-                        <span>库管员签字：___________</span>
-                        <span>业务员签字：___________</span>
-                        <span>财务审核签字：___________</span>
-                        <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
-                    </div>
+    <span>库管员签字：${SIGNATURE_CONFIG.storeKeeper ? `<img src="${SIGNATURE_CONFIG.storeKeeper}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+    <span>业务员签字：${SIGNATURE_CONFIG.business ? `<img src="${SIGNATURE_CONFIG.business}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+    <span>财务审核签字：${SIGNATURE_CONFIG.finance ? `<img src="${SIGNATURE_CONFIG.finance}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+    <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
+</div>
                 </div>
             `;
         }
