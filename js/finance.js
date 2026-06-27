@@ -106,7 +106,7 @@ async function switchFinanceSubTab(tabKey) {
     // 移除所有按钮的激活状态
     document.querySelectorAll('.finance-sub-btn').forEach(btn => btn.classList.remove('active'));
     
-    // 激活目标按钮（添加空值判断）
+    // 激活目标按钮（直接根据 tabKey 定位，不依赖 event 对象）
     const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
     if (targetBtn) {
         targetBtn.classList.add('active');
