@@ -1105,7 +1105,14 @@ function initPaySupplierSelect() {
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
+    
+    // ========== 修改开始：添加供应商选择变化事件 ==========
+    editSel.onchange = function() {
+        updatePayPayableDisplay(this.value);
+    };
+    // ========== 修改结束 ==========
 }
+
 function refreshPayRecordList() {
     const filterSupplier = document.getElementById('paySupplierFilter').value;
     let list = [...allPayList];
@@ -1143,6 +1150,9 @@ function openPayAddModal() {
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('payAmount').value = '';
     document.getElementById('payRemark').value = '';
+    // ========== 修改开始：清空应付账款显示 ==========
+    document.getElementById('payPayableDisplay').textContent = '请选择供应商';
+    // ========== 修改结束 ==========
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1155,9 +1165,44 @@ function openPayEdit(id) {
     document.getElementById('paySupplier').value = row.supplier;
     document.getElementById('payAmount').value = row.payment_amount;
     document.getElementById('payRemark').value = row.remark || '';
+    // ========== 修改开始：编辑时显示该供应商的应付账款 ==========
+    updatePayPayableDisplay(row.supplier);
+    // ========== 修改结束 ==========
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
+}
+
+// ========== 新增：更新应付账款显示 ==========
+function updatePayPayableDisplay(supplier) {
+    const displayEl = document.getElementById('payPayableDisplay');
+    if (!displayEl) return;
+    
+    if (!supplier) {
+        displayEl.textContent = '请选择供应商';
+        displayEl.style.color = '#999';
+        return;
+    }
+    
+    // 从收付款看板计算该供应商的应付账款
+    // 计算总货款（线下入库含税汇总）
+    let totalIn = 0;
+    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
+        totalIn += Number(item.in_price) * Number(item.in_num);
+    });
+    
+    // 计算累计实付款
+    let totalPay = 0;
+    allPayList.filter(p => p.supplier === supplier).forEach(p => {
+        totalPay += Number(p.payment_amount);
+    });
+    
+    // 应付账款 = 总货款 - 累计实付款
+    const payable = totalIn - totalPay;
+    
+    // 显示
+    displayEl.textContent = `￥${payable.toFixed(2)}`;
+    displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
 
 function closePayModal() {

@@ -728,35 +728,40 @@ document.addEventListener('click', function(e) {
             </table>
         </div>
         <!-- 付款录入弹窗 -->
-        <div id="payModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-            <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
-                <h4>财务付款记录</h4>
-                <input type="hidden" id="payEditId">
-                <div class="form-group" style="margin:10px 0;">
-                    <label>付款日期：</label>
-                    <input type="date" id="payDate" style="width:100%;padding:6px;">
-                </div>
-                <div class="form-group" style="margin:10px 0;">
-                    <label>线下供应商：</label>
-                    <select id="paySupplier" style="width:100%;padding:6px;"></select>
-                </div>
-                <div class="form-group" style="margin:10px 0;">
-                    <label>付款金额：</label>
-                    <input type="number" step="0.01" min="0.01" id="payAmount" style="width:100%;padding:6px;">
-                </div>
-                <div class="form-group" style="margin:10px 0;">
-                    <label>备注：</label>
-                    <textarea id="payRemark" rows="3" style="width:100%;"></textarea>
-                </div>
-                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
-                    <button class="btn btn-primary" onclick="savePayRecord()">保存</button>
-                    <button class="btn btn-default" onclick="closePayModal()">取消</button>
-                </div>
-            </div>
+<div id="payModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
+        <h4>财务付款记录</h4>
+        <input type="hidden" id="payEditId">
+        <div class="form-group" style="margin:10px 0;">
+            <label>付款日期：</label>
+            <input type="date" id="payDate" style="width:100%;padding:6px;">
         </div>
-        <!-- 【新增】财务付款记录独立分页容器 -->
-        <div class="pagination" id="page_payRecord"></div>
+        <div class="form-group" style="margin:10px 0;">
+            <label>线下供应商：</label>
+            <select id="paySupplier" style="width:100%;padding:6px;"></select>
+        </div>
+        <!-- ========== 新增：应付账款显示 ========== -->
+        <div class="form-group" style="margin:10px 0;background:#f5f7fa;padding:8px 12px;border-radius:4px;border-left:3px solid #1890ff;">
+            <label style="font-weight:bold;color:#333;">应付账款：</label>
+            <span id="payPayableDisplay" style="font-weight:bold;font-size:16px;color:#333;margin-left:8px;">请选择供应商</span>
+        </div>
+        <!-- ========== 新增结束 ========== -->
+        <div class="form-group" style="margin:10px 0;">
+            <label>付款金额：</label>
+            <input type="number" step="0.01" min="0.01" id="payAmount" style="width:100%;padding:6px;" placeholder="请输入付款金额">
+        </div>
+        <div class="form-group" style="margin:10px 0;">
+            <label>备注：</label>
+            <textarea id="payRemark" rows="3" style="width:100%;padding:6px;"></textarea>
+        </div>
+        <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="savePayRecord()">保存</button>
+            <button class="btn btn-default" onclick="closePayModal()">取消</button>
+        </div>
     </div>
+</div>
+<!-- 【新增】财务付款记录独立分页容器 -->
+<div class="pagination" id="page_payRecord"></div>
 
     <!-- ④发票返回记录 -->
     <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
