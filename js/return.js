@@ -694,8 +694,25 @@ function checkReturnNum() {
 
 // ========== 提交退货 ==========
 async function submitReturnGoods() {
-    const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
-    const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
+    // ========== 修改开始：从选中的批次数据中获取供应商和商品名 ==========
+    let supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
+    let goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
+    
+    // 如果商品名为空，但有选中的批次，从批次数据中获取
+    if (!goodsName && selectedBatchInRecordId) {
+        const allBatches = window._returnBatchListData || [];
+        for (const batch of allBatches) {
+            if (batch.inRecords && batch.inRecords[0] && batch.inRecords[0].id === selectedBatchInRecordId) {
+                goodsName = batch.goodsName;
+                if (!supplier) {
+                    supplier = batch.supplier;
+                }
+                break;
+            }
+        }
+    }
+    // ========== 修改结束 ==========
+    
     const goodsId = document.getElementById('returnCurGoodsId').value;
     const spec = document.getElementById('returnSpec').value;
     const settleType = document.getElementById('returnSettleType').value;
@@ -781,27 +798,6 @@ async function submitReturnGoods() {
         showMsg('操作失败');
     }
 }
-
-// ========== 删除 ==========
-async function deleteReturnGoods(id) {
-    if (!confirm('确定删除？')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/return_goods?id=eq.${id}`, {
-            method: 'DELETE',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        showMsg('删除成功');
-        await loadReturnGoods();
-        stockDataCache.clear();
-        refreshAllStockCache(allStockIn, allStockOut);
-        if (typeof loadStockStock === 'function') {
-            loadStockStock();
-        }
-    } catch (e) {
-        showMsg('删除失败');
-    }
-}
-
 // ========== 批量删除 ==========
 async function batchDeleteReturnGoods() {
     const ids = [];
