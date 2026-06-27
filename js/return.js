@@ -111,7 +111,6 @@ function renderReturnList() {
                 <td>${formatMoney(item.sale_amount)}</td>
                 <td>${item.record_date || ''}</td>
                 <td>
-                    <!-- ✅ 删除编辑按钮，只保留删除 -->
                     <button class="btn btn-danger" onclick="deleteReturnGoods(${item.id})">删除</button>
                 </td>
             </tr>
@@ -164,7 +163,7 @@ function changeReturnPageSize() {
     renderReturnList();
 }
 
-// ========== 弹窗搜索下拉相关变量（数据源改为 allStockIn） ==========
+// ========== 弹窗搜索下拉相关变量 ==========
 let returnAllSuppliers = [];
 let returnFilteredSuppliers = [];
 let returnAllGoodsList = [];
@@ -175,6 +174,8 @@ let returnFilteredSpecList = [];
 let returnSelectedSupplier = '';
 let returnSelectedGoods = '';
 let returnSelectedSpec = '';
+let selectedBatchInRecordId = null;
+let selectedBatchData = null;
 
 // ========== 重置弹窗搜索 ==========
 function resetReturnSearch() {
@@ -251,6 +252,11 @@ function renderReturnSupplierList(list) {
             document.getElementById('returnSupplierSearch').value = sup;
             returnSelectedSupplier = sup;
             box.style.display = 'none';
+            // 清空商品和规格
+            document.getElementById('returnGoodsSearch').value = '';
+            document.getElementById('returnSpecSearch').value = '';
+            returnSelectedGoods = '';
+            returnSelectedSpec = '';
             updateReturnBatchList();
         };
         box.appendChild(div);
@@ -263,12 +269,11 @@ function showReturnGoodsList() {
     if (!box) return;
     
     if (returnSelectedSupplier) {
-        returnAllGoodsList = allStockIn
+        const rawList = allStockIn
             .filter(item => item.supplier === returnSelectedSupplier)
             .map(item => ({ supplier: item.supplier, goodsName: item.goodsName, spec: item.spec || '' }));
-        // 去重
         const uniqueMap = new Map();
-        returnAllGoodsList.forEach(item => {
+        rawList.forEach(item => {
             const key = item.goodsName + '|' + item.spec;
             if (!uniqueMap.has(key)) {
                 uniqueMap.set(key, item);
@@ -361,6 +366,9 @@ function renderReturnGoodsList(list) {
                 const goodsInfo = allGoods.find(g => g.supplier === inRecord.supplier && g.name === inRecord.goodsName);
                 document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
             }
+            // 清空规格选择
+            returnSelectedSpec = '';
+            document.getElementById('returnSpecSearch').value = '';
             box.style.display = 'none';
             updateReturnBatchList();
         };
@@ -409,7 +417,6 @@ function renderReturnSpecList(list) {
         box.innerHTML = '<div style="padding:8px;color:#999;">无匹配规格</div>';
         return;
     }
-    // 全部规格选项
     const allDiv = document.createElement('div');
     allDiv.textContent = '全部规格';
     allDiv.style.padding = '6px 10px';
@@ -443,9 +450,6 @@ function renderReturnSpecList(list) {
 }
 
 // ========== 更新批次列表 ==========
-let selectedBatchInRecordId = null;
-let selectedBatchData = null;
-
 function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
@@ -540,7 +544,7 @@ function updateReturnBatchList() {
         html += `
             <tr ${selectBg}>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">
-                    <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onclick="selectReturnBatchByIndex(${idx})">
+                    <input type="radio" name="returnBatchSelect" value="${idx}" ${isSelected ? 'checked' : ''} onclick="toggleReturnBatch(${idx})">
                 </td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.supplier}</td>
                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${batch.goodsName}</td>
@@ -557,7 +561,8 @@ function updateReturnBatchList() {
     container.innerHTML = html;
 }
 
-function selectReturnBatchByIndex(index) {
+// ========== 切换批次选择（点击切换选中/取消） ==========
+function toggleReturnBatch(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
         showMsg('批次数据异常');
@@ -571,6 +576,26 @@ function selectReturnBatchByIndex(index) {
     }
     
     const inRecord = batch.inRecords[0];
+    
+    // 如果点击的是已选中的，取消选择
+    if (selectedBatchInRecordId === inRecord.id) {
+        // 取消选择
+        selectedBatchInRecordId = null;
+        selectedBatchData = null;
+        
+        document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+        document.getElementById('returnInPrice').value = '';
+        document.getElementById('returnBatchRemain').value = '';
+        document.getElementById('returnBatchRemainDisplay').textContent = '0';
+        document.getElementById('returnNum').value = '';
+        document.getElementById('returnNum').max = 0;
+        
+        // 移除高亮
+        updateReturnBatchList();
+        return;
+    }
+    
+    // 选中新批次
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
