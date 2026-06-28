@@ -196,9 +196,42 @@ tbody tr:hover { background-color: #e6f7ef; }
 }
 
 /* ========== 系统设置页面 ========== */
+.settings-sub-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.settings-sub-btn {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    background: #f5f5f5;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.settings-sub-btn.active {
+    background: #2d8cf0;
+    color: #fff;
+    border-color: #2d8cf0;
+}
+
+.settings-sub-content {
+    display: none;
+    padding: 15px;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+.settings-sub-content.active {
+    display: block;
+}
+
 .settings-section {
     background: #fff;
-    border: 1px solid #eee;
+    border: 1px solid #e8e8e8;
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
@@ -219,12 +252,12 @@ tbody tr:hover { background-color: #e6f7ef; }
 }
 
 .setting-group label {
-    min-width: 140px;
+    min-width: 100px;
     font-weight: bold;
+    color: #555;
 }
 
-.setting-group input[type="text"],
-.setting-group input[type="password"] {
+.setting-group input[type="text"] {
     flex: 1;
     padding: 8px 12px;
     border: 1px solid #ddd;
@@ -232,27 +265,29 @@ tbody tr:hover { background-color: #e6f7ef; }
     min-width: 200px;
 }
 
-.dept-list, .member-list, .permission-list {
+.dept-list, .member-list {
     background: #f8f9fa;
     padding: 15px;
     border-radius: 6px;
-    margin-bottom: 15px;
 }
 
-.dept-list h5, .member-list h5, .permission-list h5 {
+.dept-list h5, .member-list h5 {
     margin: 0 0 10px 0;
     color: #333;
+    font-size: 14px;
 }
 
-#departmentList, #memberList, #permissionList {
+#departmentList, #memberList {
     margin-bottom: 10px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-.dept-item, .member-item, .permission-item {
+.dept-item, .member-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
+    padding: 6px 12px;
     background: #fff;
     border: 1px solid #e8e8e8;
     border-radius: 4px;
@@ -266,8 +301,8 @@ tbody tr:hover { background-color: #e6f7ef; }
 
 .add-dept, .add-member {
     display: flex;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .add-dept input, .add-member input {
@@ -280,13 +315,32 @@ tbody tr:hover { background-color: #e6f7ef; }
 .btn-sm {
     padding: 4px 12px;
     font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-.admin-badge {
-    background: #ff4d4f;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    margin-left: 8px;
+#roleList, #userList {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.role-item, .user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.role-item .role-name,
+.user-item .user-name {
+    font-weight: 600;
+    min-width: 80px;
+}
+
+.role-item span, .user-item span {
+    font-size: 13px;
 }
