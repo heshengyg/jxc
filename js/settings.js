@@ -24,12 +24,188 @@ let permissionData = {
 let currentUserId = null;
 
 // ============================================================
+// ===== 新增：Supabase 角色同步函数 =====
+// ============================================================
+
+/**
+ * 从 Supabase 加载角色数据
+ */
+async function loadRolesFromSupabase() {
+    try {
+        console.log('📡 从 Supabase 加载角色...');
+        const result = await supabase
+            .from('roles')
+            .select('id, name, view_permissions')
+            .order('name');
+        
+        if (result.error) {
+            console.error('❌ 加载角色失败:', result.error);
+            return false;
+        }
+        
+        if (result.data && result.data.length > 0) {
+            permissionData.roles = result.data.map(function(role) {
+                return {
+                    id: role.id,
+                    name: role.name,
+                    viewPermissions: role.view_permissions || []
+                };
+            });
+            console.log('✅ 从 Supabase 加载了 ' + permissionData.roles.length + ' 个角色');
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.error('❌ 加载角色异常:', err);
+        return false;
+    }
+}
+
+/**
+ * 保存角色到 Supabase
+ */
+async function saveRoleToSupabase(role) {
+    try {
+        const data = {
+            name: role.name,
+            view_permissions: role.viewPermissions || []
+        };
+        
+        const isNew = !role.id || role.id.toString().startsWith('role_');
+        
+        let result;
+        if (isNew) {
+            result = await supabase
+                .from('roles')
+                .insert([data])
+                .select();
+        } else {
+            result = await supabase
+                .from('roles')
+                .update(data)
+                .eq('id', role.id)
+                .select();
+        }
+        
+        if (result.error) {
+            console.error('❌ 保存角色失败:', result.error);
+            showMsg('❌ 保存失败: ' + result.error.message);
+            return false;
+        }
+        
+        if (result.data && result.data.length > 0) {
+            const savedRole = result.data[0];
+            role.id = savedRole.id;
+            role.name = savedRole.name;
+            role.viewPermissions = savedRole.view_permissions || [];
+        }
+        
+        console.log('✅ 角色保存到 Supabase 成功:', role.name);
+        return true;
+        
+    } catch (err) {
+        console.error('❌ 保存角色异常:', err);
+        showMsg('❌ 保存异常: ' + err.message);
+        return false;
+    }
+}
+
+/**
+ * 从 Supabase 删除角色
+ */
+async function deleteRoleFromSupabase(roleId) {
+    try {
+        const result = await supabase
+            .from('roles')
+            .delete()
+            .eq('id', roleId);
+        
+        if (result.error) {
+            console.error('❌ 删除角色失败:', result.error);
+            showMsg('❌ 删除失败: ' + result.error.message);
+            return false;
+        }
+        
+        console.log('✅ 角色已从 Supabase 删除');
+        return true;
+        
+    } catch (err) {
+        console.error('❌ 删除角色异常:', err);
+        return false;
+    }
+}
+
+/**
+ * 同步角色权限到 role_permissions 表
+ */
+async function syncRolePermissions(roleName, viewPermissions) {
+    try {
+        // 先删除旧权限
+        await supabase
+            .from('role_permissions')
+            .delete()
+            .eq('role', roleName);
+        
+        // 为每个菜单权限插入记录
+        const permissions = viewPermissions.map(function(menuKey) {
+            return {
+                role: roleName,
+                menu_key: menuKey,
+                can_view: true,
+                can_add: true,
+                can_edit: true,
+                can_delete: true
+            };
+        });
+        
+        if (permissions.length > 0) {
+            const result = await supabase
+                .from('role_permissions')
+                .insert(permissions);
+            
+            if (result.error) {
+                console.error('❌ 同步权限失败:', result.error);
+            } else {
+                console.log('✅ 权限同步成功:', permissions.length + ' 条');
+            }
+        }
+    } catch (err) {
+        console.error('❌ 同步权限异常:', err);
+    }
+}
+
+/**
+ * 删除角色的所有权限
+ */
+async function deleteRolePermissions(roleName) {
+    try {
+        await supabase
+            .from('role_permissions')
+            .delete()
+            .eq('role', roleName);
+        console.log('✅ 角色权限已删除');
+    } catch (err) {
+        console.error('❌ 删除权限异常:', err);
+    }
+}
+
+// ============================================================
 // ===== 初始化 =====
 // ============================================================
 function initSettings() {
     loadSettings();
     loadPermissionData();
-    renderAll();
+    
+    // ===== 修改：从 Supabase 加载角色 =====
+    loadRolesFromSupabase().then(function(success) {
+        // 无论是否成功，都渲染界面
+        renderAll();
+        
+        // 如果从 Supabase 加载成功，保存到本地
+        if (success) {
+            savePermissionData();
+        }
+    });
     
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
@@ -195,14 +371,134 @@ function deleteDepartment(index) {
 }
 
 // ============================================================
+// ===== Supabase 角色同步函数 =====
+// ============================================================
+
+/**
+ * 从 Supabase 加载角色数据
+ */
+async function loadRolesFromSupabase() {
+    try {
+        console.log('📡 从 Supabase 加载角色...');
+        var result = await supabase
+            .from('roles')
+            .select('id, name, view_permissions')
+            .order('name');
+        
+        if (result.error) {
+            console.error('❌ 加载角色失败:', result.error);
+            return false;
+        }
+        
+        if (result.data && result.data.length > 0) {
+            // 转换为本地格式
+            permissionData.roles = result.data.map(function(role) {
+                return {
+                    id: role.id,
+                    name: role.name,
+                    viewPermissions: role.view_permissions || []
+                };
+            });
+            console.log('✅ 从 Supabase 加载了 ' + permissionData.roles.length + ' 个角色');
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.error('❌ 加载角色异常:', err);
+        return false;
+    }
+}
+
+/**
+ * 保存角色到 Supabase
+ */
+async function saveRoleToSupabase(role) {
+    try {
+        var data = {
+            name: role.name,
+            view_permissions: role.viewPermissions || []
+        };
+        
+        // 判断是新增还是更新
+        var isNew = !role.id || role.id.toString().startsWith('role_');
+        
+        var result;
+        if (isNew) {
+            // 新增
+            result = await supabase
+                .from('roles')
+                .insert([data])
+                .select();
+        } else {
+            // 更新
+            result = await supabase
+                .from('roles')
+                .update(data)
+                .eq('id', role.id)
+                .select();
+        }
+        
+        if (result.error) {
+            console.error('❌ 保存角色失败:', result.error);
+            showMsg('❌ 保存失败: ' + result.error.message);
+            return false;
+        }
+        
+        // 更新本地数据（使用返回的 ID）
+        if (result.data && result.data.length > 0) {
+            var savedRole = result.data[0];
+            role.id = savedRole.id;
+            role.name = savedRole.name;
+            role.viewPermissions = savedRole.view_permissions || [];
+        }
+        
+        console.log('✅ 角色保存到 Supabase 成功:', role.name);
+        return true;
+        
+    } catch (err) {
+        console.error('❌ 保存角色异常:', err);
+        showMsg('❌ 保存异常: ' + err.message);
+        return false;
+    }
+}
+
+/**
+ * 从 Supabase 删除角色
+ */
+async function deleteRoleFromSupabase(roleId) {
+    try {
+        var result = await supabase
+            .from('roles')
+            .delete()
+            .eq('id', roleId);
+        
+        if (result.error) {
+            console.error('❌ 删除角色失败:', result.error);
+            showMsg('❌ 删除失败: ' + result.error.message);
+            return false;
+        }
+        
+        console.log('✅ 角色已从 Supabase 删除');
+        return true;
+        
+    } catch (err) {
+        console.error('❌ 删除角色异常:', err);
+        return false;
+    }
+}
+
+// ============================================================
 // ===== 角色管理（查看权限） =====
 // ============================================================
 function renderRoles() {
     const container = document.getElementById('roleList');
     if (!container) return;
     container.innerHTML = '';
-    permissionData.roles.forEach((role) => {
-        const viewLabels = role.viewPermissions.map(k => ALL_MENUS.find(m => m.key === k)?.label || k).join('、');
+    permissionData.roles.forEach(function(role) {
+        const viewLabels = role.viewPermissions.map(function(k) {
+            const found = ALL_MENUS.find(function(m) { return m.key === k; });
+            return found ? found.label : k;
+        }).join('、');
         const div = document.createElement('div');
         div.className = 'role-card';
         div.innerHTML = `
@@ -217,7 +513,6 @@ function renderRoles() {
         container.appendChild(div);
     });
 }
-
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
     document.querySelectorAll('#roleViewPermissions input').forEach(cb => cb.checked = false);
@@ -247,19 +542,31 @@ function saveRole() {
     showMsg('✅ 角色添加成功');
 }
 
+// ===== 修改：deleteRole 支持 Supabase =====
 function deleteRole(roleId) {
     if (!confirm('确定删除该角色？')) return;
-    const role = permissionData.roles.find(r => r.id === roleId);
+    const role = permissionData.roles.find(function(r) { return r.id === roleId; });
     if (role && role.name === '管理员') return showMsg('不能删除管理员角色');
-    permissionData.roles = permissionData.roles.filter(r => r.id !== roleId);
-    // 清除该角色的用户
-    permissionData.users = permissionData.users.filter(u => u.roleId !== roleId);
-    savePermissionData();
-    renderRoles();
-    renderUsers();
-    showMsg('✅ 角色已删除');
+    
+    // 从 Supabase 删除
+    deleteRoleFromSupabase(roleId).then(function(success) {
+        if (success) {
+            // 从本地删除
+            permissionData.roles = permissionData.roles.filter(function(r) { return r.id !== roleId; });
+            permissionData.users = permissionData.users.filter(function(u) { return u.roleId !== roleId; });
+            
+            // 从 role_permissions 删除
+            if (role) {
+                deleteRolePermissions(role.name);
+            }
+            
+            savePermissionData();
+            renderRoles();
+            renderUsers();
+            showMsg('✅ 角色已删除');
+        }
+    });
 }
-
 function editRole(roleId) {
     // 简单编辑：删除后重新添加
     const role = permissionData.roles.find(r => r.id === roleId);
@@ -275,45 +582,65 @@ function editRole(roleId) {
     // 修改保存逻辑 - 在saveRole中判断是否有editId
 }
 
-// 重写saveRole支持编辑
-const originalSaveRole = saveRole;
-saveRole = function() {
+// ===== 修改：saveRole 支持 Supabase =====
+saveRole = async function() {
     const editId = document.getElementById('addRoleModal').dataset.editId;
     const name = document.getElementById('roleNameInput').value.trim();
     if (!name) return showMsg('请输入角色名称');
+    
     const viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
-    const viewPermissions = Array.from(viewCheckboxes).map(cb => cb.value);
+    const viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
     
     if (editId) {
-        // 编辑模式
-        const role = permissionData.roles.find(r => r.id === editId);
+        // ===== 编辑模式 =====
+        const role = permissionData.roles.find(function(r) { return r.id === editId; });
         if (role) {
-            // 如果是管理员，不能修改
             if (role.name === '管理员') return showMsg('不能修改管理员角色');
+            
+            // 更新本地数据
             role.name = name;
             role.viewPermissions = viewPermissions;
-            savePermissionData();
-            renderRoles();
-            closeAddRoleModal();
-            showMsg('✅ 角色已更新');
-            delete document.getElementById('addRoleModal').dataset.editId;
+            
+            // 保存到 Supabase
+            const success = await saveRoleToSupabase(role);
+            if (success) {
+                // 同步到 role_permissions 表
+                await syncRolePermissions(role.name, viewPermissions);
+                
+                savePermissionData();
+                renderRoles();
+                closeAddRoleModal();
+                showMsg('✅ 角色已更新');
+                delete document.getElementById('addRoleModal').dataset.editId;
+            }
         }
     } else {
-        // 新增模式
-        if (permissionData.roles.some(r => r.name === name)) return showMsg('角色已存在');
-        permissionData.roles.push({
+        // ===== 新增模式 =====
+        if (permissionData.roles.some(function(r) { return r.name === name; })) {
+            return showMsg('角色已存在');
+        }
+        
+        const newRole = {
             id: 'role_' + Date.now(),
             name: name,
             viewPermissions: viewPermissions
-        });
-        savePermissionData();
-        renderRoles();
-        closeAddRoleModal();
-        showMsg('✅ 角色添加成功');
+        };
+        
+        // 保存到 Supabase
+        const success = await saveRoleToSupabase(newRole);
+        if (success) {
+            permissionData.roles.push(newRole);
+            // 同步到 role_permissions 表
+            await syncRolePermissions(newRole.name, viewPermissions);
+            
+            savePermissionData();
+            renderRoles();
+            closeAddRoleModal();
+            showMsg('✅ 角色添加成功');
+        }
     }
 };
-
 // ============================================================
 // ===== 用户管理（操作权限：勾选即禁止） =====
 // ============================================================
