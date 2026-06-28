@@ -401,3 +401,55 @@ tbody tr:hover { background-color: #e6f7ef; }
     cursor: not-allowed !important;
     pointer-events: none;
 }
+
+/* 操作权限弹窗样式 */
+.op-module-group {
+    margin-bottom: 16px;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fafafa;
+}
+.op-module-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #333;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e8e8e8;
+}
+.op-sub-group {
+    margin-left: 16px;
+    margin-bottom: 8px;
+}
+.op-sub-title {
+    font-weight: 500;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 4px;
+}
+.op-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-left: 20px;
+}
+.op-items label {
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.op-items label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+.op-empty {
+    color: #999;
+    text-align: center;
+    padding: 30px 0;
+    font-size: 14px;
+}

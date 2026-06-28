@@ -704,28 +704,46 @@ function editUserPerm(userId) {
 }
 
 function renderUserOpsContainer(bannedOps) {
-    const container = document.getElementById('userOpsContainer');
+    var container = document.getElementById('userOpsContainer');
     if (!container) return;
     container.innerHTML = '';
     
-    for (const [moduleKey, moduleData] of Object.entries(OPERATION_PERMISSIONS)) {
-        const user = permissionData.users.find(u => u.id === editingUserId);
-        const role = permissionData.roles.find(r => r.id === user?.roleId);
-        if (!role || !role.viewPermissions.includes(moduleKey)) continue;
+    var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
+    var role = permissionData.roles.find(function(r) { return r.id === user?.roleId; });
+    if (!role) {
+        container.innerHTML = '<div class="op-empty">请先为用户分配角色</div>';
+        return;
+    }
+    
+    // 遍历所有模块
+    for (var moduleKey in OPERATION_PERMISSIONS) {
+        var moduleData = OPERATION_PERMISSIONS[moduleKey];
         
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'op-module-group';
-        let itemsHtml = '';
-        for (const op of moduleData.operations) {
-            const opKey = moduleKey + '_' + op.key;
-            const checked = bannedOps.includes(opKey) ? 'checked' : '';
-            itemsHtml += `<label><input type="checkbox" value="${opKey}" ${checked}> ${op.label}</label>`;
+        // 检查该用户是否有该模块的查看权限
+        if (!role.viewPermissions.includes(moduleKey)) continue;
+        
+        var moduleDiv = document.createElement('div');
+        moduleDiv.className = 'op-module-group';
+        moduleDiv.innerHTML = '<div class="op-module-title">📁 ' + moduleData.label + '</div>';
+        
+        var subHtml = '';
+        // 遍历子版块
+        for (var subKey in moduleData.subModules) {
+            var subData = moduleData.subModules[subKey];
+            var opsHtml = '';
+            for (var i = 0; i < subData.operations.length; i++) {
+                var op = subData.operations[i];
+                var opKey = moduleKey + '_' + subKey + '_' + op.key;
+                var checked = bannedOps && bannedOps.indexOf(opKey) !== -1 ? 'checked' : '';
+                opsHtml += '<label><input type="checkbox" value="' + opKey + '" ' + checked + '> ' + op.label + '</label>';
+            }
+            subHtml += '<div class="op-sub-group">';
+            subHtml += '<div class="op-sub-title">└─ ' + subData.label + '</div>';
+            subHtml += '<div class="op-items">' + opsHtml + '</div>';
+            subHtml += '</div>';
         }
-        groupDiv.innerHTML = `
-            <div class="op-module-title">${moduleData.label}</div>
-            <div class="op-items">${itemsHtml}</div>
-        `;
-        container.appendChild(groupDiv);
+        moduleDiv.innerHTML += subHtml;
+        container.appendChild(moduleDiv);
     }
 }
 
@@ -899,13 +917,19 @@ function canUserView(userId, menuKey) {
 }
 
 function canUserOperate(userId, moduleKey, operationKey) {
-    const user = permissionData.users.find(u => u.id === userId);
+    var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) return false;
-    const role = permissionData.roles.find(r => r.id === user.roleId);
+    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    // 管理员默认全部可操作
     if (role && role.name === '管理员') return true;
-    const banned = user.bannedOperations || [];
-    const opKey = moduleKey + '_' + operationKey;
-    return !banned.includes(opKey);
+    var banned = user.bannedOperations || [];
+    // 检查是否在禁用列表中
+    // operationKey 格式: module_sub_op
+    var fullKey = moduleKey + '_' + operationKey;
+    // 检查精确匹配
+    if (banned.includes(fullKey)) return false;
+    // 检查是否整个子版块被禁用（如果子版块的所有操作都被禁用，也视为禁用）
+    return true;
 }
 
 function setCurrentUser(userId) {
@@ -930,22 +954,25 @@ function setCurrentUser(userId) {
 // ============================================================
 function applyAllPermissions() {
     if (!currentUserId) return;
-    document.querySelectorAll('[data-module][data-op]').forEach(btn => {
-        const moduleKey = btn.dataset.module;
-        const opKey = btn.dataset.op;
-        const allowed = canUserOperate(currentUserId, moduleKey, opKey);
+    document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
+        var moduleKey = btn.dataset.module;
+        var opKey = btn.dataset.op;
+        var allowed = canUserOperate(currentUserId, moduleKey, opKey);
         if (!allowed) {
             btn.classList.add('btn-disabled');
             btn.disabled = true;
             btn.title = '您没有此操作权限';
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
         } else {
             btn.classList.remove('btn-disabled');
             btn.disabled = false;
             btn.title = '';
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
         }
     });
 }
-
 // ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
