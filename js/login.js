@@ -57,7 +57,7 @@ async function loginWithSupabase(username, password) {
         
         // 2. 验证密码
         console.log('🔑 验证密码...');
-        var isValid = bcrypt.compareSync(password, user.password_hash);
+        var isValid = verifyPassword(password, user.password_hash);
         console.log('🔑 密码验证结果:', isValid);
         
         if (!isValid) {
