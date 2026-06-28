@@ -265,7 +265,6 @@ async function deleteUserFromSupabase(userId) {
     }
 }
 
-// ============================================================
 // ===== 初始化 =====
 // ============================================================
 function initSettings() {
@@ -304,9 +303,9 @@ function initSettings() {
         });
     }
     
-    applyAllPermissions();
+    // 注意：这里不调用 applyAllPermissions()
+    // 因为 setCurrentUser 会在页面加载初始化时调用
 }
-
 function loadSettings() {
     try {
         const saved = localStorage.getItem('erp_settings');
@@ -979,7 +978,7 @@ function applyAllPermissions() {
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
-        // 从 sessionStorage 获取 Supabase 用户
+        // 只执行一次 setCurrentUser
         var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
         if (saved) {
             try {
