@@ -948,7 +948,8 @@ function applyAllPermissions() {
 
 // ============================================================
 // ===== 页面加载初始化 =====
-// ========================================================setTimeout(function() {
+// ============================================================
+setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
         // 从 sessionStorage 获取 Supabase 用户
@@ -969,3 +970,28 @@ function applyAllPermissions() {
         console.log('✅ 系统设置模块已加载（完整权限版）');
     }
 }, 800);
+
+// 确保函数完整结束，没有多余的花括号// ============================================================
+// ===== 页面加载初始化 =====
+// ============================================================
+setTimeout(function() {
+    if (document.getElementById('settings')) {
+        initSettings();
+        var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+        if (saved) {
+            try {
+                var user = JSON.parse(saved);
+                if (user.id) {
+                    setCurrentUser(user.id);
+                    console.log('✅ 使用 Supabase 用户:', user.name);
+                }
+            } catch(e) {
+                setCurrentUser('user_1');
+            }
+        } else {
+            setCurrentUser('user_1');
+        }
+        console.log('✅ 系统设置模块已加载（完整权限版）');
+    }
+}, 800);
+console.log('✅ settings.js 加载完成');

@@ -110,82 +110,39 @@ function syncUserToLocalSystem(user, permissions) {
         });
         
         if (existingUser) {
-            // 更新已有用户信息
             existingUser.name = user.username;
-            existingUser.roleId = 'supabase_' + user.role;
             return;
         }
         
-        // 创建对应的角色（如果不存在）
+        // 创建角色（如果不存在）
         var roleId = 'supabase_' + user.role;
         var existingRole = permissionData.roles.find(function(r) {
             return r.id === roleId;
         });
         
         if (!existingRole) {
-            // 从 permissions 构建菜单权限
-            var viewPermissions = [];
-            if (permissions && permissions.length > 0) {
-                viewPermissions = permissions
-                    .filter(function(p) { return p.can_view; })
-                    .map(function(p) { return p.menu_key; });
-            } else {
-                // 默认权限
-                if (user.role === 'admin') {
-                    viewPermissions = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
-                } else if (user.role === 'manager') {
-                    viewPermissions = ['goods', 'stockIn', 'stockOut', 'stockView', 'finance'];
-                } else {
-                    viewPermissions = ['goods', 'stockView'];
-                }
-            }
-            
-            var roleNameMap = {
-                'admin': '管理员',
-                'manager': '经理',
-                'user': '普通用户'
-            };
-            
+            var viewPermissions = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
             permissionData.roles.push({
                 id: roleId,
-                name: roleNameMap[user.role] || user.role,
+                name: user.role === 'admin' ? '管理员' : user.role,
                 viewPermissions: viewPermissions
             });
         }
         
-        // 添加到用户列表
+        // 添加用户
         permissionData.users.push({
             id: user.id,
             name: user.username,
-            password: '', // 不存密码
+            password: '',
             roleId: roleId,
-            bannedOperations: [],
-            fromSupabase: true
+            bannedOperations: []
         });
         
-        // 同步到 settingsData.members
-        var existingMember = settingsData.members.find(function(m) {
-            return m.id === user.id;
-        });
-        if (!existingMember) {
-            settingsData.members.push({
-                id: user.id,
-                name: user.username,
-                password: '',
-                department: '',
-                roleId: roleId,
-                bannedOperations: []
-            });
-        }
-        
-        // 保存
         savePermissionData();
-        saveSettings();
-        
         console.log('✅ 用户已同步到本地权限系统:', user.username);
         
     } catch (err) {
-        console.error('同步用户到本地系统失败:', err);
+        console.error('同步用户失败:', err);
     }
 }
 
