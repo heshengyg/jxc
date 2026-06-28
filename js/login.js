@@ -24,36 +24,49 @@ function login() {
  */
 async function loginWithSupabase(username, password) {
     try {
+        console.log('🔍 开始 Supabase 登录:', username);
+        
         // 1. 查询用户
         var { data: user, error } = await supabase
             .from('users')
-            .select('id, username, password_hash, role, status, avatar_url')
+            .select('id, username, password_hash, role, status')
             .eq('username', username)
             .maybeSingle();
         
+        console.log('📊 查询结果:', user ? '找到用户' : '用户不存在');
+        if (user) {
+            console.log('📊 用户信息:', {
+                username: user.username,
+                role: user.role,
+                status: user.status,
+                hash_preview: user.password_hash ? user.password_hash.substring(0, 20) + '...' : '无'
+            });
+        }
+        
         if (error) {
-            console.error('查询用户失败:', error);
-            // 降级到本地登录
+            console.error('❌ 查询错误:', error);
             loginLocal(username, password);
             return;
         }
         
-        // 用户不存在或状态异常
         if (!user || user.status !== 'active') {
+            console.warn('⚠️ 用户不存在或未激活');
             loginLocal(username, password);
             return;
         }
         
-        // 2. 验证密码（使用 bcrypt）
+        // 2. 验证密码
+        console.log('🔑 验证密码...');
         var isValid = bcrypt.compareSync(password, user.password_hash);
+        console.log('🔑 密码验证结果:', isValid);
         
         if (!isValid) {
+            console.warn('❌ 密码错误');
             loginLocal(username, password);
             return;
         }
         
-        // 3. ✅ Supabase 登录成功！
-        console.log('✅ Supabase 登录成功:', user.username, '角色:', user.role);
+        console.log('✅ 登录成功！');
         
         // 4. 获取用户权限（从 role_permissions 表）
         var { data: permissions, error: permError } = await supabase
