@@ -2,6 +2,9 @@ const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 
+// 在 HTML 中引入 supabase-js 后使用
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ===================== 操作权限定义 =====================
 // 每个模块下的操作按钮，用于用户级别的权限控制
 const OPERATION_PERMISSIONS = {
@@ -104,3 +107,15 @@ function getAllOperations() {
 }
 
 const ALL_OPERATIONS_LIST = getAllOperations();
+
+=========================================================
+// ===== 初始化 Supabase 客户端 =====
+// ============================================================
+
+// 使用 config.js 中已有的 SUPABASE_URL 和 SUPABASE_KEY
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 将 supabase 暴露为全局变量，供其他 JS 文件使用
+window.supabase = supabase;
+
+console.log('✅ Supabase 客户端已初始化');
