@@ -1154,7 +1154,7 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ========== 新增：系统设置页面 ========== -->
+<!-- ========== 系统设置页面 ========== -->
 <div id="settings" class="tab-content">
     <h3>⚙️ 系统设置</h3>
     
@@ -1162,119 +1162,112 @@ document.addEventListener('click', function(e) {
     <div class="settings-sub-tabs">
         <button class="settings-sub-btn active" data-tab="basic" onclick="switchSettingsTab('basic')">基础设置</button>
         <button class="settings-sub-btn" data-tab="data" onclick="switchSettingsTab('data')">数据管理</button>
-        <button class="settings-sub-btn" data-tab="users" onclick="switchSettingsTab('users')">用户管理</button>
-        <button class="settings-sub-btn" data-tab="roles" onclick="switchSettingsTab('roles')">角色与权限</button>
+        <button class="settings-sub-btn" data-tab="permission" onclick="switchSettingsTab('permission')">权限管理</button>
     </div>
     
     <!-- ===== 基础设置 ===== -->
     <div id="sub-basic" class="settings-sub-content active">
-        <h4>基础设置</h4>
-        <div class="setting-group">
-            <label>ERP名称（公司）：</label>
-            <input type="text" id="companyName" placeholder="请输入公司名称">
-        </div>
-        <div class="setting-group">
-            <label>LOGO：</label>
-            <input type="file" id="companyLogo" accept="image/*">
-            <img id="logoPreview" style="max-height:50px;display:none;margin-left:10px;">
+        <div class="settings-section">
+            <h4>🏢 基础设置</h4>
+            <div class="setting-group">
+                <label>ERP名称：</label>
+                <input type="text" id="companyName" placeholder="请输入公司名称">
+            </div>
+            <div class="setting-group">
+                <label>LOGO：</label>
+                <input type="file" id="companyLogo" accept="image/*">
+                <img id="logoPreview" style="max-height:50px;display:none;margin-left:10px;">
+            </div>
         </div>
     </div>
     
     <!-- ===== 数据管理 ===== -->
     <div id="sub-data" class="settings-sub-content" style="display:none;">
-        <h4>数据管理</h4>
-        <div class="setting-group">
-            <label>设置备份到本地地址：</label>
-            <input type="text" id="backupPath" placeholder="选择备份路径" readonly>
-            <button class="btn btn-primary" onclick="selectBackupPath()">选择路径</button>
-        </div>
-        <div class="setting-group" style="gap:10px;">
-            <button class="btn btn-success" onclick="backupData()">💾 立即备份</button>
-            <button class="btn btn-warning" onclick="importData()">📂 导入数据</button>
-            <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空数据</button>
+        <div class="settings-section">
+            <h4>💾 数据管理</h4>
+            <div class="setting-group">
+                <button class="btn btn-success" onclick="backupData()">💾 立即备份</button>
+                <button class="btn btn-warning" onclick="importData()">📂 导入数据</button>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空数据</button>
+            </div>
+            <div style="font-size:12px;color:#999;margin-top:10px;">
+                ⚠️ 清空数据前请确保已备份
+            </div>
         </div>
     </div>
     
-    <!-- ===== 用户管理 ===== -->
-    <div id="sub-users" class="settings-sub-content" style="display:none;">
-        <h4>用户管理</h4>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-            <!-- 部门管理 -->
-            <div class="dept-list">
-                <h5>部门管理</h5>
-                <div id="departmentList"></div>
-                <div class="add-dept">
-                    <input type="text" id="newDeptName" placeholder="新部门名称">
+    <!-- ===== 权限管理（一体化） ===== -->
+    <div id="sub-permission" class="settings-sub-content" style="display:none;">
+        <div class="settings-section">
+            <h4>👥 部门管理</h4>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                <div id="departmentTags" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;"></div>
+                <div style="display:flex;gap:6px;">
+                    <input type="text" id="newDeptName" placeholder="新部门名称" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;width:120px;">
                     <button class="btn btn-primary btn-sm" onclick="addDepartment()">添加</button>
                 </div>
             </div>
-            <!-- 成员管理 -->
-            <div class="member-list">
-                <h5>部门成员</h5>
-                <select id="deptSelect" onchange="loadDeptMembers()">
-                    <option value="">选择部门</option>
-                </select>
-                <div id="memberList"></div>
-                <div class="add-member">
-                    <input type="text" id="newMemberName" placeholder="姓名">
-                    <input type="password" id="newMemberPwd" placeholder="密码">
-                    <button class="btn btn-primary btn-sm" onclick="addMember()">添加</button>
+        </div>
+        
+        <div class="settings-section">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <!-- 角色管理 -->
+                <div>
+                    <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
+                    <div style="display:flex;gap:6px;margin-bottom:10px;">
+                        <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+                        <button class="btn btn-primary btn-sm" onclick="openAddRoleModal()">新增</button>
+                    </div>
+                    <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
+                </div>
+                
+                <!-- 用户管理 -->
+                <div>
+                    <h4 style="margin:0 0 10px 0;">👤 用户管理</h4>
+                    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                        <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                        <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                        <select id="deptSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">选择部门</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="addMember()">添加</button>
+                    </div>
+                    <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- ===== 角色与权限 ===== -->
-    <div id="sub-roles" class="settings-sub-content" style="display:none;">
-        <h4>角色与权限</h4>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-            <span style="color:#666;">管理角色及用户的查看/操作权限</span>
-            <button class="btn btn-primary" onclick="openAddRoleModal()">+ 新增角色</button>
-        </div>
-        
-        <!-- 角色列表 -->
-        <div style="margin-bottom:20px;">
-            <h5 style="margin:0 0 10px 0;">角色列表</h5>
-            <div id="roleList"></div>
-        </div>
-        
-        <!-- 用户列表 -->
-        <div>
-            <h5 style="margin:0 0 10px 0;">用户列表</h5>
-            <div id="userList"></div>
         </div>
     </div>
 </div>
 
-<!-- ===== 新增角色弹窗 ===== -->
+<!-- ===== 新增角色弹窗（权限配置） ===== -->
 <div id="addRoleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#fff;padding:25px;border-radius:8px;width:520px;max-height:80vh;overflow-y:auto;">
+    <div style="background:#fff;padding:25px;border-radius:8px;width:550px;max-height:80vh;overflow-y:auto;">
         <h4>新增角色</h4>
-        <div class="form-group" style="margin:10px 0;">
+        <div style="margin:10px 0;">
             <label>角色名称：</label>
-            <input type="text" id="newRoleName" placeholder="请输入角色名称" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            <input type="text" id="roleNameInput" placeholder="请输入角色名称" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
         </div>
-        <div class="form-group" style="margin:10px 0;flex-direction:column;align-items:flex-start;">
-            <label style="margin-bottom:10px;">查看权限（勾选可查看的菜单）：</label>
-            <div id="roleViewPermissions" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div style="margin:10px 0;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">查看权限（勾选该角色能看到的模块）：</label>
+            <div id="roleViewPermissions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
                 <label><input type="checkbox" value="goods"> 商品管理</label>
                 <label><input type="checkbox" value="stockIn"> 入库管理</label>
                 <label><input type="checkbox" value="returnGoods"> 退货管理</label>
                 <label><input type="checkbox" value="stockOut"> 出库管理</label>
                 <label><input type="checkbox" value="stockView"> 库存查看</label>
-                <label><input type="checkbox" value="finance"> 财务综合管理</label>
+                <label><input type="checkbox" value="finance"> 财务综合</label>
                 <label><input type="checkbox" value="settings"> 系统设置</label>
             </div>
         </div>
-        <div class="form-group" style="margin:10px 0;flex-direction:column;align-items:flex-start;">
-            <label style="margin-bottom:10px;">默认操作权限（用户可单独修改）：</label>
-            <div id="roleOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div style="margin:10px 0;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">默认操作权限（用户可单独修改）：</label>
+            <div id="roleOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
                 <label><input type="checkbox" value="goods"> 商品管理</label>
                 <label><input type="checkbox" value="stockIn"> 入库管理</label>
                 <label><input type="checkbox" value="returnGoods"> 退货管理</label>
                 <label><input type="checkbox" value="stockOut"> 出库管理</label>
                 <label><input type="checkbox" value="stockView"> 库存查看</label>
-                <label><input type="checkbox" value="finance"> 财务综合管理</label>
+                <label><input type="checkbox" value="finance"> 财务综合</label>
                 <label><input type="checkbox" value="settings"> 系统设置</label>
             </div>
         </div>
@@ -1287,18 +1280,18 @@ document.addEventListener('click', function(e) {
 
 <!-- ===== 编辑用户操作权限弹窗 ===== -->
 <div id="editUserPermModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#fff;padding:25px;border-radius:8px;width:450px;">
+    <div style="background:#fff;padding:25px;border-radius:8px;width:480px;">
         <h4>编辑用户操作权限</h4>
-        <p style="color:#666;font-size:13px;">用户：<span id="editUserName"></span>（角色：<span id="editUserRole"></span>）</p>
-        <div class="form-group" style="margin:10px 0;flex-direction:column;align-items:flex-start;">
-            <label style="margin-bottom:10px;">操作权限（勾选即可操作）：</label>
-            <div id="userOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <p style="color:#666;font-size:13px;">👤 <span id="editUserName"></span>（角色：<span id="editUserRole"></span>）</p>
+        <div style="margin:10px 0;">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">操作权限（勾选即可操作）：</label>
+            <div id="userOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
                 <label><input type="checkbox" value="goods"> 商品管理</label>
                 <label><input type="checkbox" value="stockIn"> 入库管理</label>
                 <label><input type="checkbox" value="returnGoods"> 退货管理</label>
                 <label><input type="checkbox" value="stockOut"> 出库管理</label>
                 <label><input type="checkbox" value="stockView"> 库存查看</label>
-                <label><input type="checkbox" value="finance"> 财务综合管理</label>
+                <label><input type="checkbox" value="finance"> 财务综合</label>
                 <label><input type="checkbox" value="settings"> 系统设置</label>
             </div>
         </div>
