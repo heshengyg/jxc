@@ -911,49 +911,70 @@ function clearAllData() {
 // ===== 权限检查函数 =====
 // ============================================================
 function getUserPermissions(userId) {
-    const user = permissionData.users.find(u => u.id === userId);
-    if (!user) return { view: [], banned: [] };
-    const role = permissionData.roles.find(r => r.id === user.roleId);
-    if (!role) return { view: [], banned: [] };
+    // 1. 先按 ID 查找
+    var user = permissionData.users.find(function(u) { return u.id === userId; });
+    
+    // 2. 如果找不到，按名字查找（admin 兜底）
+    if (!user) {
+        user = permissionData.users.find(function(u) { return u.name === 'admin'; });
+        if (user) {
+            console.log('🔄 通过用户名找到用户:', user.name);
+        }
+    }
+    
+    // 3. 如果还是找不到，返回管理员权限（兜底）
+    if (!user) {
+        console.warn('⚠️ 用户不在 permissionData.users 中，使用默认管理员权限');
+        return {
+            view: ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'],
+            banned: []
+        };
+    }
+    
+    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    
+    // 如果角色找不到，返回管理员权限
+    if (!role) {
+        console.warn('⚠️ 角色不存在，使用默认管理员权限');
+        return {
+            view: ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'],
+            banned: user.bannedOperations || []
+        };
+    }
+    
     return {
         view: role.viewPermissions || [],
         banned: user.bannedOperations || []
     };
 }
 
-function canUserView(userId, menuKey) {
-    const perms = getUserPermissions(userId);
-    return perms.view.includes(menuKey);
-}
-
-function canUserOperate(userId, moduleKey, operationKey) {
-    var user = permissionData.users.find(function(u) { return u.id === userId; });
-    if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    if (role && role.name === '管理员') return true;
-    var banned = user.bannedOperations || [];
-    var fullKey = moduleKey + '_' + operationKey;
-    if (banned.includes(fullKey)) return false;
-    return true;
-}
-
 function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        const onclick = btn.getAttribute('onclick');
+    
+    console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
+    
+    // 获取用户权限，用于调试
+    var perms = getUserPermissions(userId);
+    console.log('📊 用户权限:', perms.view);
+    
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
-        const match = onclick.match(/switchTab\('([^']+)'\)/);
+        var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
-        const key = match[1];
-        const menuKeys = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
+        var key = match[1];
+        var menuKeys = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
         if (menuKeys.includes(key)) {
-            btn.style.display = canUserView(userId, key) ? 'inline-block' : 'none';
+            var show = perms.view.includes(key);
+            btn.style.display = show ? 'inline-block' : 'none';
+            if (!show) {
+                console.log('❌ 隐藏菜单:', key);
+            }
         }
     });
     applyAllPermissions();
 }
-
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================
