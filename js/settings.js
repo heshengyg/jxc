@@ -196,14 +196,12 @@ async function deleteRolePermissions(roleName) {
  */
 async function syncUserToSupabase(userData) {
     try {
-        // 检查用户是否已存在
         const checkResult = await supabase
             .from('users')
             .select('id')
             .eq('username', userData.name);
         
         if (checkResult.data && checkResult.data.length > 0) {
-            // 用户已存在，更新
             const result = await supabase
                 .from('users')
                 .update({
@@ -220,7 +218,6 @@ async function syncUserToSupabase(userData) {
             return true;
         }
         
-        // 用户不存在，插入
         const result = await supabase
             .from('users')
             .insert([{
@@ -265,17 +262,21 @@ async function deleteUserFromSupabase(userId) {
     }
 }
 
+// ============================================================
 // ===== 初始化 =====
 // ============================================================
 function initSettings() {
     loadSettings();
     loadPermissionData();
     
+    // 加载角色，完成后渲染并应用权限
     loadRolesFromSupabase().then(function(success) {
         renderAll();
         if (success) {
             savePermissionData();
         }
+        // ===== 关键：角色加载完成后，应用用户权限 =====
+        applyUserPermissions();
     });
     
     const settingsTab = document.getElementById('settingsTab');
@@ -302,10 +303,28 @@ function initSettings() {
             }
         });
     }
-    
-    // 注意：这里不调用 applyAllPermissions()
-    // 因为 setCurrentUser 会在页面加载初始化时调用
 }
+
+/**
+ * 应用用户权限（在角色加载完成后调用）
+ */
+function applyUserPermissions() {
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    if (saved) {
+        try {
+            var user = JSON.parse(saved);
+            if (user && user.id) {
+                setCurrentUser(user.id);
+                console.log('✅ 应用 Supabase 用户权限:', user.name);
+                return;
+            }
+        } catch(e) {
+            console.warn('应用用户权限失败:', e);
+        }
+    }
+    setCurrentUser('user_1');
+}
+
 function loadSettings() {
     try {
         const saved = localStorage.getItem('erp_settings');
@@ -595,7 +614,6 @@ async function addMember() {
     const dept = deptEl.value;
     if (!name || !pwd) return showMsg('请填写完整信息');
     
-    // 检查用户名是否已存在
     const checkResult = await supabase
         .from('users')
         .select('username')
@@ -605,7 +623,6 @@ async function addMember() {
         return showMsg('❌ 用户名已存在');
     }
     
-    // 生成密码哈希
     let passwordHash = pwd;
     if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
         passwordHash = bcrypt.hashSync(pwd, 10);
@@ -613,7 +630,6 @@ async function addMember() {
     
     const defaultRole = permissionData.roles.find(function(r) { return r.name !== '管理员'; }) || permissionData.roles[0];
     
-    // 插入到 Supabase
     const result = await supabase
         .from('users')
         .insert([{
@@ -639,7 +655,6 @@ async function addMember() {
     
     const savedUser = result.data[0];
     
-    // 同步到本地
     const localUser = {
         id: savedUser.id,
         name: savedUser.username,
@@ -714,11 +729,8 @@ function renderUserOpsContainer(bannedOps) {
         return;
     }
     
-    // 遍历所有模块
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        
-        // 检查该用户是否有该模块的查看权限
         if (!role.viewPermissions.includes(moduleKey)) continue;
         
         var moduleDiv = document.createElement('div');
@@ -726,7 +738,6 @@ function renderUserOpsContainer(bannedOps) {
         moduleDiv.innerHTML = '<div class="op-module-title">📁 ' + moduleData.label + '</div>';
         
         var subHtml = '';
-        // 遍历子版块
         for (var subKey in moduleData.subModules) {
             var subData = moduleData.subModules[subKey];
             var opsHtml = '';
@@ -919,15 +930,10 @@ function canUserOperate(userId, moduleKey, operationKey) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) return false;
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    // 管理员默认全部可操作
     if (role && role.name === '管理员') return true;
     var banned = user.bannedOperations || [];
-    // 检查是否在禁用列表中
-    // operationKey 格式: module_sub_op
     var fullKey = moduleKey + '_' + operationKey;
-    // 检查精确匹配
     if (banned.includes(fullKey)) return false;
-    // 检查是否整个子版块被禁用（如果子版块的所有操作都被禁用，也视为禁用）
     return true;
 }
 
@@ -972,29 +978,13 @@ function applyAllPermissions() {
         }
     });
 }
+
 // ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
-        // 只执行一次 setCurrentUser
-        var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-        if (saved) {
-            try {
-                var user = JSON.parse(saved);
-                if (user && user.id) {
-                    setCurrentUser(user.id);
-                    console.log('✅ 使用 Supabase 用户:', user.name, 'ID:', user.id);
-                } else {
-                    setCurrentUser('user_1');
-                }
-            } catch(e) {
-                setCurrentUser('user_1');
-            }
-        } else {
-            setCurrentUser('user_1');
-        }
         console.log('✅ 系统设置模块已加载（完整权限版）');
     }
 }, 800);
