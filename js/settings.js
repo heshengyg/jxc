@@ -5,16 +5,63 @@ let settingsData = {
     members: []
 };
 
+// ============================================================
+// ===== 子版块菜单定义（查看权限细化到子版块） =====
+// ============================================================
 const ALL_MENUS = [
-    { key: 'goods', label: '商品管理' },
-    { key: 'stockIn', label: '入库管理' },
-    { key: 'returnGoods', label: '退货管理' },
-    { key: 'stockOut', label: '出库管理' },
-    { key: 'stockView', label: '库存查看' },
-    { key: 'finance', label: '财务综合' },
-    { key: 'settings', label: '系统设置' }
+    // ===== 商品管理（3个子版块） =====
+    { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'supplier', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'expireDate', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
+    // ===== 入库管理 =====
+    { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
+    // ===== 退货管理 =====
+    { key: 'returnList', label: '退货记录', module: 'returnGoods', moduleLabel: '退货管理' },
+    // ===== 出库管理 =====
+    { key: 'stockOutList', label: '出库记录', module: 'stockOut', moduleLabel: '出库管理' },
+    // ===== 库存查看 =====
+    { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
+    // ===== 财务综合（9个子版块） =====
+    { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
+    // ===== 系统设置（3个子版块） =====
+    { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'settingsPerm', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
 
+// 大模块列表（用于菜单分组显示）
+const MODULE_GROUPS = {
+    goods: '商品管理',
+    stockIn: '入库管理',
+    returnGoods: '退货管理',
+    stockOut: '出库管理',
+    stockView: '库存查看',
+    finance: '财务综合',
+    settings: '系统设置'
+};
+
+// 大模块对应的子版块 key 列表
+const MODULE_SUB_KEYS = {
+    goods: ['goodsInfo', 'supplier', 'expireDate'],
+    stockIn: ['stockInList'],
+    returnGoods: ['returnList'],
+    stockOut: ['stockOutList'],
+    stockView: ['stockList'],
+    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
+    settings: ['settingsBasic', 'settingsData', 'settingsPerm']
+};
+
+// ============================================================
+// ===== 权限数据 =====
+// ============================================================
 let permissionData = {
     roles: [],
     users: []
@@ -43,7 +90,7 @@ function getUserPermissions(userId) {
     if (!user) {
         console.warn('⚠️ 用户不在 permissionData.users 中，使用默认管理员权限');
         return {
-            view: ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'],
+            view: ALL_MENUS.map(function(m) { return m.key; }),
             banned: []
         };
     }
@@ -53,7 +100,7 @@ function getUserPermissions(userId) {
     if (!role) {
         console.warn('⚠️ 角色不存在，使用默认管理员权限');
         return {
-            view: ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'],
+            view: ALL_MENUS.map(function(m) { return m.key; }),
             banned: user.bannedOperations || []
         };
     }
@@ -122,17 +169,16 @@ function setCurrentUser(userId) {
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
     
+    // 显示/隐藏菜单按钮（基于子版块权限）
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
         var key = match[1];
-        var menuKeys = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
-        if (menuKeys.includes(key)) {
-            var show = perms.view.includes(key);
-            btn.style.display = show ? 'inline-block' : 'none';
-        }
+        // key 是子版块 ID，检查是否在权限列表中
+        var show = perms.view.includes(key);
+        btn.style.display = show ? 'inline-block' : 'none';
     });
     applyAllPermissions();
 }
@@ -392,13 +438,16 @@ function savePermissionData() {
 }
 
 function initDefaultPermissionData() {
+    // 所有子版块 key
+    var allKeys = ALL_MENUS.map(function(m) { return m.key; });
+    
     permissionData = {
         roles: [
-            { id: 'role_1', name: '管理员', viewPermissions: ALL_MENUS.map(m => m.key) },
-            { id: 'role_2', name: '商品部', viewPermissions: ['goods', 'stockView'] },
-            { id: 'role_3', name: '库管员', viewPermissions: ['stockIn', 'stockOut', 'stockView'] },
-            { id: 'role_4', name: '财务部', viewPermissions: ['finance', 'stockView'] },
-            { id: 'role_5', name: 'APP部', viewPermissions: ['returnGoods', 'stockView'] }
+            { id: 'role_1', name: '管理员', viewPermissions: allKeys },
+            { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'supplier', 'expireDate', 'stockList'] },
+            { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
+            { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'paymentRecord', 'invoiceReturn', 'stockInCheck', 'stockList'] },
+            { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
         ],
         users: [
             { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
@@ -487,17 +536,19 @@ function saveCompanyName() {
 }
 
 function switchSettingsTab(tabKey) {
-    document.querySelectorAll('.settings-sub-content').forEach(el => {
+    document.querySelectorAll('.settings-sub-content').forEach(function(el) {
         el.style.display = 'none';
         el.classList.remove('active');
     });
-    const target = document.getElementById('sub-' + tabKey);
+    var target = document.getElementById('sub-' + tabKey);
     if (target) {
         target.style.display = 'block';
         target.classList.add('active');
     }
-    document.querySelectorAll('.settings-sub-btn').forEach(btn => btn.classList.remove('active'));
-    const targetBtn = document.querySelector(`.settings-sub-btn[data-tab="${tabKey}"]`);
+    document.querySelectorAll('.settings-sub-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    var targetBtn = document.querySelector('.settings-sub-btn[data-tab="' + tabKey + '"]');
     if (targetBtn) targetBtn.classList.add('active');
 }
 
@@ -505,31 +556,31 @@ function switchSettingsTab(tabKey) {
 // ===== 部门管理 =====
 // ============================================================
 function renderDepartments() {
-    const container = document.getElementById('departmentTags');
+    var container = document.getElementById('departmentTags');
     if (!container) return;
     container.innerHTML = '';
-    settingsData.departments.forEach((dept, index) => {
-        const tag = document.createElement('span');
+    settingsData.departments.forEach(function(dept, index) {
+        var tag = document.createElement('span');
         tag.className = 'dept-tag';
-        tag.innerHTML = `${dept} <span class="del" onclick="deleteDepartment(${index})">×</span>`;
+        tag.innerHTML = dept + ' <span class="del" onclick="deleteDepartment(' + index + ')">×</span>';
         container.appendChild(tag);
     });
     updateDeptSelect();
 }
 
 function updateDeptSelect() {
-    const select = document.getElementById('deptSelect');
+    var select = document.getElementById('deptSelect');
     if (!select) return;
     select.innerHTML = '<option value="">选择部门</option>';
-    settingsData.departments.forEach(dept => {
-        select.innerHTML += `<option value="${dept}">${dept}</option>`;
+    settingsData.departments.forEach(function(dept) {
+        select.innerHTML += '<option value="' + dept + '">' + dept + '</option>';
     });
 }
 
 function addDepartment() {
-    const input = document.getElementById('newDeptName');
+    var input = document.getElementById('newDeptName');
     if (!input) return;
-    const name = input.value.trim();
+    var name = input.value.trim();
     if (!name) return showMsg('请输入部门名称');
     if (settingsData.departments.includes(name)) return showMsg('部门已存在');
     settingsData.departments.push(name);
@@ -541,32 +592,34 @@ function addDepartment() {
 
 function deleteDepartment(index) {
     if (!confirm('确定删除该部门？')) return;
-    const deptName = settingsData.departments[index];
+    var deptName = settingsData.departments[index];
     settingsData.departments.splice(index, 1);
-    settingsData.members = settingsData.members.filter(m => m.department !== deptName);
+    settingsData.members = settingsData.members.filter(function(m) { return m.department !== deptName; });
     saveSettings();
     renderAll();
     showMsg('✅ 部门已删除');
 }
 
 // ============================================================
-// ===== 角色管理 =====
+// ===== 角色管理（查看权限 - 子版块级别） =====
 // ============================================================
+
 function renderRoles() {
-    const container = document.getElementById('roleList');
+    var container = document.getElementById('roleList');
     if (!container) return;
     container.innerHTML = '';
     permissionData.roles.forEach(function(role) {
-        const viewLabels = role.viewPermissions.map(function(k) {
-            const found = ALL_MENUS.find(function(m) { return m.key === k; });
+        // 显示子版块名称
+        var viewLabels = role.viewPermissions.map(function(k) {
+            var found = ALL_MENUS.find(function(m) { return m.key === k; });
             return found ? found.label : k;
         }).join('、');
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.className = 'role-card';
         div.innerHTML = `
             <span class="role-name">${role.name}</span>
             <span class="role-perms">👁 ${viewLabels || '无'}</span>
-            <span class="role-badge">${role.viewPermissions?.length || 0}个模块</span>
+            <span class="role-badge">${role.viewPermissions?.length || 0}个子版块</span>
             <div>
                 <button class="btn btn-primary btn-sm" data-module="settings" data-op="editRole" onclick="editRole('${role.id}')">编辑</button>
                 <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteRole" onclick="deleteRole('${role.id}')">删除</button>
@@ -578,7 +631,31 @@ function renderRoles() {
 
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
-    document.querySelectorAll('#roleViewPermissions input').forEach(cb => cb.checked = false);
+    document.getElementById('addRoleModal').dataset.editId = '';
+    
+    // 生成子版块列表（按大模块分组）
+    var container = document.getElementById('roleViewPermissions');
+    container.innerHTML = '';
+    
+    // 按大模块分组
+    var groups = {};
+    ALL_MENUS.forEach(function(item) {
+        if (!groups[item.module]) groups[item.module] = [];
+        groups[item.module].push(item);
+    });
+    
+    var html = '';
+    for (var moduleKey in groups) {
+        html += '<div class="perm-group">';
+        html += '<div class="perm-group-title">📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</div>';
+        html += '<div class="perm-group-items">';
+        groups[moduleKey].forEach(function(item) {
+            html += '<label><input type="checkbox" value="' + item.key + '"> ' + item.label + '</label>';
+        });
+        html += '</div></div>';
+    }
+    container.innerHTML = html;
+    
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
@@ -587,30 +664,30 @@ function closeAddRoleModal() {
 }
 
 saveRole = async function() {
-    const editId = document.getElementById('addRoleModal').dataset.editId;
-    const name = document.getElementById('roleNameInput').value.trim();
+    var editId = document.getElementById('addRoleModal').dataset.editId;
+    var name = document.getElementById('roleNameInput').value.trim();
     if (!name) return showMsg('请输入角色名称');
     
-    const viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
-    const viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
+    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
+    var viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
     
     if (editId) {
-        const role = permissionData.roles.find(function(r) { return r.id === editId; });
+        var role = permissionData.roles.find(function(r) { return r.id === editId; });
         if (role) {
             if (role.name === '管理员') return showMsg('不能修改管理员角色');
             
             role.name = name;
             role.viewPermissions = viewPermissions;
             
-            const success = await saveRoleToSupabase(role);
+            var success = await saveRoleToSupabase(role);
             if (success) {
                 await syncRolePermissions(role.name, viewPermissions);
                 savePermissionData();
                 renderRoles();
                 closeAddRoleModal();
                 showMsg('✅ 角色已更新');
-                delete document.getElementById('addRoleModal').dataset.editId;
+                document.getElementById('addRoleModal').dataset.editId = '';
             }
         }
     } else {
@@ -618,13 +695,13 @@ saveRole = async function() {
             return showMsg('角色已存在');
         }
         
-        const newRole = {
+        var newRole = {
             id: 'role_' + Date.now(),
             name: name,
             viewPermissions: viewPermissions
         };
         
-        const success = await saveRoleToSupabase(newRole);
+        var success = await saveRoleToSupabase(newRole);
         if (success) {
             permissionData.roles.push(newRole);
             await syncRolePermissions(newRole.name, viewPermissions);
@@ -638,7 +715,7 @@ saveRole = async function() {
 
 function deleteRole(roleId) {
     if (!confirm('确定删除该角色？')) return;
-    const role = permissionData.roles.find(function(r) { return r.id === roleId; });
+    var role = permissionData.roles.find(function(r) { return r.id === roleId; });
     if (role && role.name === '管理员') return showMsg('不能删除管理员角色');
     
     deleteRoleFromSupabase(roleId).then(function(success) {
@@ -657,32 +734,56 @@ function deleteRole(roleId) {
 }
 
 function editRole(roleId) {
-    const role = permissionData.roles.find(r => r.id === roleId);
+    var role = permissionData.roles.find(function(r) { return r.id === roleId; });
     if (!role) return;
+    
     document.getElementById('roleNameInput').value = role.name;
-    document.querySelectorAll('#roleViewPermissions input').forEach(cb => {
-        cb.checked = role.viewPermissions.includes(cb.value);
-    });
     document.getElementById('addRoleModal').dataset.editId = roleId;
+    
+    // 生成子版块列表并勾选已选中的
+    var container = document.getElementById('roleViewPermissions');
+    container.innerHTML = '';
+    
+    var groups = {};
+    ALL_MENUS.forEach(function(item) {
+        if (!groups[item.module]) groups[item.module] = [];
+        groups[item.module].push(item);
+    });
+    
+    var html = '';
+    for (var moduleKey in groups) {
+        html += '<div class="perm-group">';
+        html += '<div class="perm-group-title">📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</div>';
+        html += '<div class="perm-group-items">';
+        groups[moduleKey].forEach(function(item) {
+            var checked = role.viewPermissions.includes(item.key) ? 'checked' : '';
+            html += '<label><input type="checkbox" value="' + item.key + '" ' + checked + '> ' + item.label + '</label>';
+        });
+        html += '</div></div>';
+    }
+    container.innerHTML = html;
+    
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
 // ============================================================
-// ===== 用户管理 =====
+// ===== 用户管理（同步到 Supabase） =====
 // ============================================================
+
 function renderUsers() {
-    const container = document.getElementById('userList');
+    var container = document.getElementById('userList');
     if (!container) return;
     container.innerHTML = '';
-    permissionData.users.forEach((user) => {
-        const role = permissionData.roles.find(r => r.id === user.roleId);
-        const dept = settingsData.members.find(m => m.id === user.id)?.department || '';
-        const bannedCount = user.bannedOperations?.length || 0;
-        const div = document.createElement('div');
+    permissionData.users.forEach(function(user) {
+        var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+        var member = settingsData.members.find(function(m) { return m.id === user.id; });
+        var dept = member ? member.department : '';
+        var bannedCount = user.bannedOperations ? user.bannedOperations.length : 0;
+        var div = document.createElement('div');
         div.className = 'user-card';
         div.innerHTML = `
             <span class="user-name">${user.name}</span>
-            <span class="user-info">🏢 ${dept || '未分配'} | 🎭 ${role?.name || '未分配'} | 🚫 禁止 ${bannedCount}项</span>
+            <span class="user-info">🏢 ${dept || '未分配'} | 🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
             <div>
                 <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
                 <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
@@ -693,17 +794,17 @@ function renderUsers() {
 }
 
 async function addMember() {
-    const nameEl = document.getElementById('newMemberName');
-    const pwdEl = document.getElementById('newMemberPwd');
-    const deptEl = document.getElementById('deptSelect');
+    var nameEl = document.getElementById('newMemberName');
+    var pwdEl = document.getElementById('newMemberPwd');
+    var deptEl = document.getElementById('deptSelect');
     if (!nameEl || !pwdEl || !deptEl) return;
     
-    const name = nameEl.value.trim();
-    const pwd = pwdEl.value.trim();
-    const dept = deptEl.value;
+    var name = nameEl.value.trim();
+    var pwd = pwdEl.value.trim();
+    var dept = deptEl.value;
     if (!name || !pwd) return showMsg('请填写完整信息');
     
-    const checkResult = await supabase
+    var checkResult = await supabase
         .from('users')
         .select('username')
         .eq('username', name);
@@ -712,14 +813,14 @@ async function addMember() {
         return showMsg('❌ 用户名已存在');
     }
     
-    let passwordHash = pwd;
+    var passwordHash = pwd;
     if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
         passwordHash = bcrypt.hashSync(pwd, 10);
     }
     
-    const defaultRole = permissionData.roles.find(function(r) { return r.name !== '管理员'; }) || permissionData.roles[0];
+    var defaultRole = permissionData.roles.find(function(r) { return r.name !== '管理员'; }) || permissionData.roles[0];
     
-    const result = await supabase
+    var result = await supabase
         .from('users')
         .insert([{
             username: name,
@@ -742,9 +843,9 @@ async function addMember() {
         return;
     }
     
-    const savedUser = result.data[0];
+    var savedUser = result.data[0];
     
-    const localUser = {
+    var localUser = {
         id: savedUser.id,
         name: savedUser.username,
         password: pwd,
@@ -773,10 +874,10 @@ async function addMember() {
 
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
-    const user = permissionData.users.find(function(u) { return u.id === userId; });
+    var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (user && user.name === 'admin') return showMsg('不能删除管理员账号');
     
-    const success = await deleteUserFromSupabase(userId);
+    var success = await deleteUserFromSupabase(userId);
     if (success) {
         permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
         settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
@@ -789,17 +890,18 @@ async function deleteUser(userId) {
 }
 
 // ============================================================
-// ===== 编辑用户操作权限 =====
+// ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================
-let editingUserId = null;
+
+var editingUserId = null;
 
 function editUserPerm(userId) {
-    const user = permissionData.users.find(u => u.id === userId);
+    var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) return showMsg('用户不存在');
     editingUserId = userId;
-    const role = permissionData.roles.find(r => r.id === user.roleId);
+    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     document.getElementById('editUserName').textContent = user.name;
-    document.getElementById('editUserRole').textContent = role?.name || '未分配';
+    document.getElementById('editUserRole').textContent = role ? role.name : '未分配';
     
     renderUserOpsContainer(user.bannedOperations || []);
     document.getElementById('editUserPermModal').style.display = 'flex';
@@ -811,7 +913,7 @@ function renderUserOpsContainer(bannedOps) {
     container.innerHTML = '';
     
     var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
-    var role = permissionData.roles.find(function(r) { return r.id === user?.roleId; });
+    var role = permissionData.roles.find(function(r) { return r.id === user ? user.roleId : null; });
     if (!role) {
         container.innerHTML = '<div class="op-empty">请先为用户分配角色</div>';
         return;
@@ -819,7 +921,11 @@ function renderUserOpsContainer(bannedOps) {
     
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        if (!role.viewPermissions.includes(moduleKey)) continue;
+        // 检查用户是否有该模块的查看权限（通过子版块判断）
+        var hasView = role.viewPermissions.some(function(k) {
+            return MODULE_SUB_KEYS[moduleKey] && MODULE_SUB_KEYS[moduleKey].includes(k);
+        });
+        if (!hasView) continue;
         
         var moduleDiv = document.createElement('div');
         moduleDiv.className = 'op-module-group';
@@ -851,15 +957,15 @@ function closeEditUserPermModal() {
 }
 
 function saveUserPermissions() {
-    const checkboxes = document.querySelectorAll('#userOpsContainer input:checked');
-    const bannedOperations = Array.from(checkboxes).map(cb => cb.value);
+    var checkboxes = document.querySelectorAll('#userOpsContainer input:checked');
+    var bannedOperations = Array.from(checkboxes).map(function(cb) { return cb.value; });
     
-    const user = permissionData.users.find(u => u.id === editingUserId);
+    var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
     if (user) {
         user.bannedOperations = bannedOperations;
         savePermissionData();
     }
-    const member = settingsData.members.find(m => m.id === editingUserId);
+    var member = settingsData.members.find(function(m) { return m.id === editingUserId; });
     if (member) {
         member.bannedOperations = bannedOperations;
         saveSettings();
@@ -872,8 +978,9 @@ function saveUserPermissions() {
 // ============================================================
 // ===== renderMembers =====
 // ============================================================
+
 function renderMembers() {
-    const container = document.getElementById('memberList') || document.getElementById('userList');
+    var container = document.getElementById('memberList') || document.getElementById('userList');
     if (!container) {
         console.warn('⚠️ memberList 或 userList 容器不存在');
         return;
@@ -890,14 +997,14 @@ function renderMemberTable(tbody) {
     if (!tbody) return;
     tbody.innerHTML = '';
     permissionData.users.forEach(function(user) {
-        const role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-        const member = settingsData.members.find(function(m) { return m.id === user.id; });
-        const tr = document.createElement('tr');
+        var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+        var member = settingsData.members.find(function(m) { return m.id === user.id; });
+        var tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${user.name}</td>
-            <td>${member?.department || '-'}</td>
-            <td>${role?.name || '未分配'}</td>
-            <td>${user.bannedOperations?.length || 0}项</td>
+            <td>${member && member.department ? member.department : '-'}</td>
+            <td>${role ? role.name : '未分配'}</td>
+            <td>${user.bannedOperations ? user.bannedOperations.length : 0}项</td>
             <td>
                 <button class="btn btn-sm btn-primary" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
                 <button class="btn btn-sm btn-danger" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
@@ -911,13 +1018,13 @@ function renderMemberCards(container) {
     if (!container) return;
     container.innerHTML = '';
     permissionData.users.forEach(function(user) {
-        const role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-        const member = settingsData.members.find(function(m) { return m.id === user.id; });
-        const div = document.createElement('div');
+        var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+        var member = settingsData.members.find(function(m) { return m.id === user.id; });
+        var div = document.createElement('div');
         div.className = 'user-card';
         div.innerHTML = `
             <span class="user-name">${user.name}</span>
-            <span class="user-info">🏢 ${member?.department || '未分配'} | 🎭 ${role?.name || '未分配'}</span>
+            <span class="user-info">🏢 ${member && member.department ? member.department : '未分配'} | 🎭 ${role ? role.name : '未分配'}</span>
             <div>
                 <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
                 <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
@@ -930,9 +1037,10 @@ function renderMemberCards(container) {
 // ============================================================
 // ===== 数据管理 =====
 // ============================================================
+
 function backupData() {
     try {
-        const data = JSON.stringify({
+        var data = JSON.stringify({
             goods: window.allGoods || [],
             stockIn: window.allStockInList || [],
             stockOut: window.allStockOut || [],
@@ -940,11 +1048,11 @@ function backupData() {
             settings: settingsData,
             permissionData: permissionData
         }, null, 2);
-        const blob = new Blob([data], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        var blob = new Blob([data], {type: 'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
         a.href = url;
-        a.download = `ERP_备份_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = 'ERP_备份_' + new Date().toISOString().slice(0,10) + '.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -956,16 +1064,16 @@ function backupData() {
 }
 
 function importData() {
-    const input = document.createElement('input');
+    var input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
     input.onchange = function(e) {
-        const file = e.target.files[0];
+        var file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
+        var reader = new FileReader();
         reader.onload = function(ev) {
             try {
-                const data = JSON.parse(ev.target.result);
+                var data = JSON.parse(ev.target.result);
                 if (data.goods) { window.allGoods = data.goods; }
                 if (data.stockIn) { window.allStockInList = data.stockIn; }
                 if (data.stockOut) { window.allStockOut = data.stockOut; }
@@ -973,7 +1081,7 @@ function importData() {
                 if (data.settings) { settingsData = data.settings; saveSettings(); }
                 if (data.permissionData) { permissionData = data.permissionData; savePermissionData(); }
                 showMsg('✅ 数据导入成功！请刷新页面查看');
-                setTimeout(() => location.reload(), 1500);
+                setTimeout(function() { location.reload(); }, 1500);
             } catch(err) {
                 showMsg('❌ 导入失败：文件格式错误');
             }
@@ -992,12 +1100,13 @@ function clearAllData() {
     window.allReturnGoods = [];
     localStorage.clear();
     showMsg('✅ 所有数据已清空');
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(function() { location.reload(); }, 1500);
 }
 
 // ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
+
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();

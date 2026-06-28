@@ -453,3 +453,38 @@ tbody tr:hover { background-color: #e6f7ef; }
     padding: 30px 0;
     font-size: 14px;
 }
+
+/* 角色管理 - 查看权限弹窗 */
+.perm-group {
+    margin-bottom: 12px;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    padding: 10px 14px;
+    background: #fafafa;
+}
+.perm-group-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+}
+.perm-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+}
+.perm-group-items label {
+    font-size: 13px;
+    color: #444;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.perm-group-items label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
