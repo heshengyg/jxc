@@ -948,20 +948,20 @@ function applyAllPermissions() {
 
 // ============================================================
 // ===== 页面加载初始化 =====
-// ============================================================
-setTimeout(function() {
+// ========================================================setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
-        // 使用 Supabase 登录用户
-        var savedUser = sessionStorage.getItem('supabase_user');
-        if (savedUser) {
-            try {
-                var user = JSON.parse(savedUser);
+        // 从 sessionStorage 获取登录用户
+        try {
+            var saved = sessionStorage.getItem('supabase_user');
+            if (saved) {
+                var user = JSON.parse(saved);
                 setCurrentUser(user.id);
-            } catch(e) {
+                console.log('✅ 使用 Supabase 用户:', user.name);
+            } else {
                 setCurrentUser('user_1');
             }
-        } else {
+        } catch(e) {
             setCurrentUser('user_1');
         }
         console.log('✅ 系统设置模块已加载（完整权限版）');

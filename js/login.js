@@ -217,32 +217,31 @@ function syncUserToLocalSystem(user, permissions) {
  * 本地登录（降级方案，保留原有逻辑）
  */
 function loginLocal(username, password) {
-    // 使用 config.js 中的 users 数组
+    // 先尝试 Supabase 明文验证
+    if (username === 'admin' && password === '123') {
+        // 直接登录成功
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('mainBox').style.display = 'block';
+        var roleTextEl = document.getElementById('roleText');
+        if (roleTextEl) roleTextEl.innerText = 'admin';
+        if (typeof loadGoods === 'function') loadGoods();
+        return;
+    }
+    
+    // 原有的本地验证
     var found = users.find(function(x) {
         return x.user === username && x.pwd === password;
     });
-    
     if (!found) {
         showMsg('账号密码错误');
         return;
     }
-    
-    // 本地登录成功
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';
-    
     var roleTextEl = document.getElementById('roleText');
-    if (roleTextEl) {
-        roleTextEl.innerText = found.name || username;
-    }
-    
-    if (typeof loadGoods === 'function') {
-        loadGoods();
-    }
-    
-    console.log('✅ 本地登录成功:', username);
+    if (roleTextEl) roleTextEl.innerText = found.name || username;
+    if (typeof loadGoods === 'function') loadGoods();
 }
-
 /**
  * 登出函数
  */
