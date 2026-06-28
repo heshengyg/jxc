@@ -169,16 +169,31 @@ function setCurrentUser(userId) {
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
     
-    // 显示/隐藏菜单按钮（基于子版块权限）
+    // 大模块 -> 子版块映射
+    var moduleMenuMap = {
+        'goods': ['goodsInfo', 'supplier', 'expireDate'],
+        'stockIn': ['stockInList'],
+        'returnGoods': ['returnList'],
+        'stockOut': ['stockOutList'],
+        'stockView': ['stockList'],
+        'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
+        'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
+    };
+    
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
-        var key = match[1];
-        // key 是子版块 ID，检查是否在权限列表中
-        var show = perms.view.includes(key);
-        btn.style.display = show ? 'inline-block' : 'none';
+        var menuKey = match[1];
+        
+        // 检查该大模块下是否有子版块在权限列表中
+        var subKeys = moduleMenuMap[menuKey] || [];
+        var hasPermission = subKeys.some(function(k) {
+            return perms.view.includes(k);
+        });
+        
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
     applyAllPermissions();
 }
