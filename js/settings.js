@@ -531,7 +531,6 @@ function initSettings() {
 
 function renderAll() {
     renderCompanyName();
-    renderDepartments();
     renderRoles();
     renderUsers();
     updateRoleSelect();
@@ -576,54 +575,6 @@ function switchSettingsTab(tabKey) {
     });
     var targetBtn = document.querySelector('.settings-sub-btn[data-tab="' + tabKey + '"]');
     if (targetBtn) targetBtn.classList.add('active');
-}
-
-// ============================================================
-// ===== 部门管理 =====
-// ============================================================
-function renderDepartments() {
-    var container = document.getElementById('departmentTags');
-    if (!container) return;
-    container.innerHTML = '';
-    settingsData.departments.forEach(function(dept, index) {
-        var tag = document.createElement('span');
-        tag.className = 'dept-tag';
-        tag.innerHTML = dept + ' <span class="del" onclick="deleteDepartment(' + index + ')">×</span>';
-        container.appendChild(tag);
-    });
-    updateDeptSelect();
-}
-
-function updateDeptSelect() {
-    var select = document.getElementById('deptSelect');
-    if (!select) return;
-    select.innerHTML = '<option value="">选择部门</option>';
-    settingsData.departments.forEach(function(dept) {
-        select.innerHTML += '<option value="' + dept + '">' + dept + '</option>';
-    });
-}
-
-function addDepartment() {
-    var input = document.getElementById('newDeptName');
-    if (!input) return;
-    var name = input.value.trim();
-    if (!name) return showMsg('请输入部门名称');
-    if (settingsData.departments.includes(name)) return showMsg('部门已存在');
-    settingsData.departments.push(name);
-    saveSettings();
-    renderDepartments();
-    input.value = '';
-    showMsg('✅ 部门添加成功');
-}
-
-function deleteDepartment(index) {
-    if (!confirm('确定删除该部门？')) return;
-    var deptName = settingsData.departments[index];
-    settingsData.departments.splice(index, 1);
-    settingsData.members = settingsData.members.filter(function(m) { return m.department !== deptName; });
-    saveSettings();
-    renderAll();
-    showMsg('✅ 部门已删除');
 }
 
 // ============================================================
@@ -955,8 +906,13 @@ async function deleteUser(userId) {
 var editingUserId = null;
 
 function editUserPerm(userId) {
+    // 直接用传入的 userId 查找
     var user = permissionData.users.find(function(u) { return u.id === userId; });
-    if (!user) return showMsg('用户不存在');
+    if (!user) {
+        showMsg('用户不存在');
+        return;
+    }
+    
     editingUserId = userId;
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     document.getElementById('editUserName').textContent = user.name;
@@ -971,13 +927,26 @@ function renderUserOpsContainer(bannedOps) {
     if (!container) return;
     container.innerHTML = '';
     
+    // 直接用 editingUserId 查找
     var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
-    var role = permissionData.roles.find(function(r) { return r.id === user ? user.roleId : null; });
-    if (!role) {
-        container.innerHTML = '<div class="op-empty">请先为用户分配角色</div>';
+    if (!user) {
+        container.innerHTML = '<div class="op-empty">用户不存在</div>';
         return;
     }
     
+    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    if (!role) {
+        container.innerHTML = '<div class="op-empty">用户未分配角色，请先分配角色</div>';
+        return;
+    }
+    
+    // 检查角色是否有查看权限
+    if (!role.viewPermissions || role.viewPermissions.length === 0) {
+        container.innerHTML = '<div class="op-empty">角色没有查看权限，请先配置角色权限</div>';
+        return;
+    }
+    
+    // ... 后续生成操作权限列表的代码保持不变 ...
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
         // 检查用户是否有该模块的查看权限（通过子版块判断）
@@ -1007,6 +976,11 @@ function renderUserOpsContainer(bannedOps) {
         }
         moduleDiv.innerHTML += subHtml;
         container.appendChild(moduleDiv);
+    }
+    
+    // 如果没有任何操作权限显示，提示
+    if (container.innerHTML === '') {
+        container.innerHTML = '<div class="op-empty">该角色没有任何可操作的模块</div>';
     }
 }
 
