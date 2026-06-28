@@ -952,7 +952,18 @@ function applyAllPermissions() {
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
-        setCurrentUser('user_1');
+        // 使用 Supabase 登录用户
+        var savedUser = sessionStorage.getItem('supabase_user');
+        if (savedUser) {
+            try {
+                var user = JSON.parse(savedUser);
+                setCurrentUser(user.id);
+            } catch(e) {
+                setCurrentUser('user_1');
+            }
+        } else {
+            setCurrentUser('user_1');
+        }
         console.log('✅ 系统设置模块已加载（完整权限版）');
     }
 }, 800);
