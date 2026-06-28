@@ -119,14 +119,34 @@ function canUserView(userId, menuKey) {
 function canUserOperate(userId, moduleKey, operationKey) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) return false;
+    
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    // 管理员默认全部可操作
     if (role && role.name === '管理员') return true;
+    
     var banned = user.bannedOperations || [];
-    var fullKey = moduleKey + '_' + operationKey;
-    if (banned.includes(fullKey)) return false;
+    
+    // 检查该用户是否有该模块的查看权限（子版块级别）
+    var hasView = false;
+    if (MODULE_SUB_KEYS[moduleKey]) {
+        hasView = MODULE_SUB_KEYS[moduleKey].some(function(subKey) {
+            return role && role.viewPermissions && role.viewPermissions.includes(subKey);
+        });
+    }
+    if (!hasView) return false;
+    
+    // 检查操作是否被禁止
+    // 遍历该模块下的所有子版块，检查是否有任何子版块的操作被禁止
+    var subKeys = MODULE_SUB_KEYS[moduleKey] || [];
+    for (var i = 0; i < subKeys.length; i++) {
+        var fullKey = moduleKey + '_' + subKeys[i] + '_' + operationKey;
+        if (banned.includes(fullKey)) {
+            return false;
+        }
+    }
+    
     return true;
 }
-
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================
@@ -167,7 +187,7 @@ function setCurrentUser(userId) {
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
     
     var perms = getUserPermissions(userId);
-    console.log('📊 用户权限:', perms.view);
+    console.log('📊 用户权限子版块:', perms.view);
     
     // 大模块 -> 子版块映射
     var moduleMenuMap = {
@@ -185,7 +205,7 @@ function setCurrentUser(userId) {
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
-        var menuKey = match[1];
+        var menuKey = match[1];  // 大模块 key，如 'goods'
         
         // 检查该大模块下是否有子版块在权限列表中
         var subKeys = moduleMenuMap[menuKey] || [];
@@ -194,10 +214,14 @@ function setCurrentUser(userId) {
         });
         
         btn.style.display = hasPermission ? 'inline-block' : 'none';
+        if (!hasPermission) {
+            console.log('❌ 隐藏菜单:', menuKey);
+        } else {
+            console.log('✅ 显示菜单:', menuKey);
+        }
     });
     applyAllPermissions();
 }
-
 // ============================================================
 // ===== Supabase 角色同步函数 =====
 // ============================================================
@@ -867,7 +891,6 @@ async function addMember() {
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
     
-    // 找到用户信息
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (user && user.name === 'admin') return showMsg('不能删除管理员账号');
     
@@ -896,7 +919,9 @@ async function deleteUser(userId) {
     // 5. 重新渲染
     renderUsers();
     renderMembers();
+    updateRoleSelect();
     
+    console.log('✅ 用户已从 Supabase 和本地删除');
     showMsg('✅ 用户已删除');
 }
 // ============================================================
@@ -927,7 +952,6 @@ function renderUserOpsContainer(bannedOps) {
     if (!container) return;
     container.innerHTML = '';
     
-    // 直接用 editingUserId 查找
     var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
     if (!user) {
         container.innerHTML = '<div class="op-empty">用户不存在</div>';
@@ -936,25 +960,24 @@ function renderUserOpsContainer(bannedOps) {
     
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     if (!role) {
-        container.innerHTML = '<div class="op-empty">用户未分配角色，请先分配角色</div>';
+        container.innerHTML = '<div class="op-empty">用户未分配角色</div>';
         return;
     }
     
-    // 检查角色是否有查看权限
-    if (!role.viewPermissions || role.viewPermissions.length === 0) {
-        container.innerHTML = '<div class="op-empty">角色没有查看权限，请先配置角色权限</div>';
-        return;
-    }
-    
-    // ... 后续生成操作权限列表的代码保持不变 ...
+    // 遍历所有模块
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        // 检查用户是否有该模块的查看权限（通过子版块判断）
-        var hasView = role.viewPermissions.some(function(k) {
-            return MODULE_SUB_KEYS[moduleKey] && MODULE_SUB_KEYS[moduleKey].includes(k);
-        });
+        
+        // 检查该用户是否有该模块的查看权限（通过子版块判断）
+        var hasView = false;
+        if (MODULE_SUB_KEYS[moduleKey]) {
+            hasView = MODULE_SUB_KEYS[moduleKey].some(function(subKey) {
+                return role.viewPermissions && role.viewPermissions.indexOf(subKey) !== -1;
+            });
+        }
         if (!hasView) continue;
         
+        // ... 后续生成操作权限列表的代码 ...
         var moduleDiv = document.createElement('div');
         moduleDiv.className = 'op-module-group';
         moduleDiv.innerHTML = '<div class="op-module-title">📁 ' + moduleData.label + '</div>';
@@ -978,7 +1001,6 @@ function renderUserOpsContainer(bannedOps) {
         container.appendChild(moduleDiv);
     }
     
-    // 如果没有任何操作权限显示，提示
     if (container.innerHTML === '') {
         container.innerHTML = '<div class="op-empty">该角色没有任何可操作的模块</div>';
     }
