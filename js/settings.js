@@ -1,4 +1,4 @@
-// ===================== 系统设置模块（优化版） =====================
+// ===================== 系统设置模块（完整权限版） =====================
 let settingsData = {
     companyName: '',
     departments: ['管理员', '商品部', '库管员', '财务部', 'APP部'],
@@ -20,7 +20,12 @@ let permissionData = {
     users: []
 };
 
+// ===== 当前登录用户 =====
+let currentUserId = null;
+
+// ============================================================
 // ===== 初始化 =====
+// ============================================================
 function initSettings() {
     loadSettings();
     loadPermissionData();
@@ -29,12 +34,14 @@ function initSettings() {
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
     
+    // 绑定公司名称保存
     const companyNameEl = document.getElementById('companyName');
     if (companyNameEl) {
         companyNameEl.addEventListener('change', saveCompanyName);
         companyNameEl.addEventListener('blur', saveCompanyName);
     }
     
+    // LOGO预览
     const logoInput = document.getElementById('companyLogo');
     const logoPreview = document.getElementById('logoPreview');
     if (logoInput && logoPreview) {
@@ -50,6 +57,9 @@ function initSettings() {
             }
         });
     }
+    
+    // 应用权限控制
+    applyAllPermissions();
 }
 
 function loadSettings() {
@@ -87,14 +97,14 @@ function savePermissionData() {
 function initDefaultPermissionData() {
     permissionData = {
         roles: [
-            { id: 'role_1', name: '管理员', viewPermissions: ALL_MENUS.map(m => m.key), defaultOperatePermissions: ALL_MENUS.map(m => m.key) },
-            { id: 'role_2', name: '商品部', viewPermissions: ['goods', 'stockView'], defaultOperatePermissions: ['goods'] },
-            { id: 'role_3', name: '库管员', viewPermissions: ['stockIn', 'stockOut', 'stockView'], defaultOperatePermissions: ['stockIn', 'stockOut'] },
-            { id: 'role_4', name: '财务部', viewPermissions: ['finance', 'stockView'], defaultOperatePermissions: ['finance'] },
-            { id: 'role_5', name: 'APP部', viewPermissions: ['returnGoods', 'stockView'], defaultOperatePermissions: ['returnGoods'] }
+            { id: 'role_1', name: '管理员', viewPermissions: ALL_MENUS.map(m => m.key) },
+            { id: 'role_2', name: '商品部', viewPermissions: ['goods', 'stockView'] },
+            { id: 'role_3', name: '库管员', viewPermissions: ['stockIn', 'stockOut', 'stockView'] },
+            { id: 'role_4', name: '财务部', viewPermissions: ['finance', 'stockView'] },
+            { id: 'role_5', name: 'APP部', viewPermissions: ['returnGoods', 'stockView'] }
         ],
         users: [
-            { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', operatePermissions: ALL_MENUS.map(m => m.key) }
+            { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
         ]
     };
     savePermissionData();
@@ -185,7 +195,7 @@ function deleteDepartment(index) {
 }
 
 // ============================================================
-// ===== 角色管理 =====
+// ===== 角色管理（查看权限） =====
 // ============================================================
 function renderRoles() {
     const container = document.getElementById('roleList');
@@ -198,10 +208,10 @@ function renderRoles() {
         div.innerHTML = `
             <span class="role-name">${role.name}</span>
             <span class="role-perms">👁 ${viewLabels || '无'}</span>
-            <span class="role-badge">操作 ${role.defaultOperatePermissions?.length || 0}项</span>
+            <span class="role-badge">${role.viewPermissions?.length || 0}个模块</span>
             <div>
-                <button class="btn btn-primary btn-sm" onclick="editRole('${role.id}')">编辑</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteRole('${role.id}')">删除</button>
+                <button class="btn btn-primary btn-sm" data-module="settings" data-op="editRole" onclick="editRole('${role.id}')">编辑</button>
+                <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteRole" onclick="deleteRole('${role.id}')">删除</button>
             </div>
         `;
         container.appendChild(div);
@@ -211,7 +221,6 @@ function renderRoles() {
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
     document.querySelectorAll('#roleViewPermissions input').forEach(cb => cb.checked = false);
-    document.querySelectorAll('#roleOperatePermissions input').forEach(cb => cb.checked = false);
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
@@ -225,15 +234,12 @@ function saveRole() {
     if (permissionData.roles.some(r => r.name === name)) return showMsg('角色已存在');
     const viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
     const viewPermissions = Array.from(viewCheckboxes).map(cb => cb.value);
-    const operateCheckboxes = document.querySelectorAll('#roleOperatePermissions input:checked');
-    const operatePermissions = Array.from(operateCheckboxes).map(cb => cb.value);
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
     
     permissionData.roles.push({
         id: 'role_' + Date.now(),
         name: name,
-        viewPermissions: viewPermissions,
-        defaultOperatePermissions: operatePermissions
+        viewPermissions: viewPermissions
     });
     savePermissionData();
     renderRoles();
@@ -246,6 +252,7 @@ function deleteRole(roleId) {
     const role = permissionData.roles.find(r => r.id === roleId);
     if (role && role.name === '管理员') return showMsg('不能删除管理员角色');
     permissionData.roles = permissionData.roles.filter(r => r.id !== roleId);
+    // 清除该角色的用户
     permissionData.users = permissionData.users.filter(u => u.roleId !== roleId);
     savePermissionData();
     renderRoles();
@@ -254,11 +261,61 @@ function deleteRole(roleId) {
 }
 
 function editRole(roleId) {
-    showMsg('编辑功能：在角色列表中点击"编辑"，可修改角色的查看权限');
+    // 简单编辑：删除后重新添加
+    const role = permissionData.roles.find(r => r.id === roleId);
+    if (!role) return;
+    // 填充弹窗
+    document.getElementById('roleNameInput').value = role.name;
+    document.querySelectorAll('#roleViewPermissions input').forEach(cb => {
+        cb.checked = role.viewPermissions.includes(cb.value);
+    });
+    // 标记为编辑模式
+    document.getElementById('addRoleModal').dataset.editId = roleId;
+    document.getElementById('addRoleModal').style.display = 'flex';
+    // 修改保存逻辑 - 在saveRole中判断是否有editId
 }
 
+// 重写saveRole支持编辑
+const originalSaveRole = saveRole;
+saveRole = function() {
+    const editId = document.getElementById('addRoleModal').dataset.editId;
+    const name = document.getElementById('roleNameInput').value.trim();
+    if (!name) return showMsg('请输入角色名称');
+    const viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
+    const viewPermissions = Array.from(viewCheckboxes).map(cb => cb.value);
+    if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
+    
+    if (editId) {
+        // 编辑模式
+        const role = permissionData.roles.find(r => r.id === editId);
+        if (role) {
+            // 如果是管理员，不能修改
+            if (role.name === '管理员') return showMsg('不能修改管理员角色');
+            role.name = name;
+            role.viewPermissions = viewPermissions;
+            savePermissionData();
+            renderRoles();
+            closeAddRoleModal();
+            showMsg('✅ 角色已更新');
+            delete document.getElementById('addRoleModal').dataset.editId;
+        }
+    } else {
+        // 新增模式
+        if (permissionData.roles.some(r => r.name === name)) return showMsg('角色已存在');
+        permissionData.roles.push({
+            id: 'role_' + Date.now(),
+            name: name,
+            viewPermissions: viewPermissions
+        });
+        savePermissionData();
+        renderRoles();
+        closeAddRoleModal();
+        showMsg('✅ 角色添加成功');
+    }
+};
+
 // ============================================================
-// ===== 用户管理 =====
+// ===== 用户管理（操作权限：勾选即禁止） =====
 // ============================================================
 function renderUsers() {
     const container = document.getElementById('userList');
@@ -267,14 +324,15 @@ function renderUsers() {
     permissionData.users.forEach((user) => {
         const role = permissionData.roles.find(r => r.id === user.roleId);
         const dept = settingsData.members.find(m => m.id === user.id)?.department || '';
+        const bannedCount = user.bannedOperations?.length || 0;
         const div = document.createElement('div');
         div.className = 'user-card';
         div.innerHTML = `
             <span class="user-name">${user.name}</span>
-            <span class="user-info">🏢 ${dept || '未分配'} | 🎭 ${role?.name || '未分配'} | 操作 ${user.operatePermissions?.length || 0}项</span>
+            <span class="user-info">🏢 ${dept || '未分配'} | 🎭 ${role?.name || '未分配'} | 🚫 禁止 ${bannedCount}项</span>
             <div>
-                <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
+                <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
+                <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
             </div>
         `;
         container.appendChild(div);
@@ -297,7 +355,7 @@ function addMember() {
         name: name,
         password: pwd,
         roleId: defaultRole?.id || '',
-        operatePermissions: defaultRole?.defaultOperatePermissions || []
+        bannedOperations: []
     };
     
     permissionData.users.push(newUser);
@@ -307,7 +365,7 @@ function addMember() {
         password: pwd,
         department: dept,
         roleId: newUser.roleId,
-        operatePermissions: newUser.operatePermissions
+        bannedOperations: []
     });
     
     savePermissionData();
@@ -321,6 +379,7 @@ function addMember() {
 
 function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
+    if (userId === 'user_1') return showMsg('不能删除管理员账号');
     permissionData.users = permissionData.users.filter(u => u.id !== userId);
     settingsData.members = settingsData.members.filter(m => m.id !== userId);
     savePermissionData();
@@ -331,7 +390,7 @@ function deleteUser(userId) {
 }
 
 // ============================================================
-// ===== 编辑用户操作权限 =====
+// ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================
 let editingUserId = null;
 
@@ -343,33 +402,59 @@ function editUserPerm(userId) {
     document.getElementById('editUserName').textContent = user.name;
     document.getElementById('editUserRole').textContent = role?.name || '未分配';
     
-    const perms = user.operatePermissions || role?.defaultOperatePermissions || [];
-    document.querySelectorAll('#userOperatePermissions input').forEach(cb => {
-        cb.checked = perms.includes(cb.value);
-    });
+    // 生成操作权限勾选列表
+    renderUserOpsContainer(user.bannedOperations || []);
     document.getElementById('editUserPermModal').style.display = 'flex';
+}
+
+function renderUserOpsContainer(bannedOps) {
+    const container = document.getElementById('userOpsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    // 使用 OPERATION_PERMISSIONS 生成各模块的操作列表
+    for (const [moduleKey, moduleData] of Object.entries(OPERATION_PERMISSIONS)) {
+        // 检查该用户是否有该模块的查看权限
+        const user = permissionData.users.find(u => u.id === editingUserId);
+        const role = permissionData.roles.find(r => r.id === user?.roleId);
+        if (!role || !role.viewPermissions.includes(moduleKey)) continue;
+        
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'op-module-group';
+        let itemsHtml = '';
+        for (const op of moduleData.operations) {
+            const opKey = moduleKey + '_' + op.key;
+            const checked = bannedOps.includes(opKey) ? 'checked' : '';
+            itemsHtml += `<label><input type="checkbox" value="${opKey}" ${checked}> ${op.label}</label>`;
+        }
+        groupDiv.innerHTML = `
+            <div class="op-module-title">${moduleData.label}</div>
+            <div class="op-items">${itemsHtml}</div>
+        `;
+        container.appendChild(groupDiv);
+    }
 }
 
 function closeEditUserPermModal() {
     document.getElementById('editUserPermModal').style.display = 'none';
+    editingUserId = null;
 }
 
 function saveUserPermissions() {
-    const checkboxes = document.querySelectorAll('#userOperatePermissions input:checked');
-    const operatePermissions = Array.from(checkboxes).map(cb => cb.value);
+    const checkboxes = document.querySelectorAll('#userOpsContainer input:checked');
+    const bannedOperations = Array.from(checkboxes).map(cb => cb.value);
     
     const user = permissionData.users.find(u => u.id === editingUserId);
     if (user) {
-        user.operatePermissions = operatePermissions;
+        user.bannedOperations = bannedOperations;
         savePermissionData();
     }
     const member = settingsData.members.find(m => m.id === editingUserId);
     if (member) {
-        member.operatePermissions = operatePermissions;
+        member.bannedOperations = bannedOperations;
         saveSettings();
     }
     renderUsers();
-    renderMembers();
     closeEditUserPermModal();
     showMsg('✅ 权限已更新');
 }
@@ -443,16 +528,16 @@ function clearAllData() {
 }
 
 // ============================================================
-// ===== 权限检查工具 =====
+// ===== 权限检查函数 =====
 // ============================================================
 function getUserPermissions(userId) {
     const user = permissionData.users.find(u => u.id === userId);
-    if (!user) return { view: [], operate: [] };
+    if (!user) return { view: [], banned: [] };
     const role = permissionData.roles.find(r => r.id === user.roleId);
-    if (!role) return { view: [], operate: [] };
+    if (!role) return { view: [], banned: [] };
     return {
         view: role.viewPermissions || [],
-        operate: user.operatePermissions || role.defaultOperatePermissions || []
+        banned: user.bannedOperations || []
     };
 }
 
@@ -461,13 +546,21 @@ function canUserView(userId, menuKey) {
     return perms.view.includes(menuKey);
 }
 
-function canUserOperate(userId, menuKey) {
-    const perms = getUserPermissions(userId);
-    return perms.operate.includes(menuKey);
+function canUserOperate(userId, moduleKey, operationKey) {
+    const user = permissionData.users.find(u => u.id === userId);
+    if (!user) return false;
+    // 管理员默认全部可操作
+    const role = permissionData.roles.find(r => r.id === user.roleId);
+    if (role && role.name === '管理员') return true;
+    const banned = user.bannedOperations || [];
+    const opKey = moduleKey + '_' + operationKey;
+    return !banned.includes(opKey);
 }
 
 function setCurrentUser(userId) {
+    currentUserId = userId;
     if (!userId) return;
+    // 更新菜单显示
     document.querySelectorAll('.tab-btn').forEach(btn => {
         const onclick = btn.getAttribute('onclick');
         if (!onclick) return;
@@ -479,6 +572,30 @@ function setCurrentUser(userId) {
             btn.style.display = canUserView(userId, key) ? 'inline-block' : 'none';
         }
     });
+    // 应用权限到当前页面
+    applyAllPermissions();
+}
+
+// ============================================================
+// ===== 应用权限到页面按钮 =====
+// ============================================================
+function applyAllPermissions() {
+    if (!currentUserId) return;
+    // 查找所有带 data-module 和 data-op 的按钮
+    document.querySelectorAll('[data-module][data-op]').forEach(btn => {
+        const moduleKey = btn.dataset.module;
+        const opKey = btn.dataset.op;
+        const allowed = canUserOperate(currentUserId, moduleKey, opKey);
+        if (!allowed) {
+            btn.classList.add('btn-disabled');
+            btn.disabled = true;
+            btn.title = '您没有此操作权限';
+        } else {
+            btn.classList.remove('btn-disabled');
+            btn.disabled = false;
+            btn.title = '';
+        }
+    });
 }
 
 // ============================================================
@@ -487,7 +604,8 @@ function setCurrentUser(userId) {
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
+        // 默认以管理员身份登录
         setCurrentUser('user_1');
-        console.log('✅ 系统设置模块已加载');
+        console.log('✅ 系统设置模块已加载（完整权限版）');
     }
 }, 800);

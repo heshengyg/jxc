@@ -164,7 +164,162 @@ function switchTab(tabId) {
     } catch (e) {
         console.error('加载Tab数据失败:', e);
     }
+    
+    // ========== 新增：切换Tab后应用权限控制 ==========
+    // 延迟执行，确保DOM渲染完成
+    setTimeout(function() {
+        if (typeof applyAllPermissions === 'function') {
+            applyAllPermissions();
+        }
+    }, 150);
+    // ========== 新增结束 ==========
 }
+
+
+// ============================================================
+// ===== 权限控制统一管理（新增） =====
+// ============================================================
+
+/**
+ * 应用权限到当前页面所有按钮
+ * 查找所有带 data-module 和 data-op 属性的按钮
+ * 根据当前用户权限禁用/启用按钮
+ */
+function applyAllPermissions() {
+    // 检查是否已登录且有用户ID
+    if (typeof currentUserId === 'undefined' || !currentUserId) {
+        // 如果没有当前用户，默认使用管理员（方便开发测试）
+        if (typeof setCurrentUser === 'function') {
+            setCurrentUser('user_1');
+        }
+        return;
+    }
+    
+    // 查找所有需要权限控制的按钮
+    var buttons = document.querySelectorAll('[data-module][data-op]');
+    buttons.forEach(function(btn) {
+        var moduleKey = btn.dataset.module;
+        var opKey = btn.dataset.op;
+        
+        // 调用 settings.js 中的权限检查函数
+        if (typeof canUserOperate === 'function') {
+            var allowed = canUserOperate(currentUserId, moduleKey, opKey);
+            if (!allowed) {
+                btn.classList.add('btn-disabled');
+                btn.disabled = true;
+                btn.title = '您没有此操作权限';
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.classList.remove('btn-disabled');
+                btn.disabled = false;
+                btn.title = '';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
+        }
+    });
+}
+
+/**
+ * 为单个元素应用权限控制
+ * 在动态生成按钮后调用此函数
+ */
+function applyPermissionToElement(element, moduleKey, opKey) {
+    if (!element) return;
+    if (typeof currentUserId === 'undefined' || !currentUserId) return;
+    if (typeof canUserOperate !== 'function') return;
+    
+    var allowed = canUserOperate(currentUserId, moduleKey, opKey);
+    if (!allowed) {
+        element.classList.add('btn-disabled');
+        element.disabled = true;
+        element.title = '您没有此操作权限';
+        element.style.opacity = '0.5';
+        element.style.cursor = 'not-allowed';
+    } else {
+        element.classList.remove('btn-disabled');
+        element.disabled = false;
+        element.title = '';
+        element.style.opacity = '1';
+        element.style.cursor = 'pointer';
+    }
+}
+
+/**
+ * 检查当前用户是否有某个模块的查看权限
+ */
+function checkViewPermission(menuKey) {
+    if (typeof currentUserId === 'undefined' || !currentUserId) return true;
+    if (typeof canUserView === 'function') {
+        return canUserView(currentUserId, menuKey);
+    }
+    return true;
+}
+
+/**
+ * 检查当前用户是否有某个模块的操作权限
+ */
+function checkOperatePermission(moduleKey, opKey) {
+    if (typeof currentUserId === 'undefined' || !currentUserId) return true;
+    if (typeof canUserOperate === 'function') {
+        return canUserOperate(currentUserId, moduleKey, opKey);
+    }
+    return true;
+}
+
+
+// ============================================================
+// ===== 初始化权限控制系统 =====
+// ============================================================
+
+// 页面加载完成后初始化权限控制
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟执行，确保 settings.js 已加载
+    setTimeout(function() {
+        // 首次应用权限
+        if (typeof applyAllPermissions === 'function') {
+            applyAllPermissions();
+        }
+        
+        // 监听DOM变化，为动态添加的按钮自动应用权限
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    var addedNodes = mutation.addedNodes;
+                    addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // 元素节点
+                            // 检查子元素中是否有需要权限控制的按钮
+                            if (node.querySelectorAll) {
+                                var buttons = node.querySelectorAll('[data-module][data-op]');
+                                buttons.forEach(function(btn) {
+                                    if (typeof applyPermissionToElement === 'function') {
+                                        applyPermissionToElement(btn, btn.dataset.module, btn.dataset.op);
+                                    }
+                                });
+                            }
+                            // 如果节点本身是需要权限控制的按钮
+                            if (node.hasAttribute && node.hasAttribute('data-module') && node.hasAttribute('data-op')) {
+                                if (typeof applyPermissionToElement === 'function') {
+                                    applyPermissionToElement(node, node.dataset.module, node.dataset.op);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        });
+        
+        // 观察整个文档的DOM变化
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        console.log('✅ 权限控制系统已启动');
+    }, 500);
+});
+
 
 // ===================== 公共工具函数：库存计算（最终修复版） =====================
 /**

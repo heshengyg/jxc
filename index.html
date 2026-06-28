@@ -1154,7 +1154,7 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ========== 系统设置页面 ========== -->
+<!-- ========== 新增：系统设置页面 ========== -->
 <div id="settings" class="tab-content">
     <h3>⚙️ 系统设置</h3>
     
@@ -1186,9 +1186,9 @@ document.addEventListener('click', function(e) {
         <div class="settings-section">
             <h4>💾 数据管理</h4>
             <div class="setting-group">
-                <button class="btn btn-success" onclick="backupData()">💾 立即备份</button>
-                <button class="btn btn-warning" onclick="importData()">📂 导入数据</button>
-                <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空数据</button>
+                <button class="btn btn-success" data-module="settings" data-op="backup" onclick="backupData()">💾 立即备份</button>
+                <button class="btn btn-warning" data-module="settings" data-op="import" onclick="importData()">📂 导入数据</button>
+                <button class="btn btn-danger" data-module="settings" data-op="clear" onclick="clearAllData()">🗑️ 清空数据</button>
             </div>
             <div style="font-size:12px;color:#999;margin-top:10px;">
                 ⚠️ 清空数据前请确保已备份
@@ -1204,7 +1204,7 @@ document.addEventListener('click', function(e) {
                 <div id="departmentTags" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;"></div>
                 <div style="display:flex;gap:6px;">
                     <input type="text" id="newDeptName" placeholder="新部门名称" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;width:120px;">
-                    <button class="btn btn-primary btn-sm" onclick="addDepartment()">添加</button>
+                    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addDept" onclick="addDepartment()">添加</button>
                 </div>
             </div>
         </div>
@@ -1216,7 +1216,7 @@ document.addEventListener('click', function(e) {
                     <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
                     <div style="display:flex;gap:6px;margin-bottom:10px;">
                         <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-                        <button class="btn btn-primary btn-sm" onclick="openAddRoleModal()">新增</button>
+                        <button class="btn btn-primary btn-sm" data-module="settings" data-op="addRole" onclick="openAddRoleModal()">新增</button>
                     </div>
                     <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
@@ -1230,7 +1230,7 @@ document.addEventListener('click', function(e) {
                         <select id="deptSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
                             <option value="">选择部门</option>
                         </select>
-                        <button class="btn btn-primary btn-sm" onclick="addMember()">添加</button>
+                        <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
                     </div>
                     <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
@@ -1239,7 +1239,7 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ===== 新增角色弹窗（权限配置） ===== -->
+<!-- ===== 新增角色弹窗（配置查看权限） ===== -->
 <div id="addRoleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#fff;padding:25px;border-radius:8px;width:550px;max-height:80vh;overflow-y:auto;">
         <h4>新增角色</h4>
@@ -1259,18 +1259,6 @@ document.addEventListener('click', function(e) {
                 <label><input type="checkbox" value="settings"> 系统设置</label>
             </div>
         </div>
-        <div style="margin:10px 0;">
-            <label style="display:block;margin-bottom:8px;font-weight:bold;">默认操作权限（用户可单独修改）：</label>
-            <div id="roleOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-                <label><input type="checkbox" value="goods"> 商品管理</label>
-                <label><input type="checkbox" value="stockIn"> 入库管理</label>
-                <label><input type="checkbox" value="returnGoods"> 退货管理</label>
-                <label><input type="checkbox" value="stockOut"> 出库管理</label>
-                <label><input type="checkbox" value="stockView"> 库存查看</label>
-                <label><input type="checkbox" value="finance"> 财务综合</label>
-                <label><input type="checkbox" value="settings"> 系统设置</label>
-            </div>
-        </div>
         <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-primary" onclick="saveRole()">保存</button>
             <button class="btn btn-default" onclick="closeAddRoleModal()">取消</button>
@@ -1278,22 +1266,14 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ===== 编辑用户操作权限弹窗 ===== -->
+<!-- ===== 编辑用户操作权限弹窗（勾选即禁止操作） ===== -->
 <div id="editUserPermModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#fff;padding:25px;border-radius:8px;width:480px;">
+    <div style="background:#fff;padding:25px;border-radius:8px;width:600px;max-height:80vh;overflow-y:auto;">
         <h4>编辑用户操作权限</h4>
         <p style="color:#666;font-size:13px;">👤 <span id="editUserName"></span>（角色：<span id="editUserRole"></span>）</p>
-        <div style="margin:10px 0;">
-            <label style="display:block;margin-bottom:8px;font-weight:bold;">操作权限（勾选即可操作）：</label>
-            <div id="userOperatePermissions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-                <label><input type="checkbox" value="goods"> 商品管理</label>
-                <label><input type="checkbox" value="stockIn"> 入库管理</label>
-                <label><input type="checkbox" value="returnGoods"> 退货管理</label>
-                <label><input type="checkbox" value="stockOut"> 出库管理</label>
-                <label><input type="checkbox" value="stockView"> 库存查看</label>
-                <label><input type="checkbox" value="finance"> 财务综合</label>
-                <label><input type="checkbox" value="settings"> 系统设置</label>
-            </div>
+        <p style="color:#ff4d4f;font-size:12px;background:#fff1f0;padding:6px 12px;border-radius:4px;">⚠️ 勾选 = 禁止操作，不勾选 = 允许操作</p>
+        <div id="userOpsContainer" style="margin-top:10px;">
+            <!-- 各模块的操作权限由JS动态生成 -->
         </div>
         <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-primary" onclick="saveUserPermissions()">保存</button>
