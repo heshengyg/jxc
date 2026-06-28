@@ -1235,13 +1235,13 @@ document.addEventListener('click', function(e) {
                 <div>
                     <h4 style="margin:0 0 10px 0;">👤 用户管理</h4>
                     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                        <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-                        <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-                        <select id="deptSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-                            <option value="">选择部门</option>
-                        </select>
-                        <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
-                    </div>
+    <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+    <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+    <select id="roleSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+        <option value="">请选择角色</option>
+    </select>
+    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
+</div>
                     <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
             </div>

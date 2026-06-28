@@ -175,38 +175,32 @@ function loginLocal(username, password) {
  * 登出函数
  */
 function logout() {
+    // 清除 sessionStorage
     sessionStorage.removeItem('supabase_user');
     sessionStorage.removeItem('user');
+    
+    // 重置当前用户
+    currentUserId = null;
+    
+    // 显示登录界面，隐藏主界面
     document.getElementById('loginBox').style.display = 'block';
     document.getElementById('mainBox').style.display = 'none';
+    
+    // 重置页面状态：隐藏所有子Tab内容
+    document.querySelectorAll('.tab-content').forEach(function(el) {
+        el.style.display = 'none';
+        el.classList.remove('active');
+    });
+    
+    // 重置所有按钮状态
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+        btn.style.display = 'inline-block';
+    });
+    
+    // 清空表单
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    
     console.log('✅ 已登出');
 }
-
-// ============================================================
-// ===== 页面加载时检查是否已登录 =====
-// ============================================================
-document.addEventListener('DOMContentLoaded', function() {
-    var savedUser = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-    if (savedUser) {
-        try {
-            var user = JSON.parse(savedUser);
-            console.log('🔄 检测到已登录用户:', user.name);
-            document.getElementById('loginBox').style.display = 'none';
-            document.getElementById('mainBox').style.display = 'block';
-            if (document.getElementById('roleText')) {
-                document.getElementById('roleText').innerText = user.name;
-            }
-            // ===== 关键：恢复权限 =====
-            if (typeof setCurrentUser === 'function' && user.id) {
-                setCurrentUser(user.id);
-            }
-            if (typeof loadGoods === 'function') {
-                loadGoods();
-            }
-        } catch (e) {
-            console.warn('恢复登录状态失败:', e);
-        }
-    }
-});
-
-console.log('✅ login.js 加载完成');

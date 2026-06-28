@@ -534,6 +534,17 @@ function renderAll() {
     renderDepartments();
     renderRoles();
     renderUsers();
+    updateRoleSelect();
+}
+
+// 更新角色下拉列表
+function updateRoleSelect() {
+    var select = document.getElementById('roleSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">请选择角色</option>';
+    permissionData.roles.forEach(function(role) {
+        select.innerHTML += '<option value="' + role.id + '">' + role.name + '</option>';
+    });
 }
 
 function renderCompanyName() {
@@ -791,14 +802,12 @@ function renderUsers() {
     container.innerHTML = '';
     permissionData.users.forEach(function(user) {
         var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-        var member = settingsData.members.find(function(m) { return m.id === user.id; });
-        var dept = member ? member.department : '';
         var bannedCount = user.bannedOperations ? user.bannedOperations.length : 0;
         var div = document.createElement('div');
         div.className = 'user-card';
         div.innerHTML = `
             <span class="user-name">${user.name}</span>
-            <span class="user-info">🏢 ${dept || '未分配'} | 🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
+            <span class="user-info">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
             <div>
                 <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
                 <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
@@ -807,18 +816,25 @@ function renderUsers() {
         container.appendChild(div);
     });
 }
-
 async function addMember() {
     var nameEl = document.getElementById('newMemberName');
     var pwdEl = document.getElementById('newMemberPwd');
-    var deptEl = document.getElementById('deptSelect');
-    if (!nameEl || !pwdEl || !deptEl) return;
+    var roleSelect = document.getElementById('roleSelect');
+    if (!nameEl || !pwdEl || !roleSelect) return;
     
     var name = nameEl.value.trim();
     var pwd = pwdEl.value.trim();
-    var dept = deptEl.value;
+    var roleId = roleSelect.value;
     if (!name || !pwd) return showMsg('请填写完整信息');
+    if (!roleId) return showMsg('请选择角色');
     
+    // 1. 检查本地是否存在同名用户
+    var localExists = permissionData.users.some(function(u) { return u.name === name; });
+    if (localExists) {
+        return showMsg('❌ 用户名已存在（本地）');
+    }
+    
+    // 2. 检查 Supabase 是否存在同名用户
     var checkResult = await supabase
         .from('users')
         .select('username')
@@ -828,20 +844,25 @@ async function addMember() {
         return showMsg('❌ 用户名已存在');
     }
     
+    // 3. 获取角色
+    var selectedRole = permissionData.roles.find(function(r) { return r.id === roleId; });
+    if (!selectedRole) return showMsg('❌ 角色不存在');
+    var roleName = selectedRole.name;
+    
+    // 4. 生成密码哈希
     var passwordHash = pwd;
     if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
         passwordHash = bcrypt.hashSync(pwd, 10);
     }
     
-    var defaultRole = permissionData.roles.find(function(r) { return r.name !== '管理员'; }) || permissionData.roles[0];
-    
+    // 5. 插入到 Supabase
     var result = await supabase
         .from('users')
         .insert([{
             username: name,
             email: name + '@company.com',
             password_hash: passwordHash,
-            role: defaultRole ? defaultRole.name : 'user',
+            role: roleName,
             status: 'active',
             avatar_url: null
         }])
@@ -860,11 +881,12 @@ async function addMember() {
     
     var savedUser = result.data[0];
     
+    // 6. 同步到本地
     var localUser = {
         id: savedUser.id,
         name: savedUser.username,
         password: pwd,
-        roleId: defaultRole ? defaultRole.id : '',
+        roleId: roleId,
         bannedOperations: []
     };
     
@@ -873,8 +895,8 @@ async function addMember() {
         id: savedUser.id,
         name: savedUser.username,
         password: pwd,
-        department: dept,
-        roleId: defaultRole ? defaultRole.id : '',
+        department: roleName,
+        roleId: roleId,
         bannedOperations: []
     });
     
@@ -882,28 +904,50 @@ async function addMember() {
     saveSettings();
     renderUsers();
     renderMembers();
+    updateRoleSelect();  // 新增：刷新角色下拉
+    
     nameEl.value = '';
     pwdEl.value = '';
+    roleSelect.value = '';
+    
     showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
 }
 
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
+    
+    // 找到用户信息
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (user && user.name === 'admin') return showMsg('不能删除管理员账号');
     
-    var success = await deleteUserFromSupabase(userId);
-    if (success) {
-        permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
-        settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
-        savePermissionData();
-        saveSettings();
-        renderUsers();
-        renderMembers();
-        showMsg('✅ 用户已删除');
+    // 1. 从 Supabase 删除
+    var result = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+    
+    if (result.error) {
+        console.error('❌ 删除用户失败:', result.error);
+        showMsg('❌ 删除失败: ' + result.error.message);
+        return;
     }
+    
+    // 2. 从本地 permissionData.users 删除
+    permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
+    
+    // 3. 从 settingsData.members 删除
+    settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
+    
+    // 4. 保存
+    savePermissionData();
+    saveSettings();
+    
+    // 5. 重新渲染
+    renderUsers();
+    renderMembers();
+    
+    showMsg('✅ 用户已删除');
 }
-
 // ============================================================
 // ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================
