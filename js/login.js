@@ -24,97 +24,73 @@ function login() {
  */
 async function loginWithSupabase(username, password) {
     try {
-        console.log('🔍 开始 Supabase 登录:', username);
+        console.log('🔍 Supabase 登录:', username);
         
-        // 1. 查询用户
+        // 查询用户
         var result = await supabase
             .from('users')
-            .select('id, username, password_hash, role, status, avatar_url')
+            .select('id, username, password_hash, role, status')
             .eq('username', username);
         
-        console.log('📊 查询结果:', result);
-        
-        // 检查是否有错误
-        if (result.error) {
-            console.error('❌ 查询错误:', result.error);
+        if (result.error || !result.data || result.data.length === 0) {
+            console.warn('⚠️ 用户不存在，尝试本地登录');
             loginLocal(username, password);
             return;
         }
         
-        // 检查是否有数据
-        if (!result.data || result.data.length === 0) {
-            console.warn('⚠️ 用户不存在');
-            loginLocal(username, password);
-            return;
-        }
+        var user = result.data[0];
+        console.log('✅ 找到用户:', user.username, '角色:', user.role);
         
-        var user = result.data[0]; // 取第一个用户
-        console.log('📊 找到用户:', user.username, '角色:', user.role);
-        
-        // 检查用户状态
+        // 检查状态
         if (user.status !== 'active') {
-            console.warn('⚠️ 用户未激活');
             showMsg('账号已被禁用');
             return;
         }
         
-        // 2. 验证密码（使用 verifyPassword）
-        console.log('🔑 验证密码...');
-        var isValid = verifyPassword(password, user.password_hash);
-        console.log('🔑 验证结果:', isValid);
+        // 验证密码
+        var isValid = false;
+        // 直接比对明文（因为 Supabase 中存的是明文 '123'）
+        if (password === user.password_hash) {
+            isValid = true;
+        }
+        // 或者用 bcrypt
+        if (!isValid && typeof bcrypt !== 'undefined' && bcrypt.compareSync) {
+            isValid = bcrypt.compareSync(password, user.password_hash);
+        }
         
         if (!isValid) {
-            console.warn('❌ 密码错误');
             showMsg('账号密码错误');
             return;
         }
         
-        // 3. ✅ 登录成功！
         console.log('✅ 登录成功！');
         
-        // 4. 获取用户权限
-        var permResult = await supabase
-            .from('role_permissions')
-            .select('menu_key, can_view, can_add, can_edit, can_delete')
-            .eq('role', user.role);
-        
-        var permissions = permResult.data || [];
-        console.log('📊 权限数量:', permissions.length);
-        
-        // 5. 保存用户信息
+        // 保存用户信息到 sessionStorage
         var userData = {
             id: user.id,
             name: user.username,
             role: user.role,
-            avatar_url: user.avatar_url,
-            permissions: permissions,
             fromSupabase: true
         };
         sessionStorage.setItem('supabase_user', JSON.stringify(userData));
+        sessionStorage.setItem('user', JSON.stringify(userData));
         
-        // 6. 同步到本地权限系统
-        syncUserToLocalSystem(user, permissions);
+        // 同步到本地权限系统
+        syncUserToLocalSystem(user, []);
         
-        // 7. 设置当前用户
+        // 设置当前用户
         if (typeof setCurrentUser === 'function') {
             setCurrentUser(user.id);
         }
         
-        // 8. 显示主界面
+        // 显示主界面
         document.getElementById('loginBox').style.display = 'none';
         document.getElementById('mainBox').style.display = 'block';
-        
         var roleTextEl = document.getElementById('roleText');
-        if (roleTextEl) {
-            roleTextEl.innerText = user.username;
-        }
+        if (roleTextEl) roleTextEl.innerText = user.username;
         
-        // 9. 加载数据
-        if (typeof loadGoods === 'function') {
-            loadGoods();
-        }
-        
-        showMsg('✅ 登录成功！欢迎 ' + user.username);
+        if (typeof loadGoods === 'function') loadGoods();
+        showMsg('✅ 登录成功！');
         
     } catch (err) {
         console.error('❌ 登录异常:', err);

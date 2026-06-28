@@ -951,17 +951,19 @@ function applyAllPermissions() {
 // ========================================================setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
-        // 从 sessionStorage 获取登录用户
-        try {
-            var saved = sessionStorage.getItem('supabase_user');
-            if (saved) {
+        // 从 sessionStorage 获取 Supabase 用户
+        var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+        if (saved) {
+            try {
                 var user = JSON.parse(saved);
-                setCurrentUser(user.id);
-                console.log('✅ 使用 Supabase 用户:', user.name);
-            } else {
+                if (user.id) {
+                    setCurrentUser(user.id);
+                    console.log('✅ 使用 Supabase 用户:', user.name);
+                }
+            } catch(e) {
                 setCurrentUser('user_1');
             }
-        } catch(e) {
+        } else {
             setCurrentUser('user_1');
         }
         console.log('✅ 系统设置模块已加载（完整权限版）');
