@@ -1,13 +1,30 @@
-const SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
-const SUPABASE_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
-const users = [{ user: 'admin', pwd: '123', name: '管理员' }];
+// ============================================================
+// ===== 全局配置 =====
+// ============================================================
 
-// 在 HTML 中引入 supabase-js 后使用
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// 使用 var 使其成为全局变量（可以在任何 JS 文件中访问）
+var SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
+var SUPABASE_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
 
-// ===================== 操作权限定义 =====================
-// 每个模块下的操作按钮，用于用户级别的权限控制
-const OPERATION_PERMISSIONS = {
+// 原有的用户数组（兼容旧登录）
+var users = [{ user: 'admin', pwd: '123', name: '管理员' }];
+
+// ============================================================
+// ===== 初始化 Supabase 客户端 =====
+// ============================================================
+
+// 使用 var 定义的 SUPABASE_URL 和 SUPABASE_KEY
+var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window.supabase = supabase;
+
+console.log('✅ Supabase 客户端已初始化');
+console.log('📡 连接地址:', SUPABASE_URL);
+
+// ============================================================
+// ===== 以下是你原有的 OPERATION_PERMISSIONS 定义 =====
+// ============================================================
+
+var OPERATION_PERMISSIONS = {
     goods: {
         label: '商品管理',
         operations: [
@@ -90,9 +107,11 @@ const OPERATION_PERMISSIONS = {
 
 // 生成所有操作的扁平列表（用于权限配置弹窗）
 function getAllOperations() {
-    const result = [];
-    for (const [moduleKey, moduleData] of Object.entries(OPERATION_PERMISSIONS)) {
-        for (const op of moduleData.operations) {
+    var result = [];
+    for (var moduleKey in OPERATION_PERMISSIONS) {
+        var moduleData = OPERATION_PERMISSIONS[moduleKey];
+        for (var i = 0; i < moduleData.operations.length; i++) {
+            var op = moduleData.operations[i];
             result.push({
                 key: moduleKey + '_' + op.key,
                 module: moduleKey,
@@ -106,16 +125,6 @@ function getAllOperations() {
     return result;
 }
 
-const ALL_OPERATIONS_LIST = getAllOperations();
+var ALL_OPERATIONS_LIST = getAllOperations();
 
-=========================================================
-// ===== 初始化 Supabase 客户端 =====
-// ============================================================
-
-// 使用 config.js 中已有的 SUPABASE_URL 和 SUPABASE_KEY
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// 将 supabase 暴露为全局变量，供其他 JS 文件使用
-window.supabase = supabase;
-
-console.log('✅ Supabase 客户端已初始化');
+console.log('✅ config.js 加载完成');
