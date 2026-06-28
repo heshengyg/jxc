@@ -41,7 +41,6 @@ async function loginWithSupabase(username, password) {
         var user = result.data[0];
         console.log('✅ 找到用户:', user.username, '角色:', user.role);
         
-        // 检查状态
         if (user.status !== 'active') {
             showMsg('账号已被禁用');
             return;
@@ -49,11 +48,9 @@ async function loginWithSupabase(username, password) {
         
         // 验证密码
         var isValid = false;
-        // 直接比对明文（因为 Supabase 中存的是明文 '123'）
         if (password === user.password_hash) {
             isValid = true;
         }
-        // 或者用 bcrypt
         if (!isValid && typeof bcrypt !== 'undefined' && bcrypt.compareSync) {
             isValid = bcrypt.compareSync(password, user.password_hash);
         }
@@ -65,7 +62,7 @@ async function loginWithSupabase(username, password) {
         
         console.log('✅ 登录成功！');
         
-        // 保存用户信息到 sessionStorage
+        // 保存用户信息
         var userData = {
             id: user.id,
             name: user.username,
@@ -78,16 +75,17 @@ async function loginWithSupabase(username, password) {
         // 同步到本地权限系统
         syncUserToLocalSystem(user, []);
         
-        // 设置当前用户
-        if (typeof setCurrentUser === 'function') {
-            setCurrentUser(user.id);
-        }
-        
         // 显示主界面
         document.getElementById('loginBox').style.display = 'none';
         document.getElementById('mainBox').style.display = 'block';
         var roleTextEl = document.getElementById('roleText');
         if (roleTextEl) roleTextEl.innerText = user.username;
+        
+        // ===== 关键：设置当前用户（应用权限） =====
+        if (typeof setCurrentUser === 'function') {
+            setCurrentUser(user.id);
+            console.log('✅ 权限已应用，用户ID:', user.id);
+        }
         
         if (typeof loadGoods === 'function') loadGoods();
         showMsg('✅ 登录成功！');
@@ -98,19 +96,19 @@ async function loginWithSupabase(username, password) {
     }
 }
 
-
 /**
  * 将 Supabase 用户同步到本地权限系统
  */
 function syncUserToLocalSystem(user, permissions) {
     try {
-        // 检查是否已存在
         var existingUser = permissionData.users.find(function(u) {
             return u.id === user.id;
         });
         
         if (existingUser) {
             existingUser.name = user.username;
+            savePermissionData();
+            console.log('✅ 用户已存在，更新名称:', user.username);
             return;
         }
         
@@ -127,6 +125,7 @@ function syncUserToLocalSystem(user, permissions) {
                 name: user.role === 'admin' ? '管理员' : user.role,
                 viewPermissions: viewPermissions
             });
+            console.log('✅ 创建角色:', roleId);
         }
         
         // 添加用户
@@ -147,21 +146,10 @@ function syncUserToLocalSystem(user, permissions) {
 }
 
 /**
- * 本地登录（降级方案，保留原有逻辑）
+ * 本地登录（降级方案）
  */
 function loginLocal(username, password) {
-    // 先尝试 Supabase 明文验证
-    if (username === 'admin' && password === '123') {
-        // 直接登录成功
-        document.getElementById('loginBox').style.display = 'none';
-        document.getElementById('mainBox').style.display = 'block';
-        var roleTextEl = document.getElementById('roleText');
-        if (roleTextEl) roleTextEl.innerText = 'admin';
-        if (typeof loadGoods === 'function') loadGoods();
-        return;
-    }
-    
-    // 原有的本地验证
+    // 本地验证
     var found = users.find(function(x) {
         return x.user === username && x.pwd === password;
     });
@@ -169,24 +157,28 @@ function loginLocal(username, password) {
         showMsg('账号密码错误');
         return;
     }
+    
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainBox').style.display = 'block';
     var roleTextEl = document.getElementById('roleText');
     if (roleTextEl) roleTextEl.innerText = found.name || username;
+    
+    // ===== 本地登录也设置权限 =====
+    if (typeof setCurrentUser === 'function') {
+        setCurrentUser('user_1');
+    }
+    
     if (typeof loadGoods === 'function') loadGoods();
 }
+
 /**
  * 登出函数
  */
 function logout() {
-    // 清除 Supabase session
     sessionStorage.removeItem('supabase_user');
     sessionStorage.removeItem('user');
-    
-    // 显示登录界面
     document.getElementById('loginBox').style.display = 'block';
     document.getElementById('mainBox').style.display = 'none';
-    
     console.log('✅ 已登出');
 }
 
@@ -194,17 +186,19 @@ function logout() {
 // ===== 页面加载时检查是否已登录 =====
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // 检查 sessionStorage 中是否有用户信息
-    var savedUser = sessionStorage.getItem('supabase_user');
+    var savedUser = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
     if (savedUser) {
         try {
             var user = JSON.parse(savedUser);
             console.log('🔄 检测到已登录用户:', user.name);
-            // 自动登录
             document.getElementById('loginBox').style.display = 'none';
             document.getElementById('mainBox').style.display = 'block';
             if (document.getElementById('roleText')) {
                 document.getElementById('roleText').innerText = user.name;
+            }
+            // ===== 关键：恢复权限 =====
+            if (typeof setCurrentUser === 'function' && user.id) {
+                setCurrentUser(user.id);
             }
             if (typeof loadGoods === 'function') {
                 loadGoods();

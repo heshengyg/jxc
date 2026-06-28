@@ -957,9 +957,11 @@ setTimeout(function() {
         if (saved) {
             try {
                 var user = JSON.parse(saved);
-                if (user.id) {
+                if (user && user.id) {
                     setCurrentUser(user.id);
-                    console.log('✅ 使用 Supabase 用户:', user.name);
+                    console.log('✅ 使用 Supabase 用户:', user.name, 'ID:', user.id);
+                } else {
+                    setCurrentUser('user_1');
                 }
             } catch(e) {
                 setCurrentUser('user_1');
@@ -970,28 +972,3 @@ setTimeout(function() {
         console.log('✅ 系统设置模块已加载（完整权限版）');
     }
 }, 800);
-
-// 确保函数完整结束，没有多余的花括号// ============================================================
-// ===== 页面加载初始化 =====
-// ============================================================
-setTimeout(function() {
-    if (document.getElementById('settings')) {
-        initSettings();
-        var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-        if (saved) {
-            try {
-                var user = JSON.parse(saved);
-                if (user.id) {
-                    setCurrentUser(user.id);
-                    console.log('✅ 使用 Supabase 用户:', user.name);
-                }
-            } catch(e) {
-                setCurrentUser('user_1');
-            }
-        } else {
-            setCurrentUser('user_1');
-        }
-        console.log('✅ 系统设置模块已加载（完整权限版）');
-    }
-}, 800);
-console.log('✅ settings.js 加载完成');
