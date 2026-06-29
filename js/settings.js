@@ -492,8 +492,15 @@ function applyUserPermissions() {
         try {
             var user = JSON.parse(saved);
             if (user && user.id) {
-                setCurrentUser(user.id);
-                console.log('✅ 应用 Supabase 用户权限:', user.name);
+                // 先加载所有用户（如果还没有加载）
+                if (permissionData.users.length === 0) {
+                    loadAllUsersFromSupabase().then(function() {
+                        setCurrentUser(user.id);
+                        console.log('✅ 应用 Supabase 用户权限:', user.name);
+                    });
+                } else {
+                    setCurrentUser(user.id);
+                }
                 return;
             }
         } catch(e) {

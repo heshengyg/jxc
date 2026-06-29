@@ -73,7 +73,17 @@ async function loginWithSupabase(username, password) {
         sessionStorage.setItem('user', JSON.stringify(userData));
         
         // 同步到本地权限系统
-        syncUserToLocalSystem(user, []);
+syncUserToLocalSystem(user, []);
+
+// ===== 新增：加载所有角色和用户 =====
+await loadRolesFromSupabase();
+await loadAllUsersFromSupabase();
+
+// 设置当前用户
+if (typeof setCurrentUser === 'function') {
+    setCurrentUser(user.id);
+    console.log('✅ 权限已应用，用户ID:', user.id);
+}
         
         // 显示主界面
         document.getElementById('loginBox').style.display = 'none';
