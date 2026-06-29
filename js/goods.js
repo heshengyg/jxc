@@ -549,20 +549,16 @@ function switchGoodsSubTab(tab) {
         return;
     }
     
-    if (tab === 'settleType') {
+   if (tab === 'supplier') {  // 原来是 'settleType'
         loadSettleList();
     } else if (tab === 'goodsInfo') {
         currentPage = 1;
         const goodsTbody = document.getElementById('goodsList');
         if(goodsTbody) goodsTbody.innerHTML = '';
-        // ========== 修改开始：直接强制刷新商品数据 ==========
-        // 移除缓存判断，每次切换到商品列表都强制从数据库重新加载
         loadGoods(true);
-        // ========== 修改结束 ==========
-    } else if (tab === 'dateChange') {
-    // ✅ 每次点击都重新加载
-    loadDateChangeTab();
-}
+    } else if (tab === 'expireDate') {  // 原来是 'dateChange'
+        loadDateChangeTab();
+    }
 }
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用

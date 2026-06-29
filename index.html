@@ -62,12 +62,12 @@
 <!-- 商品管理 -->
 <div id="goods" class="tab-content active">
     <h3>商品管理</h3>
-    <!-- 子Tab导航 -->
-    <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
-        <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
-        <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">后台更换日期</button>
-    </div>
+    <!-- 商品管理子Tab -->
+<div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
+    <button class="finance-sub-btn" data-tab="supplier" onclick="switchGoodsSubTab('supplier')">供应商管理</button>
+    <button class="finance-sub-btn" data-tab="expireDate" onclick="switchGoodsSubTab('expireDate')">后台更换日期</button>
+</div>
 
     <!-- 子Tab：商品信息（原有） -->
 <div id="sub-goodsInfo" class="finance-sub-content">
@@ -133,7 +133,7 @@
 </div>
 
 <!-- 子Tab：供应商管理 -->
-    <div id="sub-settleType" class="finance-sub-content" style="display:none;">
+    <div id="sub-supplier" class="finance-sub-content" style="display:none;">
         <h4>供应商管理</h4>
         <div class="stat-bar">
             共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
@@ -197,7 +197,7 @@
     </div>
 
     <!-- 子Tab：后台更换日期 -->
-<div id="sub-dateChange" class="finance-sub-content" style="display:none;">
+<div id="sub-expireDate" class="finance-sub-content" style="display:none;">
     <h4>后台需更改日期的商品明细（每晨必看）</h4>
     <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
         <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
@@ -1170,13 +1170,13 @@ document.addEventListener('click', function(e) {
     
     <!-- 设置子菜单 -->
     <div class="settings-sub-tabs">
-        <button class="settings-sub-btn active" data-tab="basic" onclick="switchSettingsTab('basic')">基础设置</button>
-        <button class="settings-sub-btn" data-tab="data" onclick="switchSettingsTab('data')">数据管理</button>
-        <button class="settings-sub-btn" data-tab="permission" onclick="switchSettingsTab('permission')">权限管理</button>
+        <button class="settings-sub-btn" data-tab="settingsBasic" onclick="switchSettingsTab('settingsBasic')">基础设置</button>
+<button class="settings-sub-btn" data-tab="settingsData" onclick="switchSettingsTab('settingsData')">数据管理</button>
+<button class="settings-sub-btn" data-tab="settingsPerm" onclick="switchSettingsTab('settingsPerm')">权限管理</button>
     </div>
     
     <!-- ===== 基础设置 ===== -->
-    <div id="sub-basic" class="settings-sub-content active">
+    <div id="sub-settingsBasic" class="settings-sub-content active">
         <div class="settings-section">
             <h4>🏢 基础设置</h4>
             <div class="setting-group">
@@ -1192,7 +1192,7 @@ document.addEventListener('click', function(e) {
     </div>
     
     <!-- ===== 数据管理 ===== -->
-    <div id="sub-data" class="settings-sub-content" style="display:none;">
+    <div id="sub-settingsData" class="settings-sub-content" style="display:none;">
         <div class="settings-section">
             <h4>💾 数据管理</h4>
             <div class="setting-group">
@@ -1207,7 +1207,7 @@ document.addEventListener('click', function(e) {
     </div>
     
     <!-- ===== 权限管理（一体化） ===== -->
-    <div id="sub-permission" class="settings-sub-content" style="display:none;">      
+    <div id="sub-settingsPerm" class="settings-sub-content" style="display:none;">      
         <div class="settings-section">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
                 <!-- 角色管理 -->
