@@ -9,19 +9,13 @@ let settingsData = {
 // ===== 子版块菜单定义（查看权限细化到子版块） =====
 // ============================================================
 const ALL_MENUS = [
-    // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
-    // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
-    // ===== 退货管理 =====
     { key: 'returnList', label: '退货记录', module: 'returnGoods', moduleLabel: '退货管理' },
-    // ===== 出库管理 =====
     { key: 'stockOutList', label: '出库记录', module: 'stockOut', moduleLabel: '出库管理' },
-    // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
-    // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
     { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
@@ -31,13 +25,12 @@ const ALL_MENUS = [
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-    // ===== 系统设置（3个子版块） =====
     { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
     { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
     { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
 
-// 大模块对应的子版块 key 列表
+// 大模块对应的子版块 key 列表（用于快速查找）
 const MODULE_SUB_KEYS = {
     goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
@@ -47,6 +40,85 @@ const MODULE_SUB_KEYS = {
     finance: ['taxRate', 'stockInPrint', 'payRecord', 'invoiceBack', 'paymentBoard', 'monthInvoiceBalance', 'stockInCheck', 'stockOutCheck', 'monthBeginStock'],
     settings: ['basic', 'data', 'permission']
 };
+
+// ============================================================
+// ===== 旧 Key 到新 Key 的映射（用于兼容历史数据） =====
+// ============================================================
+const KEY_MIGRATION_MAP = {
+    'supplier': 'settleType',
+    'expireDate': 'dateChange',
+    'paymentRecord': 'payRecord',
+    'invoiceReturn': 'invoiceBack',
+    'invoiceBalance': 'monthInvoiceBalance',
+    'monthStart': 'stockOutCheck',
+    'financeReport': 'monthBeginStock',
+    'settingsBasic': 'basic',
+    'settingsData': 'data',
+    'settingsPerm': 'permission'
+};
+
+function migrateKeys(oldKeys) {
+    if (!Array.isArray(oldKeys)) return [];
+    return oldKeys.map(function(key) {
+        return KEY_MIGRATION_MAP[key] || key;
+    });
+}
+
+// ============================================================
+// ===== 修改 loadRolesFromSupabase =====
+// ============================================================
+async function loadRolesFromSupabase() {
+    try {
+        console.log('📡 从 Supabase 加载角色...');
+        const result = await supabase
+            .from('roles')
+            .select('id, name, view_permissions')
+            .order('name');
+        
+        if (result.error) {
+            console.error('❌ 加载角色失败:', result.error);
+            return false;
+        }
+        
+        if (result.data && result.data.length > 0) {
+            permissionData.roles = result.data.map(function(role) {
+                const migrated = migrateKeys(role.view_permissions || []);
+                return {
+                    id: role.id,
+                    name: role.name,
+                    viewPermissions: migrated
+                };
+            });
+            console.log('✅ 从 Supabase 加载了 ' + permissionData.roles.length + ' 个角色（已迁移 Key）');
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.error('❌ 加载角色异常:', err);
+        return false;
+    }
+}
+
+// ============================================================
+// ===== 修改 initDefaultPermissionData =====
+// ============================================================
+function initDefaultPermissionData() {
+    var allKeys = ALL_MENUS.map(function(m) { return m.key; });
+    
+    permissionData = {
+        roles: [
+            { id: 'role_1', name: '管理员', viewPermissions: allKeys },
+            { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'settleType', 'dateChange', 'stockList'] },
+            { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
+            { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'payRecord', 'invoiceBack', 'stockInCheck', 'stockList'] },
+            { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
+        ],
+        users: [
+            { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
+        ]
+    };
+    savePermissionData();
+}
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
