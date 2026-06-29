@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>进销存系统</title>
     <link rel="stylesheet" href="./css/style.css">
-    <script src="./lib/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <!-- ===== bcrypt 使用多个备用 CDN ===== -->
-    <!-- 方式1：jsdelivr -->
     <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
-    <!-- 方式2：如果上面不行，试试 cdnjs（取消下面注释） -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
     
     <style>
         .sortable {
@@ -51,119 +49,117 @@
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('goods')">商品管理</button>
-<button class="tab-btn" onclick="switchTab('stockIn')">入库管理</button>
-<button class="tab-btn" onclick="switchTab('returnGoods')">退货管理</button>  <!-- ✅ 新增 -->
-<button class="tab-btn" onclick="switchTab('stockOut')">出库管理</button>
-<button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
-<button class="tab-btn" onclick="switchTab('finance')">财务综合管理</button>
-<button class="tab-btn" onclick="switchTab('settings')" id="settingsTab" style="display:none;">⚙️ 系统设置</button>
+        <button class="tab-btn" onclick="switchTab('stockIn')">入库管理</button>
+        <button class="tab-btn" onclick="switchTab('returnGoods')">退货管理</button>
+        <button class="tab-btn" onclick="switchTab('stockOut')">出库管理</button>
+        <button class="tab-btn" onclick="switchTab('stockView')">库存查看</button>
+        <button class="tab-btn" onclick="switchTab('finance')">财务综合管理</button>
+        <button class="tab-btn" onclick="switchTab('settings')" id="settingsTab" style="display:none;">⚙️ 系统设置</button>
     </div>
 
 <!-- 商品管理 -->
 <div id="goods" class="tab-content active">
     <h3>商品管理</h3>
     <!-- 商品管理子Tab -->
-<div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
-    <button class="finance-sub-btn" data-tab="supplier" onclick="switchGoodsSubTab('supplier')">供应商管理</button>
-    <button class="finance-sub-btn" data-tab="expireDate" onclick="switchGoodsSubTab('expireDate')">后台更换日期</button>
-</div>
+    <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
+        <button class="finance-sub-btn" data-tab="supplier" onclick="switchGoodsSubTab('supplier')">供应商管理</button>
+        <button class="finance-sub-btn" data-tab="expireDate" onclick="switchGoodsSubTab('expireDate')">后台更换日期</button>
+    </div>
 
     <!-- 子Tab：商品信息（原有） -->
-<div id="sub-goodsInfo" class="finance-sub-content">
-    <h4>商品基础信息管理</h4>
-    <div class="stat-bar">
-        共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
-    </div>
-    <div class="search-bar">
-        <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
-        <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
-        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
-        <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
-        <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
-        <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button>
-        <button class="btn btn-default" onclick="clearSort()">清除排序</button>
-
-        <select id="searchField">
-            <option value="name">按商品名搜索</option>
-            <option value="supplier">按供应商搜索</option>
-            <option value="channel">按渠道搜索</option>
-        </select>
-        <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
-        <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 选择</th>
-                    <th>序号</th>
-                    <th class="sortable" onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('online_cost')">线上成本价 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('tax_rate')">税率 <span class="sort-icon"></span></th>
-                    <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
-                    <th>临期天数</th>
-                    <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="goodsList"></tbody>
-        </table>
-    </div>
-    <div class="pagination">
-        <div class="page-info">
-            每页显示 <select id="pageSize" onchange="changePageSize()">
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="20">20</option>
-            </select> 条，当前第 <span id="currentPage">1</span> / <span id="totalPages">1</span> 页
+    <div id="sub-goodsInfo" class="finance-sub-content">
+        <h4>商品基础信息管理</h4>
+        <div class="stat-bar">
+            共 <span id="totalCount">0</span> 条商品，当前搜索结果 <span id="searchCount">0</span> 条
         </div>
-        <div class="page-controls">
-            <button class="page-btn" onclick="goToPage(1)">首页</button>
-            <button class="page-btn" onclick="prevPage()">上一页</button>
-            <span id="pageNumbers"></span>
-            <button class="page-btn" onclick="nextPage()">下一页</button>
-            <button class="page-btn" onclick="goToPage(totalPages)">末页</button>
+        <div class="search-bar">
+            <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
+            <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
+            <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
+            <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
+            <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button>
+            <button class="btn btn-default" onclick="clearSort()">清除排序</button>
+
+            <select id="searchField">
+                <option value="name">按商品名搜索</option>
+                <option value="supplier">按供应商搜索</option>
+                <option value="channel">按渠道搜索</option>
+            </select>
+            <input type="text" id="searchKeyword" placeholder="输入关键词" oninput="filterGoods()">
+            <button class="btn btn-default" onclick="resetSearch()">重置搜索</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 选择</th>
+                        <th>序号</th>
+                        <th class="sortable" onclick="sortTable('supplier')">供应商 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('online_cost')">线上成本价 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('tax_rate')">税率 <span class="sort-icon"></span></th>
+                        <th class="sortable" onclick="sortTable('shelf_life_num')">保质期 <span class="sort-icon"></span></th>
+                        <th>临期天数</th>
+                        <th class="sortable" onclick="sortTable('warn_num')">库存预警阈值 <span class="sort-icon"></span></th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="goodsList"></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <div class="page-info">
+                每页显示 <select id="pageSize" onchange="changePageSize()">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select> 条，当前第 <span id="currentPage">1</span> / <span id="totalPages">1</span> 页
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="goToPage(1)">首页</button>
+                <button class="page-btn" onclick="prevPage()">上一页</button>
+                <span id="pageNumbers"></span>
+                <button class="page-btn" onclick="nextPage()">下一页</button>
+                <button class="page-btn" onclick="goToPage(parseInt(document.getElementById('totalPages').textContent))">末页</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- 子Tab：供应商管理 -->
+    <!-- 子Tab：供应商管理 -->
     <div id="sub-supplier" class="finance-sub-content" style="display:none;">
         <h4>供应商管理</h4>
         <div class="stat-bar">
             共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
         </div>
         <div class="search-bar">
-    <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
-    <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
-    <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
-    <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
-    <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
-    
-    <!-- ✅ 供应商搜索下拉 - 同一行 -->
-    <div style="display:flex;align-items:center;gap:6px;">
-        <label style="white-space:nowrap;font-weight:bold;">供应商：</label>
-        <div style="position:relative;display:inline-block;">
-            <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
+            <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
+            <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
+            <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
+            <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
+            
+            <div style="display:flex;align-items:center;gap:6px;">
+                <label style="white-space:nowrap;font-weight:bold;">供应商：</label>
+                <div style="position:relative;display:inline-block;">
+                    <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                    <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+                </div>
+            </div>
+            <input type="hidden" id="settleSupplierSearch" value="">
+            
+            <select id="settleChannelSearch" onchange="filterSettleList()" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;">
+                <option value="">全部结算方式</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            
+            <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
         </div>
-    </div>
-    <input type="hidden" id="settleSupplierSearch" value="">
-    
-    <!-- 结算方式搜索下拉 -->
-    <select id="settleChannelSearch" onchange="filterSettleList()" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;">
-        <option value="">全部结算方式</option>
-        <option value="线上">线上</option>
-        <option value="线下">线下</option>
-    </select>
-    
-    <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
-</div>
         <div class="table-container">
             <table>
                 <thead>
@@ -191,36 +187,36 @@
                 <button class="page-btn" onclick="settlePrevPage()">上一页</button>
                 <span id="settlePageNumbers"></span>
                 <button class="page-btn" onclick="settleNextPage()">下一页</button>
-                <button class="page-btn" onclick="settleGoToPage(settleTotalPages)">末页</button>
+                <button class="page-btn" onclick="settleGoToPage(parseInt(document.getElementById('settleTotalPages').textContent))">末页</button>
             </div>
         </div>
     </div>
 
     <!-- 子Tab：后台更换日期 -->
-<div id="sub-expireDate" class="finance-sub-content" style="display:none;">
-    <h4>后台需更改日期的商品明细（每晨必看）</h4>
-    <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-        <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
-        <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
+    <div id="sub-expireDate" class="finance-sub-content" style="display:none;">
+        <h4>后台需更改日期的商品明细（每晨必看）</h4>
+        <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
+            <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
         </div>
         <div class="table-container">
             <table>
                 <thead>
-    <tr>
-        <th>序列</th>
-        <th>录入日期</th>
-        <th>供应商</th>
-        <th>商品名</th>
-        <th>规格</th>
-        <th>批次库存</th>
-        <th>保质期状态</th>
-        <th>状态倒计</th>
-        <th>日期</th>
-        <th>生产/到期</th>
-        <th>需更新日期</th>
-        <th>操作</th>
-    </tr>
-</thead>
+                    <tr>
+                        <th>序列</th>
+                        <th>录入日期</th>
+                        <th>供应商</th>
+                        <th>商品名</th>
+                        <th>规格</th>
+                        <th>批次库存</th>
+                        <th>保质期状态</th>
+                        <th>状态倒计</th>
+                        <th>日期</th>
+                        <th>生产/到期</th>
+                        <th>需更新日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
                 <tbody id="dateChangeList">
                     <tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>
                 </tbody>
@@ -239,208 +235,207 @@
                 <button class="page-btn" onclick="dateChangePrevPage()">上一页</button>
                 <span id="dateChangePageNumbers"></span>
                 <button class="page-btn" onclick="dateChangeNextPage()">下一页</button>
-                <button class="page-btn" onclick="dateChangeGoToPage(dateChangeTotalPages)">末页</button>
+                <button class="page-btn" onclick="dateChangeGoToPage(parseInt(document.getElementById('dateChangeTotalPages').textContent))">末页</button>
             </div>
         </div>
     </div>
+</div>
+
+<!-- 入库管理 -->
+<div id="stockIn" class="tab-content">
+    <h3>入库管理</h3>
+    <div class="stat-bar">
+        共 <span id="inTotalCount">0</span> 条入库记录，当前搜索结果 <span id="inSearchCount">0</span> 条
+    </div>
+    <div class="search-bar">
+        <button class="btn btn-primary" onclick="openStockInForm()">添加入库</button>
+        <button class="btn btn-success" onclick="downloadStockInTemplate()">下载入库模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入入库</button>
+        <button class="btn btn-default" onclick="exportStockInExcel()">导出入库记录</button>
+        <button class="btn btn-danger" onclick="batchDeleteStockIn()">批量删除</button>
+        <button class="btn btn-default" onclick="refreshStockIn()">刷新列表</button>
+        <button class="btn btn-default" onclick="clearInSort()">清除排序</button>
+
+        <select id="inSearchField">
+            <option value="supplier">按供应商搜索</option>
+            <option value="goodsName">按商品名搜索</option>
+        </select>
+        <input type="text" id="inSearchKeyword" placeholder="输入关键词" oninput="filterStockIn()">
+        <button class="btn btn-default" onclick="resetInSearch()">重置搜索</button>
     </div>
 
-    <!-- 入库管理 -->
-    <div id="stockIn" class="tab-content">
-        <h3>入库管理</h3>
-        <div class="stat-bar">
-            共 <span id="inTotalCount">0</span> 条入库记录，当前搜索结果 <span id="inSearchCount">0</span> 条
-        </div>
-        <div class="search-bar">
-            <button class="btn btn-primary" onclick="openStockInForm()">添加入库</button>
-            <button class="btn btn-success" onclick="downloadStockInTemplate()">下载入库模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入入库</button>
-            <button class="btn btn-default" onclick="exportStockInExcel()">导出入库记录</button>
-            <button class="btn btn-danger" onclick="batchDeleteStockIn()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshStockIn()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearInSort()">清除排序</button>
-
-            <select id="inSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goodsName">按商品名搜索</option>
-            </select>
-            <input type="text" id="inSearchKeyword" placeholder="输入关键词" oninput="filterStockIn()">
-            <button class="btn btn-default" onclick="resetInSearch()">重置搜索</button>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-    <tr>
-        <th><input type="checkbox" id="inSelectAll" onchange="inToggleSelectAll()"> 选择</th>
-        <th>序号</th>
-        <th class="sortable" onclick="inSortTable('supplier')">供应商 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('goodsName')">商品名 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('spec')">规格 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('settleType')">结算方式(渠道) <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('inPrice')">入库单价 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('inNum')">入库数量 <span class="inSortIcon"></span></th>
-        <th>入库金额</th>
-        <th>批次库存</th>
-        <th>总库存</th>
-        <th class="sortable" onclick="inSortTable('invoice_status')">发票状态 <span class="inSortIcon"></span></th>
-        <!-- 新增发票号码可排序列 -->
-        <th class="sortable" onclick="inSortTable('invoice_no')">发票号码 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('produce_date')">生产日期 <span class="inSortIcon"></span></th>
-        <th class="sortable" onclick="inSortTable('expire_date')">到期日期 <span class="inSortIcon"></span></th>
-<th>录入日期</th>   <!-- ✅ 新增 -->
-<th>操作</th>
-    </tr>
-</thead>
-                <tbody id="stockInList"></tbody>
-            </table>
-        </div>
-
-        <div class="pagination">
-            <div class="page-info">
-                每页显示 <select id="inPageSize" onchange="changeInPageSize()">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                </select> 条，当前第 <span id="inCurrentPage">1</span> / <span id="inTotalPages">1</span> 页
-            </div>
-            <div class="page-controls">
-                <button class="page-btn" onclick="inGoToPage(1)">首页</button>
-                <button class="page-btn" onclick="inPrevPage()">上一页</button>
-                <span id="inPageNumbers"></span>
-                <button class="page-btn" onclick="inNextPage()">下一页</button>
-                <button class="page-btn" onclick="inGoToPage(inTotalPages)">末页</button>
-            </div>
-        </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="inSelectAll" onchange="inToggleSelectAll()"> 选择</th>
+                    <th>序号</th>
+                    <th class="sortable" onclick="inSortTable('supplier')">供应商 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('goodsName')">商品名 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('spec')">规格 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('settleType')">结算方式(渠道) <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('inPrice')">入库单价 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('inNum')">入库数量 <span class="inSortIcon"></span></th>
+                    <th>入库金额</th>
+                    <th>批次库存</th>
+                    <th>总库存</th>
+                    <th class="sortable" onclick="inSortTable('invoice_status')">发票状态 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('invoice_no')">发票号码 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('produce_date')">生产日期 <span class="inSortIcon"></span></th>
+                    <th class="sortable" onclick="inSortTable('expire_date')">到期日期 <span class="inSortIcon"></span></th>
+                    <th>录入日期</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="stockInList"></tbody>
+        </table>
     </div>
 
-<!-- ✅ 退货管理 -->
-    <div id="returnGoods" class="tab-content">
-        <h3>退货管理</h3>
-        <div class="stat-bar">
-            共 <span id="returnTotalCount">0</span> 条退货记录，当前搜索结果 <span id="returnSearchCount">0</span> 条
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="inPageSize" onchange="changeInPageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="inCurrentPage">1</span> / <span id="inTotalPages">1</span> 页
         </div>
-        <div class="search-bar">
-            <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
-            <button class="btn btn-success" onclick="downloadReturnTemplate()">下载导入模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('returnFileInput').click()">批量导入</button>
-            <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
-            <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
-
-            <select id="returnSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goods_name">按商品名搜索</option>
-            </select>
-            <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
-            <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="returnSelectAll" onchange="returnToggleSelectAll()"> 选择</th>
-                        <th>序号</th>
-                        <th class="sortable" onclick="returnSortTable('supplier')">供应商 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('goods_name')">商品名 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('spec')">规格 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('settle_type')">结算方式 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('in_price')">退货单价 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('return_num')">退货数量 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('return_amount')">退货金额 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('sale_price')">销售单价 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('sale_amount')">销售金额 <span class="returnSortIcon"></span></th>
-                        <th class="sortable" onclick="returnSortTable('record_date')">录入日期 <span class="returnSortIcon"></span></th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="returnGoodsList"></tbody>
-            </table>
-        </div>
-
-        <div class="pagination">
-            <div class="page-info">
-                每页显示 <select id="returnPageSize" onchange="changeReturnPageSize()">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                </select> 条，当前第 <span id="returnCurrentPage">1</span> / <span id="returnTotalPages">1</span> 页
-            </div>
-            <div class="page-controls">
-                <button class="page-btn" onclick="returnGoToPage(1)">首页</button>
-                <button class="page-btn" onclick="returnPrevPage()">上一页</button>
-                <span id="returnPageNumbers"></span>
-                <button class="page-btn" onclick="returnNextPage()">下一页</button>
-                <button class="page-btn" onclick="returnGoToPage(returnTotalPages)">末页</button>
-            </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="inGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="inPrevPage()">上一页</button>
+            <span id="inPageNumbers"></span>
+            <button class="page-btn" onclick="inNextPage()">下一页</button>
+            <button class="page-btn" onclick="inGoToPage(parseInt(document.getElementById('inTotalPages').textContent))">末页</button>
         </div>
     </div>
+</div>
 
-    <!-- ========== 新增：出库管理模块 ========== -->
-    <div id="stockOut" class="tab-content">
-        <h3>出库管理</h3>
-        <div class="stat-bar">
-            共 <span id="outTotalCount">0</span> 条出库记录，当前搜索结果 <span id="outSearchCount">0</span> 条
+<!-- 退货管理 -->
+<div id="returnGoods" class="tab-content">
+    <h3>退货管理</h3>
+    <div class="stat-bar">
+        共 <span id="returnTotalCount">0</span> 条退货记录，当前搜索结果 <span id="returnSearchCount">0</span> 条
+    </div>
+    <div class="search-bar">
+        <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
+        <button class="btn btn-success" onclick="downloadReturnTemplate()">下载导入模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('returnFileInput').click()">批量导入</button>
+        <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
+        <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
+        <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
+        <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
+
+        <select id="returnSearchField">
+            <option value="supplier">按供应商搜索</option>
+            <option value="goods_name">按商品名搜索</option>
+        </select>
+        <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
+        <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="returnSelectAll" onchange="returnToggleSelectAll()"> 选择</th>
+                    <th>序号</th>
+                    <th class="sortable" onclick="returnSortTable('supplier')">供应商 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('goods_name')">商品名 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('spec')">规格 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('settle_type')">结算方式 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('in_price')">退货单价 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('return_num')">退货数量 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('return_amount')">退货金额 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('sale_price')">销售单价 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('sale_amount')">销售金额 <span class="returnSortIcon"></span></th>
+                    <th class="sortable" onclick="returnSortTable('record_date')">录入日期 <span class="returnSortIcon"></span></th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="returnGoodsList"></tbody>
+        </table>
+    </div>
+
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="returnPageSize" onchange="changeReturnPageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="returnCurrentPage">1</span> / <span id="returnTotalPages">1</span> 页
         </div>
-        <div class="search-bar">
-            <button class="btn btn-primary" onclick="openStockOutForm()">添加出库</button>
-            <button class="btn btn-success" onclick="downloadStockOutTemplate()">下载出库模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入出库</button>
-            <button class="btn btn-default" onclick="exportStockOutExcel()">导出出库记录</button>
-            <button class="btn btn-danger" onclick="batchDeleteStockOut()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshStockOut()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearOutSort()">清除排序</button>
-
-            <select id="outSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goodsName">按商品名搜索</option>
-            </select>
-            <input type="text" id="outSearchKeyword" placeholder="输入关键词" oninput="filterStockOut()">
-            <button class="btn btn-default" onclick="resetOutSearch()">重置搜索</button>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="outSelectAll" onchange="outToggleSelectAll()"> 选择</th>
-                        <th>序号</th>
-                        <th class="sortable" onclick="outSortTable('supplier')">供应商 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('goodsName')">商品名 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('spec')">规格 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('settleType')">结算方式 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('outPrice')">出库单价 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('salePrice')">销售单价 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('outNum')">出库数量 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('outAmount')">出库金额 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('saleAmount')">销售金额 <span class="outSortIcon"></span></th>
-                        <th class="sortable" onclick="outSortTable('recordDate')">录入日期 <span class="outSortIcon"></span></th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="stockOutList"></tbody>
-            </table>
-        </div>
-
-        <div class="pagination">
-            <div class="page-info">
-                每页显示 <select id="outPageSize" onchange="changeOutPageSize()">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                </select> 条，当前第 <span id="outCurrentPage">1</span> / <span id="outTotalPages">1</span> 页
-            </div>
-            <div class="page-controls">
-                <button class="page-btn" onclick="outGoToPage(1)">首页</button>
-                <button class="page-btn" onclick="outPrevPage()">上一页</button>
-                <span id="outPageNumbers"></span>
-                <button class="page-btn" onclick="outNextPage()">下一页</button>
-                <button class="page-btn" onclick="outGoToPage(outTotalPages)">末页</button>
-            </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="returnGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="returnPrevPage()">上一页</button>
+            <span id="returnPageNumbers"></span>
+            <button class="page-btn" onclick="returnNextPage()">下一页</button>
+            <button class="page-btn" onclick="returnGoToPage(parseInt(document.getElementById('returnTotalPages').textContent))">末页</button>
         </div>
     </div>
+</div>
+
+<!-- 出库管理 -->
+<div id="stockOut" class="tab-content">
+    <h3>出库管理</h3>
+    <div class="stat-bar">
+        共 <span id="outTotalCount">0</span> 条出库记录，当前搜索结果 <span id="outSearchCount">0</span> 条
+    </div>
+    <div class="search-bar">
+        <button class="btn btn-primary" onclick="openStockOutForm()">添加出库</button>
+        <button class="btn btn-success" onclick="downloadStockOutTemplate()">下载出库模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入出库</button>
+        <button class="btn btn-default" onclick="exportStockOutExcel()">导出出库记录</button>
+        <button class="btn btn-danger" onclick="batchDeleteStockOut()">批量删除</button>
+        <button class="btn btn-default" onclick="refreshStockOut()">刷新列表</button>
+        <button class="btn btn-default" onclick="clearOutSort()">清除排序</button>
+
+        <select id="outSearchField">
+            <option value="supplier">按供应商搜索</option>
+            <option value="goodsName">按商品名搜索</option>
+        </select>
+        <input type="text" id="outSearchKeyword" placeholder="输入关键词" oninput="filterStockOut()">
+        <button class="btn btn-default" onclick="resetOutSearch()">重置搜索</button>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="outSelectAll" onchange="outToggleSelectAll()"> 选择</th>
+                    <th>序号</th>
+                    <th class="sortable" onclick="outSortTable('supplier')">供应商 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('goodsName')">商品名 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('spec')">规格 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('settleType')">结算方式 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('outPrice')">出库单价 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('salePrice')">销售单价 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('outNum')">出库数量 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('outAmount')">出库金额 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('saleAmount')">销售金额 <span class="outSortIcon"></span></th>
+                    <th class="sortable" onclick="outSortTable('recordDate')">录入日期 <span class="outSortIcon"></span></th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="stockOutList"></tbody>
+        </table>
+    </div>
+
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="outPageSize" onchange="changeOutPageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="outCurrentPage">1</span> / <span id="outTotalPages">1</span> 页
+        </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="outGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="outPrevPage()">上一页</button>
+            <span id="outPageNumbers"></span>
+            <button class="page-btn" onclick="outNextPage()">下一页</button>
+            <button class="page-btn" onclick="outGoToPage(parseInt(document.getElementById('outTotalPages').textContent))">末页</button>
+        </div>
+    </div>
+</div>
 
 <!-- 库存查看 -->
 <div id="stockView" class="tab-content">
@@ -450,7 +445,6 @@
     </div>
     <div class="search-bar">
         <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
-        <!-- 核心：点击按钮加载库存数据 -->
         <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
         <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
         
@@ -493,90 +487,86 @@
         </table>
     </div>
 
-    <!-- 分页控件 -->
     <div class="page-controls">
         <button onclick="stockGoToPage(1)">首页</button>
         <button onclick="stockPrevPage()">上一页</button>
         <div id="stockPageNumbers"></div>
         <button onclick="stockNextPage()">下一页</button>
-        <button onclick="stockGoToPage(stockTotalPages)">末页</button>
+        <button onclick="stockGoToPage(parseInt(document.getElementById('stockTotalPages').textContent))">末页</button>
         <span>第<span id="stockCurrentPage">1</span>/<span id="stockTotalPages">1</span>页</span>
         <select id="stockPageSize" onchange="changeStockPageSize()">
-    <option value="5">5条/页</option>
-    <option value="10" selected>10条/页</option>  <!-- ✅ 添加 selected -->
-    <option value="20">20条/页</option>
-</select>
+            <option value="5">5条/页</option>
+            <option value="10" selected>10条/页</option>
+            <option value="20">20条/页</option>
+        </select>
     </div>
 </div>
 
-<!-- ========== 财务综合管理模块（新增完整9个子页面） ========== -->
+<!-- 财务综合管理模块 -->
 <div id="finance" class="tab-content">
     <h3>财务综合管理模块</h3>
     <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="finance-sub-btn active" data-tab="taxRate" onclick="switchFinanceSubTab('taxRate')">①税率录入</button>
         <button class="finance-sub-btn" data-tab="stockInPrint" onclick="switchFinanceSubTab('stockInPrint')">②入库单打印</button>
-        <button class="finance-sub-btn" data-tab="payRecord" onclick="switchFinanceSubTab('payRecord')">③财务付款记录</button>
-        <button class="finance-sub-btn" data-tab="invoiceBack" onclick="switchFinanceSubTab('invoiceBack')">④发票返回记录</button>
+        <button class="finance-sub-btn" data-tab="paymentRecord" onclick="switchFinanceSubTab('paymentRecord')">③财务付款记录</button>
+        <button class="finance-sub-btn" data-tab="invoiceReturn" onclick="switchFinanceSubTab('invoiceReturn')">④发票返回记录</button>
         <button class="finance-sub-btn" data-tab="paymentBoard" onclick="switchFinanceSubTab('paymentBoard')">⑤收付款看板</button>
-        <button class="finance-sub-btn" data-tab="monthInvoiceBalance" onclick="switchFinanceSubTab('monthInvoiceBalance')">⑥发票月结余</button>
+        <button class="finance-sub-btn" data-tab="invoiceBalance" onclick="switchFinanceSubTab('invoiceBalance')">⑥发票月结余</button>
         <button class="finance-sub-btn" data-tab="stockInCheck" onclick="switchFinanceSubTab('stockInCheck')">⑦入库对账</button>
         <button class="finance-sub-btn" data-tab="stockOutCheck" onclick="switchFinanceSubTab('stockOutCheck')">⑧出库对账</button>
-        <button class="finance-sub-btn" data-tab="monthBeginStock" onclick="switchFinanceSubTab('monthBeginStock')">⑨月期初数</button>
+        <button class="finance-sub-btn" data-tab="monthStart" onclick="switchFinanceSubTab('monthStart')">⑨月期初数</button>
     </div>
 
-    <!-- ①税率录入（直接编辑goods表tax_rate字段） -->
+    <!-- ①税率录入 -->
     <div id="sub-taxRate" class="finance-sub-content">
         <h4>商品基础税率维护</h4>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:15px;align-items:center;flex-wrap:wrap;position:relative;">
-    <!-- 供应商搜索下拉 -->
-    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-        <label>供应商筛选：</label>
-        <input type="text" id="taxSupplierSearch" placeholder="搜索/选择供应商" onclick="showTaxSupplierList()" oninput="filterTaxSupplierList()" style="width:240px;padding:6px 8px;font-size:14px;">
-        <div id="taxSupplierListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-    </div>
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>供应商筛选：</label>
+                <input type="text" id="taxSupplierSearch" placeholder="搜索/选择供应商" onclick="showTaxSupplierList()" oninput="filterTaxSupplierList()" style="width:240px;padding:6px 8px;font-size:14px;">
+                <div id="taxSupplierListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
 
-    <!-- 商品名称搜索下拉 -->
-    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-        <label>商品名称筛选：</label>
-        <input type="text" id="taxGoodsSearch" placeholder="搜索/选择商品" onclick="showTaxGoodsList()" oninput="filterTaxGoodsList()" style="width:240px;padding:6px 8px;font-size:14px;">
-        <div id="taxGoodsListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-    </div>
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>商品名称筛选：</label>
+                <input type="text" id="taxGoodsSearch" placeholder="搜索/选择商品" onclick="showTaxGoodsList()" oninput="filterTaxGoodsList()" style="width:240px;padding:6px 8px;font-size:14px;">
+                <div id="taxGoodsListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
 
-    <!-- 税率搜索下拉（包含未设置） -->
-    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-        <label>税率筛选：</label>
-        <input type="text" id="taxRateSearch" placeholder="搜索/选择税率" onclick="showTaxRateList()" oninput="filterTaxRateList()" style="width:200px;padding:6px 8px;font-size:14px;">
-        <div id="taxRateListBox" style="position:absolute;top:100%;left:0;width:200px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-    </div>
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>税率筛选：</label>
+                <input type="text" id="taxRateSearch" placeholder="搜索/选择税率" onclick="showTaxRateList()" oninput="filterTaxRateList()" style="width:200px;padding:6px 8px;font-size:14px;">
+                <div id="taxRateListBox" style="position:absolute;top:100%;left:0;width:200px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
 
-    <div style="display:flex;flex-direction:column;gap:4px;">
-        <label>结算方式：</label>
-        <select id="taxChannelFilter" style="padding:6px 8px;font-size:14px;">
-            <option value="">全部</option>
-            <option value="线上">线上</option>
-            <option value="线下">线下</option>
-        </select>
-    </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label>结算方式：</label>
+                <select id="taxChannelFilter" style="padding:6px 8px;font-size:14px;">
+                    <option value="">全部</option>
+                    <option value="线上">线上</option>
+                    <option value="线下">线下</option>
+                </select>
+            </div>
 
-    <div style="display:flex;align-items:flex-end;">
-        <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
-    </div>
-</div>
+            <div style="display:flex;align-items:flex-end;">
+                <button class="btn btn-primary" onclick="refreshTaxList()">刷新税率列表</button>
+            </div>
+        </div>
 
-<!-- 全局点击空白关闭所有下拉弹窗 -->
-<script>
-document.addEventListener('click',function(e){
-    if(!e.target.closest('#taxSupplierSearch') && !e.target.closest('#taxSupplierListBox')){
-        document.getElementById('taxSupplierListBox').style.display = 'none';
-    }
-    if(!e.target.closest('#taxGoodsSearch') && !e.target.closest('#taxGoodsListBox')){
-        document.getElementById('taxGoodsListBox').style.display = 'none';
-    }
-    if(!e.target.closest('#taxRateSearch') && !e.target.closest('#taxRateListBox')){
-        document.getElementById('taxRateListBox').style.display = 'none';
-    }
-});
-</script>
+        <script>
+        document.addEventListener('click',function(e){
+            if(!e.target.closest('#taxSupplierSearch') && !e.target.closest('#taxSupplierListBox')){
+                document.getElementById('taxSupplierListBox').style.display = 'none';
+            }
+            if(!e.target.closest('#taxGoodsSearch') && !e.target.closest('#taxGoodsListBox')){
+                document.getElementById('taxGoodsListBox').style.display = 'none';
+            }
+            if(!e.target.closest('#taxRateSearch') && !e.target.closest('#taxRateListBox')){
+                document.getElementById('taxRateListBox').style.display = 'none';
+            }
+        });
+        </script>
+
         <div class="table-container">
             <table border="1" cellpadding="6" cellspacing="0" width="100%">
                 <thead>
@@ -593,48 +583,44 @@ document.addEventListener('click',function(e){
                 <tbody id="taxRateList"></tbody>
             </table>
         </div>
+
         <!-- 税率编辑弹窗 -->
-        <!-- 税率编辑弹窗 -->
-<div id="taxModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
-        <h4>设置商品税率</h4>
-        <input type="hidden" id="taxEditId">
-        <div class="form-group" style="margin:10px 0;">
-            <label>适用税率：</label>
-            <select id="taxRateSelect" style="width:100%;padding:6px;">
-                <option value="0">0%</option>
-                <option value="9">9%</option>
-                <option value="13">13%</option>
-            </select>
+        <div id="taxModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
+            <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
+                <h4>设置商品税率</h4>
+                <input type="hidden" id="taxEditId">
+                <div class="form-group" style="margin:10px 0;">
+                    <label>适用税率：</label>
+                    <select id="taxRateSelect" style="width:100%;padding:6px;">
+                        <option value="0">0%</option>
+                        <option value="9">9%</option>
+                        <option value="13">13%</option>
+                    </select>
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="saveTaxData()">保存</button>
+                    <button class="btn btn-default" onclick="closeTaxModal()">取消</button>
+                </div>
+            </div>
         </div>
-        <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
-            <button class="btn btn-primary" onclick="saveTaxData()">保存</button>
-            <button class="btn btn-default" onclick="closeTaxModal()">取消</button>
-        </div>
-    </div>
-</div>
-        <!-- 【新增】税率录入独立分页容器，放在当前子页面内 -->
         <div class="pagination" id="page_taxRate"></div>
     </div>
 
-    <!-- ②入库单打印（线下专用）【已全部改造完成】 -->
+    <!-- ②入库单打印 -->
     <div id="sub-stockInPrint" class="finance-sub-content" style="display:none;">
         <h4>线下入库单打印</h4>
-<div id="stockTotalTip" style="margin: 8px 0; font-size:14px; color:#333;"></div>
+        <div id="stockTotalTip" style="margin: 8px 0; font-size:14px; color:#333;"></div>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:relative;">
-            <!-- ①供应商：带搜索下拉 -->
             <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
                 <label>供应商：</label>
                 <input type="text" id="printSupplierSearch" placeholder="搜索/选择供应商" onclick="showPrintSupplierList()" oninput="filterPrintSupplierList()" style="width:160px;padding:6px 8px;">
                 <div id="printSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
             </div>
-            <!-- 商品名称：带搜索下拉 -->
             <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
                 <label>商品名称：</label>
                 <input type="text" id="printGoodsNameSearch" placeholder="模糊搜索" onclick="showPrintGoodsList()" oninput="filterPrintGoodsList()" style="width:160px;padding:6px 8px;">
                 <div id="printGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
             </div>
-            <!-- 规格：带搜索下拉 -->
             <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
                 <label>规格：</label>
                 <input type="text" id="printSpecSearch" placeholder="模糊搜索" onclick="showPrintSpecList()" oninput="filterPrintSpecList()" style="width:140px;padding:6px 8px;">
@@ -668,7 +654,6 @@ document.addEventListener('click',function(e){
                 <tbody id="printStockInList"></tbody>
             </table>
         </div>
-        <!-- 打印预览区域 -->
         <div id="printPreviewWrap" style="display:none;padding:30px;width:800px;margin:0 auto;">
             <h2 style="text-align:center;">商品入库单</h2>
             <p>供应商：<span id="printPreviewSupplier"></span>　　入库日期：<span id="printPreviewDate"></span></p>
@@ -696,26 +681,25 @@ document.addEventListener('click',function(e){
                 <p>财务审核签字：________________</p>
             </div>
         </div>
-        <!-- 【新增】入库单打印独立分页容器 -->
         <div class="pagination" id="page_stockInPrint"></div>
-<script>
-// 入库打印页面空白处关闭三个下拉框
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#printSupplierSearch') && !e.target.closest('#printSupplierListBox')) {
-        document.getElementById('printSupplierListBox').style.display = 'none';
-    }
-    if (!e.target.closest('#printGoodsNameSearch') && !e.target.closest('#printGoodsListBox')) {
-        document.getElementById('printGoodsListBox').style.display = 'none';
-    }
-    if (!e.target.closest('#printSpecSearch') && !e.target.closest('#printSpecListBox')) {
-        document.getElementById('printSpecListBox').style.display = 'none';
-    }
-});
-</script>
+
+        <script>
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#printSupplierSearch') && !e.target.closest('#printSupplierListBox')) {
+                document.getElementById('printSupplierListBox').style.display = 'none';
+            }
+            if (!e.target.closest('#printGoodsNameSearch') && !e.target.closest('#printGoodsListBox')) {
+                document.getElementById('printGoodsListBox').style.display = 'none';
+            }
+            if (!e.target.closest('#printSpecSearch') && !e.target.closest('#printSpecListBox')) {
+                document.getElementById('printSpecListBox').style.display = 'none';
+            }
+        });
+        </script>
     </div>
 
     <!-- ③财务付款记录 -->
-    <div id="sub-payRecord" class="finance-sub-content" style="display:none;">
+    <div id="sub-paymentRecord" class="finance-sub-content" style="display:none;">
         <h4>财务付款台账（线下供应商）</h4>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
             <button class="btn btn-primary" onclick="openPayAddModal()">新增付款记录</button>
@@ -738,45 +722,41 @@ document.addEventListener('click', function(e) {
                 <tbody id="payRecordList"></tbody>
             </table>
         </div>
-        <!-- 付款录入弹窗 -->
-<div id="payModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
-        <h4>财务付款记录</h4>
-        <input type="hidden" id="payEditId">
-        <div class="form-group" style="margin:10px 0;">
-            <label>付款日期：</label>
-            <input type="date" id="payDate" style="width:100%;padding:6px;">
+        <div id="payModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
+            <div style="background:#fff;padding:20px;width:400px;border-radius:6px;">
+                <h4>财务付款记录</h4>
+                <input type="hidden" id="payEditId">
+                <div class="form-group" style="margin:10px 0;">
+                    <label>付款日期：</label>
+                    <input type="date" id="payDate" style="width:100%;padding:6px;">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>线下供应商：</label>
+                    <select id="paySupplier" style="width:100%;padding:6px;"></select>
+                </div>
+                <div class="form-group" style="margin:10px 0;background:#f5f7fa;padding:8px 12px;border-radius:4px;border-left:3px solid #1890ff;">
+                    <label style="font-weight:bold;color:#333;">应付账款：</label>
+                    <span id="payPayableDisplay" style="font-weight:bold;font-size:16px;color:#333;margin-left:8px;">请选择供应商</span>
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>付款金额：</label>
+                    <input type="number" step="0.01" min="0.01" id="payAmount" style="width:100%;padding:6px;" placeholder="请输入付款金额">
+                </div>
+                <div class="form-group" style="margin:10px 0;">
+                    <label>备注：</label>
+                    <textarea id="payRemark" rows="3" style="width:100%;padding:6px;"></textarea>
+                </div>
+                <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="savePayRecord()">保存</button>
+                    <button class="btn btn-default" onclick="closePayModal()">取消</button>
+                </div>
+            </div>
         </div>
-        <div class="form-group" style="margin:10px 0;">
-            <label>线下供应商：</label>
-            <select id="paySupplier" style="width:100%;padding:6px;"></select>
-        </div>
-        <!-- ========== 新增：应付账款显示 ========== -->
-        <div class="form-group" style="margin:10px 0;background:#f5f7fa;padding:8px 12px;border-radius:4px;border-left:3px solid #1890ff;">
-            <label style="font-weight:bold;color:#333;">应付账款：</label>
-            <span id="payPayableDisplay" style="font-weight:bold;font-size:16px;color:#333;margin-left:8px;">请选择供应商</span>
-        </div>
-        <!-- ========== 新增结束 ========== -->
-        <div class="form-group" style="margin:10px 0;">
-            <label>付款金额：</label>
-            <input type="number" step="0.01" min="0.01" id="payAmount" style="width:100%;padding:6px;" placeholder="请输入付款金额">
-        </div>
-        <div class="form-group" style="margin:10px 0;">
-            <label>备注：</label>
-            <textarea id="payRemark" rows="3" style="width:100%;padding:6px;"></textarea>
-        </div>
-        <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
-            <button class="btn btn-primary" onclick="savePayRecord()">保存</button>
-            <button class="btn btn-default" onclick="closePayModal()">取消</button>
-        </div>
+        <div class="pagination" id="page_payRecord"></div>
     </div>
-</div>
 
-<!-- 【新增】财务付款记录独立分页容器 -->
-<div class="pagination" id="page_payRecord"></div>
-</div>
     <!-- ④发票返回记录 -->
-    <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
+    <div id="sub-invoiceReturn" class="finance-sub-content" style="display:none;">
         <h4>发票返回台账（线下供应商）</h4>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
             <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票返回记录</button>
@@ -800,7 +780,6 @@ document.addEventListener('click', function(e) {
                 <tbody id="invoiceBackList"></tbody>
             </table>
         </div>
-        <!-- 发票返回录入弹窗 -->
         <div id="invoiceBackModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
             <div style="background:#fff;padding:20px;width:420px;border-radius:6px;">
                 <h4>新增发票返回记录</h4>
@@ -813,19 +792,17 @@ document.addEventListener('click', function(e) {
                     <label>线下供应商：</label>
                     <select id="invoiceBackSupplier" style="width:100%;padding:6px;"></select>
                 </div>
-                <!-- ========== 新增：发票结余显示 ========== -->
-            <div class="form-group" style="margin:10px 0;background:#f5f7fa;padding:8px 12px;border-radius:4px;border-left:3px solid #ff4d4f;">
-                <label style="font-weight:bold;color:#333;">发票结余：</label>
-                <span id="invoiceBackBalanceDisplay" style="font-weight:bold;font-size:16px;color:#333;margin-left:8px;">请选择供应商</span>
-            </div>
-            <!-- ========== 新增结束 ========== -->
+                <div class="form-group" style="margin:10px 0;background:#f5f7fa;padding:8px 12px;border-radius:4px;border-left:3px solid #ff4d4f;">
+                    <label style="font-weight:bold;color:#333;">发票结余：</label>
+                    <span id="invoiceBackBalanceDisplay" style="font-weight:bold;font-size:16px;color:#333;margin-left:8px;">请选择供应商</span>
+                </div>
                 <div class="form-group" style="margin:10px 0;">
                     <label>返回金额：</label>
                     <input type="number" step="0.01" min="0.01" id="invoiceBackAmount" style="width:100%;padding:6px;">
                 </div>
                 <div class="form-group" style="margin:10px 0;">
                     <label>发票号码（选填）：</label>
-<input type="text" id="invoiceBackNo" style="width:100%;padding:6px;" placeholder="选填">
+                    <input type="text" id="invoiceBackNo" style="width:100%;padding:6px;" placeholder="选填">
                 </div>
                 <div class="form-group" style="margin:10px 0;">
                     <label>备注：</label>
@@ -837,7 +814,6 @@ document.addEventListener('click', function(e) {
                 </div>
             </div>
         </div>
-        <!-- 【新增】发票返回记录独立分页容器 -->
         <div class="pagination" id="page_invoiceBack"></div>
     </div>
 
@@ -860,12 +836,11 @@ document.addEventListener('click', function(e) {
                 <tbody id="paymentBoardList"></tbody>
             </table>
         </div>
-        <!-- 【新增】收付款看板独立分页容器 -->
         <div class="pagination" id="page_paymentBoard"></div>
     </div>
 
     <!-- ⑥月度发票结余 -->
-    <div id="sub-monthInvoiceBalance" class="finance-sub-content" style="display:none;">
+    <div id="sub-invoiceBalance" class="finance-sub-content" style="display:none;">
         <h4>供应商月度发票结余表</h4>
         <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
             <label>入库月份：</label>
@@ -886,296 +861,265 @@ document.addEventListener('click', function(e) {
                 <tbody id="monthBalanceList"></tbody>
             </table>
         </div>
-        <!-- 【新增】月度发票结余独立分页容器 -->
         <div class="pagination" id="page_monthInvoiceBalance"></div>
     </div>
 
     <!-- ⑦入库对账 -->
-<div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
-    <h4>入库财务对账表</h4>
-    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <!-- 结算方式 -->
-        <label>结算方式：</label>
-        <select id="checkInSettle">
-            <option value="">全部</option>
-            <option value="线上">线上</option>
-            <option value="线下">线下</option>
-        </select>
-        
-        <!-- 发票状态 -->
-        <label>发票状态：</label>
-        <select id="checkInInvoice">
-            <option value="">全部</option>
-            <option value="已开票">已开票</option>
-            <option value="未开票">未开票</option>
-        </select>
-        
-        <!-- 入库月份 -->
-        <label>入库月份：</label>
-        <select id="checkInMonth"></select>
-        
-        <!-- ✅ 供应商：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>供应商：</label>
-            <input type="text" id="checkInSupplierSearchInput" 
-                   placeholder="搜索/选择供应商" 
-                   onclick="showCheckInSupplierList()" 
-                   oninput="filterCheckInSupplierList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
+        <h4>入库财务对账表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="checkInSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            
+            <label>发票状态：</label>
+            <select id="checkInInvoice">
+                <option value="">全部</option>
+                <option value="已开票">已开票</option>
+                <option value="未开票">未开票</option>
+            </select>
+            
+            <label>入库月份：</label>
+            <select id="checkInMonth"></select>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>供应商：</label>
+                <input type="text" id="checkInSupplierSearchInput" 
+                       placeholder="搜索/选择供应商" 
+                       onclick="showCheckInSupplierList()" 
+                       oninput="filterCheckInSupplierList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>商品名：</label>
+                <input type="text" id="checkInGoodsSearchInput" 
+                       placeholder="搜索/选择商品" 
+                       onclick="showCheckInGoodsList()" 
+                       oninput="filterCheckInGoodsList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <label>税率：</label>
+            <select id="checkInTaxRateSearch">
+                <option value="">全部税率</option>
+                <option value="0">0%</option>
+                <option value="9">9%</option>
+                <option value="13">13%</option>
+            </select>
+            
+            <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
+            
+            <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
+            <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
+            <button class="btn btn-success" onclick="exportStockInCheckExcel()">导出入库对账表</button>
         </div>
         
-        <!-- ✅ 商品名：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>商品名：</label>
-            <input type="text" id="checkInGoodsSearchInput" 
-                   placeholder="搜索/选择商品" 
-                   onclick="showCheckInGoodsList()" 
-                   oninput="filterCheckInGoodsList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+            共 0 条入库记录，当前搜索结果 0 条
         </div>
         
-        <!-- ✅ 税率搜索下拉 -->
-        <label>税率：</label>
-        <select id="checkInTaxRateSearch">
-            <option value="">全部税率</option>
-            <option value="0">0%</option>
-            <option value="9">9%</option>
-            <option value="13">13%</option>
-        </select>
-        
-        <!-- 汇总选项 -->
-        <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
-        <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
-        
-        <!-- 按钮 -->
-        <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
-        <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
-        <button class="btn btn-success" onclick="exportStockInCheckExcel()">导出入库对账表</button>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>发票状态</th>
+                        <th>入库单价</th>
+                        <th>入库数量</th>
+                        <th>是否付清</th>
+                        <th>含税入库金额</th>
+                        <th>不含税金额</th>
+                        <th>税额</th>
+                        <th>发票结余</th>
+                        <th>录入日期</th>
+                    </tr>
+                </thead>
+                <tbody id="stockInCheckList"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="page_stockInCheck"></div>
     </div>
-    
-    <!-- ✅ 统计信息 -->
-    <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
-        共 0 条入库记录，当前搜索结果 0 条
-    </div>
-    
-    <div class="table-container">
-        <table border="1" cellpadding="6" cellspacing="0" width="100%">
-            <thead>
-                <tr>
-                    <th>序号</th>
-                    <th>供应商</th>
-                    <th>商品名称</th>
-                    <th>规格</th>
-                    <th>税率</th>
-                    <th>发票状态</th>
-                    <th>入库单价</th>
-                    <th>入库数量</th>
-                    <th>是否付清</th>
-                    <th>含税入库金额</th>
-                    <th>不含税金额</th>
-                    <th>税额</th>
-                    <th>发票结余</th>
-                    <th>录入日期</th>
-                </tr>
-            </thead>
-            <tbody id="stockInCheckList"></tbody>
-        </table>
-    </div>
-    <div class="pagination" id="page_stockInCheck"></div>
-</div>
 
     <!-- ⑧出库对账 -->
-<div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
-    <h4>出库财务对账表</h4>
-    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <!-- 结算方式 -->
-        <label>结算方式：</label>
-        <select id="checkOutSettle">
-            <option value="">全部</option>
-            <option value="线上">线上</option>
-            <option value="线下">线下</option>
-        </select>
-        
-        <!-- 出库月份 -->
-        <label>出库月份：</label>
-        <select id="checkOutMonth"></select>
-        
-        <!-- ✅ 供应商：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>供应商：</label>
-            <input type="text" id="checkOutSupplierSearchInput" 
-                   placeholder="搜索/选择供应商" 
-                   onclick="showCheckOutSupplierList()" 
-                   oninput="filterCheckOutSupplierList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="checkOutSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    <div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
+        <h4>出库财务对账表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="checkOutSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            
+            <label>出库月份：</label>
+            <select id="checkOutMonth"></select>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>供应商：</label>
+                <input type="text" id="checkOutSupplierSearchInput" 
+                       placeholder="搜索/选择供应商" 
+                       onclick="showCheckOutSupplierList()" 
+                       oninput="filterCheckOutSupplierList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="checkOutSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>商品名：</label>
+                <input type="text" id="checkOutGoodsSearchInput" 
+                       placeholder="搜索/选择商品" 
+                       onclick="showCheckOutGoodsList()" 
+                       oninput="filterCheckOutGoodsList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="checkOutGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <label>税率：</label>
+            <select id="checkOutTaxRateSearch">
+                <option value="">全部税率</option>
+                <option value="0">0%</option>
+                <option value="9">9%</option>
+                <option value="13">13%</option>
+            </select>
+            
+            <label><input type="checkbox" id="checkOutSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="checkOutGoodsGroup">按商品汇总</label>
+            
+            <button class="btn btn-primary" onclick="searchStockOutCheck()">查询汇总</button>
+            <button class="btn btn-default" onclick="resetStockOutCheck()">重置搜索</button>
+            <button class="btn btn-success" onclick="exportStockOutCheckExcel()">导出出库对账表</button>
         </div>
         
-        <!-- ✅ 商品名：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>商品名：</label>
-            <input type="text" id="checkOutGoodsSearchInput" 
-                   placeholder="搜索/选择商品" 
-                   onclick="showCheckOutGoodsList()" 
-                   oninput="filterCheckOutGoodsList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="checkOutGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        <div class="stat-bar" id="stockOutCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+            共 0 条出库记录，当前搜索结果 0 条
         </div>
         
-        <!-- ✅ 税率搜索下拉 -->
-        <label>税率：</label>
-        <select id="checkOutTaxRateSearch">
-            <option value="">全部税率</option>
-            <option value="0">0%</option>
-            <option value="9">9%</option>
-            <option value="13">13%</option>
-        </select>
-        
-        <!-- 汇总选项 -->
-        <label><input type="checkbox" id="checkOutSupplierGroup">按供应商汇总</label>
-        <label><input type="checkbox" id="checkOutGoodsGroup">按商品汇总</label>
-        
-        <!-- 按钮 -->
-        <button class="btn btn-primary" onclick="searchStockOutCheck()">查询汇总</button>
-        <button class="btn btn-default" onclick="resetStockOutCheck()">重置搜索</button>
-        <button class="btn btn-success" onclick="exportStockOutCheckExcel()">导出出库对账表</button>
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>出库数量</th>
+                        <th>出库单价</th>
+                        <th>销售单价</th>
+                        <th>出库金额(含税)</th>
+                        <th>出库金额(不含税)</th>
+                        <th>出库税额</th>
+                        <th>销售金额(含税)</th>
+                        <th>销售金额(不含税)</th>
+                        <th>销售税额</th>
+                        <th>出库日期</th>
+                    </tr>
+                </thead>
+                <tbody id="stockOutCheckList"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="page_stockOutCheck"></div>
     </div>
-    
-    <!-- ✅ 统计信息 -->
-    <div class="stat-bar" id="stockOutCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
-        共 0 条出库记录，当前搜索结果 0 条
-    </div>
-    
-    <div class="table-container">
-        <table border="1" cellpadding="6" cellspacing="0" width="100%">
-            <thead>
-                <tr>
-                    <th>序号</th>
-                    <th>供应商</th>
-                    <th>商品名称</th>
-                    <th>规格</th>
-                    <th>税率</th>
-                    <th>出库数量</th>
-                    <th>出库单价</th>
-                    <th>销售单价</th>
-                    <th>出库金额(含税)</th>
-                    <th>出库金额(不含税)</th>
-                    <th>出库税额</th>
-                    <th>销售金额(含税)</th>
-                    <th>销售金额(不含税)</th>
-                    <th>销售税额</th>
-                    <th>出库日期</th>
-                </tr>
-            </thead>
-            <tbody id="stockOutCheckList"></tbody>
-        </table>
-    </div>
-    <div class="pagination" id="page_stockOutCheck"></div>
-</div>
 
-<!-- ⑨月期初库存 -->
-<div id="sub-monthBeginStock" class="finance-sub-content" style="display:none;">
-    <h4>月末库存期初核算表</h4>
-    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <!-- 结算方式 -->
-        <label>结算方式：</label>
-        <select id="beginSettle">
-            <option value="">全部</option>
-            <option value="线上">线上</option>
-            <option value="线下">线下</option>
-        </select>
-        
-        <!-- 统计月份 -->
-        <label>统计月份：</label>
-        <select id="beginMonth"></select>
-        
-        <!-- ✅ 供应商：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>供应商：</label>
-            <input type="text" id="beginSupplierSearchInput" 
-                   placeholder="搜索/选择供应商" 
-                   onclick="showBeginSupplierList()" 
-                   oninput="filterBeginSupplierList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="beginSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    <!-- ⑨月期初数 -->
+    <div id="sub-monthStart" class="finance-sub-content" style="display:none;">
+        <h4>月末库存期初核算表</h4>
+        <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <label>结算方式：</label>
+            <select id="beginSettle">
+                <option value="">全部</option>
+                <option value="线上">线上</option>
+                <option value="线下">线下</option>
+            </select>
+            
+            <label>统计月份：</label>
+            <select id="beginMonth"></select>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>供应商：</label>
+                <input type="text" id="beginSupplierSearchInput" 
+                       placeholder="搜索/选择供应商" 
+                       onclick="showBeginSupplierList()" 
+                       oninput="filterBeginSupplierList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="beginSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+                <label>商品名：</label>
+                <input type="text" id="beginGoodsSearchInput" 
+                       placeholder="搜索/选择商品" 
+                       onclick="showBeginGoodsList()" 
+                       oninput="filterBeginGoodsList()" 
+                       style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
+                <div id="beginGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+            </div>
+            
+            <label>税率：</label>
+            <select id="beginTaxRateSearch">
+                <option value="">全部税率</option>
+                <option value="0">0%</option>
+                <option value="9">9%</option>
+                <option value="13">13%</option>
+            </select>
+            
+            <label><input type="checkbox" id="beginSupplierGroup">按供应商汇总</label>
+            <label><input type="checkbox" id="beginGoodsGroup">按商品汇总</label>
+            
+            <button class="btn btn-primary" onclick="searchMonthBeginStock()">查询汇总</button>
+            <button class="btn btn-default" onclick="resetMonthBeginStock()">重置搜索</button>
+            <button class="btn btn-success" onclick="exportMonthBeginStockExcel()">导出期初库存表</button>
         </div>
         
-        <!-- ✅ 商品名：带搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>商品名：</label>
-            <input type="text" id="beginGoodsSearchInput" 
-                   placeholder="搜索/选择商品" 
-                   onclick="showBeginGoodsList()" 
-                   oninput="filterBeginGoodsList()" 
-                   style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-            <div id="beginGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        <div class="stat-bar" id="monthBeginStockTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+            共 0 条库存记录，当前搜索结果 0 条
         </div>
         
-        <!-- ✅ 税率搜索下拉 -->
-        <label>税率：</label>
-        <select id="beginTaxRateSearch">
-            <option value="">全部税率</option>
-            <option value="0">0%</option>
-            <option value="9">9%</option>
-            <option value="13">13%</option>
-        </select>
-        
-        <!-- 汇总选项 -->
-        <label><input type="checkbox" id="beginSupplierGroup">按供应商汇总</label>
-        <label><input type="checkbox" id="beginGoodsGroup">按商品汇总</label>
-        
-        <!-- 按钮 -->
-        <button class="btn btn-primary" onclick="searchMonthBeginStock()">查询汇总</button>
-        <button class="btn btn-default" onclick="resetMonthBeginStock()">重置搜索</button>
-        <button class="btn btn-success" onclick="exportMonthBeginStockExcel()">导出期初库存表</button>
-    </div>
-    
-    <!-- ✅ 统计信息 -->
-    <div class="stat-bar" id="monthBeginStockTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
-        共 0 条库存记录，当前搜索结果 0 条
-    </div>
-    
-    <div class="table-container">
-        <table border="1" cellpadding="6" cellspacing="0" width="100%">
-            <thead>
-                <tr>
-                    <th>序号</th>
-                    <th>供应商</th>
-                    <th>商品名称</th>
-                    <th>规格</th>
-                    <th>税率</th>
-                    <th>入库单价</th>
-                    <th>月末库存</th>
-                    <th>含税库存金额</th>
-                    <th>不含税金额</th>
-                    <th>税额</th>
-                </tr>
-            </thead>
-            <tbody id="monthBeginStockList"></tbody>
-        </table>
-    </div>
-    <div class="pagination" id="page_monthBeginStock"></div>
-</div>
-
-        <!-- 【新增】月期初库存独立分页容器 -->
+        <div class="table-container">
+            <table border="1" cellpadding="6" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>供应商</th>
+                        <th>商品名称</th>
+                        <th>规格</th>
+                        <th>税率</th>
+                        <th>入库单价</th>
+                        <th>月末库存</th>
+                        <th>含税库存金额</th>
+                        <th>不含税金额</th>
+                        <th>税额</th>
+                    </tr>
+                </thead>
+                <tbody id="monthBeginStockList"></tbody>
+            </table>
+        </div>
         <div class="pagination" id="page_monthBeginStock"></div>
     </div>
 </div>
 
-<!-- ========== 新增：系统设置页面 ========== -->
+<!-- 系统设置 -->
 <div id="settings" class="tab-content">
     <h3>⚙️ 系统设置</h3>
     
-    <!-- 设置子菜单 -->
     <div class="settings-sub-tabs">
         <button class="settings-sub-btn" data-tab="settingsBasic" onclick="switchSettingsTab('settingsBasic')">基础设置</button>
-<button class="settings-sub-btn" data-tab="settingsData" onclick="switchSettingsTab('settingsData')">数据管理</button>
-<button class="settings-sub-btn" data-tab="settingsPerm" onclick="switchSettingsTab('settingsPerm')">权限管理</button>
+        <button class="settings-sub-btn" data-tab="settingsData" onclick="switchSettingsTab('settingsData')">数据管理</button>
+        <button class="settings-sub-btn" data-tab="settingsPerm" onclick="switchSettingsTab('settingsPerm')">权限管理</button>
     </div>
     
-    <!-- ===== 基础设置 ===== -->
+    <!-- 基础设置 -->
     <div id="sub-settingsBasic" class="settings-sub-content active">
         <div class="settings-section">
             <h4>🏢 基础设置</h4>
@@ -1191,14 +1135,14 @@ document.addEventListener('click', function(e) {
         </div>
     </div>
     
-    <!-- ===== 数据管理 ===== -->
+    <!-- 数据管理 -->
     <div id="sub-settingsData" class="settings-sub-content" style="display:none;">
         <div class="settings-section">
             <h4>💾 数据管理</h4>
             <div class="setting-group">
-                <button class="btn btn-success" data-module="settings" data-op="backup" onclick="backupData()">💾 立即备份</button>
-                <button class="btn btn-warning" data-module="settings" data-op="import" onclick="importData()">📂 导入数据</button>
-                <button class="btn btn-danger" data-module="settings" data-op="clear" onclick="clearAllData()">🗑️ 清空数据</button>
+                <button class="btn btn-success" onclick="backupData()">💾 立即备份</button>
+                <button class="btn btn-warning" onclick="importData()">📂 导入数据</button>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空数据</button>
             </div>
             <div style="font-size:12px;color:#999;margin-top:10px;">
                 ⚠️ 清空数据前请确保已备份
@@ -1206,31 +1150,29 @@ document.addEventListener('click', function(e) {
         </div>
     </div>
     
-    <!-- ===== 权限管理（一体化） ===== -->
+    <!-- 权限管理 -->
     <div id="sub-settingsPerm" class="settings-sub-content" style="display:none;">      
         <div class="settings-section">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                <!-- 角色管理 -->
                 <div>
                     <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
                     <div style="display:flex;gap:6px;margin-bottom:10px;">
                         <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-                        <button class="btn btn-primary btn-sm" data-module="settings" data-op="addRole" onclick="openAddRoleModal()">新增</button>
+                        <button class="btn btn-primary btn-sm" onclick="openAddRoleModal()">新增</button>
                     </div>
                     <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
                 
-                <!-- 用户管理 -->
                 <div>
                     <h4 style="margin:0 0 10px 0;">👤 用户管理</h4>
                     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-    <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-    <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-    <select id="roleSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-        <option value="">请选择角色</option>
-    </select>
-    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
-</div>
+                        <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                        <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                        <select id="roleSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">请选择角色</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="addMember()">添加</button>
+                    </div>
                     <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
                 </div>
             </div>
@@ -1238,7 +1180,7 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ===== 新增角色弹窗（配置查看权限） ===== -->
+<!-- 新增角色弹窗 -->
 <div id="addRoleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#fff;padding:25px;border-radius:8px;width:550px;max-height:80vh;overflow-y:auto;">
         <h4>新增角色</h4>
@@ -1265,22 +1207,19 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- ===== 编辑用户操作权限弹窗（勾选即禁止操作） ===== -->
+<!-- 编辑用户操作权限弹窗 -->
 <div id="editUserPermModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#fff;padding:25px;border-radius:8px;width:600px;max-height:80vh;overflow-y:auto;">
         <h4>编辑用户操作权限</h4>
         <p style="color:#666;font-size:13px;">👤 <span id="editUserName"></span>（角色：<span id="editUserRole"></span>）</p>
         <p style="color:#ff4d4f;font-size:12px;background:#fff1f0;padding:6px 12px;border-radius:4px;">⚠️ 勾选 = 禁止操作，不勾选 = 允许操作</p>
-        <div id="userOpsContainer" style="margin-top:10px;">
-            <!-- 各模块的操作权限由JS动态生成 -->
-        </div>
+        <div id="userOpsContainer" style="margin-top:10px;"></div>
         <div style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-primary" onclick="saveUserPermissions()">保存</button>
             <button class="btn btn-default" onclick="closeEditUserPermModal()">取消</button>
         </div>
     </div>
 </div>
-<!-- ========== 新增结束 ========== -->
 
 <!-- 退货弹窗 -->
 <div class="form-modal" id="returnModal">
@@ -1291,7 +1230,6 @@ document.addEventListener('click', function(e) {
         </div>
         <input type="hidden" id="returnEditId">
         
-        <!-- 第一行：供应商 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">供应商：</label>
@@ -1310,7 +1248,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第二行：规格 + 结算方式 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">规格：</label>
@@ -1326,7 +1263,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第三行：批次列表 -->
         <div style="margin-bottom:14px;">
             <label style="display:block;font-weight:bold;font-size:14px;margin-bottom:6px;">选择退货批次：</label>
             <div id="returnBatchListContainer" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;padding:6px;background:#fafafa;">
@@ -1334,7 +1270,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第四行：已选批次信息 + 退货数量 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap;">
             <div style="flex:2; min-width:250px;">
                 <div id="returnSelectedBatchInfo" style="padding:10px 12px;border:1px solid #e8e8e8;border-radius:4px;background:#fafafa;min-height:50px;">
@@ -1351,7 +1286,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第五行：录入日期 + 退货原因 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap; min-width:200px;">
                 <label style="width:70px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">录入日期：</label>
@@ -1363,7 +1297,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 按钮 -->
         <div style="text-align:center; padding-top:15px; border-top:1px solid #eee;">
             <button class="btn btn-primary" onclick="submitReturnGoods()" style="padding:8px 50px; font-size:15px; border-radius:4px;">提交</button>
             <button class="btn btn-default" onclick="closeReturnForm()" style="padding:8px 50px; margin-left:15px; font-size:15px; border-radius:4px;">取消</button>
@@ -1467,7 +1400,6 @@ document.addEventListener('click', function(e) {
         <h4 id="formTitle" style="margin:0 0 20px 0; text-align:center; font-size:18px;">新增商品</h4>
         <input type="hidden" id="editId">
         
-        <!-- 第一行：供应商 + 商品名称 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:nowrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">供应商：</label>
@@ -1483,7 +1415,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第二行：规格 + 销售渠道 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:nowrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">规格：</label>
@@ -1495,7 +1426,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第三行：税率 + 销售单价 + 线上成本价 -->
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:nowrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">税率：</label>
@@ -1516,7 +1446,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 第四行：保质期时长 + 保质期单位 + 预警阈值 -->
         <div style="display:flex; gap:20px; margin-bottom:18px; flex-wrap:nowrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:13px; flex-shrink:0;">保质期时长：</label>
@@ -1537,7 +1466,6 @@ document.addEventListener('click', function(e) {
             </div>
         </div>
         
-        <!-- 按钮 -->
         <div style="text-align:center; padding-top:15px; border-top:1px solid #eee;">
             <button class="btn btn-primary" onclick="submitForm()" style="padding:8px 50px; font-size:15px; border-radius:4px;">提交</button>
             <button class="btn btn-default" onclick="closeForm()" style="padding:8px 50px; margin-left:15px; font-size:15px; border-radius:4px;">取消</button>
@@ -1545,28 +1473,8 @@ document.addEventListener('click', function(e) {
     </div>
 </div>
 
-<!-- JS 加载顺序严格固定 -->
-<script src="./js/config.js"></script>
-<script src="./js/common.js"></script>
-<script src="./js/settings.js"></script>
-<script src="./js/login.js"></script>
-<script src="./js/goods.js"></script>
-<script src="./js/stockin.js"></script>
-<script src="./js/return.js"></script>
-<script src="./js/stockout.js"></script>
-<script src="./js/stockStock.js"></script>
-<script src="./js/finance.js"></script>
-
-
-
-<!-- 仅保留页面初始化原生代码 -->
-<script>
-document.addEventListener('DOMContentLoaded',async function(){
-    document.getElementById('fileInput').value='';
-    // DOM完全渲染完毕后再加载商品列表，避免DOM未挂载就渲染导致序号错乱、重复渲染
-    await refreshGoods();
-});
-</script>
+<!-- 退货批量导入文件选择框 -->
+<input type="file" id="returnFileInput" accept=".xlsx,.xls" onchange="importReturnExcel()" hidden>
 
 <!-- 供应商管理弹窗 -->
 <div id="settleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
@@ -1593,5 +1501,26 @@ document.addEventListener('DOMContentLoaded',async function(){
 
 <!-- 供应商批量导入文件选择框 -->
 <input type="file" id="settleFileInput" accept=".xlsx,.xls" onchange="importSettleExcel()" hidden>
+
+<!-- JS 加载顺序严格固定 -->
+<script src="./js/config.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/settings.js"></script>
+<script src="./js/login.js"></script>
+<script src="./js/goods.js"></script>
+<script src="./js/stockin.js"></script>
+<script src="./js/return.js"></script>
+<script src="./js/stockout.js"></script>
+<script src="./js/stockStock.js"></script>
+<script src="./js/finance.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    document.getElementById('fileInput').value = '';
+    // DOM完全渲染完毕后再加载商品列表
+    await refreshGoods();
+});
+</script>
+
 </body>
 </html>
