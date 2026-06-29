@@ -179,7 +179,7 @@ function setCurrentUser(userId) {
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
     
     var perms = getUserPermissions(userId);
-    console.log('📊 用户权限:', perms.view);
+    console.log('📊 用户权限子版块:', perms.view);
     
     // 大模块 -> 子版块映射
     var moduleMenuMap = {
@@ -192,24 +192,46 @@ function setCurrentUser(userId) {
         'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
     };
     
+    // 1. 隐藏/显示主菜单
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
         var menuKey = match[1];
-        
-        // 检查该大模块下是否有子版块在权限列表中
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
-            return perms.view.includes(k);
+            return perms.view && perms.view.indexOf(k) !== -1;
         });
-        
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
+    
+    // 2. 隐藏/显示商品子版块按钮
+    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
+    document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = goodsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
+    // 3. 隐藏/显示财务子版块按钮
+    var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
+    document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
+    // 4. 隐藏/显示设置子版块按钮
+    var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
+    document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = settingsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
     applyAllPermissions();
 }
-
 // ============================================================
 // ===== Supabase 角色同步函数 =====
 // ============================================================
@@ -580,6 +602,16 @@ function saveCompanyName() {
 }
 
 function switchSettingsTab(tabKey) {
+// ===== 新增：检查子版块权限 =====
+    if (typeof currentUserId !== 'undefined' && currentUserId) {
+        if (typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            if (perms.view && perms.view.indexOf(tabKey) === -1) {
+                showMsg('您没有查看该子版块的权限');
+                return;
+            }
+        }
+    }
     document.querySelectorAll('.settings-sub-content').forEach(function(el) {
         el.style.display = 'none';
         el.classList.remove('active');

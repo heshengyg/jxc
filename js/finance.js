@@ -73,6 +73,16 @@ switchTab = async function (tabName) {
 
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
+// ===== 新增：检查子版块权限 =====
+    if (typeof currentUserId !== 'undefined' && currentUserId) {
+        if (typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            if (perms.view && perms.view.indexOf(tabKey) === -1) {
+                showMsg('您没有查看该子版块的权限');
+                return;
+            }
+        }
+    }
     try {
         currFinanceSub = tabKey;
 

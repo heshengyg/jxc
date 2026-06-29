@@ -511,6 +511,16 @@ function exportSettleExcel() {
 
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
+// ===== 新增：检查子版块权限 =====
+    if (typeof currentUserId !== 'undefined' && currentUserId) {
+        if (typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            if (perms.view && perms.view.indexOf(tab) === -1) {
+                showMsg('您没有查看该子版块的权限');
+                return;
+            }
+        }
+    }
     const buttons = document.querySelectorAll('#goods .finance-sub-btn');
     if (buttons.length === 0) {
         console.warn('没有找到子Tab按钮');
