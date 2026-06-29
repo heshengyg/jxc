@@ -11,8 +11,8 @@ let settingsData = {
 const ALL_MENUS = [
     // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'supplier', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'expireDate', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
     // ===== 退货管理 =====
@@ -24,19 +24,18 @@ const ALL_MENUS = [
     // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBack', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
     { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthInvoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthBeginStock', label: '月初初数', module: 'finance', moduleLabel: '财务综合' },
     // ===== 系统设置（3个子版块） =====
-    { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
-    { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
-    { key: 'settingsPerm', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
+    { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
-
 // 大模块列表（用于菜单分组显示）
 const MODULE_GROUPS = {
     goods: '商品管理',
@@ -50,15 +49,14 @@ const MODULE_GROUPS = {
 
 // 大模块对应的子版块 key 列表
 const MODULE_SUB_KEYS = {
-    goods: ['goodsInfo', 'supplier', 'expireDate'],
+    goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
     stockView: ['stockList'],
-    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
-    settings: ['settingsBasic', 'settingsData', 'settingsPerm']
+    finance: ['taxRate', 'stockInPrint', 'payRecord', 'invoiceBack', 'paymentBoard', 'monthInvoiceBalance', 'stockInCheck', 'stockOutCheck', 'monthBeginStock'],
+    settings: ['basic', 'data', 'permission']
 };
-
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
@@ -175,12 +173,12 @@ function applyAllPermissions() {
 function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
-    
+
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
-    
+
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限子版块:', perms.view);
-    
+
     // 大模块 -> 子版块映射
     var moduleMenuMap = {
         'goods': ['goodsInfo', 'supplier', 'expireDate'],
@@ -191,8 +189,8 @@ function setCurrentUser(userId) {
         'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
         'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
     };
-    
-    // 1. 隐藏/显示主菜单
+
+    // 1. 主菜单控制
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
@@ -205,7 +203,7 @@ function setCurrentUser(userId) {
         });
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-    
+
     // 2. 隐藏/显示商品子版块按钮
     var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
     document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
@@ -213,7 +211,7 @@ function setCurrentUser(userId) {
         var hasPermission = goodsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-    
+
     // 3. 隐藏/显示财务子版块按钮
     var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
     document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
@@ -221,7 +219,7 @@ function setCurrentUser(userId) {
         var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-    
+
     // 4. 隐藏/显示设置子版块按钮
     var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
     document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
@@ -229,7 +227,7 @@ function setCurrentUser(userId) {
         var hasPermission = settingsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-    
+
     applyAllPermissions();
 }
 // ============================================================

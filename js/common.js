@@ -88,13 +88,13 @@ function closeMsg() {
 // 标签页切换
 function switchTab(tabId) {
     console.log('切换到Tab:', tabId);
-    
+
     // 1. 隐藏所有tab内容
     document.querySelectorAll('.tab-content').forEach(t => {
         t.classList.remove('active');
         t.style.display = 'none';
     });
-    
+
     // 2. 显示目标Tab
     const targetTab = document.getElementById(tabId);
     if (targetTab) {
@@ -105,7 +105,7 @@ function switchTab(tabId) {
         console.warn('❌ 找不到Tab元素:', tabId);
         return;
     }
-    
+
     // 3. 切换按钮样式
     document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tabs .tab-btn').forEach(b => {
@@ -114,19 +114,17 @@ function switchTab(tabId) {
             b.classList.add('active');
         }
     });
-    
-    // ============================================================
-    // 4. 切换到商品管理：显示第一个有权限的子Tab
-    // ============================================================
+
+    // ===== 新增：处理子Tab的默认显示 =====
+    // 获取当前用户权限
+    var perms = null;
+    if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
+        perms = getUserPermissions(currentUserId);
+    }
+
+    // 如果是商品管理
     if (tabId === 'goods') {
-        // 获取用户权限
-        var perms = null;
-        if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
-            perms = getUserPermissions(currentUserId);
-        }
-        
         var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
-        // 找到第一个有权限的子版块
         var firstAllowed = 'goodsInfo';
         if (perms && perms.view) {
             var found = goodsSubKeys.find(function(k) {
@@ -134,25 +132,20 @@ function switchTab(tabId) {
             });
             if (found) firstAllowed = found;
         }
-        
-        // 隐藏所有商品子内容
+
+        // 隐藏所有商品子内容，显示第一个有权限的
         document.querySelectorAll('#goods .finance-sub-content').forEach(function(el) {
             el.style.display = 'none';
         });
         document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
             btn.classList.remove('active');
         });
-        
-        // 显示第一个有权限的子版块
+
         var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) {
-            targetContent.style.display = 'block';
-        }
+        if (targetContent) targetContent.style.display = 'block';
         var targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
-        
+        if (targetBtn) targetBtn.classList.add('active');
+
         // 加载对应数据
         if (firstAllowed === 'goodsInfo' && typeof loadGoods === 'function') {
             loadGoods(true);
@@ -162,16 +155,9 @@ function switchTab(tabId) {
             loadDateChangeTab();
         }
     }
-    
-    // ============================================================
-    // 5. 切换到财务综合：显示第一个有权限的子Tab
-    // ============================================================
+
+    // 如果是财务综合
     if (tabId === 'finance') {
-        var perms = null;
-        if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
-            perms = getUserPermissions(currentUserId);
-        }
-        
         var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
         var firstAllowed = 'taxRate';
         if (perms && perms.view) {
@@ -180,25 +166,19 @@ function switchTab(tabId) {
             });
             if (found) firstAllowed = found;
         }
-        
-        // 隐藏所有财务子内容
+
         document.querySelectorAll('#finance .finance-sub-content').forEach(function(el) {
             el.style.display = 'none';
         });
         document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
             btn.classList.remove('active');
         });
-        
-        // 显示第一个有权限的子版块
+
         var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) {
-            targetContent.style.display = 'block';
-        }
+        if (targetContent) targetContent.style.display = 'block';
         var targetBtn = document.querySelector('#finance .finance-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
-        
+        if (targetBtn) targetBtn.classList.add('active');
+
         // 初始化财务数据
         if (typeof initFinanceBaseData === 'function') {
             initFinanceBaseData();
@@ -207,16 +187,9 @@ function switchTab(tabId) {
             switchFinanceSubTab(firstAllowed);
         }
     }
-    
-    // ============================================================
-    // 6. 切换到系统设置：显示第一个有权限的子Tab
-    // ============================================================
+
+    // 如果是系统设置
     if (tabId === 'settings') {
-        var perms = null;
-        if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
-            perms = getUserPermissions(currentUserId);
-        }
-        
         var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
         var firstAllowed = 'settingsBasic';
         if (perms && perms.view) {
@@ -225,27 +198,21 @@ function switchTab(tabId) {
             });
             if (found) firstAllowed = found;
         }
-        
-        // 隐藏所有设置子内容
+
         document.querySelectorAll('#settings .settings-sub-content').forEach(function(el) {
             el.style.display = 'none';
         });
         document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
             btn.classList.remove('active');
         });
-        
-        // 显示第一个有权限的子版块
+
         var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) {
-            targetContent.style.display = 'block';
-        }
+        if (targetContent) targetContent.style.display = 'block';
         var targetBtn = document.querySelector('#settings .settings-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
+        if (targetBtn) targetBtn.classList.add('active');
     }
-    
-    // 7. 加载对应数据（原有的业务逻辑）
+
+    // 原有的业务数据加载
     try {
         console.log('加载数据:', tabId);
         switch(tabId) {
@@ -273,15 +240,14 @@ function switchTab(tabId) {
     } catch (e) {
         console.error('加载Tab数据失败:', e);
     }
-    
-    // 8. 应用权限控制
+
+    // 应用权限控制
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {
             applyAllPermissions();
         }
     }, 150);
 }
-
 
 // ============================================================
 // ===== 权限控制统一管理（新增） =====
