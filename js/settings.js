@@ -12,7 +12,7 @@ const ALL_MENUS = [
     // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
     { key: 'supplier', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
-{ key: 'expireDate', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'expireDate', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
     // ===== 退货管理 =====
@@ -21,21 +21,22 @@ const ALL_MENUS = [
     { key: 'stockOutList', label: '出库记录', module: 'stockOut', moduleLabel: '出库管理' },
     // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
-    // 财务综合（9个子版块）
-{ key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },  // 新增
-{ key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
+    // ===== 财务综合（9个子版块） =====
+    { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
     // ===== 系统设置（3个子版块） =====
     { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
-{ key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
-{ key: 'settingsPerm', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
+    { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'settingsPerm', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
+
 // 大模块列表（用于菜单分组显示）
 const MODULE_GROUPS = {
     goods: '商品管理',
@@ -54,9 +55,10 @@ const MODULE_SUB_KEYS = {
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
     stockView: ['stockList'],
-    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'stockOutCheck', 'monthStart'],
+    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
     settings: ['settingsBasic', 'settingsData', 'settingsPerm']
 };
+
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
@@ -173,12 +175,12 @@ function applyAllPermissions() {
 function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
-
+    
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
-
+    
     var perms = getUserPermissions(userId);
-    console.log('📊 用户权限子版块:', perms.view);
-
+    console.log('📊 用户权限:', perms.view);
+    
     // 大模块 -> 子版块映射
     var moduleMenuMap = {
         'goods': ['goodsInfo', 'supplier', 'expireDate'],
@@ -189,47 +191,25 @@ function setCurrentUser(userId) {
         'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
         'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
     };
-
-    // 1. 主菜单控制
+    
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
         var menuKey = match[1];
+        
+        // 检查该大模块下是否有子版块在权限列表中
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
-            return perms.view && perms.view.indexOf(k) !== -1;
+            return perms.view.includes(k);
         });
+        
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-
-    // 2. 隐藏/显示商品子版块按钮
-    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
-    document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = goodsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
-
-    // 3. 隐藏/显示财务子版块按钮
-    var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'stockOutCheck', 'monthStart'];
-    document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
-
-    // 4. 隐藏/显示设置子版块按钮
-    var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
-    document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = settingsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
-
     applyAllPermissions();
 }
+
 // ============================================================
 // ===== Supabase 角色同步函数 =====
 // ============================================================
@@ -600,16 +580,6 @@ function saveCompanyName() {
 }
 
 function switchSettingsTab(tabKey) {
-// ===== 新增：检查子版块权限 =====
-    if (typeof currentUserId !== 'undefined' && currentUserId) {
-        if (typeof getUserPermissions === 'function') {
-            var perms = getUserPermissions(currentUserId);
-            if (perms.view && perms.view.indexOf(tabKey) === -1) {
-                showMsg('您没有查看该子版块的权限');
-                return;
-            }
-        }
-    }
     document.querySelectorAll('.settings-sub-content').forEach(function(el) {
         el.style.display = 'none';
         el.classList.remove('active');

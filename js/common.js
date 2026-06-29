@@ -88,13 +88,13 @@ function closeMsg() {
 // 标签页切换
 function switchTab(tabId) {
     console.log('切换到Tab:', tabId);
-
-    // 1. 隐藏所有tab内容
+    
+    // 1. 隐藏所有tab内容 - 包括 #goods 内部和外部的
     document.querySelectorAll('.tab-content').forEach(t => {
         t.classList.remove('active');
         t.style.display = 'none';
     });
-
+    
     // 2. 显示目标Tab
     const targetTab = document.getElementById(tabId);
     if (targetTab) {
@@ -105,7 +105,7 @@ function switchTab(tabId) {
         console.warn('❌ 找不到Tab元素:', tabId);
         return;
     }
-
+    
     // 3. 切换按钮样式
     document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tabs .tab-btn').forEach(b => {
@@ -114,112 +114,39 @@ function switchTab(tabId) {
             b.classList.add('active');
         }
     });
-
-    // ===== 新增：处理子Tab的默认显示 =====
-    // 获取当前用户权限
-    var perms = null;
-    if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
-        perms = getUserPermissions(currentUserId);
-    }
-
-    // 如果是商品管理
+    
+    // 4. ✅ 如果切换到商品管理，重新激活默认子Tab
     if (tabId === 'goods') {
-        var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
-        var firstAllowed = 'goodsInfo';
-        if (perms && perms.view) {
-            var found = goodsSubKeys.find(function(k) {
-                return perms.view.indexOf(k) !== -1;
+        // 激活商品信息子Tab
+        const goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
+        if (goodsInfoBtn) {
+            // 移除所有子Tab的active状态
+            document.querySelectorAll('#goods .finance-sub-btn').forEach(btn => {
+                btn.classList.remove('active');
             });
-            if (found) firstAllowed = found;
-        }
-
-        // 隐藏所有商品子内容，显示第一个有权限的
-        document.querySelectorAll('#goods .finance-sub-content').forEach(function(el) {
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
-
-        var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) targetContent.style.display = 'block';
-        var targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) targetBtn.classList.add('active');
-
-        // 加载对应数据
-        if (firstAllowed === 'goodsInfo' && typeof loadGoods === 'function') {
-            loadGoods(true);
-        } else if (firstAllowed === 'settleType' && typeof loadSettleList === 'function') {
-            loadSettleList();
-        } else if (firstAllowed === 'dateChange' && typeof loadDateChangeTab === 'function') {
-            loadDateChangeTab();
+            goodsInfoBtn.classList.add('active');
+            
+            // 显示商品信息内容，隐藏结算类型内容
+            const goodsInfoContent = document.getElementById('sub-goodsInfo');
+            const settleTypeContent = document.getElementById('sub-settleType');
+            if (goodsInfoContent) goodsInfoContent.style.display = 'block';
+            if (settleTypeContent) settleTypeContent.style.display = 'none';
+            
+            // 重新加载商品列表
+            if (typeof loadGoods === 'function') {
+                loadGoods();
+            }
         }
     }
-
-    // 如果是财务综合
-    if (tabId === 'finance') {
-        var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
-        var firstAllowed = 'taxRate';
-        if (perms && perms.view) {
-            var found = financeSubKeys.find(function(k) {
-                return perms.view.indexOf(k) !== -1;
-            });
-            if (found) firstAllowed = found;
-        }
-
-        document.querySelectorAll('#finance .finance-sub-content').forEach(function(el) {
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
-
-        var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) targetContent.style.display = 'block';
-        var targetBtn = document.querySelector('#finance .finance-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) targetBtn.classList.add('active');
-
-        // 初始化财务数据
-        if (typeof initFinanceBaseData === 'function') {
-            initFinanceBaseData();
-        }
-        if (typeof switchFinanceSubTab === 'function') {
-            switchFinanceSubTab(firstAllowed);
-        }
-    }
-
-    // 如果是系统设置
-    if (tabId === 'settings') {
-        var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
-        var firstAllowed = 'settingsBasic';
-        if (perms && perms.view) {
-            var found = settingsSubKeys.find(function(k) {
-                return perms.view.indexOf(k) !== -1;
-            });
-            if (found) firstAllowed = found;
-        }
-
-        document.querySelectorAll('#settings .settings-sub-content').forEach(function(el) {
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
-
-        var targetContent = document.getElementById('sub-' + firstAllowed);
-        if (targetContent) targetContent.style.display = 'block';
-        var targetBtn = document.querySelector('#settings .settings-sub-btn[data-tab="' + firstAllowed + '"]');
-        if (targetBtn) targetBtn.classList.add('active');
-    }
-
-    // 原有的业务数据加载
+    
+    // 5. 加载对应数据
     try {
         console.log('加载数据:', tabId);
         switch(tabId) {
             case 'stockIn':
                 if (typeof loadStockIn === 'function') loadStockIn();
                 break;
-            case 'returnGoods':
+            case 'returnGoods':  // ✅ 新增退货管理
                 if (typeof loadReturnGoods === 'function') loadReturnGoods();
                 break;
             case 'stockOut':
@@ -229,10 +156,7 @@ function switchTab(tabId) {
                 if (typeof loadStockStock === 'function') loadStockStock();
                 break;
             case 'finance':
-                // 已在上面处理
-                break;
-            case 'settings':
-                // 已在上面处理
+                if (typeof loadTaxRateList === 'function') loadTaxRateList();
                 break;
             default:
                 break;
@@ -240,14 +164,17 @@ function switchTab(tabId) {
     } catch (e) {
         console.error('加载Tab数据失败:', e);
     }
-
-    // 应用权限控制
+    
+    // ========== 新增：切换Tab后应用权限控制 ==========
+    // 延迟执行，确保DOM渲染完成
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {
             applyAllPermissions();
         }
     }, 150);
+    // ========== 新增结束 ==========
 }
+
 
 // ============================================================
 // ===== 权限控制统一管理（新增） =====
