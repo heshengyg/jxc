@@ -541,13 +541,20 @@ function applyUserPermissions() {
         try {
             var user = JSON.parse(saved);
             if (user && user.id) {
-                if (permissionData.users.length === 0) {
-                    loadAllUsersFromSupabase().then(function() {
-                        setCurrentUser(user.id);
-                        console.log('✅ 应用 Supabase 用户权限:', user.name);
+                // 如果角色尚未加载，先加载角色
+                if (permissionData.roles.length === 0) {
+                    loadRolesFromSupabase().then(function() {
+                        loadAllUsersFromSupabase().then(function() {
+                            setCurrentUser(user.id);
+                            console.log('✅ 应用 Supabase 用户权限（角色已加载）:', user.name);
+                        });
                     });
                 } else {
-                    setCurrentUser(user.id);
+                    // 角色已存在，直接刷新用户列表（保证数据最新）
+                    loadAllUsersFromSupabase().then(function() {
+                        setCurrentUser(user.id);
+                        console.log('✅ 应用 Supabase 用户权限（刷新列表）:', user.name);
+                    });
                 }
                 return;
             }
@@ -555,9 +562,9 @@ function applyUserPermissions() {
             console.warn('应用用户权限失败:', e);
         }
     }
+    // 兜底：如果无登录信息，使用默认 admin
     setCurrentUser('user_1');
 }
-
 // 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
@@ -935,7 +942,7 @@ async function addMember() {
     pwdEl.value = '';
     roleSelect.value = '';
 
-    showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
+    console.log('✅ 用户添加成功！用户名: ' + savedUser.username);
     await loadAllUsersFromSupabase();
     renderUsers();
     renderMembers();
@@ -985,16 +992,12 @@ async function loadAllUsersFromSupabase() {
             console.log('同步用户:', user.username, '角色:', user.role);
             // 先尝试精确匹配
             var role = permissionData.roles.find(function(r) {
-                return r.name === user.role;
-            });
-            if (!role) {
-                console.warn('未找到角色 "' + user.role + '"，回退到管理员');
-                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-            }
-            if (!role) {
-                console.warn('管理员角色也不存在，跳过用户:', user.username);
-                continue;
-            }
+    return r.name === user.role;
+});
+if (!role) {
+    console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+    continue;
+}
 
             permissionData.users.push({
                 id: user.id,
