@@ -869,11 +869,15 @@ async function addMember() {
     
     showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
 }
+// 重新加载用户列表，确保与 Supabase 同步
+await loadAllUsersFromSupabase();
+renderUsers();
+renderMembers();
+updateRoleSelect();
 
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
     
-    // 找到用户信息
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (user && user.name === 'admin') return showMsg('不能删除管理员账号');
     
@@ -889,23 +893,76 @@ async function deleteUser(userId) {
         return;
     }
     
-    console.log('✅ Supabase 删除成功，影响行数:', result.data || 0);
+    console.log('✅ Supabase 删除成功');
     
-    // 2. 从本地 permissionData.users 删除
+    // 2. 从本地删除
     permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
-    
-    // 3. 从 settingsData.members 删除（重要！）
     settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
     
-    // 4. 保存
+    // 3. 保存
     savePermissionData();
     saveSettings();
     
-    // 5. 重新渲染
+    // 4. 重新渲染
     renderUsers();
     renderMembers();
+    updateRoleSelect();
     
     showMsg('✅ 用户已删除');
+}
+
+/**
+ * 从 Supabase 加载所有用户，同步到本地
+ */
+async function loadAllUsersFromSupabase() {
+    try {
+        var result = await supabase
+            .from('users')
+            .select('id, username, role, status');
+        
+        if (result.error) {
+            console.error('❌ 加载用户失败:', result.error);
+            return;
+        }
+        
+        // 清空本地用户
+        permissionData.users = [];
+        settingsData.members = [];
+        
+        // 重新同步
+        for (var user of result.data) {
+            // 查找角色
+            var role = permissionData.roles.find(function(r) { 
+                return r.name === user.role || r.name === '管理员'; 
+            });
+            if (!role) continue;
+            
+            permissionData.users.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                roleId: role.id,
+                bannedOperations: []
+            });
+            
+            settingsData.members.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                department: user.role,
+                roleId: role.id,
+                bannedOperations: []
+            });
+        }
+        
+        savePermissionData();
+        saveSettings();
+        
+        console.log('✅ 已同步', permissionData.users.length, '个用户');
+        
+    } catch (err) {
+        console.error('❌ 加载用户异常:', err);
+    }
 }
 
 // ============================================================
