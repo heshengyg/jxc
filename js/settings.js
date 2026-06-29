@@ -140,17 +140,12 @@ function canUserView(userId, menuKey) {
     return perms.view.includes(menuKey);
 }
 
-// ===== 修改后的 canUserOperate =====
+// ===== 修复：使用 getUserPermissions 获取权限，利用回退机制 =====
 function canUserOperate(userId, moduleKey, operationKey) {
     if (!userId) return false;
-    var user = permissionData.users.find(function(u) { return u.id === userId; });
-    if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    if (!role) return false;
-    if (role.name === '管理员') return true;
-    var banned = user.bannedOperations || [];
+    var perms = getUserPermissions(userId);
     var fullKey = moduleKey + '_' + operationKey;
-    return !banned.includes(fullKey);
+    return !(perms.banned && perms.banned.includes(fullKey));
 }
 
 // ============================================================
@@ -261,7 +256,6 @@ function applySubTabPermissions() {
         firstVisible.click();
     }
 
-    // 重新应用按钮权限（确保子Tab切换后权限刷新）
     applyAllPermissions();
 }
 
@@ -541,7 +535,6 @@ function applyUserPermissions() {
         try {
             var user = JSON.parse(saved);
             if (user && user.id) {
-                // 如果角色尚未加载，先加载角色
                 if (permissionData.roles.length === 0) {
                     loadRolesFromSupabase().then(function() {
                         loadAllUsersFromSupabase().then(function() {
@@ -550,7 +543,6 @@ function applyUserPermissions() {
                         });
                     });
                 } else {
-                    // 角色已存在，直接刷新用户列表（保证数据最新）
                     loadAllUsersFromSupabase().then(function() {
                         setCurrentUser(user.id);
                         console.log('✅ 应用 Supabase 用户权限（刷新列表）:', user.name);
@@ -562,15 +554,14 @@ function applyUserPermissions() {
             console.warn('应用用户权限失败:', e);
         }
     }
-    // 兜底：如果无登录信息，使用默认 admin
     setCurrentUser('user_1');
 }
+
 // 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
     originalSwitchTab(tabName);
     if (tabName === 'settings') {
-        // 重新加载角色和用户数据
         loadRolesFromSupabase().then(function() {
             loadAllUsersFromSupabase().then(function() {
                 renderAll();
@@ -583,6 +574,7 @@ window.switchTab = function(tabName) {
         setTimeout(applySubTabPermissions, 50);
     }
 };
+
 function initSettings() {
     loadSettings();
     loadPermissionData();
@@ -974,6 +966,9 @@ async function deleteUser(userId) {
     showMsg('✅ 用户已删除');
 }
 
+// ============================================================
+// ===== 修复：loadAllUsersFromSupabase 正确处理 admin =====
+// ============================================================
 async function loadAllUsersFromSupabase() {
     try {
         var result = await supabase
@@ -985,9 +980,7 @@ async function loadAllUsersFromSupabase() {
             return;
         }
 
-        // 确保角色列表已加载
         if (permissionData.roles.length === 0) {
-            // 如果角色列表为空，尝试从数据库加载
             await loadRolesFromSupabase();
         }
 
@@ -1000,15 +993,20 @@ async function loadAllUsersFromSupabase() {
             var role = permissionData.roles.find(function(r) {
                 return r.name === user.role;
             });
+
+            // 特殊处理：如果用户是 admin，即使角色匹配失败，也强制分配管理员角色
+            if (!role && user.username === 'admin') {
+                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+                if (role) {
+                    console.log('🔧 admin 用户强制分配管理员角色');
+                } else {
+                    console.warn('⚠️ 未找到管理员角色，admin 将被跳过');
+                }
+            }
+
             if (!role) {
-                // 如果找不到，且该角色是 '管理员'，尝试查找 name 包含 '管理员' 的（但最好精确）
-                if (user.role === '管理员') {
-                    role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-                }
-                if (!role) {
-                    console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
-                    continue;
-                }
+                console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+                continue;
             }
 
             permissionData.users.push({
