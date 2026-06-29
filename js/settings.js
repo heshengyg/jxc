@@ -779,15 +779,7 @@ async function addMember() {
     if (!name || !pwd) return showMsg('请填写完整信息');
     if (!roleId) return showMsg('请选择角色');
     
-    // 1. 检查本地是否存在同名用户
-    var localExists = permissionData.users.some(function(u) { return u.name === name; });
-    if (localExists) {
-        // 打印详细日志，帮助调试
-        console.log('本地存在同名用户:', name, permissionData.users);
-        return showMsg('❌ 用户名已存在（本地）');
-    }
-    
-    // 2. 检查 Supabase 是否存在同名用户（包括已删除但未同步的情况）
+    // ===== 只检查 Supabase，不检查本地 =====
     var checkResult = await supabase
         .from('users')
         .select('username')
@@ -795,9 +787,7 @@ async function addMember() {
     
     if (checkResult.error) {
         console.error('❌ 检查用户失败:', checkResult.error);
-        // 继续执行，让 Supabase 自己处理重复
     } else if (checkResult.data && checkResult.data.length > 0) {
-        console.log('Supabase 存在同名用户:', checkResult.data);
         return showMsg('❌ 用户名已存在');
     }
     
@@ -895,15 +885,10 @@ async function deleteUser(userId) {
     
     console.log('✅ Supabase 删除成功');
     
-    // 2. 从本地删除
-    permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
-    settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
+    // 2. 从 Supabase 重新加载（保持前后端一致）
+    await loadAllUsersFromSupabase();
     
-    // 3. 保存
-    savePermissionData();
-    saveSettings();
-    
-    // 4. 重新渲染
+    // 3. 重新渲染
     renderUsers();
     renderMembers();
     updateRoleSelect();
