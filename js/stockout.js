@@ -417,37 +417,47 @@ function outToggleSelectAll(){
     document.querySelectorAll('.out-item-checkbox').forEach(cb=>cb.checked=all);
 }
 
-// 单条删除
-async function deleteStockOut(id){
-    if(!confirm('确定删除？'))return;
-    try{
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`,{
-            method:'DELETE',
-            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+// 单条删除出库
+async function deleteStockOut(id) {
+    // ===== 检查是否管理员 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除出库记录');
+        return;
+    }
+    if (!confirm('确定删除？')) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         showMsg('删除成功');
         loadStockOut();
         loadStockIn();
-    }catch(e){ showMsg('删除失败'); }
+    } catch (e) {
+        showMsg('删除失败');
+    }
 }
-
-// 批量删除
-async function batchDeleteStockOut(){
+// 批量删除出库
+async function batchDeleteStockOut() {
+    // ===== 检查是否管理员 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以批量删除出库记录');
+        return;
+    }
     let ids = [];
-    document.querySelectorAll('.out-item-checkbox:checked').forEach(cb=>ids.push(cb.value));
-    if(ids.length===0) return showMsg('请选择数据');
-    if(!confirm(`确定删除${ids.length}条？`))return;
-    for(let id of ids){
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`,{
-            method:'DELETE',
-            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+    document.querySelectorAll('.out-item-checkbox:checked').forEach(cb => ids.push(cb.value));
+    if (ids.length === 0) return showMsg('请选择数据');
+    if (!confirm(`确定删除${ids.length}条？`)) return;
+    for (let id of ids) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_out?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
     }
     showMsg('批量删除成功');
     loadStockOut();
     loadStockIn();
 }
-
 // 清空排序、重置搜索
 function clearOutSort(){
     outSortField = ''; outSortAsc = true; updateOutSortIcon(); loadStockOut();

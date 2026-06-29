@@ -80,7 +80,7 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表（移除编辑按钮） ==========
+// ========== 渲染列表 ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
@@ -205,7 +205,7 @@ function resetReturnSearch() {
     document.getElementById('returnSpecListBox').style.display = 'none';
 }
 
-// ========== 供应商搜索下拉（从 allStockIn 获取） ==========
+// ========== 供应商搜索下拉 ==========
 function showReturnSupplierList() {
     const box = document.getElementById('returnSupplierListBox');
     if (!box) return;
@@ -272,7 +272,7 @@ function renderReturnSupplierList(list) {
     });
 }
 
-// ========== 商品搜索下拉（从 allStockIn 获取） ==========
+// ========== 商品搜索下拉 ==========
 function showReturnGoodsList() {
     const box = document.getElementById('returnGoodsListBox');
     if (!box) return;
@@ -394,7 +394,7 @@ function renderReturnGoodsList(list) {
     });
 }
 
-// ========== 规格搜索下拉（从 allStockIn 获取） ==========
+// ========== 规格搜索下拉 ==========
 function showReturnSpecList() {
     const box = document.getElementById('returnSpecListBox');
     if (!box) return;
@@ -583,7 +583,7 @@ function updateReturnBatchList() {
     container.innerHTML = html;
 }
 
-// ========== 切换批次选择（点击切换选中/取消） ==========
+// ========== 切换批次选择 ==========
 function toggleReturnBatch(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
@@ -617,7 +617,7 @@ function toggleReturnBatch(index) {
         return;
     }
     
-    // 选中新批次 - 只记录选中状态，不改变过滤条件
+    // 选中新批次
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
@@ -627,12 +627,8 @@ function toggleReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
-    // ========== 关键修改：不要更新商品搜索框的值 ==========
-    // 只更新供应商搜索框（因为可能跨供应商选择）
+    // 只更新供应商搜索框
     document.getElementById('returnSupplierSearch').value = batch.supplier;
-    // ⚠️ 不要更新 returnSelectedGoods 和商品搜索框，保持用户之前的筛选状态
-    // document.getElementById('returnGoodsSearch').value = batch.goodsName;  // ← 注释掉这行！
-    // returnSelectedGoods = batch.goodsName;  // ← 注释掉这行！
     
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
@@ -663,7 +659,6 @@ function toggleReturnBatch(index) {
     document.getElementById('returnNum').max = selectedBatchData.batchRemain;
     document.getElementById('returnNum').value = '';
     
-    // 只更新高亮状态，不重新过滤数据
     updateReturnBatchList();
     
     console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
@@ -694,11 +689,9 @@ function checkReturnNum() {
 
 // ========== 提交退货 ==========
 async function submitReturnGoods() {
-    // ========== 修改开始：从选中的批次数据中获取供应商和商品名 ==========
     let supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     let goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     
-    // 如果商品名为空，但有选中的批次，从批次数据中获取
     if (!goodsName && selectedBatchInRecordId) {
         const allBatches = window._returnBatchListData || [];
         for (const batch of allBatches) {
@@ -711,7 +704,6 @@ async function submitReturnGoods() {
             }
         }
     }
-    // ========== 修改结束 ==========
     
     const goodsId = document.getElementById('returnCurGoodsId').value;
     const spec = document.getElementById('returnSpec').value;
@@ -798,14 +790,47 @@ async function submitReturnGoods() {
         showMsg('操作失败');
     }
 }
-// ========== 批量删除 ==========
+
+// ============================================================
+// ===== 删除功能（仅管理员） =====
+// ============================================================
+
+// ========== 单条删除退货 ==========
+async function deleteReturnGoods(id) {
+    // 检查当前用户是否是管理员
+    if (typeof isCurrentUserAdmin !== 'function' || !isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除退货记录');
+        return;
+    }
+    if (!confirm('确定删除该退货记录？')) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/return_goods?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        showMsg('删除成功');
+        await loadReturnGoods();
+        stockDataCache.clear();
+        refreshAllStockCache(allStockIn, allStockOut);
+        if (typeof loadStockStock === 'function') {
+            loadStockStock();
+        }
+    } catch (e) {
+        showMsg('删除失败');
+    }
+}
+
+// ========== 批量删除退货 ==========
 async function batchDeleteReturnGoods() {
+    // 检查当前用户是否是管理员
+    if (typeof isCurrentUserAdmin !== 'function' || !isCurrentUserAdmin()) {
+        showMsg('只有管理员可以批量删除退货记录');
+        return;
+    }
     const ids = [];
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
-        if (cb.checked) ids.push(cb.value);
-    });
+    document.querySelectorAll('.return-item-checkbox:checked').forEach(cb => ids.push(cb.value));
     if (ids.length === 0) return showMsg('请选择数据');
-    if (!confirm(`确定删除${ids.length}条？`)) return;
+    if (!confirm(`确定删除${ids.length}条退货记录？`)) return;
     for (const id of ids) {
         await fetch(`${SUPABASE_URL}/rest/v1/return_goods?id=eq.${id}`, {
             method: 'DELETE',
@@ -890,7 +915,6 @@ async function importReturnExcel() {
                 
                 if (!supplier || !goodsName || returnNum < 1 || !recordDate) { failCount++; continue; }
                 
-                // 从入库记录中查找匹配的商品
                 const inRecord = allStockIn.find(item => 
                     item.supplier === supplier && 
                     item.goodsName === goodsName && 

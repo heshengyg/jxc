@@ -1,4 +1,4 @@
-// ===================== 系统设置模块（完整权限版） =====================
+===================== 系统设置模块（完整权限版） =====================
 let settingsData = {
     companyName: '',
     departments: ['管理员', '商品部', '库管员', '财务部', 'APP部'],
@@ -69,6 +69,18 @@ let permissionData = {
 
 // ===== 当前登录用户 =====
 let currentUserId = null;
+
+// ============================================================
+// ===== 工具函数：检查当前用户是否是管理员 =====
+// ============================================================
+function isCurrentUserAdmin() {
+    if (!currentUserId) return false;
+    var currentUser = permissionData.users.find(function(u) { return u.id === currentUserId; });
+    if (!currentUser) return false;
+    var currentRole = permissionData.roles.find(function(r) { return r.id === currentUser.roleId; });
+    return currentRole && currentRole.name === '管理员';
+}
+// 
 
 // ============================================================
 // ===== 权限检查函数（先定义，供其他函数调用） =====

@@ -1268,7 +1268,13 @@ async function savePayRecord() {
     currentPayEditId = null;
 }
 
+// 删除付款记录
 async function deletePayRecord(id) {
+    // ===== 检查是否管理员 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除付款记录');
+        return;
+    }
     if (!confirm('确定删除该付款记录？')) return;
     await fetch(`${SUPABASE_URL}/rest/v1/finance_payment?id=eq.${id}`, {
         method: 'DELETE',
@@ -1278,7 +1284,6 @@ async function deletePayRecord(id) {
     refreshPayRecordList();
     showMsg('删除成功');
 }
-
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 async function initInvoiceBackPage() {
@@ -1570,7 +1575,13 @@ async function recalculateInvoiceStatus(supplier) {
     allStockInList = latestStockIn;
 }
 
+// 删除发票返回记录
 async function deleteInvoiceBackRecord(id) {
+    // ===== 检查是否管理员 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除发票返回记录');
+        return;
+    }
     if (!confirm('确定删除该发票返回记录？')) return;
     
     const recordToDelete = allInvoiceBackList.find(i => i.id === id);
@@ -1597,6 +1608,7 @@ async function deleteInvoiceBackRecord(id) {
     
     showMsg('删除成功，已重新计算发票核销状态');
 }
+
 // ===================== ⑤收付款看板 =====================
 function initPaymentBoardPage() {
     financePageConfig.paymentBoard.current = 1;
