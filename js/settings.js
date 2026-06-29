@@ -7,26 +7,20 @@ let settingsData = {
 
 // ============================================================
 // ===== 子版块菜单定义（查看权限细化到子版块） =====
-// ===== 注意：这里的 key 必须与 HTML 中 data-tab 完全一致 =====
 // ============================================================
 const ALL_MENUS = [
     // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
-
     // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
-
     // ===== 退货管理 =====
     { key: 'returnList', label: '退货记录', module: 'returnGoods', moduleLabel: '退货管理' },
-
     // ===== 出库管理 =====
     { key: 'stockOutList', label: '出库记录', module: 'stockOut', moduleLabel: '出库管理' },
-
     // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
-
     // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
@@ -37,12 +31,22 @@ const ALL_MENUS = [
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-
     // ===== 系统设置（3个子版块） =====
     { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
     { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
     { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
+
+// ===== 大模块分组（用于界面显示） =====
+const MODULE_GROUPS = {
+    goods: '商品管理',
+    stockIn: '入库管理',
+    returnGoods: '退货管理',
+    stockOut: '出库管理',
+    stockView: '库存查看',
+    finance: '财务综合',
+    settings: '系统设置'
+};
 
 // 大模块对应的子版块 key 列表
 const MODULE_SUB_KEYS = {
@@ -100,7 +104,7 @@ function isCurrentUserAdmin() {
 }
 
 // ============================================================
-// ===== 权限检查函数（修正：用户不存在时默认管理员权限） =====
+// ===== 权限检查函数 =====
 // ============================================================
 function getUserPermissions(userId) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
@@ -138,33 +142,17 @@ function canUserView(userId, menuKey) {
 
 // ===== 修改后的 canUserOperate =====
 function canUserOperate(userId, moduleKey, operationKey) {
-    // 如果 userId 为空，默认不允许
     if (!userId) return false;
-
-    // 查找用户
     var user = permissionData.users.find(function(u) { return u.id === userId; });
-    if (!user) {
-        // 如果找不到用户，默认禁止（避免未登录用户操作）
-        return false;
-    }
-
-    // 查找角色
+    if (!user) return false;
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    if (!role) {
-        // 没有角色，默认禁止
-        return false;
-    }
-
-    // 如果是管理员，直接允许所有操作
-    if (role.name === '管理员') {
-        return true;
-    }
-
-    // 非管理员，检查 banned 列表
+    if (!role) return false;
+    if (role.name === '管理员') return true;
     var banned = user.bannedOperations || [];
     var fullKey = moduleKey + '_' + operationKey;
     return !banned.includes(fullKey);
 }
+
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================
@@ -205,7 +193,6 @@ function setCurrentUser(userId) {
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
 
-    // 大模块 -> 子版块映射
     var moduleMenuMap = {
         'goods': ['goodsInfo', 'settleType', 'dateChange'],
         'stockIn': ['stockInList'],
@@ -273,11 +260,13 @@ function applySubTabPermissions() {
     } else if (!activeSub && firstVisible) {
         firstVisible.click();
     }
+
+    // 重新应用按钮权限（确保子Tab切换后权限刷新）
     applyAllPermissions();
 }
 
 // ============================================================
-// ===== Supabase 角色同步（保持不变） =====
+// ===== Supabase 角色同步 =====
 // ============================================================
 async function loadRolesFromSupabase() {
     try {
@@ -936,7 +925,6 @@ async function addMember() {
     roleSelect.value = '';
 
     showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
-    // 重新加载以确保同步
     await loadAllUsersFromSupabase();
     renderUsers();
     renderMembers();
