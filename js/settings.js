@@ -156,6 +156,8 @@ function applyAllPermissions() {
         console.warn('⚠️ currentUserId 为空，跳过权限应用');
         return;
     }
+    console.log('🔐 应用权限，用户ID:', currentUserId);
+    
     document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
         var moduleKey = btn.dataset.module;
         var opKey = btn.dataset.op;
@@ -940,9 +942,15 @@ async function deleteUser(userId) {
     renderMembers();
     updateRoleSelect();
     
+    // 6. 如果删除的是当前用户，清除 session
+    if (currentUserId === userId) {
+        currentUserId = null;
+    }
+    
     console.log('✅ 用户已从 Supabase 和本地删除');
     showMsg('✅ 用户已删除');
 }
+
 // ============================================================
 // ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================

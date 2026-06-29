@@ -142,27 +142,55 @@ function switchTab(tabId) {
         }
     });
     
-    // 4. 如果切换到商品管理，重新激活默认子Tab
-    if (tabId === 'goods') {
-        var goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
-        if (goodsInfoBtn) {
-            document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
-                btn.classList.remove('active');
-            });
-            goodsInfoBtn.classList.add('active');
-            
-            var goodsInfoContent = document.getElementById('sub-goodsInfo');
-            var settleTypeContent = document.getElementById('sub-settleType');
-            var dateChangeContent = document.getElementById('sub-dateChange');
-            if (goodsInfoContent) goodsInfoContent.style.display = 'block';
-            if (settleTypeContent) settleTypeContent.style.display = 'none';
-            if (dateChangeContent) dateChangeContent.style.display = 'none';
-            
-            if (typeof loadGoods === 'function') {
-                loadGoods(true);
-            }
-        }
+    // 4. 如果切换到商品管理，显示第一个有权限的子Tab
+if (tabId === 'goods') {
+    // 获取用户权限
+    var perms = null;
+    if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
+        perms = getUserPermissions(currentUserId);
     }
+    
+    // 商品子版块列表
+    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
+    
+    // 找到第一个有权限的子版块
+    var firstAllowed = null;
+    if (perms && perms.view) {
+        firstAllowed = goodsSubKeys.find(function(k) {
+            return perms.view.indexOf(k) !== -1;
+        });
+    }
+    if (!firstAllowed) {
+        firstAllowed = 'goodsInfo'; // 兜底
+    }
+    
+    // 隐藏所有商品子内容
+    document.querySelectorAll('#goods .finance-sub-content').forEach(function(el) {
+        el.style.display = 'none';
+    });
+    document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    
+    // 显示第一个有权限的子版块
+    var targetContent = document.getElementById('sub-' + firstAllowed);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+    var targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + firstAllowed + '"]');
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+    
+    // 加载对应数据
+    if (firstAllowed === 'goodsInfo' && typeof loadGoods === 'function') {
+        loadGoods(true);
+    } else if (firstAllowed === 'settleType' && typeof loadSettleList === 'function') {
+        loadSettleList();
+    } else if (firstAllowed === 'dateChange' && typeof loadDateChangeTab === 'function') {
+        loadDateChangeTab();
+    }
+}
     
     // 5. 如果切换到财务，默认显示第一个有权限的子Tab
     if (tabId === 'finance') {
