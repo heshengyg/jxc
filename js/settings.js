@@ -80,7 +80,6 @@ function isCurrentUserAdmin() {
     var currentRole = permissionData.roles.find(function(r) { return r.id === currentUser.roleId; });
     return currentRole && currentRole.name === '管理员';
 }
-// 
 
 // ============================================================
 // ===== 权限检查函数（先定义，供其他函数调用） =====
@@ -208,6 +207,53 @@ function setCurrentUser(userId) {
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
     applyAllPermissions();
+    
+    // ===== 新增：应用子版块权限 =====
+    applySubTabPermissions();
+}
+
+// ============================================================
+// ===== 🆕 子版块权限应用函数 =====
+// ============================================================
+function applySubTabPermissions() {
+    var activeTab = document.querySelector('.tab-btn.active');
+    if (!activeTab) return;
+    
+    var match = activeTab.getAttribute('onclick')?.match(/switchTab\('([^']+)'\)/);
+    if (!match) return;
+    var moduleKey = match[1];
+    
+    var perms = getUserPermissions(currentUserId);
+    var subBtns = [];
+    
+    // 根据当前主模块获取对应的子按钮列表
+    if (moduleKey === 'goods') {
+        subBtns = document.querySelectorAll('#goods .finance-sub-btn');
+    } else if (moduleKey === 'finance') {
+        subBtns = document.querySelectorAll('#finance .finance-sub-btn');
+    } else if (moduleKey === 'settings') {
+        subBtns = document.querySelectorAll('#settings .settings-sub-btn');
+    } else {
+        return; // 其他模块没有子Tab
+    }
+    
+    var firstVisible = null;
+    subBtns.forEach(function(btn) {
+        var tabKey = btn.dataset.tab;
+        var hasPerm = perms.view.includes(tabKey);
+        btn.style.display = hasPerm ? '' : 'none';
+        if (hasPerm && !firstVisible) firstVisible = btn;
+    });
+    
+    // 检查当前激活的子Tab是否可见
+    var activeSub = document.querySelector('#' + moduleKey + ' .finance-sub-btn.active') || 
+                    document.querySelector('#' + moduleKey + ' .settings-sub-btn.active');
+    if (activeSub && activeSub.style.display === 'none') {
+        // 当前激活不可见，切换到第一个可见
+        if (firstVisible) firstVisible.click();
+    } else if (!activeSub && firstVisible) {
+        firstVisible.click();
+    }
 }
 
 // ============================================================
@@ -510,6 +556,16 @@ function applyUserPermissions() {
     setCurrentUser('user_1');
 }
 
+// ============================================================
+// ===== 🆕 重写 switchTab 以支持子版块权限 =====
+// ============================================================
+var originalSwitchTab = window.switchTab;
+window.switchTab = function(tabName) {
+    originalSwitchTab(tabName);
+    // 延迟执行，确保 DOM 更新完成
+    setTimeout(applySubTabPermissions, 50);
+};
+
 function initSettings() {
     loadSettings();
     loadPermissionData();
@@ -520,6 +576,8 @@ function initSettings() {
             savePermissionData();
         }
         applyUserPermissions();
+        // 初始化时应用一次子权限
+        setTimeout(applySubTabPermissions, 100);
     });
     
     const settingsTab = document.getElementById('settingsTab');
@@ -684,6 +742,8 @@ saveRole = async function() {
                 closeAddRoleModal();
                 showMsg('✅ 角色已更新');
                 document.getElementById('addRoleModal').dataset.editId = '';
+                // 应用权限
+                applySubTabPermissions();
             }
         }
     } else {
@@ -705,6 +765,8 @@ saveRole = async function() {
             renderRoles();
             closeAddRoleModal();
             showMsg('✅ 角色添加成功');
+            // 应用权限
+            applySubTabPermissions();
         }
     }
 };
@@ -725,6 +787,7 @@ function deleteRole(roleId) {
             renderRoles();
             renderUsers();
             showMsg('✅ 角色已删除');
+            applySubTabPermissions();
         }
     });
 }
