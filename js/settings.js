@@ -576,7 +576,7 @@ window.switchTab = function(tabName) {
                 renderAll();
                 applyAllPermissions();
                 applySubTabPermissions();
-                showMsg('✅ 数据已同步');
+                console.log('✅ 数据已同步');
             });
         });
     } else {
@@ -942,7 +942,7 @@ async function addMember() {
     pwdEl.value = '';
     roleSelect.value = '';
 
-    console.log('✅ 用户添加成功！用户名: ' + savedUser.username);
+    showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
     await loadAllUsersFromSupabase();
     renderUsers();
     renderMembers();
@@ -985,19 +985,31 @@ async function loadAllUsersFromSupabase() {
             return;
         }
 
+        // 确保角色列表已加载
+        if (permissionData.roles.length === 0) {
+            // 如果角色列表为空，尝试从数据库加载
+            await loadRolesFromSupabase();
+        }
+
         permissionData.users = [];
         settingsData.members = [];
 
         for (var user of result.data) {
             console.log('同步用户:', user.username, '角色:', user.role);
-            // 先尝试精确匹配
+            // 精确匹配角色
             var role = permissionData.roles.find(function(r) {
-    return r.name === user.role;
-});
-if (!role) {
-    console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
-    continue;
-}
+                return r.name === user.role;
+            });
+            if (!role) {
+                // 如果找不到，且该角色是 '管理员'，尝试查找 name 包含 '管理员' 的（但最好精确）
+                if (user.role === '管理员') {
+                    role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+                }
+                if (!role) {
+                    console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+                    continue;
+                }
+            }
 
             permissionData.users.push({
                 id: user.id,
