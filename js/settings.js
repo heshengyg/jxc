@@ -224,13 +224,13 @@ function setCurrentUser(userId) {
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
     
-    // ===== 新增：隐藏/显示财务子版块按钮 =====
-    var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
-    document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
+    // ===== 隐藏/显示财务子版块按钮 =====
+var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
+document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
+    var tab = btn.getAttribute('data-tab');
+    var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+    btn.style.display = hasPermission ? 'inline-block' : 'none';
+});
     
     // ===== 新增：隐藏/显示设置子版块按钮 =====
     var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];

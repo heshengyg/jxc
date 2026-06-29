@@ -150,8 +150,8 @@ if (tabId === 'goods') {
         perms = getUserPermissions(currentUserId);
     }
     
-    // 商品子版块列表
-    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
+    // 商品子版块列表（按顺序）
+    var goodsSubKeys = ['goodsInfo', 'settleType', 'dateChange'];
     
     // 找到第一个有权限的子版块
     var firstAllowed = null;
