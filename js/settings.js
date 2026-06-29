@@ -136,17 +136,35 @@ function canUserView(userId, menuKey) {
     return perms.view.includes(menuKey);
 }
 
-// ===== 关键修复：canUserOperate 不再自行查找 user，而是使用 getUserPermissions =====
+// ===== 修改后的 canUserOperate =====
 function canUserOperate(userId, moduleKey, operationKey) {
-    var perms = getUserPermissions(userId);
-    var fullKey = moduleKey + '_' + operationKey;
-    // 如果 banned 列表中包含该操作，则禁止
-    if (perms.banned && perms.banned.includes(fullKey)) {
+    // 如果 userId 为空，默认不允许
+    if (!userId) return false;
+
+    // 查找用户
+    var user = permissionData.users.find(function(u) { return u.id === userId; });
+    if (!user) {
+        // 如果找不到用户，默认禁止（避免未登录用户操作）
         return false;
     }
-    return true; // 否则允许
-}
 
+    // 查找角色
+    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    if (!role) {
+        // 没有角色，默认禁止
+        return false;
+    }
+
+    // 如果是管理员，直接允许所有操作
+    if (role.name === '管理员') {
+        return true;
+    }
+
+    // 非管理员，检查 banned 列表
+    var banned = user.bannedOperations || [];
+    var fullKey = moduleKey + '_' + operationKey;
+    return !banned.includes(fullKey);
+}
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================
@@ -255,6 +273,7 @@ function applySubTabPermissions() {
     } else if (!activeSub && firstVisible) {
         firstVisible.click();
     }
+    applyAllPermissions();
 }
 
 // ============================================================
