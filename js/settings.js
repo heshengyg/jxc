@@ -868,12 +868,12 @@ async function addMember() {
     roleSelect.value = '';
     
     showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
-}
 // 重新加载用户列表，确保与 Supabase 同步
 await loadAllUsersFromSupabase();
 renderUsers();
 renderMembers();
 updateRoleSelect();
+}
 
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
