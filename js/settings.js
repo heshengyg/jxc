@@ -782,16 +782,22 @@ async function addMember() {
     // 1. 检查本地是否存在同名用户
     var localExists = permissionData.users.some(function(u) { return u.name === name; });
     if (localExists) {
+        // 打印详细日志，帮助调试
+        console.log('本地存在同名用户:', name, permissionData.users);
         return showMsg('❌ 用户名已存在（本地）');
     }
     
-    // 2. 检查 Supabase 是否存在同名用户
+    // 2. 检查 Supabase 是否存在同名用户（包括已删除但未同步的情况）
     var checkResult = await supabase
         .from('users')
         .select('username')
         .eq('username', name);
     
-    if (checkResult.data && checkResult.data.length > 0) {
+    if (checkResult.error) {
+        console.error('❌ 检查用户失败:', checkResult.error);
+        // 继续执行，让 Supabase 自己处理重复
+    } else if (checkResult.data && checkResult.data.length > 0) {
+        console.log('Supabase 存在同名用户:', checkResult.data);
         return showMsg('❌ 用户名已存在');
     }
     
@@ -855,7 +861,7 @@ async function addMember() {
     saveSettings();
     renderUsers();
     renderMembers();
-    updateRoleSelect();  // 新增：刷新角色下拉
+    updateRoleSelect();
     
     nameEl.value = '';
     pwdEl.value = '';
@@ -883,10 +889,12 @@ async function deleteUser(userId) {
         return;
     }
     
+    console.log('✅ Supabase 删除成功，影响行数:', result.data || 0);
+    
     // 2. 从本地 permissionData.users 删除
     permissionData.users = permissionData.users.filter(function(u) { return u.id !== userId; });
     
-    // 3. 从 settingsData.members 删除
+    // 3. 从 settingsData.members 删除（重要！）
     settingsData.members = settingsData.members.filter(function(m) { return m.id !== userId; });
     
     // 4. 保存
@@ -899,6 +907,7 @@ async function deleteUser(userId) {
     
     showMsg('✅ 用户已删除');
 }
+
 // ============================================================
 // ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================
