@@ -92,14 +92,14 @@ function switchTab(tabId) {
     // ===== 新增：检查该大模块下是否有子版块权限 =====
     if (typeof currentUserId !== 'undefined' && currentUserId) {
         var moduleMenuMap = {
-            'goods': ['goodsInfo', 'supplier', 'expireDate'],
-            'stockIn': ['stockInList'],
-            'returnGoods': ['returnList'],
-            'stockOut': ['stockOutList'],
-            'stockView': ['stockList'],
-            'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
-            'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
-        };
+    'goods': ['goodsInfo', 'supplier', 'expireDate'],
+    'stockIn': ['stockInList'],
+    'returnGoods': ['returnList'],
+    'stockOut': ['stockOutList'],
+    'stockView': ['stockList'],
+    'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthBeginStock', 'financeReport'],  // ← monthStart → monthBeginStock
+    'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
+};
         var subKeys = moduleMenuMap[tabId] || [];
         if (typeof getUserPermissions === 'function') {
             var perms = getUserPermissions(currentUserId);

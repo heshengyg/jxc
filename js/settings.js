@@ -22,15 +22,16 @@ const ALL_MENUS = [
     // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
     // ===== 财务综合（9个子版块） =====
-    { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
+    // 财务综合（9个子版块）
+{ key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
+{ key: 'monthBeginStock', label: '月初初数', module: 'finance', moduleLabel: '财务综合' },  // ← 改为 monthBeginStock
+{ key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
     // ===== 系统设置（3个子版块） =====
     { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
     { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
@@ -55,10 +56,9 @@ const MODULE_SUB_KEYS = {
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
     stockView: ['stockList'],
-    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
+    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthBeginStock', 'financeReport'],  // ← monthStart → monthBeginStock
     settings: ['settingsBasic', 'settingsData', 'settingsPerm']
 };
-
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
@@ -225,7 +225,7 @@ function setCurrentUser(userId) {
     });
     
     // ===== 隐藏/显示财务子版块按钮 =====
-var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
+var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthBeginStock', 'financeReport'];  // ← monthStart → monthBeginStock
 document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
     var tab = btn.getAttribute('data-tab');
     var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
@@ -502,17 +502,17 @@ function initDefaultPermissionData() {
     var allKeys = ALL_MENUS.map(function(m) { return m.key; });
     
     permissionData = {
-        roles: [
-            { id: 'role_1', name: '管理员', viewPermissions: allKeys },
-            { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'supplier', 'expireDate', 'stockList'] },
-            { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
-            { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'paymentRecord', 'invoiceReturn', 'stockInCheck', 'stockList'] },
-            { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
-        ],
-        users: [
-            { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
-        ]
-    };
+    roles: [
+        { id: 'role_1', name: '管理员', viewPermissions: allKeys },
+        { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'supplier', 'expireDate', 'stockList'] },
+        { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
+        { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'paymentRecord', 'invoiceReturn', 'stockInCheck', 'stockList'] },
+        { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
+    ],
+    users: [
+        { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
+    ]
+};
     savePermissionData();
 }
 
