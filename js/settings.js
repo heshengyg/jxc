@@ -200,28 +200,47 @@ function setCurrentUser(userId) {
         'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
     };
     
+    // 隐藏/显示主菜单
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
-        var menuKey = match[1];  // 大模块 key，如 'goods'
-        
-        // 检查该大模块下是否有子版块在权限列表中
+        var menuKey = match[1];
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
-            return perms.view.includes(k);
+            return perms.view && perms.view.indexOf(k) !== -1;
         });
-        
         btn.style.display = hasPermission ? 'inline-block' : 'none';
-        if (!hasPermission) {
-            console.log('❌ 隐藏菜单:', menuKey);
-        } else {
-            console.log('✅ 显示菜单:', menuKey);
-        }
     });
+    
+    // ===== 新增：隐藏/显示商品子版块按钮 =====
+    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
+    document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = goodsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
+    // ===== 新增：隐藏/显示财务子版块按钮 =====
+    var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'];
+    document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
+    // ===== 新增：隐藏/显示设置子版块按钮 =====
+    var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
+    document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
+        var tab = btn.getAttribute('data-tab');
+        var hasPermission = settingsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
+        btn.style.display = hasPermission ? 'inline-block' : 'none';
+    });
+    
     applyAllPermissions();
 }
+
 // ============================================================
 // ===== Supabase 角色同步函数 =====
 // ============================================================

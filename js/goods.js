@@ -510,7 +510,7 @@ function exportSettleExcel() {
 }
 
 // ========== 商品子Tab切换 ==========
-function switchGoodsSubTab(tab) {
+window.switchGoodsSubTab = function(tab) {
     // ===== 新增：检查子版块权限 =====
     if (typeof currentUserId !== 'undefined' && currentUserId) {
         if (typeof getUserPermissions === 'function') {

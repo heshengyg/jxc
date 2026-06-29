@@ -72,7 +72,7 @@ switchTab = async function (tabName) {
 }
 
 // 财务子Tab切换
-async function switchFinanceSubTab(tabKey) {
+window.switchFinanceSubTab = async function(tabKey) {
     // ===== 新增：检查子版块权限 =====
     if (typeof currentUserId !== 'undefined' && currentUserId) {
         if (typeof getUserPermissions === 'function') {
