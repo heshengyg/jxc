@@ -562,9 +562,20 @@ function applyUserPermissions() {
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
     originalSwitchTab(tabName);
-    setTimeout(applySubTabPermissions, 50);
+    if (tabName === 'settings') {
+        // 重新加载角色和用户数据
+        loadRolesFromSupabase().then(function() {
+            loadAllUsersFromSupabase().then(function() {
+                renderAll();
+                applyAllPermissions();
+                applySubTabPermissions();
+                showMsg('✅ 数据已同步');
+            });
+        });
+    } else {
+        setTimeout(applySubTabPermissions, 50);
+    }
 };
-
 function initSettings() {
     loadSettings();
     loadPermissionData();
@@ -971,10 +982,19 @@ async function loadAllUsersFromSupabase() {
         settingsData.members = [];
 
         for (var user of result.data) {
+            console.log('同步用户:', user.username, '角色:', user.role);
+            // 先尝试精确匹配
             var role = permissionData.roles.find(function(r) {
-                return r.name === user.role || r.name === '管理员';
+                return r.name === user.role;
             });
-            if (!role) continue;
+            if (!role) {
+                console.warn('未找到角色 "' + user.role + '"，回退到管理员');
+                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+            }
+            if (!role) {
+                console.warn('管理员角色也不存在，跳过用户:', user.username);
+                continue;
+            }
 
             permissionData.users.push({
                 id: user.id,
