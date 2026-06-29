@@ -12,8 +12,8 @@ let settingsData = {
 const ALL_MENUS = [
     // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },   // 原为 supplier
-    { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' }, // 原为 expireDate
+    { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
 
     // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
@@ -30,21 +30,21 @@ const ALL_MENUS = [
     // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },        // 原为 paymentRecord
-    { key: 'invoiceBack', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },      // 原为 invoiceReturn
+    { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBack', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
     { key: 'paymentBoard', label: '收付款看板', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'monthInvoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' }, // 原为 invoiceBalance
+    { key: 'monthInvoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },        // 原为 monthStart
-    { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },      // 原为 financeReport
+    { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
 
     // ===== 系统设置（3个子版块） =====
-    { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },      // 原为 settingsBasic
-    { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },        // 原为 settingsData
-    { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }   // 原为 settingsPerm
+    { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
 
-// 大模块对应的子版块 key 列表（用于快速查找）
+// 大模块对应的子版块 key 列表
 const MODULE_SUB_KEYS = {
     goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
@@ -56,7 +56,7 @@ const MODULE_SUB_KEYS = {
 };
 
 // ============================================================
-// ===== 旧 Key → 新 Key 映射表（用于兼容数据库历史数据） =====
+// ===== 旧 Key → 新 Key 映射表（兼容历史数据） =====
 // ============================================================
 const KEY_MIGRATION_MAP = {
     'supplier': 'settleType',
@@ -69,14 +69,12 @@ const KEY_MIGRATION_MAP = {
     'settingsBasic': 'basic',
     'settingsData': 'data',
     'settingsPerm': 'permission'
-    // 如果还有其他旧 Key，请在此补充
 };
 
-// 迁移函数：将旧 Key 数组转换为新 Key 数组
 function migrateKeys(oldKeys) {
     if (!Array.isArray(oldKeys)) return [];
     return oldKeys.map(function(key) {
-        return KEY_MIGRATION_MAP[key] || key; // 无映射则原样保留
+        return KEY_MIGRATION_MAP[key] || key;
     });
 }
 
@@ -88,11 +86,10 @@ let permissionData = {
     users: []
 };
 
-// ===== 当前登录用户 =====
 let currentUserId = null;
 
 // ============================================================
-// ===== 工具函数：检查当前用户是否是管理员 =====
+// ===== 工具函数 =====
 // ============================================================
 function isCurrentUserAdmin() {
     if (!currentUserId) return false;
@@ -103,9 +100,8 @@ function isCurrentUserAdmin() {
 }
 
 // ============================================================
-// ===== 权限检查函数 =====
+// ===== 权限检查函数（修正：用户不存在时默认管理员权限） =====
 // ============================================================
-
 function getUserPermissions(userId) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) {
@@ -140,21 +136,20 @@ function canUserView(userId, menuKey) {
     return perms.view.includes(menuKey);
 }
 
+// ===== 关键修复：canUserOperate 不再自行查找 user，而是使用 getUserPermissions =====
 function canUserOperate(userId, moduleKey, operationKey) {
-    var user = permissionData.users.find(function(u) { return u.id === userId; });
-    if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    if (role && role.name === '管理员') return true;
-    var banned = user.bannedOperations || [];
+    var perms = getUserPermissions(userId);
     var fullKey = moduleKey + '_' + operationKey;
-    if (banned.includes(fullKey)) return false;
-    return true;
+    // 如果 banned 列表中包含该操作，则禁止
+    if (perms.banned && perms.banned.includes(fullKey)) {
+        return false;
+    }
+    return true; // 否则允许
 }
 
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================
-
 function applyAllPermissions() {
     if (!currentUserId) {
         console.warn('⚠️ currentUserId 为空，跳过权限应用');
@@ -183,7 +178,6 @@ function applyAllPermissions() {
 // ============================================================
 // ===== 设置当前用户 =====
 // ============================================================
-
 function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
@@ -219,8 +213,6 @@ function setCurrentUser(userId) {
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
     applyAllPermissions();
-
-    // 应用子版块权限
     applySubTabPermissions();
 }
 
@@ -266,9 +258,8 @@ function applySubTabPermissions() {
 }
 
 // ============================================================
-// ===== Supabase 角色同步函数 =====
+// ===== Supabase 角色同步（保持不变） =====
 // ============================================================
-
 async function loadRolesFromSupabase() {
     try {
         console.log('📡 从 Supabase 加载角色...');
@@ -284,8 +275,7 @@ async function loadRolesFromSupabase() {
 
         if (result.data && result.data.length > 0) {
             permissionData.roles = result.data.map(function(role) {
-                // 迁移旧 Key 为新 Key
-                const migrated = migrateKeys(role.view_permissions || []);
+                var migrated = migrateKeys(role.view_permissions || []);
                 return {
                     id: role.id,
                     name: role.name,
@@ -332,7 +322,7 @@ async function saveRoleToSupabase(role) {
         }
 
         if (result.data && result.data.length > 0) {
-            const savedRole = result.data[0];
+            var savedRole = result.data[0];
             role.id = savedRole.id;
             role.name = savedRole.name;
             role.viewPermissions = savedRole.view_permissions || [];
@@ -377,7 +367,7 @@ async function syncRolePermissions(roleName, viewPermissions) {
             .delete()
             .eq('role', roleName);
 
-        const permissions = viewPermissions.map(function(menuKey) {
+        var permissions = viewPermissions.map(function(menuKey) {
             return {
                 role: roleName,
                 menu_key: menuKey,
@@ -417,9 +407,8 @@ async function deleteRolePermissions(roleName) {
 }
 
 // ============================================================
-// ===== Supabase 用户同步函数 =====
+// ===== Supabase 用户同步 =====
 // ============================================================
-
 async function syncUserToSupabase(userData) {
     try {
         const checkResult = await supabase
@@ -488,7 +477,6 @@ async function deleteUserFromSupabase(userId) {
 // ============================================================
 // ===== 初始化 =====
 // ============================================================
-
 function loadSettings() {
     try {
         const saved = localStorage.getItem('erp_settings');
@@ -539,9 +527,6 @@ function initDefaultPermissionData() {
     savePermissionData();
 }
 
-/**
- * 应用用户权限（在角色加载完成后调用）
- */
 function applyUserPermissions() {
     var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
     if (saved) {
@@ -565,9 +550,7 @@ function applyUserPermissions() {
     setCurrentUser('user_1');
 }
 
-// ============================================================
-// ===== 重写 switchTab 以支持子版块权限 =====
-// ============================================================
+// 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
     originalSwitchTab(tabName);
@@ -620,7 +603,6 @@ function renderAll() {
     updateRoleSelect();
 }
 
-// 更新角色下拉列表
 function updateRoleSelect() {
     var select = document.getElementById('roleSelect');
     if (!select) return;
@@ -662,9 +644,8 @@ function switchSettingsTab(tabKey) {
 }
 
 // ============================================================
-// ===== 角色管理（查看权限 - 子版块级别） =====
+// ===== 角色管理 =====
 // ============================================================
-
 function renderRoles() {
     var container = document.getElementById('roleList');
     if (!container) return;
@@ -827,9 +808,8 @@ function editRole(roleId) {
 }
 
 // ============================================================
-// ===== 用户管理（同步到 Supabase） =====
+// ===== 用户管理 =====
 // ============================================================
-
 function renderUsers() {
     var container = document.getElementById('userList');
     if (!container) return;
@@ -937,6 +917,7 @@ async function addMember() {
     roleSelect.value = '';
 
     showMsg('✅ 用户添加成功！用户名: ' + savedUser.username);
+    // 重新加载以确保同步
     await loadAllUsersFromSupabase();
     renderUsers();
     renderMembers();
@@ -961,13 +942,10 @@ async function deleteUser(userId) {
     }
 
     console.log('✅ Supabase 删除成功');
-
     await loadAllUsersFromSupabase();
-
     renderUsers();
     renderMembers();
     updateRoleSelect();
-
     showMsg('✅ 用户已删除');
 }
 
@@ -1011,7 +989,6 @@ async function loadAllUsersFromSupabase() {
 
         savePermissionData();
         saveSettings();
-
         console.log('✅ 已同步', permissionData.users.length, '个用户');
 
     } catch (err) {
@@ -1020,9 +997,8 @@ async function loadAllUsersFromSupabase() {
 }
 
 // ============================================================
-// ===== 编辑用户操作权限（勾选即禁止） =====
+// ===== 编辑用户操作权限 =====
 // ============================================================
-
 var editingUserId = null;
 
 function editUserPerm(userId) {
@@ -1125,7 +1101,6 @@ function saveUserPermissions() {
 // ============================================================
 // ===== renderMembers =====
 // ============================================================
-
 function renderMembers() {
     var container = document.getElementById('memberList') || document.getElementById('userList');
     if (!container) {
@@ -1184,7 +1159,6 @@ function renderMemberCards(container) {
 // ============================================================
 // ===== 数据管理 =====
 // ============================================================
-
 function backupData() {
     try {
         var data = JSON.stringify({
@@ -1253,7 +1227,6 @@ function clearAllData() {
 // ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
-
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
