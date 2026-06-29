@@ -11,8 +11,8 @@ let settingsData = {
 const ALL_MENUS = [
     // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'supplier', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'expireDate', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
     // ===== 退货管理 =====
@@ -24,41 +24,29 @@ const ALL_MENUS = [
     // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBack', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentBoard', label: '收付款看板', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthInvoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
     // ===== 系统设置（3个子版块） =====
-    { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
-    { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
-    { key: 'settingsPerm', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
+    { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
+    { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
-
-// 大模块列表（用于菜单分组显示）
-const MODULE_GROUPS = {
-    goods: '商品管理',
-    stockIn: '入库管理',
-    returnGoods: '退货管理',
-    stockOut: '出库管理',
-    stockView: '库存查看',
-    finance: '财务综合',
-    settings: '系统设置'
-};
 
 // 大模块对应的子版块 key 列表
 const MODULE_SUB_KEYS = {
-    goods: ['goodsInfo', 'supplier', 'expireDate'],
+    goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
     stockView: ['stockList'],
-    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
-    settings: ['settingsBasic', 'settingsData', 'settingsPerm']
+    finance: ['taxRate', 'stockInPrint', 'payRecord', 'invoiceBack', 'paymentBoard', 'monthInvoiceBalance', 'stockInCheck', 'stockOutCheck', 'monthBeginStock'],
+    settings: ['basic', 'data', 'permission']
 };
-
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
