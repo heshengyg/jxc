@@ -121,32 +121,32 @@ function canUserOperate(userId, moduleKey, operationKey) {
     if (!user) return false;
     
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    // 管理员默认全部可操作
-    if (role && role.name === '管理员') return true;
-    
-    var banned = user.bannedOperations || [];
+    // 管理员判断：角色名包含"管理员" 或 用户名是 admin
+    if (role && (role.name === '管理员' || role.name.indexOf('管理员') !== -1)) return true;
+    if (user.name === 'admin') return true;
     
     // 检查该用户是否有该模块的查看权限（子版块级别）
     var hasView = false;
     if (MODULE_SUB_KEYS[moduleKey]) {
         hasView = MODULE_SUB_KEYS[moduleKey].some(function(subKey) {
-            return role && role.viewPermissions && role.viewPermissions.includes(subKey);
+            return role && role.viewPermissions && role.viewPermissions.indexOf(subKey) !== -1;
         });
     }
     if (!hasView) return false;
     
     // 检查操作是否被禁止
-    // 遍历该模块下的所有子版块，检查是否有任何子版块的操作被禁止
+    var banned = user.bannedOperations || [];
     var subKeys = MODULE_SUB_KEYS[moduleKey] || [];
     for (var i = 0; i < subKeys.length; i++) {
         var fullKey = moduleKey + '_' + subKeys[i] + '_' + operationKey;
-        if (banned.includes(fullKey)) {
+        if (banned.indexOf(fullKey) !== -1) {
             return false;
         }
     }
     
     return true;
 }
+
 // ============================================================
 // ===== 应用权限到页面按钮 =====
 // ============================================================

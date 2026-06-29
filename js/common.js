@@ -89,14 +89,39 @@ function closeMsg() {
 function switchTab(tabId) {
     console.log('切换到Tab:', tabId);
     
-    // 1. 隐藏所有tab内容 - 包括 #goods 内部和外部的
-    document.querySelectorAll('.tab-content').forEach(t => {
+    // ===== 新增：检查该大模块下是否有子版块权限 =====
+    if (typeof currentUserId !== 'undefined' && currentUserId) {
+        var moduleMenuMap = {
+            'goods': ['goodsInfo', 'supplier', 'expireDate'],
+            'stockIn': ['stockInList'],
+            'returnGoods': ['returnList'],
+            'stockOut': ['stockOutList'],
+            'stockView': ['stockList'],
+            'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
+            'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
+        };
+        var subKeys = moduleMenuMap[tabId] || [];
+        if (typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            var hasPermission = subKeys.some(function(k) {
+                return perms.view && perms.view.indexOf(k) !== -1;
+            });
+            if (!hasPermission) {
+                console.warn('⚠️ 无权限访问:', tabId);
+                showMsg('您没有查看该模块的权限');
+                return;
+            }
+        }
+    }
+    
+    // 1. 隐藏所有tab内容
+    document.querySelectorAll('.tab-content').forEach(function(t) {
         t.classList.remove('active');
         t.style.display = 'none';
     });
     
     // 2. 显示目标Tab
-    const targetTab = document.getElementById(tabId);
+    var targetTab = document.getElementById(tabId);
     if (targetTab) {
         targetTab.classList.add('active');
         targetTab.style.display = 'block';
@@ -107,46 +132,63 @@ function switchTab(tabId) {
     }
     
     // 3. 切换按钮样式
-    document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tabs .tab-btn').forEach(b => {
-        const onclickAttr = b.getAttribute('onclick');
-        if (onclickAttr && onclickAttr.includes(`'${tabId}'`)) {
+    document.querySelectorAll('.tabs .tab-btn').forEach(function(b) {
+        b.classList.remove('active');
+    });
+    document.querySelectorAll('.tabs .tab-btn').forEach(function(b) {
+        var onclickAttr = b.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.indexOf("'" + tabId + "'") !== -1) {
             b.classList.add('active');
         }
     });
     
-    // 4. ✅ 如果切换到商品管理，重新激活默认子Tab
+    // 4. 如果切换到商品管理，重新激活默认子Tab
     if (tabId === 'goods') {
-        // 激活商品信息子Tab
-        const goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
+        var goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
         if (goodsInfoBtn) {
-            // 移除所有子Tab的active状态
-            document.querySelectorAll('#goods .finance-sub-btn').forEach(btn => {
+            document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
                 btn.classList.remove('active');
             });
             goodsInfoBtn.classList.add('active');
             
-            // 显示商品信息内容，隐藏结算类型内容
-            const goodsInfoContent = document.getElementById('sub-goodsInfo');
-            const settleTypeContent = document.getElementById('sub-settleType');
+            var goodsInfoContent = document.getElementById('sub-goodsInfo');
+            var settleTypeContent = document.getElementById('sub-settleType');
+            var dateChangeContent = document.getElementById('sub-dateChange');
             if (goodsInfoContent) goodsInfoContent.style.display = 'block';
             if (settleTypeContent) settleTypeContent.style.display = 'none';
+            if (dateChangeContent) dateChangeContent.style.display = 'none';
             
-            // 重新加载商品列表
             if (typeof loadGoods === 'function') {
-                loadGoods();
+                loadGoods(true);
             }
         }
     }
     
-    // 5. 加载对应数据
+    // 5. 如果切换到财务，默认显示第一个有权限的子Tab
+    if (tabId === 'finance') {
+        var moduleMenuMap = {
+            'finance': ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport']
+        };
+        if (typeof currentUserId !== 'undefined' && currentUserId && typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            var subKeys = moduleMenuMap['finance'] || [];
+            var firstAllowed = subKeys.find(function(k) {
+                return perms.view && perms.view.indexOf(k) !== -1;
+            });
+            if (firstAllowed) {
+                switchFinanceSubTab(firstAllowed);
+            }
+        }
+    }
+    
+    // 6. 加载对应数据
     try {
         console.log('加载数据:', tabId);
         switch(tabId) {
             case 'stockIn':
                 if (typeof loadStockIn === 'function') loadStockIn();
                 break;
-            case 'returnGoods':  // ✅ 新增退货管理
+            case 'returnGoods':
                 if (typeof loadReturnGoods === 'function') loadReturnGoods();
                 break;
             case 'stockOut':
@@ -156,7 +198,7 @@ function switchTab(tabId) {
                 if (typeof loadStockStock === 'function') loadStockStock();
                 break;
             case 'finance':
-                if (typeof loadTaxRateList === 'function') loadTaxRateList();
+                // 不在这里加载，由子Tab切换加载
                 break;
             default:
                 break;
@@ -165,16 +207,13 @@ function switchTab(tabId) {
         console.error('加载Tab数据失败:', e);
     }
     
-    // ========== 新增：切换Tab后应用权限控制 ==========
-    // 延迟执行，确保DOM渲染完成
+    // 应用权限控制
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {
             applyAllPermissions();
         }
     }, 150);
-    // ========== 新增结束 ==========
 }
-
 
 // ============================================================
 // ===== 权限控制统一管理（新增） =====

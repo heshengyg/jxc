@@ -511,7 +511,18 @@ function exportSettleExcel() {
 
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
-    const buttons = document.querySelectorAll('#goods .finance-sub-btn');
+    // ===== 新增：检查子版块权限 =====
+    if (typeof currentUserId !== 'undefined' && currentUserId) {
+        if (typeof getUserPermissions === 'function') {
+            var perms = getUserPermissions(currentUserId);
+            if (perms.view && perms.view.indexOf(tab) === -1) {
+                showMsg('您没有查看该子版块的权限');
+                return;
+            }
+        }
+    }
+    
+    var buttons = document.querySelectorAll('#goods .finance-sub-btn');
     if (buttons.length === 0) {
         console.warn('没有找到子Tab按钮');
         return;
@@ -520,17 +531,17 @@ function switchGoodsSubTab(tab) {
         btn.classList.remove('active');
     });
     
-    const targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + tab + '"]');
+    var targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + tab + '"]');
     if (targetBtn) {
         targetBtn.classList.add('active');
     }
     
-    const contents = document.querySelectorAll('#goods .finance-sub-content');
+    var contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(function(div) {
         div.style.display = 'none';
     });
     
-    const targetContent = document.getElementById('sub-' + tab);
+    var targetContent = document.getElementById('sub-' + tab);
     if (targetContent) {
         targetContent.style.display = 'block';
         console.log('显示子Tab:', tab);
@@ -543,16 +554,12 @@ function switchGoodsSubTab(tab) {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
         currentPage = 1;
-        const goodsTbody = document.getElementById('goodsList');
+        var goodsTbody = document.getElementById('goodsList');
         if(goodsTbody) goodsTbody.innerHTML = '';
-        // ========== 修改开始：直接强制刷新商品数据 ==========
-        // 移除缓存判断，每次切换到商品列表都强制从数据库重新加载
         loadGoods(true);
-        // ========== 修改结束 ==========
     } else if (tab === 'dateChange') {
-    // ✅ 每次点击都重新加载
-    loadDateChangeTab();
-}
+        loadDateChangeTab();
+    }
 }
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
