@@ -22,16 +22,15 @@ const ALL_MENUS = [
     // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
     // ===== 财务综合（9个子版块） =====
-    // 财务综合（9个子版块）
-{ key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
-{ key: 'monthBeginStock', label: '月初初数', module: 'finance', moduleLabel: '财务综合' },  // ← 改为 monthBeginStock
-{ key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceReturn', label: '发票返回记录', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'paymentBoard', label: '首付款看板', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'invoiceBalance', label: '发票月结余', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'monthStart', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
+    { key: 'financeReport', label: '财务报表', module: 'finance', moduleLabel: '财务综合' },
     // ===== 系统设置（3个子版块） =====
     { key: 'settingsBasic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
     { key: 'settingsData', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
@@ -56,9 +55,10 @@ const MODULE_SUB_KEYS = {
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
     stockView: ['stockList'],
-    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthBeginStock', 'financeReport'],  // ← monthStart → monthBeginStock
+    finance: ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthStart', 'financeReport'],
     settings: ['settingsBasic', 'settingsData', 'settingsPerm']
 };
+
 // ============================================================
 // ===== 权限数据 =====
 // ============================================================
@@ -119,31 +119,11 @@ function canUserView(userId, menuKey) {
 function canUserOperate(userId, moduleKey, operationKey) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) return false;
-    
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    // 管理员判断：角色名包含"管理员" 或 用户名是 admin
-    if (role && (role.name === '管理员' || role.name.indexOf('管理员') !== -1)) return true;
-    if (user.name === 'admin') return true;
-    
-    // 检查该用户是否有该模块的查看权限（子版块级别）
-    var hasView = false;
-    if (MODULE_SUB_KEYS[moduleKey]) {
-        hasView = MODULE_SUB_KEYS[moduleKey].some(function(subKey) {
-            return role && role.viewPermissions && role.viewPermissions.indexOf(subKey) !== -1;
-        });
-    }
-    if (!hasView) return false;
-    
-    // 检查操作是否被禁止
+    if (role && role.name === '管理员') return true;
     var banned = user.bannedOperations || [];
-    var subKeys = MODULE_SUB_KEYS[moduleKey] || [];
-    for (var i = 0; i < subKeys.length; i++) {
-        var fullKey = moduleKey + '_' + subKeys[i] + '_' + operationKey;
-        if (banned.indexOf(fullKey) !== -1) {
-            return false;
-        }
-    }
-    
+    var fullKey = moduleKey + '_' + operationKey;
+    if (banned.includes(fullKey)) return false;
     return true;
 }
 
@@ -156,8 +136,6 @@ function applyAllPermissions() {
         console.warn('⚠️ currentUserId 为空，跳过权限应用');
         return;
     }
-    console.log('🔐 应用权限，用户ID:', currentUserId);
-    
     document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
         var moduleKey = btn.dataset.module;
         var opKey = btn.dataset.op;
@@ -189,7 +167,7 @@ function setCurrentUser(userId) {
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
     
     var perms = getUserPermissions(userId);
-    console.log('📊 用户权限子版块:', perms.view);
+    console.log('📊 用户权限:', perms.view);
     
     // 大模块 -> 子版块映射
     var moduleMenuMap = {
@@ -202,44 +180,21 @@ function setCurrentUser(userId) {
         'settings': ['settingsBasic', 'settingsData', 'settingsPerm']
     };
     
-    // 隐藏/显示主菜单
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
         var match = onclick.match(/switchTab\('([^']+)'\)/);
         if (!match) return;
         var menuKey = match[1];
+        
+        // 检查该大模块下是否有子版块在权限列表中
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
-            return perms.view && perms.view.indexOf(k) !== -1;
+            return perms.view.includes(k);
         });
+        
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-    
-    // ===== 新增：隐藏/显示商品子版块按钮 =====
-    var goodsSubKeys = ['goodsInfo', 'supplier', 'expireDate'];
-    document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = goodsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
-    
-    // ===== 隐藏/显示财务子版块按钮 =====
-var financeSubKeys = ['taxRate', 'stockInPrint', 'paymentRecord', 'invoiceReturn', 'paymentBoard', 'invoiceBalance', 'stockInCheck', 'monthBeginStock', 'financeReport'];  // ← monthStart → monthBeginStock
-document.querySelectorAll('#finance .finance-sub-btn').forEach(function(btn) {
-    var tab = btn.getAttribute('data-tab');
-    var hasPermission = financeSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-    btn.style.display = hasPermission ? 'inline-block' : 'none';
-});
-    
-    // ===== 新增：隐藏/显示设置子版块按钮 =====
-    var settingsSubKeys = ['settingsBasic', 'settingsData', 'settingsPerm'];
-    document.querySelectorAll('#settings .settings-sub-btn').forEach(function(btn) {
-        var tab = btn.getAttribute('data-tab');
-        var hasPermission = settingsSubKeys.indexOf(tab) !== -1 && perms.view && perms.view.indexOf(tab) !== -1;
-        btn.style.display = hasPermission ? 'inline-block' : 'none';
-    });
-    
     applyAllPermissions();
 }
 
@@ -502,17 +457,17 @@ function initDefaultPermissionData() {
     var allKeys = ALL_MENUS.map(function(m) { return m.key; });
     
     permissionData = {
-    roles: [
-        { id: 'role_1', name: '管理员', viewPermissions: allKeys },
-        { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'supplier', 'expireDate', 'stockList'] },
-        { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
-        { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'paymentRecord', 'invoiceReturn', 'stockInCheck', 'stockList'] },
-        { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
-    ],
-    users: [
-        { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
-    ]
-};
+        roles: [
+            { id: 'role_1', name: '管理员', viewPermissions: allKeys },
+            { id: 'role_2', name: '商品部', viewPermissions: ['goodsInfo', 'supplier', 'expireDate', 'stockList'] },
+            { id: 'role_3', name: '库管员', viewPermissions: ['stockInList', 'stockOutList', 'stockList'] },
+            { id: 'role_4', name: '财务部', viewPermissions: ['taxRate', 'paymentRecord', 'invoiceReturn', 'stockInCheck', 'stockList'] },
+            { id: 'role_5', name: 'APP部', viewPermissions: ['returnList', 'stockList'] }
+        ],
+        users: [
+            { id: 'user_1', name: 'admin', password: '123', roleId: 'role_1', bannedOperations: [] }
+        ]
+    };
     savePermissionData();
 }
 
@@ -912,6 +867,7 @@ async function addMember() {
 async function deleteUser(userId) {
     if (!confirm('确定删除该用户？')) return;
     
+    // 找到用户信息
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (user && user.name === 'admin') return showMsg('不能删除管理员账号');
     
@@ -940,17 +896,9 @@ async function deleteUser(userId) {
     // 5. 重新渲染
     renderUsers();
     renderMembers();
-    updateRoleSelect();
     
-    // 6. 如果删除的是当前用户，清除 session
-    if (currentUserId === userId) {
-        currentUserId = null;
-    }
-    
-    console.log('✅ 用户已从 Supabase 和本地删除');
     showMsg('✅ 用户已删除');
 }
-
 // ============================================================
 // ===== 编辑用户操作权限（勾选即禁止） =====
 // ============================================================
@@ -979,6 +927,7 @@ function renderUserOpsContainer(bannedOps) {
     if (!container) return;
     container.innerHTML = '';
     
+    // 直接用 editingUserId 查找
     var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
     if (!user) {
         container.innerHTML = '<div class="op-empty">用户不存在</div>';
@@ -987,24 +936,25 @@ function renderUserOpsContainer(bannedOps) {
     
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     if (!role) {
-        container.innerHTML = '<div class="op-empty">用户未分配角色</div>';
+        container.innerHTML = '<div class="op-empty">用户未分配角色，请先分配角色</div>';
         return;
     }
     
-    // 遍历所有模块
+    // 检查角色是否有查看权限
+    if (!role.viewPermissions || role.viewPermissions.length === 0) {
+        container.innerHTML = '<div class="op-empty">角色没有查看权限，请先配置角色权限</div>';
+        return;
+    }
+    
+    // ... 后续生成操作权限列表的代码保持不变 ...
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        
-        // 检查该用户是否有该模块的查看权限（通过子版块判断）
-        var hasView = false;
-        if (MODULE_SUB_KEYS[moduleKey]) {
-            hasView = MODULE_SUB_KEYS[moduleKey].some(function(subKey) {
-                return role.viewPermissions && role.viewPermissions.indexOf(subKey) !== -1;
-            });
-        }
+        // 检查用户是否有该模块的查看权限（通过子版块判断）
+        var hasView = role.viewPermissions.some(function(k) {
+            return MODULE_SUB_KEYS[moduleKey] && MODULE_SUB_KEYS[moduleKey].includes(k);
+        });
         if (!hasView) continue;
         
-        // ... 后续生成操作权限列表的代码 ...
         var moduleDiv = document.createElement('div');
         moduleDiv.className = 'op-module-group';
         moduleDiv.innerHTML = '<div class="op-module-title">📁 ' + moduleData.label + '</div>';
@@ -1028,6 +978,7 @@ function renderUserOpsContainer(bannedOps) {
         container.appendChild(moduleDiv);
     }
     
+    // 如果没有任何操作权限显示，提示
     if (container.innerHTML === '') {
         container.innerHTML = '<div class="op-empty">该角色没有任何可操作的模块</div>';
     }

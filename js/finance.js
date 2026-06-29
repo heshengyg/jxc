@@ -72,26 +72,15 @@ switchTab = async function (tabName) {
 }
 
 // 财务子Tab切换
-window.switchFinanceSubTab = async function(tabKey) {
-    // ===== 新增：检查子版块权限 =====
-    if (typeof currentUserId !== 'undefined' && currentUserId) {
-        if (typeof getUserPermissions === 'function') {
-            var perms = getUserPermissions(currentUserId);
-            if (perms.view && perms.view.indexOf(tabKey) === -1) {
-                showMsg('您没有查看该子版块的权限');
-                return;
-            }
-        }
-    }
-    
+async function switchFinanceSubTab(tabKey) {
     try {
         currFinanceSub = tabKey;
 
         // 切换子版块时强制关闭所有弹窗
-        var modals = ['payModal', 'invoiceBackModal', 'taxModal'];
-        modals.forEach(function(id) {
+        const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
+        modals.forEach(id => {
             try {
-                var modal = document.getElementById(id);
+                const modal = document.getElementById(id);
                 if (modal) {
                     modal.style.display = 'none';
                 }
@@ -100,64 +89,55 @@ window.switchFinanceSubTab = async function(tabKey) {
             }
         });
 
-        // 隐藏所有财务子内容
-        var contents = document.querySelectorAll('#finance .finance-sub-content');
-        contents.forEach(function(el) {
-            el.style.display = 'none';
+        // 切换子页面前，清空所有9个财务分页，杜绝分页叠加
+        const paginationIds = [
+            'page_taxRate',
+            'page_stockInPrint',
+            'page_payRecord',
+            'page_invoiceBack',
+            'page_paymentBoard',
+            'page_monthInvoiceBalance',
+            'page_stockInCheck',
+            'page_stockOutCheck',
+            'page_monthBeginStock'
+        ];
+        paginationIds.forEach(id => {
+            try {
+                const pageDom = document.getElementById(id);
+                if (pageDom) {
+                    pageDom.innerHTML = '';
+                }
+            } catch(e) {
+                console.warn('清空分页失败:', id, e);
+            }
         });
 
+        // 隐藏所有子内容
+        const contents = document.querySelectorAll('.finance-sub-content');
+        contents.forEach(el => {
+            try {
+                el.style.display = 'none';
+            } catch(e) {
+                console.warn('隐藏子内容失败:', e);
+            }
+        });
+        
         // 显示目标子内容
-        var target = document.getElementById('sub-' + tabKey);
-        if (target) {
-            target.style.display = 'block';
+        const targetContent = document.getElementById(`sub-${tabKey}`);
+        if (targetContent) {
+            targetContent.style.display = 'block';
         }
 
-        // 切换按钮样式
-        var buttons = document.querySelectorAll('#finance .finance-sub-btn');
-        buttons.forEach(function(btn) {
-            btn.classList.remove('active');
+        // 移除所有按钮的激活状态
+        const btns = document.querySelectorAll('.finance-sub-btn');
+        btns.forEach(btn => {
+            try {
+                btn.classList.remove('active');
+            } catch(e) {
+                console.warn('移除按钮激活状态失败:', e);
+            }
         });
-        var targetBtn = document.querySelector('#finance .finance-sub-btn[data-tab="' + tabKey + '"]');
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-        }
-
-        // 根据不同的 tab 加载对应数据
-        switch(tabKey) {
-            case 'taxRate':
-                if (typeof loadTaxRateList === 'function') loadTaxRateList();
-                break;
-            case 'stockInPrint':
-                if (typeof loadPrintStockIn === 'function') loadPrintStockIn();
-                break;
-            case 'payRecord':
-                if (typeof loadPayRecordList === 'function') loadPayRecordList();
-                break;
-            case 'invoiceBack':
-                if (typeof loadInvoiceBackList === 'function') loadInvoiceBackList();
-                break;
-            case 'paymentBoard':
-                if (typeof loadPaymentBoard === 'function') loadPaymentBoard();
-                break;
-            case 'monthInvoiceBalance':
-                if (typeof loadMonthInvoiceBalance === 'function') loadMonthInvoiceBalance();
-                break;
-            case 'stockInCheck':
-                if (typeof loadStockInCheck === 'function') loadStockInCheck();
-                break;
-            case 'stockOutCheck':
-                if (typeof loadStockOutCheck === 'function') loadStockOutCheck();
-                break;
-            case 'monthBeginStock':
-                if (typeof loadMonthBeginStock === 'function') loadMonthBeginStock();
-                break;
-            default:
-                console.log('未知子Tab:', tabKey);
-        }
-    } catch (e) {
-        console.error('切换财务子Tab失败:', e);
-    }
-}        
+        
         // 激活目标按钮
         const targetBtn = document.querySelector(`.finance-sub-btn[data-tab="${tabKey}"]`);
         if (targetBtn) {
