@@ -782,20 +782,33 @@ function editRole(roleId) {
 saveRole = async function() {
     var editId = document.getElementById('addRoleModal').dataset.editId;
     var name = document.getElementById('roleNameInput').value.trim();
-    if (!name) return showMsg('请输入角色名称');
+    if (!name) {
+        showMsg('请输入角色名称');
+        return;
+    }
 
-    // 只收集子版块复选框（排除 data-group 的全选复选框）
-    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]');
-    var viewPermissions = Array.from(viewCheckboxes)
-        .filter(function(cb) { return cb.checked; })
-        .map(function(cb) { return cb.value; });
+    // 只收集子版块复选框（排除全选复选框）
+    var subCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]:checked');
+    var viewPermissions = Array.from(subCheckboxes).map(function(cb) { return cb.value; });
+    
+    if (viewPermissions.length === 0) {
+        showMsg('请至少勾选一个查看权限');
+        return;
+    }
 
-    if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
+    // 无论成功失败，都要关闭弹窗
+    var closeModal = function() {
+        document.getElementById('addRoleModal').style.display = 'none';
+    };
 
     if (editId) {
         var role = permissionData.roles.find(function(r) { return r.id === editId; });
         if (role) {
-            if (role.name === '管理员') return showMsg('不能修改管理员角色');
+            if (role.name === '管理员') {
+                showMsg('不能修改管理员角色');
+                closeModal();
+                return;
+            }
 
             role.name = name;
             role.viewPermissions = viewPermissions;
@@ -805,16 +818,21 @@ saveRole = async function() {
                 await syncRolePermissions(role.name, viewPermissions);
                 savePermissionData();
                 renderRoles();
-                updateRoleSelect(); // 刷新用户下拉
-                closeAddRoleModal();
+                updateRoleSelect();
                 showMsg('✅ 角色已更新');
                 document.getElementById('addRoleModal').dataset.editId = '';
                 applySubTabPermissions();
             }
+            closeModal();
+        } else {
+            showMsg('角色不存在');
+            closeModal();
         }
     } else {
         if (permissionData.roles.some(function(r) { return r.name === name; })) {
-            return showMsg('角色已存在');
+            showMsg('角色已存在');
+            closeModal();
+            return;
         }
 
         var newRole = {
@@ -829,13 +847,17 @@ saveRole = async function() {
             await syncRolePermissions(newRole.name, viewPermissions);
             savePermissionData();
             renderRoles();
-            updateRoleSelect(); // 刷新用户下拉
-            closeAddRoleModal();
+            updateRoleSelect();
             showMsg('✅ 角色添加成功');
             applySubTabPermissions();
         }
+        closeModal();
     }
 };
+
+function closeAddRoleModal() {
+    document.getElementById('addRoleModal').style.display = 'none';
+}
 
 function deleteRole(roleId) {
     if (!confirm('确定删除该角色？')) return;
