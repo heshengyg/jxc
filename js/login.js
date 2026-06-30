@@ -66,8 +66,8 @@ async function loginWithSupabase(username, password) {
         }
         
         console.log('✅ 登录成功！');
-        
-        // 保存用户信息
+
+// 保存用户信息
 var userData = {
     id: user.id,
     name: user.username,
@@ -81,7 +81,7 @@ sessionStorage.setItem('user', JSON.stringify(userData));
 // 同步到本地权限系统
 syncUserToLocalSystem(user, []);
 
-// 加载角色和用户（检查函数是否存在）
+// ===== 加载角色和用户（确保 permissionData.users 有数据） =====
 if (typeof loadRolesFromSupabase === 'function') {
     await loadRolesFromSupabase();
 } else {
@@ -93,11 +93,10 @@ if (typeof loadAllUsersFromSupabase === 'function') {
     console.warn('⚠️ loadAllUsersFromSupabase 未定义，跳过');
 }
 
-// ===== 关键修复：直接使用本地管理员权限，不等待 Supabase 同步 =====
-// 强制使用本地管理员（user_1 是 admin）
+// ===== 关键修复：使用 Supabase 用户 ID，不是 user_1 =====
 if (typeof setCurrentUser === 'function') {
-    setCurrentUser('user_1');
-    console.log('✅ 使用本地管理员权限 (user_1)');
+    setCurrentUser(user.id);
+    console.log('✅ 使用 Supabase 用户权限，用户ID:', user.id);
 } else {
     console.warn('⚠️ setCurrentUser 未定义');
 }

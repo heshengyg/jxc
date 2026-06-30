@@ -560,6 +560,7 @@ function applyUserPermissions() {
         try {
             var user = JSON.parse(saved);
             if (user && user.id) {
+                // ===== 关键修复：使用用户实际 ID，不是 user_1 =====
                 if (permissionData.roles.length === 0) {
                     loadRolesFromSupabase().then(function() {
                         loadAllUsersFromSupabase().then(function() {
@@ -579,6 +580,7 @@ function applyUserPermissions() {
             console.warn('应用用户权限失败:', e);
         }
     }
+    // 降级：使用本地管理员
     setCurrentUser('user_1');
 }
 
