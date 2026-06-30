@@ -59,185 +59,6 @@ const MODULE_SUB_KEYS = {
     settings: ['basic', 'data', 'permission']
 };
 
-// ============================================================
-// ===== 操作权限定义（每个子版块下的具体操作按钮） =====
-// ============================================================
-const OPERATION_PERMISSIONS = {
-    goods: {
-        label: '商品管理',
-        subModules: {
-            goodsInfo: {
-                label: '商品信息',
-                operations: [
-                    { key: 'add', label: '新增商品' },
-                    { key: 'batchImport', label: '批量导入' },
-                    { key: 'batchDelete', label: '批量删除' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            },
-            settleType: {
-                label: '供应商管理',
-                operations: [
-                    { key: 'add', label: '新增供应商' },
-                    { key: 'batchImport', label: '批量导入' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            },
-            dateChange: {
-                label: '后台更换日期',
-                operations: [
-                    { key: 'update', label: '更新' }
-                ]
-            }
-        }
-    },
-    stockIn: {
-        label: '入库管理',
-        subModules: {
-            stockInList: {
-                label: '入库记录',
-                operations: [
-                    { key: 'add', label: '添加入库' },
-                    { key: 'batchImport', label: '批量导入入库' },
-                    { key: 'batchDelete', label: '批量删除' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            }
-        }
-    },
-    returnGoods: {
-        label: '退货管理',
-        subModules: {
-            returnList: {
-                label: '退货记录',
-                operations: [
-                    { key: 'add', label: '添加退货' },
-                    { key: 'batchImport', label: '批量导入' },
-                    { key: 'batchDelete', label: '批量删除' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            }
-        }
-    },
-    stockOut: {
-        label: '出库管理',
-        subModules: {
-            stockOutList: {
-                label: '出库记录',
-                operations: [
-                    { key: 'add', label: '添加出库' },
-                    { key: 'batchImport', label: '批量导入出库' },
-                    { key: 'batchDelete', label: '批量删除' },
-                    { key: 'delete', label: '删除' }
-                ]
-            }
-        }
-    },
-    stockView: {
-        label: '库存查看',
-        subModules: {
-            stockList: {
-                label: '库存列表',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            }
-        }
-    },
-    finance: {
-        label: '财务综合',
-        subModules: {
-            taxRate: {
-                label: '税率录入',
-                operations: [
-                    { key: 'edit', label: '编辑税率' }
-                ]
-            },
-            stockInPrint: {
-                label: '入库单打印',
-                operations: [
-                    { key: 'print', label: '入库单打印' }
-                ]
-            },
-            payRecord: {
-                label: '财务付款记录',
-                operations: [
-                    { key: 'add', label: '新增付款记录' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            },
-            invoiceBack: {
-                label: '发票返回记录',
-                operations: [
-                    { key: 'add', label: '新增发票返回记录' },
-                    { key: 'edit', label: '编辑' },
-                    { key: 'delete', label: '删除' }
-                ]
-            },
-            paymentBoard: {
-                label: '收付款看板',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            },
-            monthInvoiceBalance: {
-                label: '发票月结余',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            },
-            stockInCheck: {
-                label: '入库对账',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            },
-            stockOutCheck: {
-                label: '出库对账',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            },
-            monthBeginStock: {
-                label: '月期初数',
-                operations: [
-                    { key: 'view', label: '查看' }
-                ]
-            }
-        }
-    },
-    settings: {
-        label: '系统设置',
-        subModules: {
-            basic: {
-                label: '基础设置',
-                operations: [
-                    { key: 'view', label: '查看' },
-                    { key: 'edit', label: '编辑' }
-                ]
-            },
-            data: {
-                label: '数据管理',
-                operations: [
-                    { key: 'backup', label: '备份' },
-                    { key: 'import', label: '导入' },
-                    { key: 'clear', label: '清空' }
-                ]
-            },
-            permission: {
-                label: '权限管理',
-                operations: [
-                    { key: 'manage', label: '管理' }
-                ]
-            }
-        }
-    }
-};
 
 // ============================================================
 // ===== 旧 Key → 新 Key 映射表（兼容历史数据） =====
@@ -323,41 +144,8 @@ function canUserView(userId, menuKey) {
 function canUserOperate(userId, moduleKey, operationKey) {
     if (!userId) return false;
     var perms = getUserPermissions(userId);
-    var banned = perms.banned || [];
-    
-    // 构建可能的 key 列表（优先三层，然后两层）
-    var possibleKeys = [];
-    possibleKeys.push(moduleKey + '_' + operationKey); // 直接拼接
-    
-    // 如果 moduleKey 是模块分组 key，尝试所有子版块
-    var moduleSubKeys = MODULE_SUB_KEYS[moduleKey];
-    if (moduleSubKeys && moduleSubKeys.length > 0) {
-        moduleSubKeys.forEach(function(subKey) {
-            possibleKeys.push(moduleKey + '_' + subKey + '_' + operationKey);
-            possibleKeys.push(subKey + '_' + operationKey);
-        });
-    } else {
-        // 尝试作为子版块 key，找到所属模块
-        var found = ALL_MENUS.find(function(m) { return m.key === moduleKey; });
-        if (found) {
-            possibleKeys.push(moduleKey + '_' + operationKey);
-            var parentModule = found.module;
-            if (parentModule) {
-                possibleKeys.push(parentModule + '_' + moduleKey + '_' + operationKey);
-            }
-        }
-    }
-    // 去重
-    possibleKeys = possibleKeys.filter(function(k, i, arr) {
-        return arr.indexOf(k) === i;
-    });
-    
-    // 检查是否有任何一个 key 在 banned 中
-    var isBanned = possibleKeys.some(function(key) {
-        return banned.indexOf(key) !== -1;
-    });
-    
-    return !isBanned;
+    var fullKey = moduleKey + '_' + operationKey;
+    return !(perms.banned && perms.banned.includes(fullKey));
 }
 
 // ============================================================
@@ -368,43 +156,10 @@ function applyAllPermissions() {
         console.warn('⚠️ currentUserId 为空，跳过权限应用');
         return;
     }
-
-    var perms = getUserPermissions(currentUserId);
-    var banned = perms.banned || [];
-
     document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
         var moduleKey = btn.dataset.module;
         var opKey = btn.dataset.op;
-        
-        var possibleKeys = [];
-        possibleKeys.push(moduleKey + '_' + opKey);
-        
-        var moduleSubKeys = MODULE_SUB_KEYS[moduleKey];
-        if (moduleSubKeys && moduleSubKeys.length > 0) {
-            moduleSubKeys.forEach(function(subKey) {
-                possibleKeys.push(moduleKey + '_' + subKey + '_' + opKey);
-                possibleKeys.push(subKey + '_' + opKey);
-            });
-        } else {
-            var found = ALL_MENUS.find(function(m) { return m.key === moduleKey; });
-            if (found) {
-                possibleKeys.push(moduleKey + '_' + opKey);
-                var parentModule = found.module;
-                if (parentModule) {
-                    possibleKeys.push(parentModule + '_' + moduleKey + '_' + opKey);
-                }
-            }
-        }
-        possibleKeys = possibleKeys.filter(function(k, i, arr) {
-            return arr.indexOf(k) === i;
-        });
-        
-        var isBanned = possibleKeys.some(function(key) {
-            return banned.indexOf(key) !== -1;
-        });
-        
-        var allowed = !isBanned;
-        
+        var allowed = canUserOperate(currentUserId, moduleKey, opKey);
         if (!allowed) {
             btn.classList.add('btn-disabled');
             btn.disabled = true;
@@ -1003,6 +758,7 @@ function editRole(roleId) {
 
     var html = '';
     for (var moduleKey in groups) {
+        // 判断该模块下所有子项是否都被选中
         var allChecked = groups[moduleKey].every(function(item) {
             return role.viewPermissions.includes(item.key);
         });
@@ -1031,6 +787,7 @@ saveRole = async function() {
         return;
     }
 
+    // 只收集子版块复选框（排除全选复选框）
     var subCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]:checked');
     var viewPermissions = Array.from(subCheckboxes).map(function(cb) { return cb.value; });
     
@@ -1039,6 +796,7 @@ saveRole = async function() {
         return;
     }
 
+    // 无论成功失败，都要关闭弹窗
     var closeModal = function() {
         document.getElementById('addRoleModal').style.display = 'none';
     };
@@ -1360,6 +1118,7 @@ async function deleteUser(userId) {
 // ============================================================
 async function loadAllUsersFromSupabase() {
     try {
+        // 先确保角色列表已加载
         if (permissionData.roles.length === 0) {
             await loadRolesFromSupabase();
         }
@@ -1370,6 +1129,7 @@ async function loadAllUsersFromSupabase() {
 
         if (result.error) {
             console.error('❌ 加载用户失败:', result.error);
+            // 如果加载失败，使用本地默认 admin
             fallbackCreateAdmin();
             return;
         }
@@ -1377,12 +1137,14 @@ async function loadAllUsersFromSupabase() {
         permissionData.users = [];
         settingsData.members = [];
 
+        // 如果没有用户，创建默认 admin
         if (!result.data || result.data.length === 0) {
             console.warn('⚠️ Supabase 无用户，创建默认 admin');
             fallbackCreateAdmin();
             return;
         }
 
+        // 检查 admin 是否存在
         var hasAdmin = false;
         for (var user of result.data) {
             if (user.username === 'admin') {
@@ -1391,8 +1153,10 @@ async function loadAllUsersFromSupabase() {
             }
         }
 
+        // 如果 admin 不存在，强制添加
         if (!hasAdmin) {
             console.warn('⚠️ admin 用户不存在，强制创建');
+            // 先尝试创建到 Supabase
             var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
             if (adminRole) {
                 var insertResult = await supabase
@@ -1407,6 +1171,7 @@ async function loadAllUsersFromSupabase() {
                     }])
                     .select();
                 if (!insertResult.error && insertResult.data && insertResult.data.length > 0) {
+                    // 重新加载
                     result = await supabase
                         .from('users')
                         .select('id, username, role, status');
@@ -1414,14 +1179,17 @@ async function loadAllUsersFromSupabase() {
             }
         }
 
+        // 重新遍历用户
         for (var user of (result.data || [])) {
             console.log('同步用户:', user.username, '角色:', user.role);
             var role = null;
             
+            // 精确匹配
             role = permissionData.roles.find(function(r) {
                 return r.name === user.role;
             });
 
+            // 🔥 关键：admin 用户强制分配"管理员"角色
             if (!role && user.username === 'admin') {
                 role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
                 if (role) {
@@ -1452,6 +1220,7 @@ async function loadAllUsersFromSupabase() {
             });
         }
 
+        // 如果同步后还是没有用户，强制创建
         if (permissionData.users.length === 0) {
             fallbackCreateAdmin();
         }
@@ -1466,15 +1235,18 @@ async function loadAllUsersFromSupabase() {
     }
 }
 
+// ===== 兜底函数：强制创建 admin =====
 function fallbackCreateAdmin() {
     var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
     if (!adminRole) {
+        // 如果连管理员角色都没有，创建默认角色
         permissionData.roles = [
             { id: 'role_default', name: '管理员', viewPermissions: ALL_MENUS.map(function(m) { return m.key; }) }
         ];
         adminRole = permissionData.roles[0];
     }
     
+    // 检查是否已有 admin
     var existing = permissionData.users.find(function(u) { return u.name === 'admin'; });
     if (!existing) {
         permissionData.users = [{
@@ -1552,15 +1324,13 @@ function renderUserOpsContainer(bannedOps) {
         return;
     }
 
-    var hasAny = false;
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
         var subKeys = Object.keys(moduleData.subModules);
-        
-        var hasView = subKeys.some(function(subKey) {
+        var hasAnyView = subKeys.some(function(subKey) {
             return role.viewPermissions.includes(subKey);
         });
-        if (!hasView) continue;
+        if (!hasAnyView) continue;
 
         var moduleDiv = document.createElement('div');
         moduleDiv.className = 'op-module-group';
@@ -1569,7 +1339,6 @@ function renderUserOpsContainer(bannedOps) {
         var subHtml = '';
         for (var subKey in moduleData.subModules) {
             if (!role.viewPermissions.includes(subKey)) continue;
-            
             var subData = moduleData.subModules[subKey];
             if (!subData.operations || subData.operations.length === 0) continue;
 
@@ -1596,11 +1365,10 @@ function renderUserOpsContainer(bannedOps) {
         if (subHtml) {
             moduleDiv.innerHTML += subHtml;
             container.appendChild(moduleDiv);
-            hasAny = true;
         }
     }
 
-    if (!hasAny) {
+    if (container.innerHTML === '') {
         container.innerHTML = '<div class="op-empty">该角色没有可操作的功能</div>';
     }
 }
@@ -1627,7 +1395,6 @@ function saveUserPermissions() {
     renderUsers();
     closeEditUserPermModal();
     showMsg('✅ 权限已更新');
-    applyAllPermissions();
 }
 
 // ============================================================
