@@ -2246,7 +2246,7 @@ function exportStockInCheckExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "入库对账表");
     XLSX.writeFile(wb, `入库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
-    showMsg('导出成功');
+    // showMsg('导出成功');
 }
 
 // ===================== ⑧出库对账 =====================
@@ -2757,7 +2757,7 @@ function exportStockOutCheckExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "出库对账表");
     XLSX.writeFile(wb, `出库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
-    showMsg('导出成功');
+    // showMsg('导出成功');
 }
 
 // ===================== ⑨月期初库存 =====================
@@ -3317,5 +3317,5 @@ function exportMonthBeginStockExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "期初库存表");
     XLSX.writeFile(wb, `期初库存表_${endDateStr}.xlsx`);
-    showMsg('导出成功');
+    // showMsg('导出成功');
 }
