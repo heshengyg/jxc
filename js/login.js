@@ -67,39 +67,47 @@ async function loginWithSupabase(username, password) {
     id: user.id,
     name: user.username,
     role: user.role,
-    avatar_url: user.avatar_url || '',  // ← 新增这一行
+    avatar_url: user.avatar_url || '',
     fromSupabase: true
 };
 sessionStorage.setItem('supabase_user', JSON.stringify(userData));
 sessionStorage.setItem('user', JSON.stringify(userData));
-        
-        // 同步到本地权限系统
+
+// 同步到本地权限系统
 syncUserToLocalSystem(user, []);
 
-// ===== 新增：加载所有角色和用户 =====
+// 加载角色和用户
 await loadRolesFromSupabase();
 await loadAllUsersFromSupabase();
 
 // 设置当前用户
 if (typeof setCurrentUser === 'function') {
     setCurrentUser(user.id);
-    console.log('✅ 权限已应用，用户ID:', user.id);
 }
-        
-        // 显示主界面
-        document.getElementById('loginBox').style.display = 'none';
-        document.getElementById('mainBox').style.display = 'block';
-        var roleTextEl = document.getElementById('roleText');
-        if (roleTextEl) roleTextEl.innerText = user.username;
-        
-        // ===== 关键：设置当前用户（应用权限） =====
-        if (typeof setCurrentUser === 'function') {
-            setCurrentUser(user.id);
-            console.log('✅ 权限已应用，用户ID:', user.id);
-        }
-        
-        if (typeof loadGoods === 'function') loadGoods();
-        showMsg('✅ 登录成功！');
+
+// 显示主界面
+document.getElementById('loginBox').style.display = 'none';
+document.getElementById('mainBox').style.display = 'block';
+
+// ===== 关键修复：显示 角色名 + 用户名 =====
+var roleTextEl = document.getElementById('roleText');
+var userNameTextEl = document.getElementById('userNameText');
+if (roleTextEl) {
+    // user.role 是 Supabase 中的角色名（如 '管理员'）
+    roleTextEl.innerText = user.role || '用户';
+}
+if (userNameTextEl) {
+    userNameTextEl.innerText = user.username;
+}
+
+// 加载头像
+var avatarImg = document.getElementById('userAvatar');
+if (avatarImg) {
+    avatarImg.src = user.avatar_url || './images/logo.png';
+}
+
+if (typeof loadGoods === 'function') loadGoods();
+showMsg('✅ 登录成功！');
         
     } catch (err) {
         console.error('❌ 登录异常:', err);

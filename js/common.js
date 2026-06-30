@@ -599,7 +599,7 @@ async function uploadAvatar(fileBlob) {
 
         // 更新页面头像
         var avatarImg = document.getElementById('userAvatar');
-        if (avatarImg) avatarImg.src = avatarUrl;
+if (avatarImg) avatarImg.src = avatarUrl || './images/logo.png';
 
         showMsg('✅ 头像更新成功');
         

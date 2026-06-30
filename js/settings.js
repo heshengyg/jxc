@@ -198,6 +198,16 @@ function setCurrentUser(userId) {
         'settings': ['basic', 'data', 'permission']
     };
 
+    // ===== 关键修复：管理员显示所有 Tab，非管理员根据权限显示 =====
+    var isAdmin = false;
+    var currentUser = permissionData.users.find(function(u) { return u.id === userId; });
+    if (currentUser) {
+        var currentRole = permissionData.roles.find(function(r) { return r.id === currentUser.roleId; });
+        if (currentRole && currentRole.name === '管理员') {
+            isAdmin = true;
+        }
+    }
+
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
@@ -205,15 +215,30 @@ function setCurrentUser(userId) {
         if (!match) return;
         var menuKey = match[1];
 
+        // 管理员：显示所有 Tab
+        if (isAdmin) {
+            btn.style.display = 'inline-block';
+            return;
+        }
+
+        // 非管理员：根据权限显示
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
             return perms.view.includes(k);
         });
-
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
+
     applyAllPermissions();
     applySubTabPermissions();
+    
+    // ===== 强制显示系统设置Tab（如果有权限） =====
+    var settingsTab = document.getElementById('settingsTab');
+    if (settingsTab) {
+        if (isAdmin || perms.view.some(function(k) { return k === 'basic' || k === 'data' || k === 'permission'; })) {
+            settingsTab.style.display = 'inline-block';
+        }
+    }
 }
 
 // ============================================================
@@ -982,7 +1007,7 @@ function renderUsers() {
             div.className = 'user-card';
             div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #f5f5f5;';
             div.innerHTML = `
-                var avatarSrc = user.avatar_url || './image/logo.png';
+                var avatarSrc = user.avatar_url || './images/logo.png';
 div.innerHTML = `
     <img src="${avatarSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;">
     <span class="user-name" style="min-width:80px;">${user.name}</span>
@@ -1184,45 +1209,46 @@ async function loadAllUsersFromSupabase() {
 
         // 重新遍历用户
         for (var user of (result.data || [])) {
-            console.log('同步用户:', user.username, '角色:', user.role);
-            var role = null;
-            
-            // 精确匹配
-            role = permissionData.roles.find(function(r) {
-                return r.name === user.role;
-            });
+    console.log('同步用户:', user.username, '角色:', user.role);
+    var role = null;
+    
+    // ===== 关键修复：用户角色名直接匹配，不做转换 =====
+    role = permissionData.roles.find(function(r) {
+        return r.name === user.role;
+    });
 
-            // 🔥 关键：admin 用户强制分配"管理员"角色
-            if (!role && user.username === 'admin') {
-                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-                if (role) {
-                    console.log('🔧 admin 用户强制分配管理员角色');
-                }
-            }
-
-            if (!role) {
-                console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
-                continue;
-            }
-
-            permissionData.users.push({
-    id: user.id,
-    name: user.username,
-    password: '',
-    roleId: role.id,
-    bannedOperations: [],
-    avatar_url: user.avatar_url || ''  // ← 新增这一行
-});
-
-            settingsData.members.push({
-                id: user.id,
-                name: user.username,
-                password: '',
-                department: user.role,
-                roleId: role.id,
-                bannedOperations: []
-            });
+    // admin 用户特殊处理
+    if (!role && user.username === 'admin') {
+        role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+        if (role) {
+            console.log('🔧 admin 用户强制分配管理员角色');
         }
+    }
+
+    if (!role) {
+        console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+        continue;
+    }
+
+    permissionData.users.push({
+        id: user.id,
+        name: user.username,
+        password: '',
+        roleId: role.id,
+        bannedOperations: [],
+        avatar_url: user.avatar_url || ''
+    });
+
+    settingsData.members.push({
+        id: user.id,
+        name: user.username,
+        password: '',
+        department: user.role,
+        roleId: role.id,
+        bannedOperations: [],
+        avatar_url: user.avatar_url || ''
+    });
+}
 
         // 如果同步后还是没有用户，强制创建
         if (permissionData.users.length === 0) {
