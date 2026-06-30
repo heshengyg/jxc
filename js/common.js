@@ -26,9 +26,11 @@ function changeAvatar() {
     input.click();
 }
 
+// ===== 用户自行更改密码（需旧密码验证） =====
 function resetMyPassword() {
     var dropdown = document.getElementById('avatarDropdown');
     if (dropdown) dropdown.style.display = 'none';
+    
     var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
     if (!saved) {
         showMsg('❌ 请先登录');
@@ -39,10 +41,83 @@ function resetMyPassword() {
         showMsg('❌ 请先登录');
         return;
     }
-    if (typeof resetUserPassword === 'function') {
-        resetUserPassword(user.id);
-    } else {
-        showMsg('❌ 重置密码功能不可用');
+
+    // 输入旧密码
+    var oldPwd = prompt('请输入当前密码：');
+    if (oldPwd === null) return; // 取消
+    if (oldPwd.trim() === '') {
+        showMsg('❌ 旧密码不能为空');
+        return;
+    }
+
+    // 输入新密码
+    var newPwd = prompt('请输入新密码：');
+    if (newPwd === null) return;
+    if (newPwd.trim() === '') {
+        showMsg('❌ 新密码不能为空');
+        return;
+    }
+
+    // 确认新密码
+    var confirmPwd = prompt('请再次输入新密码确认：');
+    if (confirmPwd === null) return;
+    if (newPwd !== confirmPwd) {
+        showMsg('❌ 两次密码不一致');
+        return;
+    }
+
+    // 验证旧密码并更新
+    try {
+        supabase
+            .from('users')
+            .select('password_hash')
+            .eq('id', user.id)
+            .then(async function(result) {
+                if (result.error) {
+                    showMsg('❌ 获取用户信息失败');
+                    return;
+                }
+                if (!result.data || result.data.length === 0) {
+                    showMsg('❌ 用户不存在');
+                    return;
+                }
+                var storedHash = result.data[0].password_hash;
+                // 验证旧密码
+                var isValid = false;
+                if (typeof bcrypt !== 'undefined' && bcrypt.compareSync) {
+                    isValid = bcrypt.compareSync(oldPwd, storedHash);
+                } else {
+                    // 降级：明文比较（不推荐）
+                    isValid = (oldPwd === storedHash);
+                }
+                if (!isValid) {
+                    showMsg('❌ 旧密码错误');
+                    return;
+                }
+
+                // 加密新密码
+                var newHash = newPwd;
+                if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
+                    newHash = bcrypt.hashSync(newPwd, 10);
+                }
+
+                // 更新密码
+                var updateResult = await supabase
+                    .from('users')
+                    .update({ password_hash: newHash })
+                    .eq('id', user.id);
+
+                if (updateResult.error) {
+                    showMsg('❌ 密码更新失败: ' + updateResult.error.message);
+                } else {
+                    showMsg('✅ 密码已更改，请重新登录');
+                    // 可自动退出登录让用户重新登录
+                    // 但不强制，用户可手动退出
+                }
+            });
+    } catch (err) {
+        console.error('更改密码异常:', err);
+        showMsg('❌ 更改密码失败: ' + err.message);
     }
 }
 
@@ -620,3 +695,13 @@ function calcFIFOOut(supplier, goodsName, outNum) {
     }
     return outDetail;
 }
+// 确保点击外部关闭下拉
+setTimeout(function() {
+    document.addEventListener('click', function(e) {
+        var wrapper = document.querySelector('.user-avatar-wrapper');
+        var dropdown = document.getElementById('avatarDropdown');
+        if (wrapper && dropdown && !wrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}, 100);
