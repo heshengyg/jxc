@@ -742,6 +742,7 @@ saveRole = async function() {
                 await syncRolePermissions(role.name, viewPermissions);
                 savePermissionData();
                 renderRoles();
+                updateRoleSelect(); // ✅ 刷新用户下拉
                 closeAddRoleModal();
                 showMsg('✅ 角色已更新');
                 document.getElementById('addRoleModal').dataset.editId = '';
@@ -765,6 +766,7 @@ saveRole = async function() {
             await syncRolePermissions(newRole.name, viewPermissions);
             savePermissionData();
             renderRoles();
+            updateRoleSelect(); // ✅ 刷新用户下拉
             closeAddRoleModal();
             showMsg('✅ 角色添加成功');
             applySubTabPermissions();
@@ -787,6 +789,7 @@ function deleteRole(roleId) {
             savePermissionData();
             renderRoles();
             renderUsers();
+            updateRoleSelect(); // ✅ 刷新用户下拉
             showMsg('✅ 角色已删除');
             applySubTabPermissions();
         }
