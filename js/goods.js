@@ -1194,31 +1194,14 @@ function exportExcel() {
 
 // ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // 默认激活商品信息
-    let goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
-    if (goodsInfoBtn) {
-        goodsInfoBtn.classList.add('active');
-        document.querySelector('#goods .finance-sub-btn[data-tab="settleType"]')?.classList.remove('active');
-        document.querySelector('#goods .finance-sub-btn[data-tab="dateChange"]')?.classList.remove('active');
-    }
+    // 默认激活商品信息子Tab（统一管理显示和加载）
+    switchGoodsSubTab('goodsInfo');
     
-    let goodsInfoContent = document.getElementById('sub-goodsInfo');
-    let settleTypeContent = document.getElementById('sub-settleType');
-    let dateChangeContent = document.getElementById('sub-dateChange');
-    
-    if (goodsInfoContent) goodsInfoContent.style.display = 'block';
-    if (settleTypeContent) settleTypeContent.style.display = 'none';
-    if (dateChangeContent) dateChangeContent.style.display = 'none';
-    
-    // ✅ 加载商品数据
-    refreshGoods();
-    
-    // ✅ 加载库存数据（供后台更换日期使用）
+    // 加载库存数据（供后台更换日期使用）
     if (typeof loadStockStock === 'function') {
         loadStockStock();
     }
 });
-
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
