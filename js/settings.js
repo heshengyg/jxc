@@ -947,7 +947,6 @@ function renderUsers() {
         groups[roleName].push(user);
     });
 
-    // 2. 按角色名排序（字典序）
     var sortedRoleNames = Object.keys(groups).sort();
 
     sortedRoleNames.forEach(function(roleName) {
@@ -956,7 +955,7 @@ function renderUsers() {
 
         var groupId = 'userGroup_' + roleName.replace(/\s/g, '_');
 
-        // ----- 组标题（点击折叠/展开） -----
+        // 组标题
         var headerDiv = document.createElement('div');
         headerDiv.className = 'user-group-header';
         headerDiv.style.cssText = `
@@ -978,7 +977,7 @@ function renderUsers() {
         `;
         container.appendChild(headerDiv);
 
-        // ----- 用户列表容器（折叠内容） -----
+        // 用户列表容器
         var contentDiv = document.createElement('div');
         contentDiv.id = groupId;
         contentDiv.className = 'user-group-content';
@@ -986,7 +985,7 @@ function renderUsers() {
             padding-left: 16px;
             border-left: 2px solid #e8e8e8;
             margin-bottom: 8px;
-            display: block;   /* 默认展开，可改为 none 默认折叠 */
+            display: block;
         `;
 
         users.forEach(function(user) {
@@ -1006,6 +1005,7 @@ function renderUsers() {
                 <span class="user-name" style="min-width:80px;">${user.name}</span>
                 <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
                 <div>
+                    <button class="btn btn-warning btn-sm" data-module="settings" data-op="resetPwd" onclick="resetUserPassword('${user.id}')">重置密码</button>
                     <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
                     <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
                 </div>
