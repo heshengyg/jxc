@@ -306,6 +306,7 @@ function downloadStockInTemplate(){
 function exportStockInExcel(){
     try {
         console.log('🚀 开始导出入库记录');
+        // 如果筛选结果为空，则使用全部数据（保证有数据时能导出）
         let dataToExport = filteredStockIn && filteredStockIn.length > 0 ? filteredStockIn : allStockIn;
         if(!dataToExport || dataToExport.length === 0){
             showMsg("暂无数据可导出");
@@ -313,8 +314,15 @@ function exportStockInExcel(){
         }
         console.log(`📊 共 ${dataToExport.length} 条数据待导出`);
 
+        // 额外检查：确保数据有效（至少有一个字段有值）
+        let validData = dataToExport.filter(item => item && typeof item === 'object' && Object.keys(item).length > 0);
+        if(validData.length === 0){
+            showMsg("数据格式异常，无法导出");
+            return;
+        }
+
         let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期","发票状态","发票号码"];
-        let expData = dataToExport.map(item=>[
+        let expData = validData.map(item=>[
             item.supplier||"",
             item.goodsName||"",
             item.spec||"",
@@ -329,22 +337,14 @@ function exportStockInExcel(){
             item.invoice_no||""
         ]);
         
+        console.log('📝 开始生成 Excel 工作簿');
         let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
         let wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "入库记录");
-        
-        // 使用 write 生成 ArrayBuffer，再创建 Blob 下载（避免 Workbook is empty 问题）
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const blob = new Blob([wbout], { type: 'application/octet-stream' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = "入库记录.xlsx";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-        console.log('✅ 导出成功');
-        showMsg("导出成功！");
+        console.log('💾 开始下载文件');
+        XLSX.writeFile(wb, "入库记录.xlsx");
+        console.log('✅ 导出完成（无弹窗）');
+        // 不显示成功弹窗，只控制台提示
     } catch (err) {
         console.error('❌ 导出失败:', err);
         showMsg('导出失败：' + err.message);
