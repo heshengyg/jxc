@@ -215,3 +215,15 @@ function logout() {
     
     console.log('✅ 已登出');
 }
+
+// 切换密码可见性
+function togglePasswordVisibility(el) {
+    var pwdInput = document.getElementById('password');
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        el.textContent = '🙈';
+    } else {
+        pwdInput.type = 'password';
+        el.textContent = '👁️';
+    }
+}
