@@ -922,24 +922,98 @@ function editRole(roleId) {
 // ============================================================
 // ===== 用户管理 =====
 // ============================================================
+// ===== 新增：用户组折叠切换 =====
+function toggleUserGroup(groupId) {
+    var content = document.getElementById(groupId);
+    if (content) {
+        content.style.display = (content.style.display === 'none') ? 'block' : 'none';
+    }
+}
+
+// ===== 替换 renderUsers =====
 function renderUsers() {
     var container = document.getElementById('userList');
     if (!container) return;
     container.innerHTML = '';
+
+    // 1. 按角色分组
+    var groups = {};
     permissionData.users.forEach(function(user) {
         var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-        var bannedCount = user.bannedOperations ? user.bannedOperations.length : 0;
-        var div = document.createElement('div');
-        div.className = 'user-card';
-        div.innerHTML = `
-            <span class="user-name">${user.name}</span>
-            <span class="user-info">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
-            <div>
-                <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
-                <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
-            </div>
+        var roleName = role ? role.name : '未分配';
+        if (!groups[roleName]) {
+            groups[roleName] = [];
+        }
+        groups[roleName].push(user);
+    });
+
+    // 2. 按角色名排序（字典序）
+    var sortedRoleNames = Object.keys(groups).sort();
+
+    sortedRoleNames.forEach(function(roleName) {
+        var users = groups[roleName];
+        if (users.length === 0) return;
+
+        var groupId = 'userGroup_' + roleName.replace(/\s/g, '_');
+
+        // ----- 组标题（点击折叠/展开） -----
+        var headerDiv = document.createElement('div');
+        headerDiv.className = 'user-group-header';
+        headerDiv.style.cssText = `
+            cursor: pointer;
+            font-weight: bold;
+            padding: 8px 14px;
+            background: #f0f2f5;
+            border-radius: 4px;
+            margin: 6px 0 4px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
         `;
-        container.appendChild(div);
+        headerDiv.onclick = function() { toggleUserGroup(groupId); };
+        headerDiv.innerHTML = `
+            <span>👥 ${roleName}（${users.length}人）</span>
+            <span style="font-size:12px; color:#888;">点击折叠/展开</span>
+        `;
+        container.appendChild(headerDiv);
+
+        // ----- 用户列表容器（折叠内容） -----
+        var contentDiv = document.createElement('div');
+        contentDiv.id = groupId;
+        contentDiv.className = 'user-group-content';
+        contentDiv.style.cssText = `
+            padding-left: 16px;
+            border-left: 2px solid #e8e8e8;
+            margin-bottom: 8px;
+            display: block;   /* 默认展开，可改为 none 默认折叠 */
+        `;
+
+        users.forEach(function(user) {
+            var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+            var bannedCount = user.bannedOperations ? user.bannedOperations.length : 0;
+
+            var div = document.createElement('div');
+            div.className = 'user-card';
+            div.style.cssText = `
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 12px;
+                border-bottom: 1px solid #f5f5f5;
+            `;
+            div.innerHTML = `
+                <span class="user-name" style="min-width:80px;">${user.name}</span>
+                <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
+                    <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
+                </div>
+            `;
+            contentDiv.appendChild(div);
+        });
+
+        container.appendChild(contentDiv);
     });
 }
 
