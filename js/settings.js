@@ -558,9 +558,24 @@ function applyUserPermissions() {
 }
 
 // 重写 switchTab
-var originalSwitchTab = window.switchTab;
+// ============================================================
+// ===== 保存原始的 switchTab 引用（来自 common.js） =====
+// ============================================================
+if (typeof window._originalSwitchTab === 'undefined') {
+    window._originalSwitchTab = window.switchTab;
+}
+
+// ============================================================
+// ===== 重写 switchTab（增强 settings 权限刷新） =====
+// ============================================================
 window.switchTab = function(tabName) {
-    originalSwitchTab(tabName);
+    // 调用原始的 switchTab（来自 common.js）
+    if (typeof window._originalSwitchTab === 'function') {
+        window._originalSwitchTab(tabName);
+    } else if (typeof switchTab === 'function') {
+        switchTab(tabName);
+    }
+    
     if (tabName === 'settings') {
         loadRolesFromSupabase().then(function() {
             loadAllUsersFromSupabase().then(function() {
@@ -574,7 +589,6 @@ window.switchTab = function(tabName) {
         setTimeout(applySubTabPermissions, 50);
     }
 };
-
 function initSettings() {
     loadSettings();
     loadPermissionData();
