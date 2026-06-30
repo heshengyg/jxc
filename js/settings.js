@@ -1306,38 +1306,86 @@ async function deleteUser(userId) {
 }
 
 // ============================================================
-// ===== loadAllUsersFromSupabase 正确处理 admin =====
+// ===== loadAllUsersFromSupabase - 加强版 admin 处理 =====
 // ============================================================
 async function loadAllUsersFromSupabase() {
     try {
+        // 先确保角色列表已加载
+        if (permissionData.roles.length === 0) {
+            await loadRolesFromSupabase();
+        }
+
         var result = await supabase
             .from('users')
             .select('id, username, role, status');
 
         if (result.error) {
             console.error('❌ 加载用户失败:', result.error);
+            // 如果加载失败，使用本地默认 admin
+            fallbackCreateAdmin();
             return;
-        }
-
-        if (permissionData.roles.length === 0) {
-            await loadRolesFromSupabase();
         }
 
         permissionData.users = [];
         settingsData.members = [];
 
+        // 如果没有用户，创建默认 admin
+        if (!result.data || result.data.length === 0) {
+            console.warn('⚠️ Supabase 无用户，创建默认 admin');
+            fallbackCreateAdmin();
+            return;
+        }
+
+        // 检查 admin 是否存在
+        var hasAdmin = false;
         for (var user of result.data) {
+            if (user.username === 'admin') {
+                hasAdmin = true;
+                break;
+            }
+        }
+
+        // 如果 admin 不存在，强制添加
+        if (!hasAdmin) {
+            console.warn('⚠️ admin 用户不存在，强制创建');
+            // 先尝试创建到 Supabase
+            var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+            if (adminRole) {
+                var insertResult = await supabase
+                    .from('users')
+                    .insert([{
+                        username: 'admin',
+                        email: 'admin@company.com',
+                        password_hash: bcrypt.hashSync('123', 10),
+                        role: '管理员',
+                        status: 'active',
+                        avatar_url: null
+                    }])
+                    .select();
+                if (!insertResult.error && insertResult.data && insertResult.data.length > 0) {
+                    // 重新加载
+                    result = await supabase
+                        .from('users')
+                        .select('id, username, role, status');
+                }
+            }
+        }
+
+        // 重新遍历用户
+        for (var user of (result.data || [])) {
             console.log('同步用户:', user.username, '角色:', user.role);
-            var role = permissionData.roles.find(function(r) {
+            var role = null;
+            
+            // 精确匹配
+            role = permissionData.roles.find(function(r) {
                 return r.name === user.role;
             });
 
+            // 🔥 关键：admin 用户强制分配"管理员"角色
             if (!role && user.username === 'admin') {
                 role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
                 if (role) {
                     console.log('🔧 admin 用户强制分配管理员角色');
-                } else {
-                    console.warn('⚠️ 未找到管理员角色，admin 将被跳过');
                 }
             }
 
@@ -1364,12 +1412,53 @@ async function loadAllUsersFromSupabase() {
             });
         }
 
+        // 如果同步后还是没有用户，强制创建
+        if (permissionData.users.length === 0) {
+            fallbackCreateAdmin();
+        }
+
         savePermissionData();
         saveSettings();
         console.log('✅ 已同步', permissionData.users.length, '个用户');
 
     } catch (err) {
         console.error('❌ 加载用户异常:', err);
+        fallbackCreateAdmin();
+    }
+}
+
+// ===== 兜底函数：强制创建 admin =====
+function fallbackCreateAdmin() {
+    var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+    if (!adminRole) {
+        // 如果连管理员角色都没有，创建默认角色
+        permissionData.roles = [
+            { id: 'role_default', name: '管理员', viewPermissions: ALL_MENUS.map(function(m) { return m.key; }) }
+        ];
+        adminRole = permissionData.roles[0];
+    }
+    
+    // 检查是否已有 admin
+    var existing = permissionData.users.find(function(u) { return u.name === 'admin'; });
+    if (!existing) {
+        permissionData.users = [{
+            id: 'user_default_admin',
+            name: 'admin',
+            password: '123',
+            roleId: adminRole.id,
+            bannedOperations: []
+        }];
+        settingsData.members = [{
+            id: 'user_default_admin',
+            name: 'admin',
+            password: '123',
+            department: '管理员',
+            roleId: adminRole.id,
+            bannedOperations: []
+        }];
+        savePermissionData();
+        saveSettings();
+        console.log('✅ 已创建默认 admin 用户');
     }
 }
 
