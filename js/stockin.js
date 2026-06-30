@@ -483,9 +483,13 @@ async function renderStockIn() {
     }
     tb.innerHTML = '';
     let idUsedMap = {};
-    for (let item of pageData) {
-        idUsedMap[item.id] = await checkInUsedByOut(item.id);
-    }
+if (pageData.length > 0) {
+    const promises = pageData.map(item => checkInUsedByOut(item.id));
+    const results = await Promise.all(promises);
+    pageData.forEach((item, index) => {
+        idUsedMap[item.id] = results[index];
+    });
+}
     let fullHtml = '';
     
     for (let idx = 0; idx < pageData.length; idx++) {
