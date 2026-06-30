@@ -472,3 +472,11 @@ function calcFIFOOut(supplier, goodsName, outNum) {
     }
     return outDetail;
 }
+// ============================================================
+// ===== 暴露头像相关函数到全局（确保 HTML onclick 可调用） =====
+// ============================================================
+window.toggleAvatarDropdown = toggleAvatarDropdown;
+window.changeAvatar = changeAvatar;
+window.resetMyPassword = resetMyPassword;
+window.uploadAvatar = uploadAvatar;
+window.compressImage = compressImage;
