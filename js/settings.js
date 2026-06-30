@@ -152,8 +152,8 @@ function canUserOperate(userId, moduleKey, operationKey) {
 // ===== 应用权限到页面按钮 =====
 // ============================================================
 function applyAllPermissions() {
-    if (currentUserId === 'admin_force') {
-        // admin 强制模式，不做任何限制
+    if (!currentUserId) {
+        console.warn('⚠️ currentUserId 为空，跳过权限应用');
         return;
     }
     document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
@@ -183,57 +183,8 @@ function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
 
-    // 检查当前登录用户
-    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-    var isAdminUser = false;
-    var userName = '';
-    if (saved) {
-        try {
-            var userInfo = JSON.parse(saved);
-            userName = userInfo.name || '';
-            if (userInfo.name === 'admin' || userInfo.role === '管理员') {
-                isAdminUser = true;
-            }
-        } catch(e) {}
-    }
-
-    // ===== 如果是 admin，强制显示所有 Tab，并设置特殊 currentUserId =====
-if (isAdminUser) {
-    console.log('🔥 admin 用户强制启用所有权限');
-    currentUserId = 'admin_force';  // 特殊标识，后续权限检查会跳过
-
-    function showAllTabs() {
-        document.querySelectorAll('.tab-btn').forEach(function(btn) {
-            btn.style.display = 'inline-block';
-            btn.style.visibility = 'visible';
-            btn.style.opacity = '1';
-        });
-        var settingsTab = document.getElementById('settingsTab');
-        if (settingsTab) {
-            settingsTab.style.display = 'inline-block';
-            settingsTab.style.visibility = 'visible';
-            settingsTab.style.opacity = '1';
-        }
-        document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-        });
-        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
-            btn.style.display = '';
-        });
-        console.log('✅ 所有 Tab 已强制显示');
-    }
-
-    showAllTabs();
-    setTimeout(showAllTabs, 100);
-    setTimeout(showAllTabs, 500);
-    setTimeout(showAllTabs, 1000);
-    return; // 直接返回，不走后续权限逻辑
-}
-
-    // ===== 非 admin 用户走正常逻辑 =====
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
+
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
 
@@ -247,15 +198,6 @@ if (isAdminUser) {
         'settings': ['basic', 'data', 'permission']
     };
 
-    var isAdmin = false;
-    var currentUser = permissionData.users.find(function(u) { return u.id === userId; });
-    if (currentUser) {
-        var currentRole = permissionData.roles.find(function(r) { return r.id === currentUser.roleId; });
-        if (currentRole && currentRole.name === '管理员') {
-            isAdmin = true;
-        }
-    }
-
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
@@ -263,37 +205,24 @@ if (isAdminUser) {
         if (!match) return;
         var menuKey = match[1];
 
-        if (isAdmin) {
-            btn.style.display = 'inline-block';
-            return;
-        }
-
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
             return perms.view.includes(k);
         });
+
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
-
     applyAllPermissions();
     applySubTabPermissions();
-
-    var settingsTab = document.getElementById('settingsTab');
-    if (settingsTab) {
-        if (isAdmin || perms.view.some(function(k) { return k === 'basic' || k === 'data' || k === 'permission'; })) {
-            settingsTab.style.display = 'inline-block';
-        }
-    }
 }
 
 // ============================================================
 // ===== 子版块权限应用函数 =====
 // ============================================================
 function applySubTabPermissions() {
-    if (currentUserId === 'admin_force') {
-        // admin 强制模式，不做任何限制
-        return;
-    }
+    var activeTab = document.querySelector('.tab-btn.active');
+    if (!activeTab) return;
+
     var match = activeTab.getAttribute('onclick')?.match(/switchTab\('([^']+)'\)/);
     if (!match) return;
     var moduleKey = match[1];
@@ -605,19 +534,6 @@ function applyUserPermissions() {
     if (saved) {
         try {
             var user = JSON.parse(saved);
-            // ===== 如果是 admin，直接调用 setCurrentUser 并返回 =====
-            if (user.name === 'admin' || user.role === '管理员') {
-                console.log('🔥 applyUserPermissions 检测到 admin，直接应用权限');
-                setCurrentUser(user.id);
-                return;
-            }
-        } catch(e) {}
-    }
-
-    // 原有逻辑（非 admin）
-    if (saved) {
-        try {
-            var user = JSON.parse(saved);
             if (user && user.id) {
                 if (permissionData.roles.length === 0) {
                     loadRolesFromSupabase().then(function() {
@@ -640,34 +556,25 @@ function applyUserPermissions() {
     }
     setCurrentUser('user_1');
 }
-// ========== 重写 switchTab ==========
+
+// 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
-    // 先执行原始切换（common.js 中的 switchTab）
-    if (typeof originalSwitchTab === 'function') {
-        originalSwitchTab(tabName);
-    }
-    // 如果是 settings 标签，加载数据
+    originalSwitchTab(tabName);
     if (tabName === 'settings') {
-        if (typeof loadRolesFromSupabase === 'function' && typeof loadAllUsersFromSupabase === 'function') {
-            loadRolesFromSupabase().then(function() {
-                loadAllUsersFromSupabase().then(function() {
-                    if (typeof renderAll === 'function') renderAll();
-                    if (typeof applyAllPermissions === 'function') applyAllPermissions();
-                    if (typeof applySubTabPermissions === 'function') applySubTabPermissions();
-                    console.log('✅ 数据已同步');
-                });
+        loadRolesFromSupabase().then(function() {
+            loadAllUsersFromSupabase().then(function() {
+                renderAll();
+                applyAllPermissions();
+                applySubTabPermissions();
+                console.log('✅ 数据已同步');
             });
-        }
+        });
     } else {
-        // 其他标签：延迟应用子权限（但 admin 会被跳过）
-        if (typeof applySubTabPermissions === 'function') {
-            setTimeout(applySubTabPermissions, 50);
-        }
+        setTimeout(applySubTabPermissions, 50);
     }
 };
 
-// ========== 初始化设置 ==========
 function initSettings() {
     loadSettings();
     loadPermissionData();
@@ -1074,11 +981,7 @@ function renderUsers() {
             var div = document.createElement('div');
             div.className = 'user-card';
             div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #f5f5f5;';
-            
-            // ===== 修复：在模板字符串外部定义 avatarSrc =====
-            var avatarSrc = user.avatar_url || './images/logo.png';
             div.innerHTML = `
-                <img src="${avatarSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;">
                 <span class="user-name" style="min-width:80px;">${user.name}</span>
                 <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
                 <div>
@@ -1221,8 +1124,8 @@ async function loadAllUsersFromSupabase() {
         }
 
         var result = await supabase
-    .from('users')
-    .select('id, username, role, status, avatar_url');
+            .from('users')
+            .select('id, username, role, status');
 
         if (result.error) {
             console.error('❌ 加载用户失败:', result.error);
@@ -1278,46 +1181,44 @@ async function loadAllUsersFromSupabase() {
 
         // 重新遍历用户
         for (var user of (result.data || [])) {
-    console.log('同步用户:', user.username, '角色:', user.role);
-    var role = null;
-    
-    // ===== 关键修复：用户角色名直接匹配，不做转换 =====
-    role = permissionData.roles.find(function(r) {
-        return r.name === user.role;
-    });
+            console.log('同步用户:', user.username, '角色:', user.role);
+            var role = null;
+            
+            // 精确匹配
+            role = permissionData.roles.find(function(r) {
+                return r.name === user.role;
+            });
 
-    // admin 用户特殊处理
-    if (!role && user.username === 'admin') {
-        role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-        if (role) {
-            console.log('🔧 admin 用户强制分配管理员角色');
+            // 🔥 关键：admin 用户强制分配"管理员"角色
+            if (!role && user.username === 'admin') {
+                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+                if (role) {
+                    console.log('🔧 admin 用户强制分配管理员角色');
+                }
+            }
+
+            if (!role) {
+                console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+                continue;
+            }
+
+            permissionData.users.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                roleId: role.id,
+                bannedOperations: []
+            });
+
+            settingsData.members.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                department: user.role,
+                roleId: role.id,
+                bannedOperations: []
+            });
         }
-    }
-
-    if (!role) {
-        console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
-        continue;
-    }
-
-    permissionData.users.push({
-        id: user.id,
-        name: user.username,
-        password: '',
-        roleId: role.id,
-        bannedOperations: [],
-        avatar_url: user.avatar_url || ''
-    });
-
-    settingsData.members.push({
-        id: user.id,
-        name: user.username,
-        password: '',
-        department: user.role,
-        roleId: role.id,
-        bannedOperations: [],
-        avatar_url: user.avatar_url || ''
-    });
-}
 
         // 如果同步后还是没有用户，强制创建
         if (permissionData.users.length === 0) {
@@ -1406,6 +1307,7 @@ function renderUserOpsContainer(bannedOps) {
     if (!container) return;
     container.innerHTML = '';
 
+    var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
     if (!user) {
         container.innerHTML = '<div class="op-empty">用户不存在</div>';
         return;

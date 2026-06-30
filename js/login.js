@@ -26,9 +26,10 @@ async function loginWithSupabase(username, password) {
     try {
         console.log('🔍 Supabase 登录:', username);
         
+        // 查询用户
         var result = await supabase
             .from('users')
-            .select('id, username, password_hash, role, status, avatar_url')
+            .select('id, username, password_hash, role, status')
             .eq('username', username);
         
         if (result.error || !result.data || result.data.length === 0) {
@@ -39,12 +40,6 @@ async function loginWithSupabase(username, password) {
         
         var user = result.data[0];
         console.log('✅ 找到用户:', user.username, '角色:', user.role);
-        
-        // ===== 🔥 新增：强制 admin 用户角色为"管理员" =====
-        if (user.username === 'admin') {
-            user.role = '管理员';
-            console.log('🔧 admin 用户强制修正角色为: 管理员');
-        }
         
         if (user.status !== 'active') {
             showMsg('账号已被禁用');
@@ -66,63 +61,44 @@ async function loginWithSupabase(username, password) {
         }
         
         console.log('✅ 登录成功！');
-
-// 保存用户信息
-var userData = {
-    id: user.id,
-    name: user.username,
-    role: '管理员',  // ← 强制设置为"管理员"
-    avatar_url: user.avatar_url || '',
-    fromSupabase: true
-};
-sessionStorage.setItem('supabase_user', JSON.stringify(userData));
-sessionStorage.setItem('user', JSON.stringify(userData));
-
-// 同步到本地权限系统
+        
+        // 保存用户信息
+        var userData = {
+            id: user.id,
+            name: user.username,
+            role: user.role,
+            fromSupabase: true
+        };
+        sessionStorage.setItem('supabase_user', JSON.stringify(userData));
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        
+        // 同步到本地权限系统
 syncUserToLocalSystem(user, []);
 
-// ===== 加载角色和用户（确保 permissionData.users 有数据） =====
-if (typeof loadRolesFromSupabase === 'function') {
-    await loadRolesFromSupabase();
-} else {
-    console.warn('⚠️ loadRolesFromSupabase 未定义，跳过');
-}
-if (typeof loadAllUsersFromSupabase === 'function') {
-    await loadAllUsersFromSupabase();
-} else {
-    console.warn('⚠️ loadAllUsersFromSupabase 未定义，跳过');
-}
+// ===== 新增：加载所有角色和用户 =====
+await loadRolesFromSupabase();
+await loadAllUsersFromSupabase();
 
-// ===== 关键修复：使用 Supabase 用户 ID，不是 user_1 =====
+// 设置当前用户
 if (typeof setCurrentUser === 'function') {
     setCurrentUser(user.id);
-    console.log('✅ 使用 Supabase 用户权限，用户ID:', user.id);
-} else {
-    console.warn('⚠️ setCurrentUser 未定义');
+    console.log('✅ 权限已应用，用户ID:', user.id);
 }
-
-// 显示主界面
-document.getElementById('loginBox').style.display = 'none';
-document.getElementById('mainBox').style.display = 'block';
-
-var roleTextEl = document.getElementById('roleText');
-var userNameTextEl = document.getElementById('userNameText');
-
-if (roleTextEl) {
-    roleTextEl.innerText = user.role || '管理员';
-}
-if (userNameTextEl) {
-    userNameTextEl.innerText = user.username;
-}
-
-// 加载头像
-var avatarImg = document.getElementById('userAvatar');
-if (avatarImg) {
-    avatarImg.src = user.avatar_url || './images/logo.png';
-}
-
-if (typeof loadGoods === 'function') loadGoods();
-showMsg('✅ 登录成功！');
+        
+        // 显示主界面
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('mainBox').style.display = 'block';
+        var roleTextEl = document.getElementById('roleText');
+        if (roleTextEl) roleTextEl.innerText = user.username;
+        
+        // ===== 关键：设置当前用户（应用权限） =====
+        if (typeof setCurrentUser === 'function') {
+            setCurrentUser(user.id);
+            console.log('✅ 权限已应用，用户ID:', user.id);
+        }
+        
+        if (typeof loadGoods === 'function') loadGoods();
+        showMsg('✅ 登录成功！');
         
     } catch (err) {
         console.error('❌ 登录异常:', err);
@@ -135,15 +111,6 @@ showMsg('✅ 登录成功！');
  */
 function syncUserToLocalSystem(user, permissions) {
     try {
-        // ===== 检查 permissionData 是否存在 =====
-        if (typeof permissionData === 'undefined') {
-            console.warn('⚠️ permissionData 未定义，等待初始化');
-            setTimeout(function() {
-                syncUserToLocalSystem(user, permissions);
-            }, 500);
-            return;
-        }
-        
         var existingUser = permissionData.users.find(function(u) {
             return u.id === user.id;
         });
@@ -155,25 +122,20 @@ function syncUserToLocalSystem(user, permissions) {
             return;
         }
         
-        // ===== 关键修复：使用用户实际角色名 =====
-        var roleName = user.role || '用户';
-        
-        // 查找角色
-        var role = permissionData.roles.find(function(r) {
-            return r.name === roleName;
+        // 创建角色（如果不存在）
+        var roleId = 'supabase_' + user.role;
+        var existingRole = permissionData.roles.find(function(r) {
+            return r.id === roleId;
         });
         
-        // 如果角色不存在，创建它
-        if (!role) {
-            var allKeys = ALL_MENUS ? ALL_MENUS.map(function(m) { return m.key; }) : [];
-            var newRole = {
-                id: 'role_' + Date.now(),
-                name: roleName,
-                viewPermissions: allKeys
-            };
-            permissionData.roles.push(newRole);
-            role = newRole;
-            console.log('✅ 创建角色:', roleName);
+        if (!existingRole) {
+            var viewPermissions = ['goods', 'stockIn', 'returnGoods', 'stockOut', 'stockView', 'finance', 'settings'];
+            permissionData.roles.push({
+                id: roleId,
+                name: user.role === 'admin' ? '管理员' : user.role,
+                viewPermissions: viewPermissions
+            });
+            console.log('✅ 创建角色:', roleId);
         }
         
         // 添加用户
@@ -181,13 +143,12 @@ function syncUserToLocalSystem(user, permissions) {
             id: user.id,
             name: user.username,
             password: '',
-            roleId: role.id,
-            bannedOperations: [],
-            avatar_url: user.avatar_url || ''
+            roleId: roleId,
+            bannedOperations: []
         });
         
         savePermissionData();
-        console.log('✅ 用户已同步到本地权限系统:', user.username, '角色:', roleName);
+        console.log('✅ 用户已同步到本地权限系统:', user.username);
         
     } catch (err) {
         console.error('同步用户失败:', err);
