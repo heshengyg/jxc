@@ -488,3 +488,10 @@ tbody tr:hover { background-color: #e6f7ef; }
     height: 15px;
     cursor: pointer;
 }
+
+.user-avatar-wrapper:hover #userAvatar {
+    border-color: #1890ff;
+}
+#avatarDropdown div:hover {
+    background: #f5f5f5;
+}

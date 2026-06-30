@@ -28,9 +28,9 @@ async function loginWithSupabase(username, password) {
         
         // 查询用户
         var result = await supabase
-            .from('users')
-            .select('id, username, password_hash, role, status')
-            .eq('username', username);
+    .from('users')
+    .select('id, username, password_hash, role, status, avatar_url')  // ← 新增 avatar_url
+    .eq('username', username);
         
         if (result.error || !result.data || result.data.length === 0) {
             console.warn('⚠️ 用户不存在，尝试本地登录');
@@ -64,13 +64,14 @@ async function loginWithSupabase(username, password) {
         
         // 保存用户信息
         var userData = {
-            id: user.id,
-            name: user.username,
-            role: user.role,
-            fromSupabase: true
-        };
-        sessionStorage.setItem('supabase_user', JSON.stringify(userData));
-        sessionStorage.setItem('user', JSON.stringify(userData));
+    id: user.id,
+    name: user.username,
+    role: user.role,
+    avatar_url: user.avatar_url || '',  // ← 新增这一行
+    fromSupabase: true
+};
+sessionStorage.setItem('supabase_user', JSON.stringify(userData));
+sessionStorage.setItem('user', JSON.stringify(userData));
         
         // 同步到本地权限系统
 syncUserToLocalSystem(user, []);

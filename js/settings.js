@@ -982,14 +982,17 @@ function renderUsers() {
             div.className = 'user-card';
             div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #f5f5f5;';
             div.innerHTML = `
-                <span class="user-name" style="min-width:80px;">${user.name}</span>
-                <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
-                <div>
-                    <button class="btn btn-warning btn-sm" onclick="resetUserPassword('${user.id}')">重置密码</button>
-                    <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
-                </div>
-            `;
+                var avatarSrc = user.avatar_url || './image/logo.png';
+div.innerHTML = `
+    <img src="${avatarSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;">
+    <span class="user-name" style="min-width:80px;">${user.name}</span>
+    <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
+    <div>
+        <button class="btn btn-warning btn-sm" onclick="resetUserPassword('${user.id}')">重置密码</button>
+        <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
+    </div>
+`;
             contentDiv.appendChild(div);
         });
         container.appendChild(contentDiv);
@@ -1124,8 +1127,8 @@ async function loadAllUsersFromSupabase() {
         }
 
         var result = await supabase
-            .from('users')
-            .select('id, username, role, status');
+    .from('users')
+    .select('id, username, role, status, avatar_url');
 
         if (result.error) {
             console.error('❌ 加载用户失败:', result.error);
@@ -1203,12 +1206,13 @@ async function loadAllUsersFromSupabase() {
             }
 
             permissionData.users.push({
-                id: user.id,
-                name: user.username,
-                password: '',
-                roleId: role.id,
-                bannedOperations: []
-            });
+    id: user.id,
+    name: user.username,
+    password: '',
+    roleId: role.id,
+    bannedOperations: [],
+    avatar_url: user.avatar_url || ''  // ← 新增这一行
+});
 
             settingsData.members.push({
                 id: user.id,
