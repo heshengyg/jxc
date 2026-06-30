@@ -1448,8 +1448,9 @@ function editUserPerm(userId) {
 
 // 子版块操作全选切换
 function toggleSubGroupOps(checkbox) {
-    var subgroupKey = checkbox.dataset.subgroup;
-    var itemsContainer = document.querySelector('.op-items[data-subgroup="' + subgroupKey + '"]');
+    var subGroup = checkbox.closest('.op-sub-group');
+    if (!subGroup) return;
+    var itemsContainer = subGroup.querySelector('.op-items');
     if (!itemsContainer) return;
     var subCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"]');
     subCheckboxes.forEach(function(cb) {
