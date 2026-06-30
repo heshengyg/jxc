@@ -708,6 +708,7 @@ function updateModuleAll(checkbox) {
     allCheckbox.checked = allChecked;
 }
 
+// ===== 打开新增角色弹窗 =====
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
     document.getElementById('addRoleModal').dataset.editId = '';
@@ -724,7 +725,6 @@ function openAddRoleModal() {
     var html = '';
     for (var moduleKey in groups) {
         html += '<div class="perm-group">';
-        // 全选复选框
         html += '<div class="perm-group-title">';
         html += '<label><input type="checkbox" data-group="' + moduleKey + '" onchange="toggleModuleAll(this)"> 📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</label>';
         html += '</div>';
@@ -739,18 +739,57 @@ function openAddRoleModal() {
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
-function closeAddRoleModal() {
-    document.getElementById('addRoleModal').style.display = 'none';
+// ===== 打开编辑角色弹窗 =====
+function editRole(roleId) {
+    var role = permissionData.roles.find(function(r) { return r.id === roleId; });
+    if (!role) return;
+
+    document.getElementById('roleNameInput').value = role.name;
+    document.getElementById('addRoleModal').dataset.editId = roleId;
+
+    var container = document.getElementById('roleViewPermissions');
+    container.innerHTML = '';
+
+    var groups = {};
+    ALL_MENUS.forEach(function(item) {
+        if (!groups[item.module]) groups[item.module] = [];
+        groups[item.module].push(item);
+    });
+
+    var html = '';
+    for (var moduleKey in groups) {
+        // 判断该模块下所有子项是否都被选中
+        var allChecked = groups[moduleKey].every(function(item) {
+            return role.viewPermissions.includes(item.key);
+        });
+        html += '<div class="perm-group">';
+        html += '<div class="perm-group-title">';
+        html += '<label><input type="checkbox" data-group="' + moduleKey + '" ' + (allChecked ? 'checked' : '') + ' onchange="toggleModuleAll(this)"> 📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</label>';
+        html += '</div>';
+        html += '<div class="perm-group-items">';
+        groups[moduleKey].forEach(function(item) {
+            var checked = role.viewPermissions.includes(item.key) ? 'checked' : '';
+            html += '<label><input type="checkbox" value="' + item.key + '" ' + checked + ' onchange="updateModuleAll(this)"> ' + item.label + '</label>';
+        });
+        html += '</div></div>';
+    }
+    container.innerHTML = html;
+
+    document.getElementById('addRoleModal').style.display = 'flex';
 }
 
+// ===== 保存角色（新增或编辑） =====
 saveRole = async function() {
     var editId = document.getElementById('addRoleModal').dataset.editId;
     var name = document.getElementById('roleNameInput').value.trim();
     if (!name) return showMsg('请输入角色名称');
 
-    // 只获取子版块复选框（排除全选复选框）
+    // 只收集子版块复选框（排除 data-group 的全选复选框）
     var viewCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]');
-    var viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
+    var viewPermissions = Array.from(viewCheckboxes)
+        .filter(function(cb) { return cb.checked; })
+        .map(function(cb) { return cb.value; });
+
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
 
     if (editId) {
@@ -766,7 +805,7 @@ saveRole = async function() {
                 await syncRolePermissions(role.name, viewPermissions);
                 savePermissionData();
                 renderRoles();
-                updateRoleSelect();
+                updateRoleSelect(); // 刷新用户下拉
                 closeAddRoleModal();
                 showMsg('✅ 角色已更新');
                 document.getElementById('addRoleModal').dataset.editId = '';
@@ -790,7 +829,7 @@ saveRole = async function() {
             await syncRolePermissions(newRole.name, viewPermissions);
             savePermissionData();
             renderRoles();
-            updateRoleSelect();
+            updateRoleSelect(); // 刷新用户下拉
             closeAddRoleModal();
             showMsg('✅ 角色添加成功');
             applySubTabPermissions();
