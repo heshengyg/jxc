@@ -152,8 +152,8 @@ function canUserOperate(userId, moduleKey, operationKey) {
 // ===== 应用权限到页面按钮 =====
 // ============================================================
 function applyAllPermissions() {
-    if (!currentUserId) {
-        console.warn('⚠️ currentUserId 为空，跳过权限应用');
+    if (currentUserId === 'admin_force') {
+        // admin 强制模式，不做任何限制
         return;
     }
     document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
@@ -197,47 +197,40 @@ function setCurrentUser(userId) {
         } catch(e) {}
     }
 
-    // ===== 如果是 admin，强制显示所有 Tab =====
-    if (isAdminUser) {
-        console.log('🔥 admin 用户强制启用所有权限');
+    // ===== 如果是 admin，强制显示所有 Tab，并设置特殊 currentUserId =====
+if (isAdminUser) {
+    console.log('🔥 admin 用户强制启用所有权限');
+    currentUserId = 'admin_force';  // 特殊标识，后续权限检查会跳过
 
-        // 定义显示所有 Tab 的函数
-        function showAllTabs() {
-            // 显示主 Tab
-            document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.style.display = 'inline-block';
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-            });
-            // 显示系统设置 Tab
-            var settingsTab = document.getElementById('settingsTab');
-            if (settingsTab) {
-                settingsTab.style.display = 'inline-block';
-                settingsTab.style.visibility = 'visible';
-                settingsTab.style.opacity = '1';
-            }
-            // 启用所有操作按钮
-            document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
-                btn.disabled = false;
-                btn.style.opacity = '1';
-                btn.style.cursor = 'pointer';
-            });
-            // 显示所有子 Tab
-            document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
-                btn.style.display = '';
-            });
-            console.log('✅ 所有 Tab 已强制显示');
+    function showAllTabs() {
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.style.display = 'inline-block';
+            btn.style.visibility = 'visible';
+            btn.style.opacity = '1';
+        });
+        var settingsTab = document.getElementById('settingsTab');
+        if (settingsTab) {
+            settingsTab.style.display = 'inline-block';
+            settingsTab.style.visibility = 'visible';
+            settingsTab.style.opacity = '1';
         }
-
-        // 立即执行
-        showAllTabs();
-        // 延迟执行（覆盖后续可能的修改）
-        setTimeout(showAllTabs, 100);
-        setTimeout(showAllTabs, 500);
-        setTimeout(showAllTabs, 1000);
-
-        return; // 直接返回，不走后续逻辑
+        document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        });
+        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+            btn.style.display = '';
+        });
+        console.log('✅ 所有 Tab 已强制显示');
     }
+
+    showAllTabs();
+    setTimeout(showAllTabs, 100);
+    setTimeout(showAllTabs, 500);
+    setTimeout(showAllTabs, 1000);
+    return; // 直接返回，不走后续权限逻辑
+}
 
     // ===== 非 admin 用户走正常逻辑 =====
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
@@ -297,9 +290,10 @@ function setCurrentUser(userId) {
 // ===== 子版块权限应用函数 =====
 // ============================================================
 function applySubTabPermissions() {
-    var activeTab = document.querySelector('.tab-btn.active');
-    if (!activeTab) return;
-
+    if (currentUserId === 'admin_force') {
+        // admin 强制模式，不做任何限制
+        return;
+    }
     var match = activeTab.getAttribute('onclick')?.match(/switchTab\('([^']+)'\)/);
     if (!match) return;
     var moduleKey = match[1];
@@ -646,74 +640,14 @@ function applyUserPermissions() {
     }
     setCurrentUser('user_1');
 }
-// 重写 switchTab
-// 重写 switchTab
+// ========== 重写 switchTab ==========
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
-    // ===== 如果是 admin，强制显示所有 Tab 后再执行切换 =====
-    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-    var isAdminUser = false;
-    if (saved) {
-        try {
-            var userInfo = JSON.parse(saved);
-            if (userInfo.name === 'admin' || userInfo.role === '管理员') {
-                isAdminUser = true;
-            }
-        } catch(e) {}
-    }
-
-    // admin 用户：先强制显示所有 Tab，再执行切换
-    if (isAdminUser) {
-        // 强制显示所有主 Tab
-        document.querySelectorAll('.tab-btn').forEach(function(btn) {
-            btn.style.display = 'inline-block';
-            btn.style.visibility = 'visible';
-            btn.style.opacity = '1';
-        });
-        var settingsTab = document.getElementById('settingsTab');
-        if (settingsTab) {
-            settingsTab.style.display = 'inline-block';
-            settingsTab.style.visibility = 'visible';
-            settingsTab.style.opacity = '1';
-        }
-        // 显示所有子 Tab
-        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
-            btn.style.display = '';
-        });
-    }
-
-    // 执行原始切换
+    // 先执行原始切换（common.js 中的 switchTab）
     if (typeof originalSwitchTab === 'function') {
         originalSwitchTab(tabName);
-    } else {
-        // 如果 originalSwitchTab 不存在，使用 common.js 中的 switchTab
-        if (typeof window._originalSwitchTab === 'function') {
-            window._originalSwitchTab(tabName);
-        }
     }
-
-    // admin 用户：切换后再次强制显示所有 Tab
-    if (isAdminUser) {
-        setTimeout(function() {
-            document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.style.display = 'inline-block';
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-            });
-            var settingsTab = document.getElementById('settingsTab');
-            if (settingsTab) {
-                settingsTab.style.display = 'inline-block';
-                settingsTab.style.visibility = 'visible';
-                settingsTab.style.opacity = '1';
-            }
-            document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
-                btn.style.display = '';
-            });
-            console.log('✅ admin 切换后重新显示所有 Tab');
-        }, 100);
-    }
-
-    // ===== 原有的 settings 特殊逻辑 =====
+    // 如果是 settings 标签，加载数据
     if (tabName === 'settings') {
         if (typeof loadRolesFromSupabase === 'function' && typeof loadAllUsersFromSupabase === 'function') {
             loadRolesFromSupabase().then(function() {
@@ -726,11 +660,26 @@ window.switchTab = function(tabName) {
             });
         }
     } else {
+        // 其他标签：延迟应用子权限（但 admin 会被跳过）
         if (typeof applySubTabPermissions === 'function') {
             setTimeout(applySubTabPermissions, 50);
         }
     }
 };
+
+// ========== 初始化设置 ==========
+function initSettings() {
+    loadSettings();
+    loadPermissionData();
+
+    loadRolesFromSupabase().then(function(success) {
+        renderAll();
+        if (success) {
+            savePermissionData();
+        }
+        applyUserPermissions();
+        setTimeout(applySubTabPermissions, 100);
+    });
 
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
