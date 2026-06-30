@@ -1207,7 +1207,7 @@ async function loadAllUsersFromSupabase() {
                 name: user.username,
                 password: '',
                 roleId: role.id,
-                bannedOperations: []，
+                bannedOperations: [],
                 avatar_url: user.avatar_url || ''  // 增加
             });
 
