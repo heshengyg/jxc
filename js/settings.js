@@ -930,89 +930,117 @@ function toggleUserGroup(groupId) {
     }
 }
 
+// ===== 重置用户密码（挂载到全局） =====
+window.resetUserPassword = async function(userId) {
+    try {
+        var user = permissionData.users.find(function(u) { return u.id === userId; });
+        if (!user) {
+            showMsg('❌ 用户不存在');
+            return;
+        }
+
+        // 1. 确认操作者是否有权限（仅管理员或本人？这里保持仅管理员）
+        if (!isCurrentUserAdmin()) {
+            showMsg('⚠️ 只有管理员可以重置密码');
+            return;
+        }
+
+        // 2. 弹窗输入新密码
+        var newPwd = prompt('请输入 ' + user.name + ' 的新密码：');
+        if (newPwd === null) return; // 取消
+        newPwd = newPwd.trim();
+        if (newPwd === '') {
+            showMsg('⚠️ 密码不能为空');
+            return;
+        }
+
+        // 3. 确认密码
+        var confirmPwd = prompt('请再次输入新密码确认：');
+        if (confirmPwd === null) return;
+        confirmPwd = confirmPwd.trim();
+        if (newPwd !== confirmPwd) {
+            showMsg('❌ 两次密码不一致，重置失败');
+            return;
+        }
+
+        // 4. 加密
+        var passwordHash = newPwd;
+        if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
+            passwordHash = bcrypt.hashSync(newPwd, 10);
+        } else {
+            console.warn('⚠️ bcrypt 未加载，使用明文存储（不推荐）');
+        }
+
+        // 5. 更新 Supabase
+        var result = await supabase
+            .from('users')
+            .update({ password_hash: passwordHash })
+            .eq('id', userId);
+
+        if (result.error) {
+            console.error('❌ 重置密码失败:', result.error);
+            showMsg('❌ 重置失败：' + result.error.message);
+            return;
+        }
+
+        showMsg('✅ 用户 ' + user.name + ' 密码已重置');
+        // 可选：刷新用户列表（虽然密码不显示，但保持数据一致）
+        // await loadAllUsersFromSupabase();
+        // renderUsers();
+    } catch (err) {
+        console.error('重置密码异常:', err);
+        showMsg('❌ 重置过程发生错误：' + err.message);
+    }
+};
+
 // ===== 替换 renderUsers =====
 function renderUsers() {
     var container = document.getElementById('userList');
     if (!container) return;
     container.innerHTML = '';
 
-    // 1. 按角色分组
     var groups = {};
     permissionData.users.forEach(function(user) {
         var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
         var roleName = role ? role.name : '未分配';
-        if (!groups[roleName]) {
-            groups[roleName] = [];
-        }
+        if (!groups[roleName]) groups[roleName] = [];
         groups[roleName].push(user);
     });
 
-    var sortedRoleNames = Object.keys(groups).sort();
-
-    sortedRoleNames.forEach(function(roleName) {
+    Object.keys(groups).sort().forEach(function(roleName) {
         var users = groups[roleName];
         if (users.length === 0) return;
-
         var groupId = 'userGroup_' + roleName.replace(/\s/g, '_');
 
-        // 组标题
         var headerDiv = document.createElement('div');
         headerDiv.className = 'user-group-header';
-        headerDiv.style.cssText = `
-            cursor: pointer;
-            font-weight: bold;
-            padding: 8px 14px;
-            background: #f0f2f5;
-            border-radius: 4px;
-            margin: 6px 0 4px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
-        `;
+        headerDiv.style.cssText = 'cursor:pointer;font-weight:bold;padding:8px 14px;background:#f0f2f5;border-radius:4px;margin:6px 0 4px 0;display:flex;justify-content:space-between;align-items:center;user-select:none;';
         headerDiv.onclick = function() { toggleUserGroup(groupId); };
-        headerDiv.innerHTML = `
-            <span>👥 ${roleName}（${users.length}人）</span>
-            <span style="font-size:12px; color:#888;">点击折叠/展开</span>
-        `;
+        headerDiv.innerHTML = '<span>👥 ' + roleName + '（' + users.length + '人）</span><span style="font-size:12px;color:#888;">点击折叠/展开</span>';
         container.appendChild(headerDiv);
 
-        // 用户列表容器
         var contentDiv = document.createElement('div');
         contentDiv.id = groupId;
         contentDiv.className = 'user-group-content';
-        contentDiv.style.cssText = `
-            padding-left: 16px;
-            border-left: 2px solid #e8e8e8;
-            margin-bottom: 8px;
-            display: block;
-        `;
+        contentDiv.style.cssText = 'padding-left:16px;border-left:2px solid #e8e8e8;margin-bottom:8px;display:block;';
 
         users.forEach(function(user) {
             var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
             var bannedCount = user.bannedOperations ? user.bannedOperations.length : 0;
-
             var div = document.createElement('div');
             div.className = 'user-card';
-            div.style.cssText = `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 6px 12px;
-                border-bottom: 1px solid #f5f5f5;
-            `;
+            div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #f5f5f5;';
             div.innerHTML = `
                 <span class="user-name" style="min-width:80px;">${user.name}</span>
                 <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
                 <div>
-                    <button class="btn btn-warning btn-sm" data-module="settings" data-op="resetPwd" onclick="resetUserPassword('${user.id}')">重置密码</button>
-                    <button class="btn btn-primary btn-sm" data-module="settings" data-op="editUserPerm" onclick="editUserPerm('${user.id}')">权限</button>
-                    <button class="btn btn-danger btn-sm" data-module="settings" data-op="deleteUser" onclick="deleteUser('${user.id}')">删除</button>
+                    <button class="btn btn-warning btn-sm" onclick="resetUserPassword('${user.id}')">重置密码</button>
+                    <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
                 </div>
             `;
             contentDiv.appendChild(div);
         });
-
         container.appendChild(contentDiv);
     });
 }
