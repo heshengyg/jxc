@@ -180,6 +180,44 @@ function applyAllPermissions() {
 // ===== 设置当前用户 =====
 // ============================================================
 function setCurrentUser(userId) {
+    // ===== 🔥 强制：如果 userId 是 admin 或用户名是 admin，直接使用管理员权限 =====
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    var currentUserName = '';
+    if (saved) {
+        try {
+            var userInfo = JSON.parse(saved);
+            currentUserName = userInfo.name || '';
+        } catch(e) {}
+    }
+    
+    // 如果是 admin 登录，强制使用管理员权限，跳过所有检查
+    if (currentUserName === 'admin') {
+        console.log('🔥 admin 用户强制启用管理员权限');
+        currentUserId = userId;
+        
+        // 显示所有 Tab
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.style.display = 'inline-block';
+        });
+        // 显示设置 Tab
+        var settingsTab = document.getElementById('settingsTab');
+        if (settingsTab) settingsTab.style.display = 'inline-block';
+        
+        // 启用所有按钮
+        document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        });
+        
+        // 显示所有子 Tab
+        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+            btn.style.display = '';
+        });
+        
+        console.log('✅ admin 权限已强制启用');
+        return;
+    }
     currentUserId = userId;
     if (!userId) return;
 
