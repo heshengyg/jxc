@@ -90,7 +90,7 @@ const OPERATION_PERMISSIONS = {
             dateChange: {
                 label: '后台更换日期',
                 operations: [
-                    { key: 'update', label: '更新' }  // 只有“更新”按钮
+                    { key: 'update', label: '更新' }
                 ]
             }
         }
@@ -189,7 +189,7 @@ const OPERATION_PERMISSIONS = {
             },
             paymentBoard: {
                 label: '收付款看板',
-                operations: [] // 无操作按钮
+                operations: []
             },
             monthInvoiceBalance: {
                 label: '发票月结余',
@@ -333,7 +333,6 @@ function canUserView(userId, menuKey) {
     return perms.view.includes(menuKey);
 }
 
-// ===== 修复：使用 getUserPermissions 获取权限，利用回退机制 =====
 function canUserOperate(userId, moduleKey, operationKey) {
     if (!userId) return false;
     var perms = getUserPermissions(userId);
@@ -1067,55 +1066,16 @@ function deleteRole(roleId) {
             savePermissionData();
             renderRoles();
             renderUsers();
-            updateRoleSelect(); // ✅ 刷新用户下拉
+            updateRoleSelect();
             showMsg('✅ 角色已删除');
             applySubTabPermissions();
         }
     });
 }
 
-function editRole(roleId) {
-    var role = permissionData.roles.find(function(r) { return r.id === roleId; });
-    if (!role) return;
-
-    document.getElementById('roleNameInput').value = role.name;
-    document.getElementById('addRoleModal').dataset.editId = roleId;
-
-    var container = document.getElementById('roleViewPermissions');
-    container.innerHTML = '';
-
-    var groups = {};
-    ALL_MENUS.forEach(function(item) {
-        if (!groups[item.module]) groups[item.module] = [];
-        groups[item.module].push(item);
-    });
-
-    var html = '';
-    for (var moduleKey in groups) {
-        // 判断该模块下所有子项是否都被选中
-        var allChecked = groups[moduleKey].every(function(item) {
-            return role.viewPermissions.includes(item.key);
-        });
-        html += '<div class="perm-group">';
-        html += '<div class="perm-group-title">';
-        html += '<label><input type="checkbox" data-group="' + moduleKey + '" ' + (allChecked ? 'checked' : '') + ' onchange="toggleModuleAll(this)"> 📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</label>';
-        html += '</div>';
-        html += '<div class="perm-group-items">';
-        groups[moduleKey].forEach(function(item) {
-            var checked = role.viewPermissions.includes(item.key) ? 'checked' : '';
-            html += '<label><input type="checkbox" value="' + item.key + '" ' + checked + ' onchange="updateModuleAll(this)"> ' + item.label + '</label>';
-        });
-        html += '</div></div>';
-    }
-    container.innerHTML = html;
-
-    document.getElementById('addRoleModal').style.display = 'flex';
-}
-
 // ============================================================
 // ===== 用户管理 =====
 // ============================================================
-// ===== 新增：用户组折叠切换 =====
 function toggleUserGroup(groupId) {
     var content = document.getElementById(groupId);
     if (content) {
@@ -1123,7 +1083,6 @@ function toggleUserGroup(groupId) {
     }
 }
 
-// ===== 重置用户密码（挂载到全局） =====
 window.resetUserPassword = async function(userId) {
     try {
         var user = permissionData.users.find(function(u) { return u.id === userId; });
@@ -1132,22 +1091,19 @@ window.resetUserPassword = async function(userId) {
             return;
         }
 
-        // 1. 确认操作者是否有权限（仅管理员或本人？这里保持仅管理员）
         if (!isCurrentUserAdmin()) {
             showMsg('⚠️ 只有管理员可以重置密码');
             return;
         }
 
-        // 2. 弹窗输入新密码
         var newPwd = prompt('请输入 ' + user.name + ' 的新密码：');
-        if (newPwd === null) return; // 取消
+        if (newPwd === null) return;
         newPwd = newPwd.trim();
         if (newPwd === '') {
             showMsg('⚠️ 密码不能为空');
             return;
         }
 
-        // 3. 确认密码
         var confirmPwd = prompt('请再次输入新密码确认：');
         if (confirmPwd === null) return;
         confirmPwd = confirmPwd.trim();
@@ -1156,7 +1112,6 @@ window.resetUserPassword = async function(userId) {
             return;
         }
 
-        // 4. 加密
         var passwordHash = newPwd;
         if (typeof bcrypt !== 'undefined' && bcrypt.hashSync) {
             passwordHash = bcrypt.hashSync(newPwd, 10);
@@ -1164,7 +1119,6 @@ window.resetUserPassword = async function(userId) {
             console.warn('⚠️ bcrypt 未加载，使用明文存储（不推荐）');
         }
 
-        // 5. 更新 Supabase
         var result = await supabase
             .from('users')
             .update({ password_hash: passwordHash })
@@ -1177,16 +1131,12 @@ window.resetUserPassword = async function(userId) {
         }
 
         showMsg('✅ 用户 ' + user.name + ' 密码已重置');
-        // 可选：刷新用户列表（虽然密码不显示，但保持数据一致）
-        // await loadAllUsersFromSupabase();
-        // renderUsers();
     } catch (err) {
         console.error('重置密码异常:', err);
         showMsg('❌ 重置过程发生错误：' + err.message);
     }
 };
 
-// ===== 替换 renderUsers =====
 function renderUsers() {
     var container = document.getElementById('userList');
     if (!container) return;
@@ -1356,7 +1306,7 @@ async function deleteUser(userId) {
 }
 
 // ============================================================
-// ===== 修复：loadAllUsersFromSupabase 正确处理 admin =====
+// ===== loadAllUsersFromSupabase 正确处理 admin =====
 // ============================================================
 async function loadAllUsersFromSupabase() {
     try {
@@ -1378,12 +1328,10 @@ async function loadAllUsersFromSupabase() {
 
         for (var user of result.data) {
             console.log('同步用户:', user.username, '角色:', user.role);
-            // 精确匹配角色
             var role = permissionData.roles.find(function(r) {
                 return r.name === user.role;
             });
 
-            // 特殊处理：如果用户是 admin，即使角色匹配失败，也强制分配管理员角色
             if (!role && user.username === 'admin') {
                 role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
                 if (role) {
@@ -1446,7 +1394,6 @@ function editUserPerm(userId) {
     document.getElementById('editUserPermModal').style.display = 'flex';
 }
 
-// 子版块操作全选切换
 function toggleSubGroupOps(checkbox) {
     var subGroup = checkbox.closest('.op-sub-group');
     if (!subGroup) return;
@@ -1480,10 +1427,8 @@ function renderUserOpsContainer(bannedOps) {
         return;
     }
 
-    // 遍历所有模块
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        // 检查该模块下是否有任何子版块在角色的查看权限中
         var subKeys = Object.keys(moduleData.subModules);
         var hasAnyView = subKeys.some(function(subKey) {
             return role.viewPermissions.includes(subKey);
@@ -1500,7 +1445,6 @@ function renderUserOpsContainer(bannedOps) {
             var subData = moduleData.subModules[subKey];
             if (!subData.operations || subData.operations.length === 0) continue;
 
-            // 子版块标题（带全选）
             var opsHtml = '';
             subData.operations.forEach(function(op) {
                 var opKey = moduleKey + '_' + subKey + '_' + op.key;
@@ -1508,7 +1452,6 @@ function renderUserOpsContainer(bannedOps) {
                 opsHtml += '<label><input type="checkbox" value="' + opKey + '" ' + checked + '> ' + op.label + '</label>';
             });
 
-            // 子版块全选复选框（data-subgroup 标记）
             var allChecked = subData.operations.every(function(op) {
                 var opKey = moduleKey + '_' + subKey + '_' + op.key;
                 return bannedOps && bannedOps.indexOf(opKey) !== -1;
