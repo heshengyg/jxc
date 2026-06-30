@@ -28,9 +28,9 @@ async function loginWithSupabase(username, password) {
         
         // 查询用户
         var result = await supabase
-            .from('users')
-            .select('id, username, password_hash, role, status')
-            .eq('username', username);
+    .from('users')
+    .select('id, username, password_hash, role, status, avatar_url')
+    .eq('username', username);
         
         if (result.error || !result.data || result.data.length === 0) {
             console.warn('⚠️ 用户不存在，尝试本地登录');
