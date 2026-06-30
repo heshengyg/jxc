@@ -60,6 +60,199 @@ const MODULE_SUB_KEYS = {
 };
 
 // ============================================================
+// ===== 操作权限定义（每个子版块对应的操作按钮） =====
+// ============================================================
+const OPERATION_PERMISSIONS = {
+    goods: {
+        label: '商品管理',
+        subModules: {
+            goodsInfo: {
+                label: '商品信息',
+                operations: [
+                    { key: 'add', label: '新增商品' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'import', label: '批量导入' }
+                ]
+            },
+            settleType: {
+                label: '供应商管理',
+                operations: [
+                    { key: 'add', label: '新增供应商' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'import', label: '批量导入' }
+                ]
+            },
+            dateChange: {
+                label: '后台更换日期',
+                operations: [
+                    { key: 'update', label: '更新' }  // 只有“更新”按钮
+                ]
+            }
+        }
+    },
+    stockIn: {
+        label: '入库管理',
+        subModules: {
+            stockInList: {
+                label: '入库记录',
+                operations: [
+                    { key: 'add', label: '添加入库' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'export', label: '导出入库记录' },
+                    { key: 'import', label: '批量导入入库' }
+                ]
+            }
+        }
+    },
+    returnGoods: {
+        label: '退货管理',
+        subModules: {
+            returnList: {
+                label: '退货记录',
+                operations: [
+                    { key: 'add', label: '添加退货' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'import', label: '批量导入' }
+                ]
+            }
+        }
+    },
+    stockOut: {
+        label: '出库管理',
+        subModules: {
+            stockOutList: {
+                label: '出库记录',
+                operations: [
+                    { key: 'add', label: '添加出库' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'export', label: '导出出库记录' },
+                    { key: 'import', label: '批量导入出库' }
+                ]
+            }
+        }
+    },
+    stockView: {
+        label: '库存查看',
+        subModules: {
+            stockList: {
+                label: '库存列表',
+                operations: [
+                    { key: 'export', label: '导出库存报表' },
+                    { key: 'refresh', label: '刷新库存' }
+                ]
+            }
+        }
+    },
+    finance: {
+        label: '财务综合',
+        subModules: {
+            taxRate: {
+                label: '税率录入',
+                operations: [
+                    { key: 'edit', label: '编辑税率' }
+                ]
+            },
+            stockInPrint: {
+                label: '入库单打印',
+                operations: [
+                    { key: 'search', label: '查询' },
+                    { key: 'print', label: '打印预览' }
+                ]
+            },
+            payRecord: {
+                label: '财务付款记录',
+                operations: [
+                    { key: 'add', label: '新增付款记录' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' }
+                ]
+            },
+            invoiceBack: {
+                label: '发票返回记录',
+                operations: [
+                    { key: 'add', label: '新增发票返回记录' },
+                    { key: 'edit', label: '编辑' },
+                    { key: 'delete', label: '删除' }
+                ]
+            },
+            paymentBoard: {
+                label: '收付款看板',
+                operations: [] // 无操作按钮
+            },
+            monthInvoiceBalance: {
+                label: '发票月结余',
+                operations: [
+                    { key: 'search', label: '查询' }
+                ]
+            },
+            stockInCheck: {
+                label: '入库对账',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出入库对账表' }
+                ]
+            },
+            stockOutCheck: {
+                label: '出库对账',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出出库对账表' }
+                ]
+            },
+            monthBeginStock: {
+                label: '月期初数',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出期初库存表' }
+                ]
+            }
+        }
+    },
+    settings: {
+        label: '系统设置',
+        subModules: {
+            basic: {
+                label: '基础设置',
+                operations: [
+                    { key: 'save', label: '保存' }
+                ]
+            },
+            data: {
+                label: '数据管理',
+                operations: [
+                    { key: 'backup', label: '立即备份' },
+                    { key: 'import', label: '导入数据' },
+                    { key: 'clear', label: '清空数据' }
+                ]
+            },
+            permission: {
+                label: '权限管理',
+                operations: [
+                    { key: 'addRole', label: '新增角色' },
+                    { key: 'editRole', label: '编辑角色' },
+                    { key: 'deleteRole', label: '删除角色' },
+                    { key: 'addUser', label: '添加用户' },
+                    { key: 'editUserPerm', label: '编辑用户权限' },
+                    { key: 'deleteUser', label: '删除用户' }
+                ]
+            }
+        }
+    }
+};
+
+// ============================================================
 // ===== 旧 Key → 新 Key 映射表（兼容历史数据） =====
 // ============================================================
 const KEY_MIGRATION_MAP = {
@@ -1253,6 +1446,17 @@ function editUserPerm(userId) {
     document.getElementById('editUserPermModal').style.display = 'flex';
 }
 
+// 子版块操作全选切换
+function toggleSubGroupOps(checkbox) {
+    var subgroupKey = checkbox.dataset.subgroup;
+    var itemsContainer = document.querySelector('.op-items[data-subgroup="' + subgroupKey + '"]');
+    if (!itemsContainer) return;
+    var subCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"]');
+    subCheckboxes.forEach(function(cb) {
+        cb.checked = checkbox.checked;
+    });
+}
+
 function renderUserOpsContainer(bannedOps) {
     var container = document.getElementById('userOpsContainer');
     if (!container) return;
@@ -1275,12 +1479,15 @@ function renderUserOpsContainer(bannedOps) {
         return;
     }
 
+    // 遍历所有模块
     for (var moduleKey in OPERATION_PERMISSIONS) {
         var moduleData = OPERATION_PERMISSIONS[moduleKey];
-        var hasView = role.viewPermissions.some(function(k) {
-            return MODULE_SUB_KEYS[moduleKey] && MODULE_SUB_KEYS[moduleKey].includes(k);
+        // 检查该模块下是否有任何子版块在角色的查看权限中
+        var subKeys = Object.keys(moduleData.subModules);
+        var hasAnyView = subKeys.some(function(subKey) {
+            return role.viewPermissions.includes(subKey);
         });
-        if (!hasView) continue;
+        if (!hasAnyView) continue;
 
         var moduleDiv = document.createElement('div');
         moduleDiv.className = 'op-module-group';
@@ -1288,25 +1495,40 @@ function renderUserOpsContainer(bannedOps) {
 
         var subHtml = '';
         for (var subKey in moduleData.subModules) {
+            if (!role.viewPermissions.includes(subKey)) continue;
             var subData = moduleData.subModules[subKey];
+            if (!subData.operations || subData.operations.length === 0) continue;
+
+            // 子版块标题（带全选）
             var opsHtml = '';
-            for (var i = 0; i < subData.operations.length; i++) {
-                var op = subData.operations[i];
+            subData.operations.forEach(function(op) {
                 var opKey = moduleKey + '_' + subKey + '_' + op.key;
                 var checked = bannedOps && bannedOps.indexOf(opKey) !== -1 ? 'checked' : '';
                 opsHtml += '<label><input type="checkbox" value="' + opKey + '" ' + checked + '> ' + op.label + '</label>';
-            }
+            });
+
+            // 子版块全选复选框（data-subgroup 标记）
+            var allChecked = subData.operations.every(function(op) {
+                var opKey = moduleKey + '_' + subKey + '_' + op.key;
+                return bannedOps && bannedOps.indexOf(opKey) !== -1;
+            });
+
             subHtml += '<div class="op-sub-group">';
-            subHtml += '<div class="op-sub-title">└─ ' + subData.label + '</div>';
-            subHtml += '<div class="op-items">' + opsHtml + '</div>';
+            subHtml += '<div class="op-sub-title">';
+            subHtml += '<label><input type="checkbox" data-subgroup="' + moduleKey + '_' + subKey + '" ' + (allChecked ? 'checked' : '') + ' onchange="toggleSubGroupOps(this)"> └─ ' + subData.label + '</label>';
+            subHtml += '</div>';
+            subHtml += '<div class="op-items" data-subgroup="' + moduleKey + '_' + subKey + '">' + opsHtml + '</div>';
             subHtml += '</div>';
         }
-        moduleDiv.innerHTML += subHtml;
-        container.appendChild(moduleDiv);
+
+        if (subHtml) {
+            moduleDiv.innerHTML += subHtml;
+            container.appendChild(moduleDiv);
+        }
     }
 
     if (container.innerHTML === '') {
-        container.innerHTML = '<div class="op-empty">该角色没有任何可操作的模块</div>';
+        container.innerHTML = '<div class="op-empty">该角色没有可操作的功能</div>';
     }
 }
 
