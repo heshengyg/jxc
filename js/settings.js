@@ -647,35 +647,90 @@ function applyUserPermissions() {
     setCurrentUser('user_1');
 }
 // 重写 switchTab
+// 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {
-    originalSwitchTab(tabName);
-    if (tabName === 'settings') {
-        loadRolesFromSupabase().then(function() {
-            loadAllUsersFromSupabase().then(function() {
-                renderAll();
-                applyAllPermissions();
-                applySubTabPermissions();
-                console.log('✅ 数据已同步');
-            });
+    // ===== 如果是 admin，强制显示所有 Tab 后再执行切换 =====
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    var isAdminUser = false;
+    if (saved) {
+        try {
+            var userInfo = JSON.parse(saved);
+            if (userInfo.name === 'admin' || userInfo.role === '管理员') {
+                isAdminUser = true;
+            }
+        } catch(e) {}
+    }
+
+    // admin 用户：先强制显示所有 Tab，再执行切换
+    if (isAdminUser) {
+        // 强制显示所有主 Tab
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.style.display = 'inline-block';
+            btn.style.visibility = 'visible';
+            btn.style.opacity = '1';
         });
+        var settingsTab = document.getElementById('settingsTab');
+        if (settingsTab) {
+            settingsTab.style.display = 'inline-block';
+            settingsTab.style.visibility = 'visible';
+            settingsTab.style.opacity = '1';
+        }
+        // 显示所有子 Tab
+        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+            btn.style.display = '';
+        });
+    }
+
+    // 执行原始切换
+    if (typeof originalSwitchTab === 'function') {
+        originalSwitchTab(tabName);
     } else {
-        setTimeout(applySubTabPermissions, 50);
+        // 如果 originalSwitchTab 不存在，使用 common.js 中的 switchTab
+        if (typeof window._originalSwitchTab === 'function') {
+            window._originalSwitchTab(tabName);
+        }
+    }
+
+    // admin 用户：切换后再次强制显示所有 Tab
+    if (isAdminUser) {
+        setTimeout(function() {
+            document.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.style.display = 'inline-block';
+                btn.style.visibility = 'visible';
+                btn.style.opacity = '1';
+            });
+            var settingsTab = document.getElementById('settingsTab');
+            if (settingsTab) {
+                settingsTab.style.display = 'inline-block';
+                settingsTab.style.visibility = 'visible';
+                settingsTab.style.opacity = '1';
+            }
+            document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+                btn.style.display = '';
+            });
+            console.log('✅ admin 切换后重新显示所有 Tab');
+        }, 100);
+    }
+
+    // ===== 原有的 settings 特殊逻辑 =====
+    if (tabName === 'settings') {
+        if (typeof loadRolesFromSupabase === 'function' && typeof loadAllUsersFromSupabase === 'function') {
+            loadRolesFromSupabase().then(function() {
+                loadAllUsersFromSupabase().then(function() {
+                    if (typeof renderAll === 'function') renderAll();
+                    if (typeof applyAllPermissions === 'function') applyAllPermissions();
+                    if (typeof applySubTabPermissions === 'function') applySubTabPermissions();
+                    console.log('✅ 数据已同步');
+                });
+            });
+        }
+    } else {
+        if (typeof applySubTabPermissions === 'function') {
+            setTimeout(applySubTabPermissions, 50);
+        }
     }
 };
-
-function initSettings() {
-    loadSettings();
-    loadPermissionData();
-
-    loadRolesFromSupabase().then(function(success) {
-        renderAll();
-        if (success) {
-            savePermissionData();
-        }
-        applyUserPermissions();
-        setTimeout(applySubTabPermissions, 100);
-    });
 
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';

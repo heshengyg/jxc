@@ -86,7 +86,32 @@ function closeMsg() {
 }
 
 // 标签页切换
-function switchTab(tabId) {
+ffunction switchTab(tabId) {
+    // ===== 如果是 admin，强制显示所有 Tab =====
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    var isAdminUser = false;
+    if (saved) {
+        try {
+            var userInfo = JSON.parse(saved);
+            if (userInfo.name === 'admin' || userInfo.role === '管理员') {
+                isAdminUser = true;
+            }
+        } catch(e) {}
+    }
+
+    if (isAdminUser) {
+        console.log('🔥 admin 切换Tab:', tabId);
+        // 强制显示所有 Tab
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.style.display = 'inline-block';
+        });
+        var settingsTab = document.getElementById('settingsTab');
+        if (settingsTab) settingsTab.style.display = 'inline-block';
+        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+            btn.style.display = '';
+        });
+    }
+
     console.log('切换到Tab:', tabId);
     
     // 1. 隐藏所有tab内容 - 包括 #goods 内部和外部的
