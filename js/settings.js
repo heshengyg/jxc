@@ -688,6 +688,27 @@ function renderRoles() {
     });
 }
 
+// 全选/取消全选（点击大模块复选框时触发）
+function toggleModuleAll(checkbox) {
+    var groupContainer = checkbox.closest('.perm-group');
+    var subCheckboxes = groupContainer.querySelectorAll('.perm-group-items input[type="checkbox"]');
+    subCheckboxes.forEach(function(sub) {
+        sub.checked = checkbox.checked;
+    });
+}
+
+// 子选项变化时更新全选状态（点击子复选框时触发）
+function updateModuleAll(checkbox) {
+    var groupContainer = checkbox.closest('.perm-group');
+    var allCheckbox = groupContainer.querySelector('.perm-group-title input[data-group]');
+    var subCheckboxes = groupContainer.querySelectorAll('.perm-group-items input[type="checkbox"]');
+    var allChecked = true;
+    subCheckboxes.forEach(function(sub) {
+        if (!sub.checked) allChecked = false;
+    });
+    allCheckbox.checked = allChecked;
+}
+
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
     document.getElementById('addRoleModal').dataset.editId = '';
@@ -704,10 +725,13 @@ function openAddRoleModal() {
     var html = '';
     for (var moduleKey in groups) {
         html += '<div class="perm-group">';
-        html += '<div class="perm-group-title">📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</div>';
+        // 全选复选框
+        html += '<div class="perm-group-title">';
+        html += '<label><input type="checkbox" data-group="' + moduleKey + '" onchange="toggleModuleAll(this)"> 📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</label>';
+        html += '</div>';
         html += '<div class="perm-group-items">';
         groups[moduleKey].forEach(function(item) {
-            html += '<label><input type="checkbox" value="' + item.key + '"> ' + item.label + '</label>';
+            html += '<label><input type="checkbox" value="' + item.key + '" onchange="updateModuleAll(this)"> ' + item.label + '</label>';
         });
         html += '</div></div>';
     }
@@ -725,7 +749,7 @@ saveRole = async function() {
     var name = document.getElementById('roleNameInput').value.trim();
     if (!name) return showMsg('请输入角色名称');
 
-    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions input:checked');
+    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions input[type="checkbox"]:not([data-group])');
     var viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
 
@@ -814,12 +838,18 @@ function editRole(roleId) {
 
     var html = '';
     for (var moduleKey in groups) {
+        // 判断该模块下所有子项是否都被选中
+        var allChecked = groups[moduleKey].every(function(item) {
+            return role.viewPermissions.includes(item.key);
+        });
         html += '<div class="perm-group">';
-        html += '<div class="perm-group-title">📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</div>';
+        html += '<div class="perm-group-title">';
+        html += '<label><input type="checkbox" data-group="' + moduleKey + '" ' + (allChecked ? 'checked' : '') + ' onchange="toggleModuleAll(this)"> 📁 ' + (MODULE_GROUPS[moduleKey] || moduleKey) + '</label>';
+        html += '</div>';
         html += '<div class="perm-group-items">';
         groups[moduleKey].forEach(function(item) {
             var checked = role.viewPermissions.includes(item.key) ? 'checked' : '';
-            html += '<label><input type="checkbox" value="' + item.key + '" ' + checked + '> ' + item.label + '</label>';
+            html += '<label><input type="checkbox" value="' + item.key + '" ' + checked + ' onchange="updateModuleAll(this)"> ' + item.label + '</label>';
         });
         html += '</div></div>';
     }
