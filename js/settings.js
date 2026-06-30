@@ -1125,7 +1125,7 @@ async function loadAllUsersFromSupabase() {
 
         var result = await supabase
             .from('users')
-           .select('id, username, role, status, avatar_url');  // 增加 avatar_url
+            .select('id, username, role, status, avatar_url');  // 增加 avatar_url
 
         if (result.error) {
             console.error('❌ 加载用户失败:', result.error);

@@ -61,9 +61,9 @@ async function loginWithSupabase(username, password) {
         }
         
         console.log('✅ 登录成功！');
-        
-        // 保存用户信息
-        var userData = {
+
+// 保存用户信息（增加 avatar_url）
+var userData = {
     id: user.id,
     name: user.username,
     role: user.role,
@@ -77,7 +77,7 @@ sessionStorage.setItem('user', JSON.stringify(userData));
 document.getElementById('loginBox').style.display = 'none';
 document.getElementById('mainBox').style.display = 'block';
 
-// ===== 修改欢迎语：角色名 + 用户名 =====
+// 设置欢迎语：角色名 + 用户名
 var roleTextEl = document.getElementById('roleText');
 var userNameTextEl = document.getElementById('userNameText');
 if (roleTextEl) {
@@ -87,13 +87,13 @@ if (userNameTextEl) {
     userNameTextEl.innerText = user.username;
 }
 
-// 加载头像（默认logo.png）
+// 加载头像（默认 logo.png）
 var avatarImg = document.getElementById('userAvatar');
 if (avatarImg) {
     avatarImg.src = user.avatar_url || './images/logo.png';
 }
 
-// 原有权限逻辑完全不动（保留您的 setCurrentUser 调用）
+// 关键：原有权限逻辑保持不变（setCurrentUser 调用）
 if (typeof setCurrentUser === 'function') {
     setCurrentUser(user.id);
 }
