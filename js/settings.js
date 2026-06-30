@@ -180,49 +180,63 @@ function applyAllPermissions() {
 // ===== 设置当前用户 =====
 // ============================================================
 function setCurrentUser(userId) {
-    // ===== 🔥 强制：如果 userId 是 admin 或用户名是 admin，直接使用管理员权限 =====
+    // ===== 第一步：检查当前 sessionStorage 中的用户 =====
     var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
     var currentUserName = '';
+    var currentUserRole = '';
     if (saved) {
         try {
             var userInfo = JSON.parse(saved);
             currentUserName = userInfo.name || '';
+            currentUserRole = userInfo.role || '';
         } catch(e) {}
     }
-    
-    // 如果是 admin 登录，强制使用管理员权限，跳过所有检查
-    if (currentUserName === 'admin') {
-        console.log('🔥 admin 用户强制启用管理员权限');
-        currentUserId = userId;
-        
-        // 显示所有 Tab
+
+    // ===== 第二步：如果是 admin，强制启用所有权限，并锁定 sessionStorage =====
+    if (currentUserName === 'admin' || userId === 'user_1' || currentUserRole === '管理员') {
+        console.log('🔥 admin/管理员 用户强制启用所有权限');
+
+        // 强制修正 sessionStorage（防止被后续代码覆盖）
+        var adminData = {
+            id: userId,
+            name: 'admin',
+            role: '管理员',
+            avatar_url: '',
+            fromSupabase: true
+        };
+        sessionStorage.setItem('supabase_user', JSON.stringify(adminData));
+        sessionStorage.setItem('user', JSON.stringify(adminData));
+
+        // 显示所有主 Tab
         document.querySelectorAll('.tab-btn').forEach(function(btn) {
             btn.style.display = 'inline-block';
         });
-        // 显示设置 Tab
+        // 显示系统设置 Tab
         var settingsTab = document.getElementById('settingsTab');
         if (settingsTab) settingsTab.style.display = 'inline-block';
-        
-        // 启用所有按钮
+
+        // 启用所有操作按钮
         document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
             btn.disabled = false;
             btn.style.opacity = '1';
             btn.style.cursor = 'pointer';
         });
-        
-        // 显示所有子 Tab
+
+        // 显示所有子 Tab（财务、商品、设置子菜单）
         document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
             btn.style.display = '';
         });
-        
-        console.log('✅ admin 权限已强制启用');
-        return;
+
+        currentUserId = userId;
+        console.log('✅ admin 权限已强制启用，用户ID:', userId);
+        return; // 直接返回，不再执行后续权限检查
     }
+
+    // ===== 第三步：非 admin 用户走正常逻辑 =====
     currentUserId = userId;
     if (!userId) return;
 
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
-
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
 
@@ -236,7 +250,6 @@ function setCurrentUser(userId) {
         'settings': ['basic', 'data', 'permission']
     };
 
-    // ===== 关键修复：管理员显示所有 Tab，非管理员根据权限显示 =====
     var isAdmin = false;
     var currentUser = permissionData.users.find(function(u) { return u.id === userId; });
     if (currentUser) {
@@ -253,13 +266,11 @@ function setCurrentUser(userId) {
         if (!match) return;
         var menuKey = match[1];
 
-        // 管理员：显示所有 Tab
         if (isAdmin) {
             btn.style.display = 'inline-block';
             return;
         }
 
-        // 非管理员：根据权限显示
         var subKeys = moduleMenuMap[menuKey] || [];
         var hasPermission = subKeys.some(function(k) {
             return perms.view.includes(k);
@@ -269,8 +280,7 @@ function setCurrentUser(userId) {
 
     applyAllPermissions();
     applySubTabPermissions();
-    
-    // ===== 强制显示系统设置Tab（如果有权限） =====
+
     var settingsTab = document.getElementById('settingsTab');
     if (settingsTab) {
         if (isAdmin || perms.view.some(function(k) { return k === 'basic' || k === 'data' || k === 'permission'; })) {
@@ -597,8 +607,20 @@ function applyUserPermissions() {
     if (saved) {
         try {
             var user = JSON.parse(saved);
+            // ===== 如果是 admin，直接调用 setCurrentUser 并返回 =====
+            if (user.name === 'admin' || user.role === '管理员') {
+                console.log('🔥 applyUserPermissions 检测到 admin，直接应用权限');
+                setCurrentUser(user.id);
+                return;
+            }
+        } catch(e) {}
+    }
+
+    // 原有逻辑（非 admin）
+    if (saved) {
+        try {
+            var user = JSON.parse(saved);
             if (user && user.id) {
-                // ===== 关键修复：使用用户实际 ID，不是 user_1 =====
                 if (permissionData.roles.length === 0) {
                     loadRolesFromSupabase().then(function() {
                         loadAllUsersFromSupabase().then(function() {
@@ -618,10 +640,8 @@ function applyUserPermissions() {
             console.warn('应用用户权限失败:', e);
         }
     }
-    // 降级：使用本地管理员
     setCurrentUser('user_1');
 }
-
 // 重写 switchTab
 var originalSwitchTab = window.switchTab;
 window.switchTab = function(tabName) {

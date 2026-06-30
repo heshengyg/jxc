@@ -71,7 +71,7 @@ async function loginWithSupabase(username, password) {
 var userData = {
     id: user.id,
     name: user.username,
-    role: '管理员',  // ← 强制设为"管理员"
+    role: '管理员',  // ← 强制设置为"管理员"
     avatar_url: user.avatar_url || '',
     fromSupabase: true
 };
