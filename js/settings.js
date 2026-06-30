@@ -1006,18 +1006,19 @@ function renderUsers() {
             var div = document.createElement('div');
             div.className = 'user-card';
             div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #f5f5f5;';
+            
+            // ===== 修复：在模板字符串外部定义 avatarSrc =====
+            var avatarSrc = user.avatar_url || './images/logo.png';
             div.innerHTML = `
-                var avatarSrc = user.avatar_url || './images/logo.png';
-div.innerHTML = `
-    <img src="${avatarSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;">
-    <span class="user-name" style="min-width:80px;">${user.name}</span>
-    <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
-    <div>
-        <button class="btn btn-warning btn-sm" onclick="resetUserPassword('${user.id}')">重置密码</button>
-        <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
-    </div>
-`;
+                <img src="${avatarSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;">
+                <span class="user-name" style="min-width:80px;">${user.name}</span>
+                <span class="user-info" style="flex:1; margin:0 10px;">🎭 ${role ? role.name : '未分配'} | 🚫 禁止 ${bannedCount}项</span>
+                <div>
+                    <button class="btn btn-warning btn-sm" onclick="resetUserPassword('${user.id}')">重置密码</button>
+                    <button class="btn btn-primary btn-sm" onclick="editUserPerm('${user.id}')">权限</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">删除</button>
+                </div>
+            `;
             contentDiv.appendChild(div);
         });
         container.appendChild(contentDiv);
@@ -1337,7 +1338,6 @@ function renderUserOpsContainer(bannedOps) {
     if (!container) return;
     container.innerHTML = '';
 
-    var user = permissionData.users.find(function(u) { return u.id === editingUserId; });
     if (!user) {
         container.innerHTML = '<div class="op-empty">用户不存在</div>';
         return;

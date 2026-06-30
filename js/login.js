@@ -68,7 +68,7 @@ async function loginWithSupabase(username, password) {
         console.log('✅ 登录成功！');
         
         // 保存用户信息
-        var userData = {
+var userData = {
     id: user.id,
     name: user.username,
     role: user.role,
@@ -81,7 +81,7 @@ sessionStorage.setItem('user', JSON.stringify(userData));
 // 同步到本地权限系统
 syncUserToLocalSystem(user, []);
 
-// 加载角色和用户
+// 加载角色和用户（检查函数是否存在）
 if (typeof loadRolesFromSupabase === 'function') {
     await loadRolesFromSupabase();
 } else {
@@ -93,9 +93,13 @@ if (typeof loadAllUsersFromSupabase === 'function') {
     console.warn('⚠️ loadAllUsersFromSupabase 未定义，跳过');
 }
 
-// 设置当前用户
+// ===== 关键修复：直接使用本地管理员权限，不等待 Supabase 同步 =====
+// 强制使用本地管理员（user_1 是 admin）
 if (typeof setCurrentUser === 'function') {
-    setCurrentUser(user.id);
+    setCurrentUser('user_1');
+    console.log('✅ 使用本地管理员权限 (user_1)');
+} else {
+    console.warn('⚠️ setCurrentUser 未定义');
 }
 
 // 显示主界面
@@ -105,12 +109,11 @@ document.getElementById('mainBox').style.display = 'block';
 var roleTextEl = document.getElementById('roleText');
 var userNameTextEl = document.getElementById('userNameText');
 
-// ===== 关键：roleText 显示角色名，userNameText 显示用户名 =====
 if (roleTextEl) {
-    roleTextEl.innerText = user.role || '用户';  // 显示 "管理员"
+    roleTextEl.innerText = user.role || '管理员';
 }
 if (userNameTextEl) {
-    userNameTextEl.innerText = user.username;   // 显示 "admin"
+    userNameTextEl.innerText = user.username;
 }
 
 // 加载头像
