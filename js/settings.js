@@ -180,62 +180,66 @@ function applyAllPermissions() {
 // ===== 设置当前用户 =====
 // ============================================================
 function setCurrentUser(userId) {
-    // ===== 第一步：检查当前 sessionStorage 中的用户 =====
-    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-    var currentUserName = '';
-    var currentUserRole = '';
-    if (saved) {
-        try {
-            var userInfo = JSON.parse(saved);
-            currentUserName = userInfo.name || '';
-            currentUserRole = userInfo.role || '';
-        } catch(e) {}
-    }
-
-    // ===== 第二步：如果是 admin，强制启用所有权限，并锁定 sessionStorage =====
-    if (currentUserName === 'admin' || userId === 'user_1' || currentUserRole === '管理员') {
-        console.log('🔥 admin/管理员 用户强制启用所有权限');
-
-        // 强制修正 sessionStorage（防止被后续代码覆盖）
-        var adminData = {
-            id: userId,
-            name: 'admin',
-            role: '管理员',
-            avatar_url: '',
-            fromSupabase: true
-        };
-        sessionStorage.setItem('supabase_user', JSON.stringify(adminData));
-        sessionStorage.setItem('user', JSON.stringify(adminData));
-
-        // 显示所有主 Tab
-        document.querySelectorAll('.tab-btn').forEach(function(btn) {
-            btn.style.display = 'inline-block';
-        });
-        // 显示系统设置 Tab
-        var settingsTab = document.getElementById('settingsTab');
-        if (settingsTab) settingsTab.style.display = 'inline-block';
-
-        // 启用所有操作按钮
-        document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-        });
-
-        // 显示所有子 Tab（财务、商品、设置子菜单）
-        document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
-            btn.style.display = '';
-        });
-
-        currentUserId = userId;
-        console.log('✅ admin 权限已强制启用，用户ID:', userId);
-        return; // 直接返回，不再执行后续权限检查
-    }
-
-    // ===== 第三步：非 admin 用户走正常逻辑 =====
     currentUserId = userId;
     if (!userId) return;
 
+    // 检查当前登录用户
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    var isAdminUser = false;
+    var userName = '';
+    if (saved) {
+        try {
+            var userInfo = JSON.parse(saved);
+            userName = userInfo.name || '';
+            if (userInfo.name === 'admin' || userInfo.role === '管理员') {
+                isAdminUser = true;
+            }
+        } catch(e) {}
+    }
+
+    // ===== 如果是 admin，强制显示所有 Tab =====
+    if (isAdminUser) {
+        console.log('🔥 admin 用户强制启用所有权限');
+
+        // 定义显示所有 Tab 的函数
+        function showAllTabs() {
+            // 显示主 Tab
+            document.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.style.display = 'inline-block';
+                btn.style.visibility = 'visible';
+                btn.style.opacity = '1';
+            });
+            // 显示系统设置 Tab
+            var settingsTab = document.getElementById('settingsTab');
+            if (settingsTab) {
+                settingsTab.style.display = 'inline-block';
+                settingsTab.style.visibility = 'visible';
+                settingsTab.style.opacity = '1';
+            }
+            // 启用所有操作按钮
+            document.querySelectorAll('[data-module][data-op]').forEach(function(btn) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+            // 显示所有子 Tab
+            document.querySelectorAll('.finance-sub-btn, .settings-sub-btn').forEach(function(btn) {
+                btn.style.display = '';
+            });
+            console.log('✅ 所有 Tab 已强制显示');
+        }
+
+        // 立即执行
+        showAllTabs();
+        // 延迟执行（覆盖后续可能的修改）
+        setTimeout(showAllTabs, 100);
+        setTimeout(showAllTabs, 500);
+        setTimeout(showAllTabs, 1000);
+
+        return; // 直接返回，不走后续逻辑
+    }
+
+    // ===== 非 admin 用户走正常逻辑 =====
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
     var perms = getUserPermissions(userId);
     console.log('📊 用户权限:', perms.view);
