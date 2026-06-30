@@ -697,7 +697,6 @@ function toggleModuleAll(checkbox) {
     });
 }
 
-// 子选项变化时更新全选状态（点击子复选框时触发）
 function updateModuleAll(checkbox) {
     var groupContainer = checkbox.closest('.perm-group');
     var allCheckbox = groupContainer.querySelector('.perm-group-title input[data-group]');
@@ -749,7 +748,8 @@ saveRole = async function() {
     var name = document.getElementById('roleNameInput').value.trim();
     if (!name) return showMsg('请输入角色名称');
 
-    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions input[type="checkbox"]:not([data-group])');
+    // 只获取子版块复选框（排除全选复选框）
+    var viewCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]');
     var viewPermissions = Array.from(viewCheckboxes).map(function(cb) { return cb.value; });
     if (viewPermissions.length === 0) return showMsg('请至少勾选一个查看权限');
 
@@ -766,7 +766,7 @@ saveRole = async function() {
                 await syncRolePermissions(role.name, viewPermissions);
                 savePermissionData();
                 renderRoles();
-                updateRoleSelect(); // ✅ 刷新用户下拉
+                updateRoleSelect();
                 closeAddRoleModal();
                 showMsg('✅ 角色已更新');
                 document.getElementById('addRoleModal').dataset.editId = '';
@@ -790,7 +790,7 @@ saveRole = async function() {
             await syncRolePermissions(newRole.name, viewPermissions);
             savePermissionData();
             renderRoles();
-            updateRoleSelect(); // ✅ 刷新用户下拉
+            updateRoleSelect();
             closeAddRoleModal();
             showMsg('✅ 角色添加成功');
             applySubTabPermissions();
