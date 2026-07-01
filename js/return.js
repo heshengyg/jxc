@@ -1,4 +1,4 @@
-// ===================== 退货管理模块 =====================
+// ===================== 退货管理模块（修复版） =====================
 // 全局变量
 let returnCurrentPage = 1;
 let returnPageSize = 10;
@@ -6,10 +6,9 @@ let returnTotalPages = 1;
 let returnSortField = '';
 let returnSortAsc = true;
 
-// ========== 新增：打印相关全局变量 ==========
+// 选中的退货ID集合（全局）
 let selectedReturnIds = new Set();
 let skipReturnAllChange = false;
-let returnPrintData = [];
 
 // ========== 加载/刷新 ==========
 function refreshReturnGoods() {
@@ -42,38 +41,36 @@ function initReturnPrintControls() {
     const searchBar = document.querySelector('#returnGoods .search-bar');
     if (!searchBar) return;
 
-    // 创建打印预览按钮
-    const printBtn = document.createElement('button');
-    printBtn.id = 'returnPrintBtn';
-    printBtn.className = 'btn btn-success';
-    printBtn.innerHTML = '🖨️ 打印预览';
-    printBtn.onclick = previewReturnPrint;
-    searchBar.appendChild(printBtn);
+    // 创建打印预览按钮（如果不存在）
+    if (!document.getElementById('returnPrintBtn')) {
+        const printBtn = document.createElement('button');
+        printBtn.id = 'returnPrintBtn';
+        printBtn.className = 'btn btn-success';
+        printBtn.innerHTML = '🖨️ 打印预览';
+        printBtn.onclick = previewReturnPrint;
+        searchBar.appendChild(printBtn);
+    }
 
     // 在表格 thead 第一列添加全选复选框（如果不存在）
     const thead = document.querySelector('#returnGoodsList thead');
     if (!thead) return;
     const firstTh = thead.querySelector('tr th:first-child');
     if (!firstTh) return;
-    // 如果已有全选复选框，不再重复添加
     if (firstTh.querySelector('#returnPrintAllCheck')) return;
     
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = 'returnPrintAllCheck';
     checkbox.style.marginRight = '5px';
-    // 保留原有文本（如“选择”）
     const textNode = firstTh.childNodes[0];
     if (textNode) {
         firstTh.insertBefore(checkbox, textNode);
     } else {
         firstTh.prepend(checkbox);
     }
-    // 绑定全选事件
     checkbox.onchange = function() {
         if (skipReturnAllChange) return;
         const checked = this.checked;
-        // 更新当前页所有行复选框
         document.querySelectorAll('.return-item-checkbox').forEach(cb => {
             cb.checked = checked;
             const id = Number(cb.dataset.id);
@@ -108,6 +105,9 @@ function resetReturnSearch() {
     filterReturnGoods();
 }
 
+// 确保全局可访问
+window.resetReturnSearch = resetReturnSearch;
+
 function clearReturnSort() {
     returnSortField = '';
     returnSortAsc = true;
@@ -140,7 +140,7 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表（含底部汇总和全选同步） ==========
+// ========== 渲染列表（修复全选与选中状态） ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
@@ -150,6 +150,8 @@ function renderReturnList() {
 
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
+        // 更新全选状态
+        updateReturnAllCheckboxState();
         return;
     }
     
@@ -293,7 +295,7 @@ let selectedBatchInRecordId = null;
 let selectedBatchData = null;
 
 // ========== 重置弹窗搜索 ==========
-function resetReturnSearch() {
+function resetReturnSearchModal() {
     document.getElementById('returnSupplierSearch').value = '';
     document.getElementById('returnGoodsSearch').value = '';
     document.getElementById('returnSpecSearch').value = '';
@@ -773,7 +775,7 @@ function toggleReturnBatch(index) {
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    resetReturnSearch();
+    resetReturnSearchModal();
     document.getElementById('returnFormTitle').innerText = '添加退货单据';
     document.getElementById('returnEditId').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
@@ -991,7 +993,7 @@ function downloadReturnTemplate() {
     XLSX.writeFile(wb, "退货导入模板.xlsx");
 }
 
-// ========== 导入退货（修复点击无效） ==========
+// ========== 导入退货（修复） ==========
 async function importReturnExcel() {
     const fileInput = document.getElementById('returnFileInput');
     if (!fileInput) {
@@ -1084,6 +1086,9 @@ async function importReturnExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
+
+// 确保导入函数全局可用
+window.importReturnExcel = importReturnExcel;
 
 // ========== 点击空白关闭下拉 ==========
 document.addEventListener('click', function(e) {
