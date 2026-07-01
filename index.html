@@ -336,21 +336,19 @@
             共 <span id="returnTotalCount">0</span> 条退货记录，当前搜索结果 <span id="returnSearchCount">0</span> 条
         </div>
         <div class="search-bar">
-            <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
-            <button class="btn btn-success" onclick="downloadReturnTemplate()">下载导入模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('returnFileInput').click()">批量导入</button>
-            <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
-            <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
+    <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
+    <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
+    <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
+    <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
+    <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
 
-            <select id="returnSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goods_name">按商品名搜索</option>
-            </select>
-            <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
-            <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
-        </div>
+    <select id="returnSearchField">
+        <option value="supplier">按供应商搜索</option>
+        <option value="goods_name">按商品名搜索</option>
+    </select>
+    <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
+    <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
+</div>
 
         <div class="table-container">
             <table>
