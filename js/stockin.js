@@ -45,6 +45,41 @@ async function checkInUsedByOut(inId) {
     }
 }
 
+/**
+ * 校验：是否存在退货记录
+ * @param {number|string} inId
+ * @returns {Promise<boolean>}
+ */
+async function checkInUsedByReturn(inId) {
+    if (!inId) return false;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods?in_record_id=eq.${inId}`, {
+            method: 'GET',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const list = await res.json();
+        return list.length > 0;
+    } catch (e) {
+        console.error("退货校验异常", e);
+        return false;
+    }
+}
+
+/**
+ * 校验：是否存在出库或退货记录（合并判断）
+ * @param {number|string} inId
+ * @returns {Promise<boolean>}
+ */
+async function checkInUsed(inId) {
+    const outUsed = await checkInUsedByOut(inId);
+    const returnUsed = await checkInUsedByReturn(inId);
+    return outUsed || returnUsed;
+}
+
 // 刷新入库列表
 async function refreshStockIn(){
     await loadStockIn();
@@ -152,10 +187,10 @@ function lockProduceDate(){
 
 // 打开添加入库弹窗（异步校验）
 async function openStockInForm(id=null){
-    if (id && await checkInUsedByOut(id)) {
-        showMsg('该入库记录已生成出库单据，禁止编辑！');
-        return;
-    }
+    if (id && await checkInUsed(id)) {
+    showMsg('该入库记录已生成出库或退货单据，禁止编辑！');
+    return;
+}
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
     document.getElementById('supSearchInput').value = '';
@@ -484,7 +519,7 @@ async function renderStockIn() {
     tb.innerHTML = '';
     let idUsedMap = {};
 if (pageData.length > 0) {
-    const promises = pageData.map(item => checkInUsedByOut(item.id));
+    const promises = pageData.map(item => checkInUsed(item.id));
     const results = await Promise.all(promises);
     pageData.forEach((item, index) => {
         idUsedMap[item.id] = results[index];
@@ -612,30 +647,43 @@ function inToggleSelectAll(){
     });
 }
 // 单条删除（后端校验）
-async function deleteStockIn(id){
-    if (await checkInUsedByOut(id)) {
-        showMsg('该入库记录已生成出库单据，禁止删除！');
+async function deleteStockIn(id) {
+    // ===== 新增：管理员权限检查 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除入库记录');
         return;
     }
-    if(!confirm('确定删除？'))return;
-    try{
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`,{
-            method:'DELETE',
-            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+
+    if (await checkInUsed(id)) {
+        showMsg('该入库记录已生成出库或退货单据，禁止删除！');
+        return;
+    }
+    if (!confirm('确定删除？')) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         showMsg('删除成功');
         await loadStockIn();
-    }catch(e){ showMsg('删除失败'); }
+    } catch (e) {
+        showMsg('删除失败');
+    }
 }
 
 // 批量删除（后端校验）- 跳过已被禁用的行
-async function batchDeleteStockIn(){
+async function batchDeleteStockIn() {
+    // ===== 新增：管理员权限检查 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以批量删除入库记录');
+        return;
+    }
+
     let ids = [];
     let hasDisabled = false;
     
     document.querySelectorAll('.in-item-checkbox').forEach(function(cb) {
         if (cb.checked) {
-            // ✅ 如果checkbox被禁用（即有出库记录），标记并跳过
             if (cb.disabled) {
                 hasDisabled = true;
             } else {
@@ -646,7 +694,7 @@ async function batchDeleteStockIn(){
     
     if (ids.length === 0) {
         if (hasDisabled) {
-            showMsg('选中的记录中存在已生成出库单据的数据，无法删除！');
+            showMsg('选中的记录中存在已生成出库或退货单据的数据，无法删除！');
         } else {
             showMsg('请选择数据');
         }
@@ -656,12 +704,12 @@ async function batchDeleteStockIn(){
     // 再次校验选中的记录是否真的可以删除（双重保险）
     let usedIds = [];
     for (let id of ids) {
-        if (await checkInUsedByOut(id)) {
+        if (await checkInUsed(id)) {
             usedIds.push(id);
         }
     }
     if (usedIds.length > 0) {
-        showMsg(`选中数据中有 ${usedIds.length} 条已关联出库单据，无法删除！`);
+        showMsg(`选中数据中有 ${usedIds.length} 条已关联出库或退货单据，无法删除！`);
         return;
     }
     
@@ -675,6 +723,7 @@ async function batchDeleteStockIn(){
     showMsg('批量删除成功');
     await loadStockIn();
 }
+
 // 清空排序、重置搜索
 function clearInSort(){
     inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();
