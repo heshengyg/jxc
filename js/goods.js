@@ -767,33 +767,42 @@ function openAddForm() {
     try {
         document.getElementById('formTitle').innerText = '新增商品';
         document.getElementById('editId').value = '';
-        // 清空所有输入框和下拉框（保留供应商搜索框）
-        document.querySelectorAll('#formModal .form-group input, #formModal .form-group select').forEach(el => {
-            if (el.id !== 'addSupplierSearch') el.value = '';
-        });
-        // 清空供应商搜索框和隐藏值
+
+        // 显式清空所有字段（最可靠方式）
         document.getElementById('addSupplierSearch').value = '';
         document.getElementById('add_supplier').value = '';
+        document.getElementById('add_name').value = '';
+        document.getElementById('add_spec').value = '';
         document.getElementById('add_channel').value = '';
-        // 重置所有禁用状态
+        document.getElementById('add_tax_rate').value = '';
+        document.getElementById('add_sale_price').value = '';
+        document.getElementById('add_online_cost').value = '';
+        document.getElementById('add_warn_num').value = '';
+        document.getElementById('add_shelf_life_num').value = '';
+        document.getElementById('add_shelf_life_unit').value = '';
+
+        // 重置所有禁用状态（确保新增时所有字段可用，渠道除外）
         document.getElementById('add_supplier').disabled = false;
         document.getElementById('addSupplierSearch').disabled = false;
         document.getElementById('add_name').disabled = false;
         document.getElementById('add_spec').disabled = false;
-        document.getElementById('add_channel').disabled = true;
-        // 税率根据角色设置并清空值（增加安全判断）
+        document.getElementById('add_channel').disabled = true;  // 渠道永远只读
+
+        // 税率控制：仅财务/管理员可编辑
         var taxSelect = document.getElementById('add_tax_rate');
         if (taxSelect) {
             try {
                 taxSelect.disabled = !isFinanceOrAdmin();
             } catch (e) {
-                taxSelect.disabled = true; // 默认禁用
+                taxSelect.disabled = true;
                 console.warn('权限检测失败，税率默认禁用', e);
             }
-            taxSelect.value = '';  // 清空税率
         }
-        // 调用渠道切换，控制线上成本价等
+
+        // 线上成本价控制（根据渠道，此时渠道为空，默认线下禁用）
         toggleOnlineCostInput();
+
+        // 显示弹窗
         document.getElementById('formModal').style.display = 'block';
     } catch (e) {
         console.error('openAddForm 执行错误:', e);
