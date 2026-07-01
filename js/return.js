@@ -18,9 +18,17 @@ function refreshReturnGoods() {
 
 async function loadReturnGoods() {
     try {
-        // ... 加载数据 ...
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods?order=id.desc`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!res.ok) throw new Error('读取失败');
+        const data = await res.json();
+        allReturnGoods = data;
+        const totalEl = document.getElementById('returnTotalCount');
+        if (totalEl) totalEl.textContent = data.length;
+        returnCurrentPage = 1;
         filterReturnGoods();
-        // 延迟初始化打印控件，确保 DOM 完全渲染
+        // 延迟初始化打印控件，避免 DOM 未就绪
         setTimeout(function() {
             try {
                 initReturnPrintControls();
@@ -37,10 +45,7 @@ async function loadReturnGoods() {
 function initReturnPrintControls() {
     try {
         const searchBar = document.querySelector('#returnGoods .search-bar');
-        if (!searchBar) {
-            console.warn('未找到搜索栏，跳过打印控件初始化');
-            return;
-        }
+        if (!searchBar) return;
         if (document.getElementById('returnPrintBtn')) return;
 
         const printBtn = document.createElement('button');
@@ -51,10 +56,7 @@ function initReturnPrintControls() {
         searchBar.appendChild(printBtn);
 
         const thead = document.querySelector('#returnGoodsList thead');
-        if (!thead) {
-            console.warn('未找到表格头，跳过全选复选框');
-            return;
-        }
+        if (!thead) return;
         const firstTh = thead.querySelector('tr th:first-child');
         if (!firstTh) return;
         if (firstTh.querySelector('input[type="checkbox"]')) return;
@@ -98,14 +100,12 @@ function filterReturnGoods() {
     renderReturnList();
 }
 
-// ===== 修复：重置搜索（确保清空并刷新） =====
 function resetReturnSearch() {
     document.getElementById('returnSearchKeyword').value = '';
     document.getElementById('returnSearchField').selectedIndex = 0;
     filterReturnGoods();
 }
-// 暴露到全局，确保按钮 onclick 可调用
-window.resetReturnSearch = resetReturnSearch;
+window.resetReturnSearch = resetReturnSearch;   // 这个要保留
 
 function clearReturnSort() {
     returnSortField = '';
@@ -299,7 +299,7 @@ let selectedBatchInRecordId = null;
 let selectedBatchData = null;
 
 // ========== 重置弹窗搜索 ==========
-function resetReturnSearch() {
+function resetReturnModal() {
     document.getElementById('returnSupplierSearch').value = '';
     document.getElementById('returnGoodsSearch').value = '';
     document.getElementById('returnSpecSearch').value = '';
@@ -779,13 +779,11 @@ function toggleReturnBatch(index) {
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    resetReturnSearch();
-    document.getElementById('returnFormTitle').innerText = '添加退货单据';
-    document.getElementById('returnEditId').value = '';
+    resetReturnModal();   // ← 将 resetReturnSearch() 改为 resetReturnModal()
+    document.getElementById('returnFormTitle').innerText = '添加退货单据';    document.getElementById('returnEditId').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('returnModal').style.display = 'block';
 }
-
 function closeReturnForm() {
     document.getElementById('returnModal').style.display = 'none';
 }
@@ -1004,18 +1002,10 @@ function downloadReturnTemplate() {
     XLSX.writeFile(wb, "退货导入模板.xlsx");
 }
 
-// ===== 修复：批量导入功能 =====
+// ========== 导入退货 ==========
 async function importReturnExcel() {
-    const fileInput = document.getElementById('returnFileInput');
-    if (!fileInput) {
-        showMsg('文件选择框不存在');
-        return;
-    }
-    const file = fileInput.files[0];
-    if (!file) {
-        showMsg('请选择文件');
-        return;
-    }
+    const file = document.getElementById('returnFileInput').files[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
@@ -1084,8 +1074,6 @@ async function importReturnExcel() {
                 }
             }
             showMsg(`导入完成：成功${successCount}条，失败${failCount}`);
-            // 清空文件选择框，以便重复选择同一文件
-            fileInput.value = '';
             loadReturnGoods();
             refreshAllStockCache(allStockIn, allStockOut);
             if (typeof loadStockStock === 'function') {
@@ -1097,8 +1085,6 @@ async function importReturnExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
-// 暴露到全局
-window.importReturnExcel = importReturnExcel;
 
 // ========== 点击空白关闭下拉 ==========
 document.addEventListener('click', function(e) {
