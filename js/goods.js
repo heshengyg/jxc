@@ -774,71 +774,21 @@ function openAddForm() {
     document.getElementById('addSupplierSearch').value = '';
     document.getElementById('add_supplier').value = '';
     document.getElementById('add_channel').value = '';
+    // 重置所有禁用状态
     document.getElementById('add_supplier').disabled = false;
+    document.getElementById('addSupplierSearch').disabled = false;  // 确保搜索框可用
     document.getElementById('add_name').disabled = false;
     document.getElementById('add_spec').disabled = false;
     document.getElementById('add_channel').disabled = true;
-    
-    // 设置税率下拉可用性（仅财务和管理员可编辑）
+    // 税率根据角色设置并清空值
     var taxSelect = document.getElementById('add_tax_rate');
     if (taxSelect) {
         taxSelect.disabled = !isFinanceOrAdmin();
+        taxSelect.value = '';  // 清空税率
     }
-    
-    // 调用渠道切换，控制线上成本价等（但保质期已改为始终可用）
+    // 销售单价、线上成本价、预警阈值、保质期等已在上面清空
+    // 调用渠道切换，控制线上成本价等
     toggleOnlineCostInput();
-    document.getElementById('formModal').style.display = 'block';
-}
-
-async function openEditForm(id) {
-    let item = allGoods.find(x => x.id === id);
-    if (!item) return;
-    document.getElementById('formTitle').innerText = '编辑商品';
-    document.getElementById('editId').value = id;
-    
-    // 设置供应商搜索框和隐藏值
-    document.getElementById('addSupplierSearch').value = item.supplier || '';
-    document.getElementById('add_supplier').value = item.supplier || '';
-    document.getElementById('add_name').value = item.name || '';
-    document.getElementById('add_spec').value = item.spec || '';
-    document.getElementById('add_channel').value = item.channel || '';
-    document.getElementById('add_tax_rate').value = item.tax_rate || '';
-    document.getElementById('add_sale_price').value = item.sale_price || '';
-    document.getElementById('add_online_cost').value = item.online_cost || '';
-    document.getElementById('add_warn_num').value = item.warn_num || '';
-    document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
-    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
-
-    document.getElementById('add_supplier').disabled = false;
-    document.getElementById('add_name').disabled = false;
-    document.getElementById('add_spec').disabled = false;
-    document.getElementById('add_channel').disabled = true;
-
-    toggleOnlineCostInput();
-
-    let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
-    if (isUsed) {
-        // 已使用：禁用供应商、商品名、规格（原逻辑），同时禁用税率
-        document.getElementById('add_supplier').disabled = true;
-        document.getElementById('add_name').disabled = true;
-        document.getElementById('add_spec').disabled = true;
-        document.getElementById('add_tax_rate').disabled = true;
-    } else {
-        // 未使用：税率根据角色控制
-        var taxSelect = document.getElementById('add_tax_rate');
-        if (taxSelect) {
-            taxSelect.disabled = !isFinanceOrAdmin();
-        }
-        // 供应商、商品名、规格保持可编辑（但商品名和规格在编辑时原本是否可编辑？原逻辑没有禁用它们，只有在已使用时禁用，所以未使用时它们是可编辑的）
-        // 不过用户说“编辑原逻辑不变（商品名、规格，销售渠道不能被编辑）”，这意味着在编辑时，无论是否使用，商品名、规格、销售渠道都不能编辑？
-        // 但原代码中，只有在 isUsed 时才禁用 name 和 spec，否则它们是可编辑的。用户要求“编辑时原逻辑不变”，但截图2提到“如果已有入库记录，那么商品只能编辑，不能删除，此时编辑原逻辑不变（商品名、规格，销售渠道不能被编辑），需要被禁止更改的是：供应商和税率”
-        // 这里“原逻辑不变”可能指的是已有入库记录时，商品名、规格、销售渠道保持禁止编辑（即原来是禁用的，现在继续禁用），但未使用记录时，商品名、规格是否可编辑？用户没说，但原逻辑是允许编辑的。我们保持原逻辑。
-        // 不过用户强调“商品名、规格，销售渠道不能被编辑”是在已有入库记录的场景下，所以只有 isUsed 时才禁用这些字段。
-        // 所以上面的代码是正确的：isUsed 时禁用 name、spec、supplier，并新增禁用 tax_rate。
-        // 未使用时，name、spec 保持可编辑（除非您希望一律禁用，但原逻辑并非如此，我们遵循原逻辑）
-        // 另外，销售渠道（channel）一直是只读的，因为它自动带出，不提供输入框，所以无需处理。
-    }
-
     document.getElementById('formModal').style.display = 'block';
 }
 
@@ -926,9 +876,6 @@ function renderGoods() {
         return;
     }
 
-    // 管理员判断（用于删除按钮）
-    var isAdmin = isCurrentUserAdmin ? isCurrentUserAdmin() : false;
-    
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
         const seqNum = start + idx + 1;
@@ -936,12 +883,11 @@ function renderGoods() {
         let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
-        // 从缓存读取，不再await
         let isUsed = goodsUsedCache.get(item.id) ?? false;
         
-        // ===== 删除按钮：只有管理员且未被使用时才可点击 =====
+        // ===== 删除按钮：只有有入库记录才变灰（灰色只表示有入库记录） =====
         let delBtn = '';
-        if (isUsed || !isAdmin) {
+        if (isUsed) {
             delBtn = `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`;
         } else {
             delBtn = `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
