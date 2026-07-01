@@ -855,10 +855,15 @@ async function openEditForm(id) {
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_tax_rate').disabled = true;
     } else {
-        // 无入库记录：税率仅财务/管理员可编辑
+        // 无入库记录：税率清空，根据角色决定是否可编辑
         var taxSelect = document.getElementById('add_tax_rate');
         if (taxSelect) {
-            taxSelect.disabled = !isFinanceOrAdmin();
+            taxSelect.value = '';   // 清空税率（所有人都清空）
+            if (!isFinanceOrAdmin()) {
+                taxSelect.disabled = true;   // 非财务/管理员禁用
+            } else {
+                taxSelect.disabled = false;  // 财务/管理员可编辑
+            }
         }
         // 确保供应商搜索框可编辑
         document.getElementById('addSupplierSearch').disabled = false;
