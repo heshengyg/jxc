@@ -6,6 +6,11 @@ let returnTotalPages = 1;
 let returnSortField = '';
 let returnSortAsc = true;
 
+// ========== 新增：打印相关全局变量 ==========
+let selectedReturnIds = new Set();
+let skipReturnAllChange = false;
+let returnPrintData = [];
+
 // ========== 加载/刷新 ==========
 function refreshReturnGoods() {
     loadReturnGoods();
@@ -23,8 +28,58 @@ async function loadReturnGoods() {
         if (totalEl) totalEl.textContent = data.length;
         returnCurrentPage = 1;
         filterReturnGoods();
+
+        // ========== 新增：初始化打印控件 ==========
+        initReturnPrintControls();
     } catch (e) {
         showMsg('加载退货记录失败：' + e.message);
+    }
+}
+
+// ========== 新增：初始化打印控件（动态创建全选和打印按钮） ==========
+function initReturnPrintControls() {
+    const searchBar = document.querySelector('#returnGoods .search-bar');
+    if (!searchBar) return;
+
+    // 检查是否已存在打印按钮，避免重复添加
+    if (document.getElementById('returnPrintBtn')) return;
+
+    // 创建打印预览按钮
+    const printBtn = document.createElement('button');
+    printBtn.id = 'returnPrintBtn';
+    printBtn.className = 'btn btn-success';
+    printBtn.innerHTML = '🖨️ 打印预览';
+    printBtn.onclick = previewReturnPrint;
+    searchBar.appendChild(printBtn);
+
+    // 创建全选复选框（放在表格的 thead 第一列）
+    const thead = document.querySelector('#returnGoodsList thead');
+    if (!thead) return;
+    const firstTh = thead.querySelector('tr th:first-child');
+    if (firstTh) {
+        // 如果第一列已经有复选框，则不再添加（避免重复）
+        if (firstTh.querySelector('input[type="checkbox"]')) return;
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'returnPrintAllCheck';
+        checkbox.style.marginRight = '5px';
+        checkbox.onchange = function () {
+            if (skipReturnAllChange) return;
+            const checked = this.checked;
+            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
+            selectedReturnIds.clear();
+            if (checked) {
+                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+            }
+            skipReturnAllChange = false;
+        };
+        // 保留原有的文字（如“选择”），在复选框后面
+        const textNode = firstTh.childNodes[0];
+        if (textNode) {
+            firstTh.insertBefore(checkbox, textNode);
+        } else {
+            firstTh.prepend(checkbox);
+        }
     }
 }
 
@@ -80,7 +135,7 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表 ==========
+// ========== 渲染列表（增加底部汇总和全选同步） ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
@@ -88,6 +143,9 @@ function renderReturnList() {
     if (!tb) return;
     tb.innerHTML = '';
     
+    // 先清空选中集合（保留已选中的ID，但需要同步checkbox状态）
+    // 我们将在渲染时根据 selectedReturnIds 设置 checkbox 状态
+
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
         return;
@@ -96,9 +154,10 @@ function renderReturnList() {
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
         const rowNum = start + idx + 1;
+        const isChecked = selectedReturnIds.has(item.id);
         const html = `
             <tr>
-                <td><input type="checkbox" class="return-item-checkbox" value="${item.id}"></td>
+                <td><input type="checkbox" class="return-item-checkbox" value="${item.id}" ${isChecked ? 'checked' : ''} data-id="${item.id}"></td>
                 <td>${rowNum}</td>
                 <td>${item.supplier || ''}</td>
                 <td>${item.goods_name || ''}</td>
@@ -116,6 +175,64 @@ function renderReturnList() {
             </tr>
         `;
         tb.innerHTML += html;
+    }
+
+    // ========== 新增：底部汇总（按供应商） ==========
+    const groupMap = {};
+    filteredReturnGoods.forEach(item => {
+        if (!groupMap[item.supplier]) {
+            groupMap[item.supplier] = { totalNum: 0, totalReturnAmount: 0, totalSaleAmount: 0 };
+        }
+        groupMap[item.supplier].totalNum += Number(item.return_num);
+        groupMap[item.supplier].totalReturnAmount += Number(item.return_amount);
+        groupMap[item.supplier].totalSaleAmount += Number(item.sale_amount);
+    });
+
+    let summaryHtml = '';
+    Object.keys(groupMap).forEach(supplier => {
+        const data = groupMap[supplier];
+        summaryHtml += `
+            <tr style="background:#f5f5f5;font-weight:bold;">
+                <td colspan="2">${supplier} 汇总</td>
+                <td colspan="5">退货总数量：${data.totalNum}</td>
+                <td colspan="2">退货总金额：${data.totalReturnAmount.toFixed(2)}</td>
+                <td colspan="4">销售总金额：${data.totalSaleAmount.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    if (summaryHtml) {
+        tb.innerHTML += summaryHtml;
+    }
+
+    // 绑定checkbox change事件，同步 selectedReturnIds
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+        cb.onchange = function() {
+            const id = Number(this.dataset.id);
+            if (this.checked) {
+                selectedReturnIds.add(id);
+            } else {
+                selectedReturnIds.delete(id);
+            }
+            // 更新全选状态
+            const allCheckbox = document.getElementById('returnPrintAllCheck');
+            if (allCheckbox) {
+                const total = filteredReturnGoods.length;
+                const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
+                skipReturnAllChange = true;
+                allCheckbox.checked = (checked === total && total > 0);
+                skipReturnAllChange = false;
+            }
+        };
+    });
+
+    // 更新全选状态
+    const allCheckbox = document.getElementById('returnPrintAllCheck');
+    if (allCheckbox) {
+        const total = filteredReturnGoods.length;
+        const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
+        skipReturnAllChange = true;
+        allCheckbox.checked = (checked === total && total > 0);
+        skipReturnAllChange = false;
     }
 }
 
@@ -163,7 +280,7 @@ function changeReturnPageSize() {
     renderReturnList();
 }
 
-// ========== 弹窗搜索下拉相关变量 ==========
+// ========== 弹窗搜索下拉相关变量（保持不变） ==========
 let returnAllSuppliers = [];
 let returnFilteredSuppliers = [];
 let returnAllGoodsList = [];
@@ -467,16 +584,14 @@ function renderReturnSpecList(list) {
     });
 }
 
-// ========== 更新批次列表 ==========
+// ========== 更新批次列表（保持不变） ==========
 function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
     
     const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
-    // 从规格搜索框读取值，用于过滤
     const specInput = document.getElementById('returnSpecSearch').value.trim();
-    // 只有当规格搜索框有值，且不是默认值时，才进行规格过滤
     const spec = (specInput && specInput !== '-' && specInput !== '全部规格') ? specInput : '';
     
     if (!supplier && !goodsName) {
@@ -527,7 +642,6 @@ function updateReturnBatchList() {
         });
     }
     
-    // 只有当用户主动选择了规格时才过滤
     if (spec) {
         allBatches = allBatches.filter(b => (b.spec || '') === spec);
     }
@@ -599,9 +713,7 @@ function toggleReturnBatch(index) {
     
     const inRecord = batch.inRecords[0];
     
-    // 如果点击的是已选中的，取消选择
     if (selectedBatchInRecordId === inRecord.id) {
-        // 取消选择
         selectedBatchInRecordId = null;
         selectedBatchData = null;
         
@@ -612,12 +724,10 @@ function toggleReturnBatch(index) {
         document.getElementById('returnNum').value = '';
         document.getElementById('returnNum').max = 0;
         
-        // 移除高亮
         updateReturnBatchList();
         return;
     }
     
-    // 选中新批次
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
@@ -627,7 +737,6 @@ function toggleReturnBatch(index) {
         expireDate: batch.expire_date || ''
     };
     
-    // 只更新供应商搜索框
     document.getElementById('returnSupplierSearch').value = batch.supplier;
     
     document.getElementById('returnCurGoodsId').value = inRecord.id;
@@ -797,7 +906,6 @@ async function submitReturnGoods() {
 
 // ========== 单条删除退货 ==========
 async function deleteReturnGoods(id) {
-    // 检查当前用户是否是管理员
     if (typeof isCurrentUserAdmin !== 'function' || !isCurrentUserAdmin()) {
         showMsg('只有管理员可以删除退货记录');
         return;
@@ -822,7 +930,6 @@ async function deleteReturnGoods(id) {
 
 // ========== 批量删除退货 ==========
 async function batchDeleteReturnGoods() {
-    // 检查当前用户是否是管理员
     if (typeof isCurrentUserAdmin !== 'function' || !isCurrentUserAdmin()) {
         showMsg('只有管理员可以批量删除退货记录');
         return;
@@ -846,10 +953,16 @@ async function batchDeleteReturnGoods() {
     }
 }
 
-// ========== 全选 ==========
+// ========== 全选（原函数保留，但由新控件接管，故保留为空或调用新逻辑） ==========
 function returnToggleSelectAll() {
-    const all = document.getElementById('returnSelectAll').checked;
+    // 此函数已被新全选控件替代，保留以防外部调用
+    const all = document.getElementById('returnSelectAll')?.checked || false;
     document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = all);
+    if (all) {
+        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+    } else {
+        selectedReturnIds.clear();
+    }
 }
 
 // ========== 导出Excel ==========
@@ -986,6 +1099,283 @@ document.addEventListener('click', function(e) {
         if (box) box.style.display = 'none';
     }
 });
+
+// ============================================================
+// ===== 新增：打印预览功能 =====
+// ============================================================
+function previewReturnPrint() {
+    if (selectedReturnIds.size === 0) {
+        showMsg('请选择需要打印的退货记录');
+        return;
+    }
+
+    const groupMap = {};
+    filteredReturnGoods.forEach(row => {
+        if (selectedReturnIds.has(row.id)) {
+            if (!groupMap[row.supplier]) groupMap[row.supplier] = [];
+            groupMap[row.supplier].push(row);
+        }
+    });
+
+    if (Object.keys(groupMap).length === 0) {
+        showMsg('请选择需要打印的退货记录');
+        return;
+    }
+
+    const ROWS_PER_PAGE = 12;
+    let allPagesHTML = '';
+    const supplierNames = Object.keys(groupMap);
+
+    // 签名配置（复用 finance.js 的配置）
+    const SIGNATURE_CONFIG = window.SIGNATURE_CONFIG || {
+        storeKeeper: 'images/storeKeeper.png',
+        business: 'images/business.png',
+        finance: 'images/finance.png'
+    };
+
+    supplierNames.forEach(supplier => {
+        const rows = groupMap[supplier];
+        rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
+
+        const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
+        let supTotalQty = 0, supTotalReturnAmount = 0, supTotalSaleAmount = 0;
+        rows.forEach(r => {
+            supTotalQty += Number(r.return_num);
+            supTotalReturnAmount += Number(r.return_amount);
+            supTotalSaleAmount += Number(r.sale_amount);
+        });
+
+        for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
+            const chunk = rows.slice(i, i + ROWS_PER_PAGE);
+            const pageNum = Math.floor(i / ROWS_PER_PAGE) + 1;
+            const isLastPage = (pageNum === totalPages);
+
+            let tableRows = '';
+            chunk.forEach(row => {
+                const price = Number(row.in_price) || 0;
+                const qty = Number(row.return_num) || 0;
+                const amount = Number(row.return_amount) || 0;
+                const saleAmount = Number(row.sale_amount) || 0;
+                const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
+                tableRows += `
+                    <tr>
+                        <td>${date}</td>
+                        <td>${supplier}</td>
+                        <td>${row.goods_name || ''}</td>
+                        <td>${row.spec || ''}</td>
+                        <td>￥${price.toFixed(2)}</td>
+                        <td>${qty}</td>
+                        <td>￥${amount.toFixed(2)}</td>
+                        <td>￥${saleAmount.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            if (isLastPage) {
+                tableRows += `
+                    <tr class="total-row">
+                        <td colspan="4" class="total-label">${supplier} 汇总</td>
+                        <td class="total-label">----</td>
+                        <td class="total-qty">${supTotalQty}</td>
+                        <td class="total-amount">￥${supTotalReturnAmount.toFixed(2)}</td>
+                        <td class="total-amount">￥${supTotalSaleAmount.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+
+            const pageBreak = (i + ROWS_PER_PAGE >= rows.length && supplier === supplierNames[supplierNames.length - 1]) ? '' : 'page-break-after: always;';
+
+            allPagesHTML += `
+                <div class="page-block" style="${pageBreak}">
+                    <div class="bill-title">商品退货单</div>
+                    <div class="bill-header">
+                        <span><span class="label">供应商：</span>${supplier}</span>
+                        <span><span class="label">打印日期：</span>${new Date().toLocaleDateString('zh-CN')}</span>
+                    </div>
+                    <table class="goods-table">
+                        <thead>
+                            <tr>
+                                <th>退货日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
+                                <th>退货单价</th><th>数量</th><th>退货金额</th><th>销售金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                    <div class="bill-footer">
+                        <span>库管员签字：${SIGNATURE_CONFIG.storeKeeper ? `<img src="${SIGNATURE_CONFIG.storeKeeper}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+                        <span>业务员签字：${SIGNATURE_CONFIG.business ? `<img src="${SIGNATURE_CONFIG.business}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+                        <span>财务审核签字：${SIGNATURE_CONFIG.finance ? `<img src="${SIGNATURE_CONFIG.finance}" style="height:30px;vertical-align:middle;">` : '___________'}</span>
+                        <span style="font-weight:normal;text-align:right;">第${pageNum}页/共${totalPages}页</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+
+    const fullHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <title>退货单打印</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            font-family: "SimSun", "宋体", serif;
+        }
+        @page {
+            size: A5 landscape;
+            margin: 1.6cm 1.1cm 1.2cm 1.0cm;
+        }
+        .print-container {
+            width: 100%;
+            height: 100%;
+        }
+        .page-block {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            padding-bottom: 2.2cm;
+            page-break-after: always;
+            margin: 0;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .page-block:last-child {
+            page-break-after: avoid;
+        }
+        .bill-title {
+            text-align: center;
+            font-size: 22pt;
+            font-weight: bold;
+            letter-spacing: 6px;
+            margin: 0 0 4px 0;
+            padding: 0;
+        }
+        .bill-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12pt;
+            margin-bottom: 4px;
+            padding: 0 2px;
+        }
+        .bill-header .label { font-weight: bold; }
+        .goods-table {
+            width: 100% !important;
+            border-collapse: collapse;
+            font-size: 11pt;
+            table-layout: fixed;
+            margin-bottom: 0;
+        }
+        .goods-table th, .goods-table td {
+            border: 1px solid #000;
+            padding: 4px 3px;
+            text-align: center;
+            font-size: 11pt;
+            word-break: break-word;
+            height: auto;
+        }
+        .goods-table th {
+            border: 2px solid #000;
+            background: #f5f5f5;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 12%; }
+        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 12%; }
+        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 20%; }
+        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 12%; }
+        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 10%; }
+        .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
+        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 12%; }
+        .goods-table th:nth-child(8), .goods-table td:nth-child(8) { width: 12%; }
+        .goods-table .total-row td {
+            border-top: 2px solid #000;
+            font-weight: bold;
+            background: #fafafa;
+            font-size: 12pt;
+        }
+        .goods-table .total-label {
+            text-align: right;
+            padding-right: 8px;
+        }
+        .bill-footer {
+            position: absolute;
+            bottom: 0.6cm;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12pt;
+            padding: 4px 4px 0 4px;
+        }
+        .bill-footer span {
+            min-width: 80px;
+        }
+        .bill-footer span:last-child {
+            min-width: 120px;
+            text-align: right;
+        }
+        @media screen {
+            .page-block {
+                border: 1px dashed #ccc;
+                padding: 12px 18px 2.2cm 18px;
+                margin: 20px auto;
+                max-width: 1100px;
+                min-height: 600px;
+                background: #fefefe;
+                position: relative;
+            }
+            body { padding: 20px; background: #f0f2f5; }
+            .print-container { max-width: 1100px; margin: 0 auto; }
+            .bill-footer { position: absolute; bottom: 0.6cm; left: 18px; right: 18px; }
+        }
+        @media print {
+            html, body, .print-container, .page-block {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            .page-block {
+                border: none !important;
+                page-break-after: always;
+                padding-bottom: 2.2cm !important;
+            }
+            .page-block:last-child { page-break-after: avoid; }
+            .bill-title { margin-top: 0 !important; padding-top: 0 !important; }
+            .goods-table { width: 100% !important; }
+            .bill-footer { bottom: 0.6cm !important; }
+            .goods-table td, .goods-table th { height: auto !important; }
+        }
+    </style>
+    </head>
+    <body>
+        <div class="print-container">
+            ${allPagesHTML}
+        </div>
+        <script>
+            window.onload = function() {
+                setTimeout(function() { window.print(); }, 300);
+            };
+            window.onafterprint = function() { window.close(); };
+        <\/script>
+    </body>
+    </html>
+    `;
+
+    const win = window.open('', '_blank', 'width=1000,height=750,scrollbars=yes,resizable=yes');
+    if (!win) { showMsg('请允许弹出窗口'); return; }
+    win.document.write(fullHTML);
+    win.document.close();
+    win.focus();
+}
 
 // ========== 页面加载时自动加载 ==========
 document.addEventListener('DOMContentLoaded', function() {
