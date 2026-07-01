@@ -701,7 +701,6 @@ function showAddSupplierList() {
     const searchInput = document.getElementById('addSupplierSearch');
     if (!searchInput) return;
     
-    // 从settleData获取供应商列表
     let suppliers = settleData.map(s => s.supplier).sort();
     box.innerHTML = '';
     suppliers.forEach(sup => {
@@ -712,6 +711,9 @@ function showAddSupplierList() {
             document.getElementById('add_supplier').value = sup;
             box.style.display = 'none';
             onSupplierChange();
+            // 手动触发 change 事件，以便编辑弹窗中的监听器能捕获
+            var evt = new Event('change', { bubbles: true });
+            searchInput.dispatchEvent(evt);
         };
         box.appendChild(div);
     });
@@ -735,6 +737,9 @@ function filterAddSupplierList() {
             document.getElementById('add_supplier').value = sup;
             box.style.display = 'none';
             onSupplierChange();
+            // 手动触发 change 事件
+            var evt = new Event('change', { bubbles: true });
+            searchInput.dispatchEvent(evt);
         };
         box.appendChild(div);
     });
@@ -852,9 +857,20 @@ async function openEditForm(id) {
         var el = document.getElementById(id);
         if (el) {
             el.oninput = null;
-            el.onchange = null;   // 同时清除 change
+            el.onchange = null;
         }
     });
+
+    // 从 sessionStorage 获取当前用户角色，避免依赖 permissionData 异步加载
+    var savedUser = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    var userRole = '';
+    if (savedUser) {
+        try {
+            var userObj = JSON.parse(savedUser);
+            userRole = userObj.role || '';
+        } catch(e) {}
+    }
+    var isFinanceOrAdminRole = (userRole === '管理员' || userRole === '财务部');
 
     if (isUsed) {
         // 有入库记录：供应商、商品名、规格、税率 → 全部锁死
@@ -864,29 +880,31 @@ async function openEditForm(id) {
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_tax_rate').disabled = true;
     } else {
-        // 无入库记录：绑定事件，当供应商、商品名、规格变化时清空税率
+        // 无入库记录：税率初始保留原值，根据角色设置禁用/启用
+        var taxSelect = document.getElementById('add_tax_rate');
+        if (taxSelect) {
+            taxSelect.disabled = !isFinanceOrAdminRole;   // 财务/管理员可编辑，其他禁用
+            // 税率值保持原样（已在填充时设置）
+        }
+
+        // 绑定事件：当供应商、商品名、规格变化时清空税率
         function handleFieldChange() {
             // 再次检查是否已变为有入库记录（防止异步变化）
             if (isUsed) return;
             var taxSelect = document.getElementById('add_tax_rate');
             if (taxSelect) {
                 taxSelect.value = '';   // 清空税率
-                if (!isFinanceOrAdmin()) {
-                    taxSelect.disabled = true;   // 非财务/管理员禁用
-                } else {
-                    taxSelect.disabled = false;  // 财务/管理员可编辑
-                }
+                taxSelect.disabled = !isFinanceOrAdminRole;   // 根据角色决定是否可编辑
             }
         }
-        // 为三个字段绑定 input 和 change 事件（下拉选择会触发 change）
+        // 为三个字段绑定 input 和 change 事件
         ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) {
                 el.oninput = handleFieldChange;
-                el.onchange = handleFieldChange;   // 新增 change 监听
+                el.onchange = handleFieldChange;
             }
         });
-        // 税率初始保留原值，不立即清空
     }
 
     document.getElementById('formModal').style.display = 'block';
