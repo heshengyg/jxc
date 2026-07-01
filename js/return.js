@@ -28,21 +28,19 @@ async function loadReturnGoods() {
         if (totalEl) totalEl.textContent = data.length;
         returnCurrentPage = 1;
         filterReturnGoods();
-
-        // ========== 新增：初始化打印控件 ==========
-        initReturnPrintControls();
+        // 初始化打印控件（仅一次）
+        if (!document.getElementById('returnPrintBtn')) {
+            initReturnPrintControls();
+        }
     } catch (e) {
         showMsg('加载退货记录失败：' + e.message);
     }
 }
 
-// ========== 新增：初始化打印控件（动态创建全选和打印按钮） ==========
+// ========== 初始化打印控件（动态创建全选和打印按钮） ==========
 function initReturnPrintControls() {
     const searchBar = document.querySelector('#returnGoods .search-bar');
     if (!searchBar) return;
-
-    // 检查是否已存在打印按钮，避免重复添加
-    if (document.getElementById('returnPrintBtn')) return;
 
     // 创建打印预览按钮
     const printBtn = document.createElement('button');
@@ -52,35 +50,41 @@ function initReturnPrintControls() {
     printBtn.onclick = previewReturnPrint;
     searchBar.appendChild(printBtn);
 
-    // 创建全选复选框（放在表格的 thead 第一列）
+    // 在表格 thead 第一列添加全选复选框（如果不存在）
     const thead = document.querySelector('#returnGoodsList thead');
     if (!thead) return;
     const firstTh = thead.querySelector('tr th:first-child');
-    if (firstTh) {
-        // 如果第一列已经有复选框，则不再添加（避免重复）
-        if (firstTh.querySelector('input[type="checkbox"]')) return;
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = 'returnPrintAllCheck';
-        checkbox.style.marginRight = '5px';
-        checkbox.onchange = function () {
-            if (skipReturnAllChange) return;
-            const checked = this.checked;
-            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
-            selectedReturnIds.clear();
-            if (checked) {
-                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-            }
-            skipReturnAllChange = false;
-        };
-        // 保留原有的文字（如“选择”），在复选框后面
-        const textNode = firstTh.childNodes[0];
-        if (textNode) {
-            firstTh.insertBefore(checkbox, textNode);
-        } else {
-            firstTh.prepend(checkbox);
-        }
+    if (!firstTh) return;
+    // 如果已有全选复选框，不再重复添加
+    if (firstTh.querySelector('#returnPrintAllCheck')) return;
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'returnPrintAllCheck';
+    checkbox.style.marginRight = '5px';
+    // 保留原有文本（如“选择”）
+    const textNode = firstTh.childNodes[0];
+    if (textNode) {
+        firstTh.insertBefore(checkbox, textNode);
+    } else {
+        firstTh.prepend(checkbox);
     }
+    // 绑定全选事件
+    checkbox.onchange = function() {
+        if (skipReturnAllChange) return;
+        const checked = this.checked;
+        // 更新当前页所有行复选框
+        document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+            cb.checked = checked;
+            const id = Number(cb.dataset.id);
+            if (checked) {
+                selectedReturnIds.add(id);
+            } else {
+                selectedReturnIds.delete(id);
+            }
+        });
+        skipReturnAllChange = false;
+    };
 }
 
 // ========== 搜索/筛选 ==========
@@ -97,6 +101,7 @@ function filterReturnGoods() {
     renderReturnList();
 }
 
+// 重置搜索（修复点击无效问题）
 function resetReturnSearch() {
     document.getElementById('returnSearchKeyword').value = '';
     document.getElementById('returnSearchField').selectedIndex = 0;
@@ -135,22 +140,20 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表（增加底部汇总和全选同步） ==========
+// ========== 渲染列表（含底部汇总和全选同步） ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
     let tb = document.getElementById('returnGoodsList');
     if (!tb) return;
     tb.innerHTML = '';
-    
-    // 先清空选中集合（保留已选中的ID，但需要同步checkbox状态）
-    // 我们将在渲染时根据 selectedReturnIds 设置 checkbox 状态
 
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
         return;
     }
     
+    // 渲染行
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
         const rowNum = start + idx + 1;
@@ -177,34 +180,7 @@ function renderReturnList() {
         tb.innerHTML += html;
     }
 
-    // ========== 新增：底部汇总（按供应商） ==========
-    const groupMap = {};
-    filteredReturnGoods.forEach(item => {
-        if (!groupMap[item.supplier]) {
-            groupMap[item.supplier] = { totalNum: 0, totalReturnAmount: 0, totalSaleAmount: 0 };
-        }
-        groupMap[item.supplier].totalNum += Number(item.return_num);
-        groupMap[item.supplier].totalReturnAmount += Number(item.return_amount);
-        groupMap[item.supplier].totalSaleAmount += Number(item.sale_amount);
-    });
-
-    let summaryHtml = '';
-    Object.keys(groupMap).forEach(supplier => {
-        const data = groupMap[supplier];
-        summaryHtml += `
-            <tr style="background:#f5f5f5;font-weight:bold;">
-                <td colspan="2">${supplier} 汇总</td>
-                <td colspan="5">退货总数量：${data.totalNum}</td>
-                <td colspan="2">退货总金额：${data.totalReturnAmount.toFixed(2)}</td>
-                <td colspan="4">销售总金额：${data.totalSaleAmount.toFixed(2)}</td>
-            </tr>
-        `;
-    });
-    if (summaryHtml) {
-        tb.innerHTML += summaryHtml;
-    }
-
-    // 绑定checkbox change事件，同步 selectedReturnIds
+    // 绑定行复选框事件
     document.querySelectorAll('.return-item-checkbox').forEach(cb => {
         cb.onchange = function() {
             const id = Number(this.dataset.id);
@@ -214,26 +190,48 @@ function renderReturnList() {
                 selectedReturnIds.delete(id);
             }
             // 更新全选状态
-            const allCheckbox = document.getElementById('returnPrintAllCheck');
-            if (allCheckbox) {
-                const total = filteredReturnGoods.length;
-                const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
-                skipReturnAllChange = true;
-                allCheckbox.checked = (checked === total && total > 0);
-                skipReturnAllChange = false;
-            }
+            updateReturnAllCheckboxState();
         };
     });
 
-    // 更新全选状态
-    const allCheckbox = document.getElementById('returnPrintAllCheck');
-    if (allCheckbox) {
-        const total = filteredReturnGoods.length;
-        const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
-        skipReturnAllChange = true;
-        allCheckbox.checked = (checked === total && total > 0);
-        skipReturnAllChange = false;
+    // 底部汇总（按供应商）
+    const groupMap = {};
+    filteredReturnGoods.forEach(item => {
+        if (!groupMap[item.supplier]) {
+            groupMap[item.supplier] = { totalNum: 0, totalReturnAmount: 0 };
+        }
+        groupMap[item.supplier].totalNum += Number(item.return_num);
+        groupMap[item.supplier].totalReturnAmount += Number(item.return_amount);
+    });
+
+    let summaryHtml = '';
+    Object.keys(groupMap).forEach(supplier => {
+        const data = groupMap[supplier];
+        summaryHtml += `
+            <tr style="background:#f5f5f5;font-weight:bold;">
+                <td colspan="2">${supplier} 汇总</td>
+                <td colspan="5">退货总数量：${data.totalNum}</td>
+                <td colspan="6">退货总金额：${data.totalReturnAmount.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    if (summaryHtml) {
+        tb.innerHTML += summaryHtml;
     }
+
+    // 更新全选状态（页面加载完成后）
+    updateReturnAllCheckboxState();
+}
+
+// 更新全选复选框状态
+function updateReturnAllCheckboxState() {
+    const allCheckbox = document.getElementById('returnPrintAllCheck');
+    if (!allCheckbox) return;
+    const total = filteredReturnGoods.length;
+    const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
+    skipReturnAllChange = true;
+    allCheckbox.checked = (checked === total && total > 0);
+    skipReturnAllChange = false;
 }
 
 // ========== 分页 ==========
@@ -584,7 +582,7 @@ function renderReturnSpecList(list) {
     });
 }
 
-// ========== 更新批次列表（保持不变） ==========
+// ========== 更新批次列表 ==========
 function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
@@ -953,16 +951,9 @@ async function batchDeleteReturnGoods() {
     }
 }
 
-// ========== 全选（原函数保留，但由新控件接管，故保留为空或调用新逻辑） ==========
+// ========== 全选（兼容旧调用） ==========
 function returnToggleSelectAll() {
-    // 此函数已被新全选控件替代，保留以防外部调用
-    const all = document.getElementById('returnSelectAll')?.checked || false;
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = all);
-    if (all) {
-        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-    } else {
-        selectedReturnIds.clear();
-    }
+    // 由全选复选框接管，此函数保留为空
 }
 
 // ========== 导出Excel ==========
@@ -1000,10 +991,18 @@ function downloadReturnTemplate() {
     XLSX.writeFile(wb, "退货导入模板.xlsx");
 }
 
-// ========== 导入退货 ==========
+// ========== 导入退货（修复点击无效） ==========
 async function importReturnExcel() {
-    const file = document.getElementById('returnFileInput').files[0];
-    if (!file) return;
+    const fileInput = document.getElementById('returnFileInput');
+    if (!fileInput) {
+        showMsg('文件选择框不存在');
+        return;
+    }
+    const file = fileInput.files[0];
+    if (!file) {
+        showMsg('请选择文件');
+        return;
+    }
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
@@ -1072,6 +1071,8 @@ async function importReturnExcel() {
                 }
             }
             showMsg(`导入完成：成功${successCount}条，失败${failCount}`);
+            // 清空文件选择框
+            fileInput.value = '';
             loadReturnGoods();
             refreshAllStockCache(allStockIn, allStockOut);
             if (typeof loadStockStock === 'function') {
@@ -1101,7 +1102,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================================
-// ===== 新增：打印预览功能 =====
+// ===== 打印预览功能（去掉销售金额列，汇总行合并前五列） =====
 // ============================================================
 function previewReturnPrint() {
     if (selectedReturnIds.size === 0) {
@@ -1138,11 +1139,10 @@ function previewReturnPrint() {
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
         const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-        let supTotalQty = 0, supTotalReturnAmount = 0, supTotalSaleAmount = 0;
+        let supTotalQty = 0, supTotalReturnAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.return_num);
             supTotalReturnAmount += Number(r.return_amount);
-            supTotalSaleAmount += Number(r.sale_amount);
         });
 
         for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
@@ -1155,7 +1155,6 @@ function previewReturnPrint() {
                 const price = Number(row.in_price) || 0;
                 const qty = Number(row.return_num) || 0;
                 const amount = Number(row.return_amount) || 0;
-                const saleAmount = Number(row.sale_amount) || 0;
                 const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
                 tableRows += `
                     <tr>
@@ -1166,19 +1165,17 @@ function previewReturnPrint() {
                         <td>￥${price.toFixed(2)}</td>
                         <td>${qty}</td>
                         <td>￥${amount.toFixed(2)}</td>
-                        <td>￥${saleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             });
 
             if (isLastPage) {
+                // 合并前五列显示“***汇总”，后两列为数量和金额
                 tableRows += `
                     <tr class="total-row">
-                        <td colspan="4" class="total-label">${supplier} 汇总</td>
-                        <td class="total-label">----</td>
+                        <td colspan="5" class="total-label" style="text-align:center;">${supplier} 汇总</td>
                         <td class="total-qty">${supTotalQty}</td>
                         <td class="total-amount">￥${supTotalReturnAmount.toFixed(2)}</td>
-                        <td class="total-amount">￥${supTotalSaleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             }
@@ -1196,7 +1193,7 @@ function previewReturnPrint() {
                         <thead>
                             <tr>
                                 <th>退货日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
-                                <th>退货单价</th><th>数量</th><th>退货金额</th><th>销售金额</th>
+                                <th>退货单价</th><th>数量</th><th>退货金额</th>
                             </tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
@@ -1286,14 +1283,13 @@ function previewReturnPrint() {
             font-weight: bold;
             font-size: 12pt;
         }
-        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 12%; }
-        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 12%; }
-        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 20%; }
-        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 12%; }
-        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 10%; }
+        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 14%; }
+        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
+        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
+        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14%; }
+        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 12%; }
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
-        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 12%; }
-        .goods-table th:nth-child(8), .goods-table td:nth-child(8) { width: 12%; }
+        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 14%; }
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
@@ -1301,7 +1297,7 @@ function previewReturnPrint() {
             font-size: 12pt;
         }
         .goods-table .total-label {
-            text-align: right;
+            text-align: center;
             padding-right: 8px;
         }
         .bill-footer {
