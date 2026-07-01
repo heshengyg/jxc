@@ -66,15 +66,16 @@ function initReturnPrintControls() {
         checkbox.id = 'returnPrintAllCheck';
         checkbox.style.marginRight = '5px';
         checkbox.onchange = function () {
-            if (skipReturnAllChange) return;
-            const checked = this.checked;
-            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
-            selectedReturnIds.clear();
-            if (checked) {
-                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-            }
-            skipReturnAllChange = false;
-        };
+    if (skipReturnAllChange) return;
+    const checked = this.checked;
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
+    selectedReturnIds.clear();
+    if (checked) {
+        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+    }
+    skipReturnAllChange = false;
+    updateReturnAllCheckboxState();   // 同步全选状态（确保一致性）
+};
         const textNode = firstTh.childNodes[0];
         if (textNode) {
             firstTh.insertBefore(checkbox, textNode);
@@ -209,25 +210,19 @@ function renderReturnList() {
     }
 
     // 绑定checkbox change事件，同步 selectedReturnIds
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
-        cb.onchange = function() {
-            const id = Number(this.dataset.id);
-            if (this.checked) {
-                selectedReturnIds.add(id);
-            } else {
-                selectedReturnIds.delete(id);
-            }
-            // 更新全选状态
-            const allCheckbox = document.getElementById('returnPrintAllCheck');
-            if (allCheckbox) {
-                const total = filteredReturnGoods.length;
-                const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
-                skipReturnAllChange = true;
-                allCheckbox.checked = (checked === total && total > 0);
-                skipReturnAllChange = false;
-            }
-        };
-    });
+    // 绑定checkbox change事件，同步 selectedReturnIds
+document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+    cb.onchange = function() {
+        const id = Number(this.dataset.id);
+        if (this.checked) {
+            selectedReturnIds.add(id);
+        } else {
+            selectedReturnIds.delete(id);
+        }
+        // 更新全选状态（由专用函数统一计算）
+        updateReturnAllCheckboxState();
+    };
+});
 
     // 更新全选状态
     const allCheckbox = document.getElementById('returnPrintAllCheck');
