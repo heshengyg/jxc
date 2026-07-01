@@ -850,7 +850,10 @@ async function openEditForm(id) {
     // 先清除之前可能绑定的监听（防止堆积）
     ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.oninput = null;
+        if (el) {
+            el.oninput = null;
+            el.onchange = null;   // 同时清除 change
+        }
     });
 
     if (isUsed) {
@@ -861,7 +864,7 @@ async function openEditForm(id) {
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_tax_rate').disabled = true;
     } else {
-        // 无入库记录：绑定输入事件，当供应商、商品名、规格变化时清空税率
+        // 无入库记录：绑定事件，当供应商、商品名、规格变化时清空税率
         function handleFieldChange() {
             // 再次检查是否已变为有入库记录（防止异步变化）
             if (isUsed) return;
@@ -875,11 +878,12 @@ async function openEditForm(id) {
                 }
             }
         }
-        // 为三个字段绑定 oninput 事件（当用户修改时触发）
+        // 为三个字段绑定 input 和 change 事件（下拉选择会触发 change）
         ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) {
                 el.oninput = handleFieldChange;
+                el.onchange = handleFieldChange;   // 新增 change 监听
             }
         });
         // 税率初始保留原值，不立即清空
