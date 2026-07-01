@@ -18,19 +18,16 @@ function refreshReturnGoods() {
 
 async function loadReturnGoods() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods?order=id.desc`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        if (!res.ok) throw new Error('读取失败');
-        const data = await res.json();
-        allReturnGoods = data;
-        const totalEl = document.getElementById('returnTotalCount');
-        if (totalEl) totalEl.textContent = data.length;
-        returnCurrentPage = 1;
+        // ... 加载数据 ...
         filterReturnGoods();
-
-        // ========== 新增：初始化打印控件 ==========
-        initReturnPrintControls();
+        // 延迟初始化打印控件，确保 DOM 完全渲染
+        setTimeout(function() {
+            try {
+                initReturnPrintControls();
+            } catch (e) {
+                console.warn('打印控件初始化失败:', e);
+            }
+        }, 200);
     } catch (e) {
         showMsg('加载退货记录失败：' + e.message);
     }
@@ -38,27 +35,30 @@ async function loadReturnGoods() {
 
 // ========== 新增：初始化打印控件（动态创建全选和打印按钮） ==========
 function initReturnPrintControls() {
-    const searchBar = document.querySelector('#returnGoods .search-bar');
-    if (!searchBar) return;
+    try {
+        const searchBar = document.querySelector('#returnGoods .search-bar');
+        if (!searchBar) {
+            console.warn('未找到搜索栏，跳过打印控件初始化');
+            return;
+        }
+        if (document.getElementById('returnPrintBtn')) return;
 
-    // 检查是否已存在打印按钮，避免重复添加
-    if (document.getElementById('returnPrintBtn')) return;
+        const printBtn = document.createElement('button');
+        printBtn.id = 'returnPrintBtn';
+        printBtn.className = 'btn btn-success';
+        printBtn.innerHTML = '🖨️ 打印预览';
+        printBtn.onclick = previewReturnPrint;
+        searchBar.appendChild(printBtn);
 
-    // 创建打印预览按钮
-    const printBtn = document.createElement('button');
-    printBtn.id = 'returnPrintBtn';
-    printBtn.className = 'btn btn-success';
-    printBtn.innerHTML = '🖨️ 打印预览';
-    printBtn.onclick = previewReturnPrint;
-    searchBar.appendChild(printBtn);
-
-    // 创建全选复选框（放在表格的 thead 第一列）
-    const thead = document.querySelector('#returnGoodsList thead');
-    if (!thead) return;
-    const firstTh = thead.querySelector('tr th:first-child');
-    if (firstTh) {
-        // 如果第一列已经有复选框，则不再添加（避免重复）
+        const thead = document.querySelector('#returnGoodsList thead');
+        if (!thead) {
+            console.warn('未找到表格头，跳过全选复选框');
+            return;
+        }
+        const firstTh = thead.querySelector('tr th:first-child');
+        if (!firstTh) return;
         if (firstTh.querySelector('input[type="checkbox"]')) return;
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = 'returnPrintAllCheck';
@@ -73,13 +73,14 @@ function initReturnPrintControls() {
             }
             skipReturnAllChange = false;
         };
-        // 保留原有的文字（如“选择”），在复选框后面
         const textNode = firstTh.childNodes[0];
         if (textNode) {
             firstTh.insertBefore(checkbox, textNode);
         } else {
             firstTh.prepend(checkbox);
         }
+    } catch (e) {
+        console.warn('初始化打印控件出错:', e);
     }
 }
 
