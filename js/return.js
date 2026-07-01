@@ -1,4 +1,4 @@
-// ===================== 退货管理模块（修复版 - 参照入库单打印逻辑） =====================
+// ===================== 退货管理模块 =====================
 // 全局变量
 let returnCurrentPage = 1;
 let returnPageSize = 10;
@@ -6,9 +6,10 @@ let returnTotalPages = 1;
 let returnSortField = '';
 let returnSortAsc = true;
 
-// 选中的退货ID集合（全局，与入库单打印保持一致）
+// ========== 新增：打印相关全局变量 ==========
 let selectedReturnIds = new Set();
 let skipReturnAllChange = false;
+let returnPrintData = [];
 
 // ========== 加载/刷新 ==========
 function refreshReturnGoods() {
@@ -27,89 +28,82 @@ async function loadReturnGoods() {
         if (totalEl) totalEl.textContent = data.length;
         returnCurrentPage = 1;
         filterReturnGoods();
-        // 初始化打印控件（仅一次）
-        if (!document.getElementById('returnPrintBtn')) {
-            initReturnPrintControls();
-        }
+
+        // ========== 新增：初始化打印控件 ==========
+        initReturnPrintControls();
     } catch (e) {
         showMsg('加载退货记录失败：' + e.message);
     }
 }
 
-// ========== 初始化打印控件（参照入库单打印） ==========
+// ========== 新增：初始化打印控件（动态创建全选和打印按钮） ==========
 function initReturnPrintControls() {
     const searchBar = document.querySelector('#returnGoods .search-bar');
     if (!searchBar) return;
 
-    // 创建打印预览按钮
-    if (!document.getElementById('returnPrintBtn')) {
-        const printBtn = document.createElement('button');
-        printBtn.id = 'returnPrintBtn';
-        printBtn.className = 'btn btn-success';
-        printBtn.innerHTML = '🖨️ 打印预览';
-        printBtn.onclick = previewReturnPrint;
-        searchBar.appendChild(printBtn);
-    }
+    // 检查是否已存在打印按钮，避免重复添加
+    if (document.getElementById('returnPrintBtn')) return;
 
-    // 在表格 thead 第一列添加全选复选框
+    // 创建打印预览按钮
+    const printBtn = document.createElement('button');
+    printBtn.id = 'returnPrintBtn';
+    printBtn.className = 'btn btn-success';
+    printBtn.innerHTML = '🖨️ 打印预览';
+    printBtn.onclick = previewReturnPrint;
+    searchBar.appendChild(printBtn);
+
+    // 创建全选复选框（放在表格的 thead 第一列）
     const thead = document.querySelector('#returnGoodsList thead');
     if (!thead) return;
     const firstTh = thead.querySelector('tr th:first-child');
-    if (!firstTh) return;
-    if (firstTh.querySelector('#returnPrintAllCheck')) return;
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'returnPrintAllCheck';
-    checkbox.style.marginRight = '5px';
-    // 保留原有文本（如“选择”）
-    const textNode = firstTh.childNodes[0];
-    if (textNode) {
-        firstTh.insertBefore(checkbox, textNode);
-    } else {
-        firstTh.prepend(checkbox);
-    }
-
-    // 全选事件（参照入库单打印）
-    checkbox.onchange = function () {
-        if (skipReturnAllChange) return;
-        const checked = this.checked;
-        // 基于所有筛选数据操作（不是当前页）
-        if (checked) {
-            filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+    if (firstTh) {
+        // 如果第一列已经有复选框，则不再添加（避免重复）
+        if (firstTh.querySelector('input[type="checkbox"]')) return;
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'returnPrintAllCheck';
+        checkbox.style.marginRight = '5px';
+        checkbox.onchange = function () {
+            if (skipReturnAllChange) return;
+            const checked = this.checked;
+            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
+            selectedReturnIds.clear();
+            if (checked) {
+                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+            }
+            skipReturnAllChange = false;
+        };
+        // 保留原有的文字（如“选择”），在复选框后面
+        const textNode = firstTh.childNodes[0];
+        if (textNode) {
+            firstTh.insertBefore(checkbox, textNode);
         } else {
-            filteredReturnGoods.forEach(item => selectedReturnIds.delete(item.id));
+            firstTh.prepend(checkbox);
         }
-        // 同步当前页checkbox状态
-        document.querySelectorAll('.return-item-checkbox').forEach(cb => {
-            const id = Number(cb.dataset.id);
-            cb.checked = selectedReturnIds.has(id);
-        });
-        skipReturnAllChange = false;
-    };
+    }
 }
 
 // ========== 搜索/筛选 ==========
 function filterReturnGoods() {
     let field = document.getElementById('returnSearchField').value;
     let kw = document.getElementById('returnSearchKeyword').value.toLowerCase();
-    filteredReturnGoods = allReturnGoods.filter(item =>
+    filteredReturnGoods = allReturnGoods.filter(item => 
         String(item[field] || '').toLowerCase().includes(kw)
     );
     const searchEl = document.getElementById('returnSearchCount');
     if (searchEl) searchEl.textContent = filteredReturnGoods.length;
     returnCurrentPage = 1;
-    // 注意：筛选后不自动清空 selectedReturnIds，保持选中状态（但若数据变化，可能需要调整，目前保留）
     renderReturnPagination();
     renderReturnList();
 }
 
-// 重置搜索（已修复）
+// ===== 修复：重置搜索（确保清空并刷新） =====
 function resetReturnSearch() {
     document.getElementById('returnSearchKeyword').value = '';
     document.getElementById('returnSearchField').selectedIndex = 0;
     filterReturnGoods();
 }
+// 暴露到全局，确保按钮 onclick 可调用
 window.resetReturnSearch = resetReturnSearch;
 
 function clearReturnSort() {
@@ -144,21 +138,22 @@ function updateReturnSortIcon() {
     if (idx > -1) document.querySelectorAll('.returnSortIcon')[idx].innerText = returnSortAsc ? '↑' : '↓';
 }
 
-// ========== 渲染列表（修复全选和选中状态） ==========
+// ========== 渲染列表（增加底部汇总和全选同步） ==========
 function renderReturnList() {
     let start = (returnCurrentPage - 1) * returnPageSize;
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
     let tb = document.getElementById('returnGoodsList');
     if (!tb) return;
     tb.innerHTML = '';
+    
+    // 先清空选中集合（保留已选中的ID，但需要同步checkbox状态）
+    // 我们将在渲染时根据 selectedReturnIds 设置 checkbox 状态
 
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
-        updateReturnAllCheckboxState();
         return;
     }
-
-    // 渲染行
+    
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
         const rowNum = start + idx + 1;
@@ -185,27 +180,15 @@ function renderReturnList() {
         tb.innerHTML += html;
     }
 
-    // 绑定行复选框事件（参照入库单打印）
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
-        cb.onchange = function () {
-            const id = Number(this.dataset.id);
-            if (this.checked) {
-                selectedReturnIds.add(id);
-            } else {
-                selectedReturnIds.delete(id);
-            }
-            updateReturnAllCheckboxState();
-        };
-    });
-
-    // 底部汇总（按供应商）
+    // ========== 新增：底部汇总（按供应商） ==========
     const groupMap = {};
     filteredReturnGoods.forEach(item => {
         if (!groupMap[item.supplier]) {
-            groupMap[item.supplier] = { totalNum: 0, totalReturnAmount: 0 };
+            groupMap[item.supplier] = { totalNum: 0, totalReturnAmount: 0, totalSaleAmount: 0 };
         }
         groupMap[item.supplier].totalNum += Number(item.return_num);
         groupMap[item.supplier].totalReturnAmount += Number(item.return_amount);
+        groupMap[item.supplier].totalSaleAmount += Number(item.sale_amount);
     });
 
     let summaryHtml = '';
@@ -215,7 +198,8 @@ function renderReturnList() {
             <tr style="background:#f5f5f5;font-weight:bold;">
                 <td colspan="2">${supplier} 汇总</td>
                 <td colspan="5">退货总数量：${data.totalNum}</td>
-                <td colspan="6">退货总金额：${data.totalReturnAmount.toFixed(2)}</td>
+                <td colspan="2">退货总金额：${data.totalReturnAmount.toFixed(2)}</td>
+                <td colspan="4">销售总金额：${data.totalSaleAmount.toFixed(2)}</td>
             </tr>
         `;
     });
@@ -223,24 +207,36 @@ function renderReturnList() {
         tb.innerHTML += summaryHtml;
     }
 
-    // 更新全选状态
-    updateReturnAllCheckboxState();
-}
-
-// ========== 更新全选复选框状态（参照入库单打印） ==========
-function updateReturnAllCheckboxState() {
-    const allCheckbox = document.getElementById('returnPrintAllCheck');
-    if (!allCheckbox) return;
-    // 检查是否所有筛选数据都被选中
-    const total = filteredReturnGoods.length;
-    let checkedCount = 0;
-    filteredReturnGoods.forEach(item => {
-        if (selectedReturnIds.has(item.id)) checkedCount++;
+    // 绑定checkbox change事件，同步 selectedReturnIds
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+        cb.onchange = function() {
+            const id = Number(this.dataset.id);
+            if (this.checked) {
+                selectedReturnIds.add(id);
+            } else {
+                selectedReturnIds.delete(id);
+            }
+            // 更新全选状态
+            const allCheckbox = document.getElementById('returnPrintAllCheck');
+            if (allCheckbox) {
+                const total = filteredReturnGoods.length;
+                const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
+                skipReturnAllChange = true;
+                allCheckbox.checked = (checked === total && total > 0);
+                skipReturnAllChange = false;
+            }
+        };
     });
-    const allChecked = (checkedCount === total && total > 0);
-    skipReturnAllChange = true;
-    allCheckbox.checked = allChecked;
-    skipReturnAllChange = false;
+
+    // 更新全选状态
+    const allCheckbox = document.getElementById('returnPrintAllCheck');
+    if (allCheckbox) {
+        const total = filteredReturnGoods.length;
+        const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
+        skipReturnAllChange = true;
+        allCheckbox.checked = (checked === total && total > 0);
+        skipReturnAllChange = false;
+    }
 }
 
 // ========== 分页 ==========
@@ -302,7 +298,7 @@ let selectedBatchInRecordId = null;
 let selectedBatchData = null;
 
 // ========== 重置弹窗搜索 ==========
-function resetReturnSearchModal() {
+function resetReturnSearch() {
     document.getElementById('returnSupplierSearch').value = '';
     document.getElementById('returnGoodsSearch').value = '';
     document.getElementById('returnSpecSearch').value = '';
@@ -311,7 +307,7 @@ function resetReturnSearchModal() {
     returnSelectedSpec = '';
     selectedBatchInRecordId = null;
     selectedBatchData = null;
-
+    
     document.getElementById('returnCurGoodsId').value = '';
     document.getElementById('returnSpec').value = '';
     document.getElementById('returnSettleType').value = '';
@@ -320,10 +316,10 @@ function resetReturnSearchModal() {
     document.getElementById('returnNum').value = '';
     document.getElementById('returnBatchRemain').value = '';
     document.getElementById('returnBatchRemainDisplay').textContent = '0';
-
+    
     document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
     document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
-
+    
     document.getElementById('returnSupplierListBox').style.display = 'none';
     document.getElementById('returnGoodsListBox').style.display = 'none';
     document.getElementById('returnSpecListBox').style.display = 'none';
@@ -333,7 +329,7 @@ function resetReturnSearchModal() {
 function showReturnSupplierList() {
     const box = document.getElementById('returnSupplierListBox');
     if (!box) return;
-
+    
     returnAllSuppliers = [...new Set(allStockIn.map(item => item.supplier).filter(s => s))].sort();
     returnFilteredSuppliers = returnAllSuppliers;
     renderReturnSupplierList(returnFilteredSuppliers);
@@ -345,10 +341,10 @@ function filterReturnSupplierList() {
     if (!box) return;
     const input = document.getElementById('returnSupplierSearch');
     if (!input) return;
-
+    
     const kw = input.value.toLowerCase();
     returnAllSuppliers = [...new Set(allStockIn.map(item => item.supplier).filter(s => s))].sort();
-
+    
     if (kw.length > 0) {
         returnFilteredSuppliers = returnAllSuppliers.filter(s => s.toLowerCase().includes(kw));
     } else {
@@ -376,10 +372,12 @@ function renderReturnSupplierList(list) {
             document.getElementById('returnSupplierSearch').value = sup;
             returnSelectedSupplier = sup;
             box.style.display = 'none';
+            // 清空商品和规格
             document.getElementById('returnGoodsSearch').value = '';
             document.getElementById('returnSpecSearch').value = '';
             returnSelectedGoods = '';
             returnSelectedSpec = '';
+            // 清空选中的批次
             selectedBatchInRecordId = null;
             selectedBatchData = null;
             document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
@@ -398,7 +396,7 @@ function renderReturnSupplierList(list) {
 function showReturnGoodsList() {
     const box = document.getElementById('returnGoodsListBox');
     if (!box) return;
-
+    
     if (returnSelectedSupplier) {
         const rawList = allStockIn
             .filter(item => item.supplier === returnSelectedSupplier)
@@ -433,9 +431,9 @@ function filterReturnGoodsList() {
     if (!box) return;
     const input = document.getElementById('returnGoodsSearch');
     if (!input) return;
-
+    
     const kw = input.value.toLowerCase();
-
+    
     if (returnSelectedSupplier) {
         const rawList = allStockIn
             .filter(item => item.supplier === returnSelectedSupplier)
@@ -459,8 +457,8 @@ function filterReturnGoodsList() {
         });
         returnAllGoodsList = Array.from(uniqueMap.values());
     }
-
-    returnFilteredGoodsList = returnAllGoodsList.filter(item =>
+    
+    returnFilteredGoodsList = returnAllGoodsList.filter(item => 
         item.goodsName.toLowerCase().includes(kw) || (item.spec && item.spec.toLowerCase().includes(kw))
     );
     renderReturnGoodsList(returnFilteredGoodsList);
@@ -486,9 +484,10 @@ function renderReturnGoodsList(list) {
             document.getElementById('returnGoodsSearch').value = item.goodsName;
             returnSelectedGoods = item.goodsName;
             document.getElementById('returnSpec').value = item.spec || '';
-            const inRecord = allStockIn.find(record =>
-                record.supplier === returnSelectedSupplier &&
-                record.goodsName === item.goodsName &&
+            // 从入库记录中获取结算方式和销售单价
+            const inRecord = allStockIn.find(record => 
+                record.supplier === returnSelectedSupplier && 
+                record.goodsName === item.goodsName && 
                 (record.spec || '') === (item.spec || '')
             );
             if (inRecord) {
@@ -496,8 +495,10 @@ function renderReturnGoodsList(list) {
                 const goodsInfo = allGoods.find(g => g.supplier === inRecord.supplier && g.name === inRecord.goodsName);
                 document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
             }
+            // 清空规格选择
             returnSelectedSpec = '';
             document.getElementById('returnSpecSearch').value = '';
+            // 清空选中的批次
             selectedBatchInRecordId = null;
             selectedBatchData = null;
             document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
@@ -517,14 +518,14 @@ function renderReturnGoodsList(list) {
 function showReturnSpecList() {
     const box = document.getElementById('returnSpecListBox');
     if (!box) return;
-
+    
     const goodsName = document.getElementById('returnGoodsSearch').value.trim();
     if (!returnSelectedSupplier || !goodsName) {
         box.innerHTML = '<div style="padding:8px;color:#999;">请先选择供应商和商品</div>';
         box.style.display = 'block';
         return;
     }
-
+    
     const specList = allStockIn
         .filter(item => item.supplier === returnSelectedSupplier && item.goodsName === goodsName)
         .map(item => item.spec || '');
@@ -540,7 +541,7 @@ function filterReturnSpecList() {
     if (!box) return;
     const input = document.getElementById('returnSpecSearch');
     if (!input) return;
-
+    
     const kw = input.value.toLowerCase();
     returnFilteredSpecList = returnAllSpecList.filter(s => (s || '-').toLowerCase().includes(kw));
     renderReturnSpecList(returnFilteredSpecList);
@@ -568,7 +569,7 @@ function renderReturnSpecList(list) {
         updateReturnBatchList();
     };
     box.appendChild(allDiv);
-
+    
     list.forEach(spec => {
         const div = document.createElement('div');
         div.textContent = spec || '-';
@@ -586,21 +587,21 @@ function renderReturnSpecList(list) {
     });
 }
 
-// ========== 更新批次列表 ==========
+// ========== 更新批次列表（保持不变） ==========
 function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
-
+    
     const supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     const goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
     const specInput = document.getElementById('returnSpecSearch').value.trim();
     const spec = (specInput && specInput !== '-' && specInput !== '全部规格') ? specInput : '';
-
+    
     if (!supplier && !goodsName) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
         return;
     }
-
+    
     let allBatches = [];
     if (supplier && goodsName) {
         allBatches = getStockBatchList(supplier, goodsName);
@@ -612,8 +613,8 @@ function updateReturnBatchList() {
         uniqueGoods.forEach(gName => {
             const batches = getStockBatchList(supplier, gName);
             batches.forEach(b => {
-                const exists = allBatches.some(existing =>
-                    existing.goodsName === b.goodsName &&
+                const exists = allBatches.some(existing => 
+                    existing.goodsName === b.goodsName && 
                     existing.spec === b.spec &&
                     existing.inRecords && b.inRecords &&
                     existing.inRecords[0]?.id === b.inRecords[0]?.id
@@ -631,8 +632,8 @@ function updateReturnBatchList() {
         uniqueSuppliers.forEach(sup => {
             const batches = getStockBatchList(sup, goodsName);
             batches.forEach(b => {
-                const exists = allBatches.some(existing =>
-                    existing.goodsName === b.goodsName &&
+                const exists = allBatches.some(existing => 
+                    existing.goodsName === b.goodsName && 
                     existing.spec === b.spec &&
                     existing.inRecords && b.inRecords &&
                     existing.inRecords[0]?.id === b.inRecords[0]?.id
@@ -643,20 +644,20 @@ function updateReturnBatchList() {
             });
         });
     }
-
+    
     if (spec) {
         allBatches = allBatches.filter(b => (b.spec || '') === spec);
     }
-
+    
     allBatches = allBatches.filter(b => b.batchRemain > 0);
-
+    
     if (allBatches.length === 0) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无有库存的批次</div>';
         return;
     }
-
+    
     window._returnBatchListData = allBatches;
-
+    
     let html = `
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
@@ -673,7 +674,7 @@ function updateReturnBatchList() {
             </thead>
             <tbody>
     `;
-
+    
     allBatches.forEach((batch, idx) => {
         const produceDate = batch.produce_date && batch.produce_date !== '-' ? batch.produce_date : '-';
         const expireDate = batch.expire_date && batch.expire_date !== '-' ? batch.expire_date : '-';
@@ -694,7 +695,7 @@ function updateReturnBatchList() {
             </tr>
         `;
     });
-
+    
     html += '</tbody></table>';
     container.innerHTML = html;
 }
@@ -706,30 +707,30 @@ function toggleReturnBatch(index) {
         showMsg('批次数据异常');
         return;
     }
-
+    
     const batch = allBatches[index];
     if (!batch || !batch.inRecords || batch.inRecords.length === 0) {
         showMsg('该批次数据异常');
         return;
     }
-
+    
     const inRecord = batch.inRecords[0];
-
+    
     if (selectedBatchInRecordId === inRecord.id) {
         selectedBatchInRecordId = null;
         selectedBatchData = null;
-
+        
         document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
         document.getElementById('returnInPrice').value = '';
         document.getElementById('returnBatchRemain').value = '';
         document.getElementById('returnBatchRemainDisplay').textContent = '0';
         document.getElementById('returnNum').value = '';
         document.getElementById('returnNum').max = 0;
-
+        
         updateReturnBatchList();
         return;
     }
-
+    
     selectedBatchInRecordId = inRecord.id;
     selectedBatchData = {
         inRecordId: inRecord.id,
@@ -738,19 +739,19 @@ function toggleReturnBatch(index) {
         produceDate: batch.produce_date || '',
         expireDate: batch.expire_date || ''
     };
-
+    
     document.getElementById('returnSupplierSearch').value = batch.supplier;
-
+    
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
-
+    
     const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
     document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
-
+    
     const produceDisplay = selectedBatchData.produceDate || '-';
     const expireDisplay = selectedBatchData.expireDate || '-';
-
+    
     document.getElementById('returnSelectedBatchInfo').innerHTML = `
         <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
@@ -769,15 +770,15 @@ function toggleReturnBatch(index) {
     document.getElementById('returnBatchRemainDisplay').textContent = selectedBatchData.batchRemain;
     document.getElementById('returnNum').max = selectedBatchData.batchRemain;
     document.getElementById('returnNum').value = '';
-
+    
     updateReturnBatchList();
-
+    
     console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
 }
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    resetReturnSearchModal();
+    resetReturnSearch();
     document.getElementById('returnFormTitle').innerText = '添加退货单据';
     document.getElementById('returnEditId').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
@@ -802,7 +803,7 @@ function checkReturnNum() {
 async function submitReturnGoods() {
     let supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
     let goodsName = returnSelectedGoods || document.getElementById('returnGoodsSearch').value.trim();
-
+    
     if (!goodsName && selectedBatchInRecordId) {
         const allBatches = window._returnBatchListData || [];
         for (const batch of allBatches) {
@@ -815,7 +816,7 @@ async function submitReturnGoods() {
             }
         }
     }
-
+    
     const goodsId = document.getElementById('returnCurGoodsId').value;
     const spec = document.getElementById('returnSpec').value;
     const settleType = document.getElementById('returnSettleType').value;
@@ -827,12 +828,12 @@ async function submitReturnGoods() {
 
     if (!supplier) return showMsg('请选择供应商');
     if (!goodsName || !goodsId) return showMsg('请选择商品');
-
+    
     if (!selectedBatchInRecordId) {
         showMsg('请选择退货批次');
         return;
     }
-
+    
     if (returnNum < 1) return showMsg('退货数量必须大于0');
     if (!recordDate) return showMsg('请选择录入日期');
 
@@ -852,7 +853,7 @@ async function submitReturnGoods() {
         showMsg(`退货数量不能大于批次库存（${targetBatch.batchRemain}）`);
         return;
     }
-
+    
     const returnAmount = inPrice * returnNum;
     const saleAmount = salePrice * returnNum;
 
@@ -955,9 +956,16 @@ async function batchDeleteReturnGoods() {
     }
 }
 
-// ========== 全选（兼容旧调用） ==========
+// ========== 全选（原函数保留，但由新控件接管，故保留为空或调用新逻辑） ==========
 function returnToggleSelectAll() {
-    // 由全选复选框接管，此函数保留为空
+    // 此函数已被新全选控件替代，保留以防外部调用
+    const all = document.getElementById('returnSelectAll')?.checked || false;
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = all);
+    if (all) {
+        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+    } else {
+        selectedReturnIds.clear();
+    }
 }
 
 // ========== 导出Excel ==========
@@ -995,7 +1003,7 @@ function downloadReturnTemplate() {
     XLSX.writeFile(wb, "退货导入模板.xlsx");
 }
 
-// ========== 导入退货（修复） ==========
+// ===== 修复：批量导入功能 =====
 async function importReturnExcel() {
     const fileInput = document.getElementById('returnFileInput');
     if (!fileInput) {
@@ -1028,29 +1036,29 @@ async function importReturnExcel() {
                 const returnNum = parseInt(row[4]) || 0;
                 const recordDate = row[5] || '';
                 const returnReason = String(row[6] || '').trim();
-
+                
                 if (!supplier || !goodsName || returnNum < 1 || !recordDate) { failCount++; continue; }
-
-                const inRecord = allStockIn.find(item =>
-                    item.supplier === supplier &&
-                    item.goodsName === goodsName &&
+                
+                const inRecord = allStockIn.find(item => 
+                    item.supplier === supplier && 
+                    item.goodsName === goodsName && 
                     (item.spec || '') === (spec || '')
                 );
                 if (!inRecord) { failCount++; continue; }
-
+                
                 const batchList = getStockBatchList(supplier, goodsName);
                 if (batchList.length === 0) { failCount++; continue; }
-
+                
                 const firstBatch = batchList[0];
                 if (!firstBatch.inRecords || firstBatch.inRecords.length === 0) { failCount++; continue; }
-
+                
                 const inRecordData = firstBatch.inRecords[0];
                 const inPrice = inRecordData.in_price || 0;
                 const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
                 const salePrice = goodsInfo ? goodsInfo.sale_price : 0;
-
+                
                 if (returnNum > firstBatch.batchRemain) { failCount++; continue; }
-
+                
                 const postData = {
                     supplier, goods_name: goodsName, spec: spec || null,
                     settle_type: settleType || inRecord.settleType || '',
@@ -1075,6 +1083,7 @@ async function importReturnExcel() {
                 }
             }
             showMsg(`导入完成：成功${successCount}条，失败${failCount}`);
+            // 清空文件选择框，以便重复选择同一文件
             fileInput.value = '';
             loadReturnGoods();
             refreshAllStockCache(allStockIn, allStockOut);
@@ -1087,6 +1096,7 @@ async function importReturnExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
+// 暴露到全局
 window.importReturnExcel = importReturnExcel;
 
 // ========== 点击空白关闭下拉 ==========
@@ -1106,7 +1116,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================================
-// ===== 打印预览功能（参照入库单打印，去掉销售金额列） =====
+// ===== 新增：打印预览功能 =====
 // ============================================================
 function previewReturnPrint() {
     if (selectedReturnIds.size === 0) {
@@ -1143,10 +1153,11 @@ function previewReturnPrint() {
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
         const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-        let supTotalQty = 0, supTotalReturnAmount = 0;
+        let supTotalQty = 0, supTotalReturnAmount = 0, supTotalSaleAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.return_num);
             supTotalReturnAmount += Number(r.return_amount);
+            supTotalSaleAmount += Number(r.sale_amount);
         });
 
         for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
@@ -1159,6 +1170,7 @@ function previewReturnPrint() {
                 const price = Number(row.in_price) || 0;
                 const qty = Number(row.return_num) || 0;
                 const amount = Number(row.return_amount) || 0;
+                const saleAmount = Number(row.sale_amount) || 0;
                 const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
                 tableRows += `
                     <tr>
@@ -1169,17 +1181,19 @@ function previewReturnPrint() {
                         <td>￥${price.toFixed(2)}</td>
                         <td>${qty}</td>
                         <td>￥${amount.toFixed(2)}</td>
+                        <td>￥${saleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             });
 
             if (isLastPage) {
-                // 合并前五列显示“***汇总”，后两列为数量和金额
                 tableRows += `
                     <tr class="total-row">
-                        <td colspan="5" class="total-label" style="text-align:center;">${supplier} 汇总</td>
+                        <td colspan="4" class="total-label">${supplier} 汇总</td>
+                        <td class="total-label">----</td>
                         <td class="total-qty">${supTotalQty}</td>
                         <td class="total-amount">￥${supTotalReturnAmount.toFixed(2)}</td>
+                        <td class="total-amount">￥${supTotalSaleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             }
@@ -1197,7 +1211,7 @@ function previewReturnPrint() {
                         <thead>
                             <tr>
                                 <th>退货日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
-                                <th>退货单价</th><th>数量</th><th>退货金额</th>
+                                <th>退货单价</th><th>数量</th><th>退货金额</th><th>销售金额</th>
                             </tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
@@ -1287,13 +1301,14 @@ function previewReturnPrint() {
             font-weight: bold;
             font-size: 12pt;
         }
-        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 14%; }
-        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
-        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
-        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14%; }
-        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 12%; }
+        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 12%; }
+        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 12%; }
+        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 20%; }
+        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 12%; }
+        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 10%; }
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
-        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 14%; }
+        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 12%; }
+        .goods-table th:nth-child(8), .goods-table td:nth-child(8) { width: 12%; }
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
@@ -1301,7 +1316,7 @@ function previewReturnPrint() {
             font-size: 12pt;
         }
         .goods-table .total-label {
-            text-align: center;
+            text-align: right;
             padding-right: 8px;
         }
         .bill-footer {
