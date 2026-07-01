@@ -763,32 +763,60 @@ function onSupplierChange() {
     }
 }
 
-function openAddForm() {
-    document.getElementById('formTitle').innerText = '新增商品';
-    document.getElementById('editId').value = '';
-    // 清空所有输入框和下拉框（保留供应商搜索框）
-    document.querySelectorAll('#formModal .form-group input, #formModal .form-group select').forEach(el => {
-        if (el.id !== 'addSupplierSearch') el.value = '';
-    });
-    // 清空供应商搜索框和隐藏值
-    document.getElementById('addSupplierSearch').value = '';
-    document.getElementById('add_supplier').value = '';
-    document.getElementById('add_channel').value = '';
-    // 重置所有禁用状态
+async function openEditForm(id) {
+    console.log('📝 打开编辑表单，ID:', id);
+    let item = allGoods.find(x => x.id === id);
+    if (!item) {
+        showMsg('商品不存在');
+        return;
+    }
+
+    document.getElementById('formTitle').innerText = '编辑商品';
+    document.getElementById('editId').value = id;
+
+    // 填充所有字段
+    document.getElementById('addSupplierSearch').value = item.supplier || '';
+    document.getElementById('add_supplier').value = item.supplier || '';
+    document.getElementById('add_name').value = item.name || '';
+    document.getElementById('add_spec').value = item.spec || '';
+    document.getElementById('add_channel').value = item.channel || '';
+    document.getElementById('add_tax_rate').value = item.tax_rate || '';
+    document.getElementById('add_sale_price').value = item.sale_price || '';
+    document.getElementById('add_online_cost').value = item.online_cost || '';
+    document.getElementById('add_warn_num').value = item.warn_num || '';
+    document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
+    document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
+
+    // 初始启用（渠道永远只读）
     document.getElementById('add_supplier').disabled = false;
-    document.getElementById('addSupplierSearch').disabled = false;  // 确保搜索框可用
+    document.getElementById('addSupplierSearch').disabled = false;
     document.getElementById('add_name').disabled = false;
     document.getElementById('add_spec').disabled = false;
     document.getElementById('add_channel').disabled = true;
-    // 税率根据角色设置并清空值
-    var taxSelect = document.getElementById('add_tax_rate');
-    if (taxSelect) {
-        taxSelect.disabled = !isFinanceOrAdmin();
-        taxSelect.value = '';  // 清空税率
-    }
-    // 销售单价、线上成本价、预警阈值、保质期等已在上面清空
-    // 调用渠道切换，控制线上成本价等
+
+    // 控制线上成本价（根据渠道）
     toggleOnlineCostInput();
+
+    // 检查是否有入库记录
+    let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+
+    if (isUsed) {
+        // 有入库记录：供应商、商品名、规格、税率 → 全部锁死
+        document.getElementById('add_supplier').disabled = true;
+        document.getElementById('addSupplierSearch').disabled = true;
+        document.getElementById('add_name').disabled = true;
+        document.getElementById('add_spec').disabled = true;
+        document.getElementById('add_tax_rate').disabled = true;
+    } else {
+        // 无入库记录：税率仅财务/管理员可编辑
+        var taxSelect = document.getElementById('add_tax_rate');
+        if (taxSelect) {
+            taxSelect.disabled = !isFinanceOrAdmin();
+        }
+        // 确保供应商搜索框可编辑
+        document.getElementById('addSupplierSearch').disabled = false;
+    }
+
     document.getElementById('formModal').style.display = 'block';
 }
 
@@ -1066,6 +1094,11 @@ async function submitForm() {
 }
 
 async function deleteGoods(id) {
+    // ===== 检查管理员权限 =====
+    if (!isCurrentUserAdmin()) {
+        showMsg('只有管理员可以删除商品');
+        return;
+    }
     let item = allGoods.find(g => g.id === id);
     if (item && await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec)) {
         showMsg('该商品已存在入库记录，禁止删除！');
@@ -1078,7 +1111,6 @@ async function deleteGoods(id) {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         showMsg('删除成功');
-        // ✅ 强制重新加载商品数据，绕过缓存
         await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
@@ -1087,7 +1119,6 @@ async function deleteGoods(id) {
         showMsg('删除失败');
     }
 }
-
 async function batchDelete() {
     // ===== 只有管理员可以批量删除 =====
     if (!isCurrentUserAdmin()) {
