@@ -1103,7 +1103,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================================
-// ===== 新增：打印预览功能 =====
+// ===== 打印预览功能（去掉销售金额列，汇总行合并前五列） =====
 // ============================================================
 function previewReturnPrint() {
     if (selectedReturnIds.size === 0) {
@@ -1140,11 +1140,10 @@ function previewReturnPrint() {
         rows.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
         const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
-        let supTotalQty = 0, supTotalReturnAmount = 0, supTotalSaleAmount = 0;
+        let supTotalQty = 0, supTotalReturnAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.return_num);
             supTotalReturnAmount += Number(r.return_amount);
-            supTotalSaleAmount += Number(r.sale_amount);
         });
 
         for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
@@ -1157,7 +1156,6 @@ function previewReturnPrint() {
                 const price = Number(row.in_price) || 0;
                 const qty = Number(row.return_num) || 0;
                 const amount = Number(row.return_amount) || 0;
-                const saleAmount = Number(row.sale_amount) || 0;
                 const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
                 tableRows += `
                     <tr>
@@ -1168,19 +1166,17 @@ function previewReturnPrint() {
                         <td>￥${price.toFixed(2)}</td>
                         <td>${qty}</td>
                         <td>￥${amount.toFixed(2)}</td>
-                        <td>￥${saleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             });
 
             if (isLastPage) {
+                // 合并前五列，显示“***汇总”
                 tableRows += `
                     <tr class="total-row">
-                        <td colspan="4" class="total-label">${supplier} 汇总</td>
-                        <td class="total-label">----</td>
+                        <td colspan="5" class="total-label" style="text-align:center;">${supplier} 汇总</td>
                         <td class="total-qty">${supTotalQty}</td>
                         <td class="total-amount">￥${supTotalReturnAmount.toFixed(2)}</td>
-                        <td class="total-amount">￥${supTotalSaleAmount.toFixed(2)}</td>
                     </tr>
                 `;
             }
@@ -1198,7 +1194,7 @@ function previewReturnPrint() {
                         <thead>
                             <tr>
                                 <th>退货日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
-                                <th>退货单价</th><th>数量</th><th>退货金额</th><th>销售金额</th>
+                                <th>退货单价</th><th>数量</th><th>退货金额</th>
                             </tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
@@ -1288,14 +1284,13 @@ function previewReturnPrint() {
             font-weight: bold;
             font-size: 12pt;
         }
-        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 12%; }
-        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 12%; }
-        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 20%; }
-        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 12%; }
-        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 10%; }
+        .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 14%; }
+        .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
+        .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
+        .goods-table th:nth-child(4), .goods-table td:nth-child(4) { width: 14%; }
+        .goods-table th:nth-child(5), .goods-table td:nth-child(5) { width: 12%; }
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
-        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 12%; }
-        .goods-table th:nth-child(8), .goods-table td:nth-child(8) { width: 12%; }
+        .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 14%; }
         .goods-table .total-row td {
             border-top: 2px solid #000;
             font-weight: bold;
@@ -1303,7 +1298,7 @@ function previewReturnPrint() {
             font-size: 12pt;
         }
         .goods-table .total-label {
-            text-align: right;
+            text-align: center;
             padding-right: 8px;
         }
         .bill-footer {
@@ -1378,7 +1373,6 @@ function previewReturnPrint() {
     win.document.close();
     win.focus();
 }
-
 // ========== 页面加载时自动加载 ==========
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('returnGoodsList')) {
