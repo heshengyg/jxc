@@ -847,6 +847,12 @@ async function openEditForm(id) {
     // 检查是否有入库记录
     let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
 
+    // 先清除之前可能绑定的监听（防止堆积）
+    ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.oninput = null;
+    });
+
     if (isUsed) {
         // 有入库记录：供应商、商品名、规格、税率 → 全部锁死
         document.getElementById('add_supplier').disabled = true;
@@ -855,18 +861,28 @@ async function openEditForm(id) {
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_tax_rate').disabled = true;
     } else {
-        // 无入库记录：税率清空，根据角色决定是否可编辑
-        var taxSelect = document.getElementById('add_tax_rate');
-        if (taxSelect) {
-            taxSelect.value = '';   // 清空税率（所有人都清空）
-            if (!isFinanceOrAdmin()) {
-                taxSelect.disabled = true;   // 非财务/管理员禁用
-            } else {
-                taxSelect.disabled = false;  // 财务/管理员可编辑
+        // 无入库记录：绑定输入事件，当供应商、商品名、规格变化时清空税率
+        function handleFieldChange() {
+            // 再次检查是否已变为有入库记录（防止异步变化）
+            if (isUsed) return;
+            var taxSelect = document.getElementById('add_tax_rate');
+            if (taxSelect) {
+                taxSelect.value = '';   // 清空税率
+                if (!isFinanceOrAdmin()) {
+                    taxSelect.disabled = true;   // 非财务/管理员禁用
+                } else {
+                    taxSelect.disabled = false;  // 财务/管理员可编辑
+                }
             }
         }
-        // 确保供应商搜索框可编辑
-        document.getElementById('addSupplierSearch').disabled = false;
+        // 为三个字段绑定 oninput 事件（当用户修改时触发）
+        ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.oninput = handleFieldChange;
+            }
+        });
+        // 税率初始保留原值，不立即清空
     }
 
     document.getElementById('formModal').style.display = 'block';
