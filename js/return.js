@@ -6,7 +6,7 @@ let returnTotalPages = 1;
 let returnSortField = '';
 let returnSortAsc = true;
 
-// ========== 新增：打印相关全局变量 ==========
+// ========== 打印相关全局变量 ==========
 let selectedReturnIds = new Set();
 let skipReturnAllChange = false;
 let returnPrintData = [];
@@ -41,7 +41,7 @@ async function loadReturnGoods() {
     }
 }
 
-// ========== 新增：初始化打印控件（动态创建全选和打印按钮） ==========
+// ========== 初始化打印控件（动态创建全选和打印按钮） ==========
 function initReturnPrintControls() {
     try {
         const searchBar = document.querySelector('#returnGoods .search-bar');
@@ -65,17 +65,21 @@ function initReturnPrintControls() {
         checkbox.type = 'checkbox';
         checkbox.id = 'returnPrintAllCheck';
         checkbox.style.marginRight = '5px';
+        // ===== 全选复选框 onchange（参照 finance.js） =====
         checkbox.onchange = function () {
-    if (skipReturnAllChange) return;
-    const checked = this.checked;
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
-    selectedReturnIds.clear();
-    if (checked) {
-        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-    }
-    skipReturnAllChange = false;
-    updateReturnAllCheckboxState();   // 同步全选状态（确保一致性）
-};
+            if (skipReturnAllChange) return;
+            const checked = this.checked;
+            // 设置所有行复选框
+            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
+            // 更新选中集合
+            selectedReturnIds.clear();
+            if (checked) {
+                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+            }
+            skipReturnAllChange = false;
+            // 确保全选状态同步（虽然已经设置，但以防万一）
+            updateReturnAllCheckboxState();
+        };
         const textNode = firstTh.childNodes[0];
         if (textNode) {
             firstTh.insertBefore(checkbox, textNode);
@@ -106,7 +110,7 @@ function resetReturnSearch() {
     document.getElementById('returnSearchField').selectedIndex = 0;
     filterReturnGoods();
 }
-window.resetReturnSearch = resetReturnSearch;   // 这个要保留
+window.resetReturnSearch = resetReturnSearch;
 
 function clearReturnSort() {
     returnSortField = '';
@@ -148,9 +152,6 @@ function renderReturnList() {
     if (!tb) return;
     tb.innerHTML = '';
     
-    // 先清空选中集合（保留已选中的ID，但需要同步checkbox状态）
-    // 我们将在渲染时根据 selectedReturnIds 设置 checkbox 状态
-
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
         return;
@@ -182,7 +183,7 @@ function renderReturnList() {
         tb.innerHTML += html;
     }
 
-    // ========== 新增：底部汇总（按供应商） ==========
+    // ========== 底部汇总（按供应商） ==========
     const groupMap = {};
     filteredReturnGoods.forEach(item => {
         if (!groupMap[item.supplier]) {
@@ -209,30 +210,34 @@ function renderReturnList() {
         tb.innerHTML += summaryHtml;
     }
 
-    // 绑定checkbox change事件，同步 selectedReturnIds
-    // 绑定checkbox change事件，同步 selectedReturnIds
-document.querySelectorAll('.return-item-checkbox').forEach(cb => {
-    cb.onchange = function() {
-        const id = Number(this.dataset.id);
-        if (this.checked) {
-            selectedReturnIds.add(id);
-        } else {
-            selectedReturnIds.delete(id);
-        }
-        // 更新全选状态（由专用函数统一计算）
-        updateReturnAllCheckboxState();
-    };
-});
+    // ===== 行复选框 onchange（参照 finance.js） =====
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+        cb.onchange = function() {
+            const id = Number(this.dataset.id);
+            if (this.checked) {
+                selectedReturnIds.add(id);
+            } else {
+                selectedReturnIds.delete(id);
+            }
+            // 更新全选状态
+            updateReturnAllCheckboxState();
+        };
+    });
 
     // 更新全选状态
+    updateReturnAllCheckboxState();
+}
+
+// ===== 更新全选复选框状态（参照 finance.js：基于集合大小判断） =====
+function updateReturnAllCheckboxState() {
     const allCheckbox = document.getElementById('returnPrintAllCheck');
-    if (allCheckbox) {
-        const total = filteredReturnGoods.length;
-        const checked = document.querySelectorAll('.return-item-checkbox:checked').length;
-        skipReturnAllChange = true;
-        allCheckbox.checked = (checked === total && total > 0);
-        skipReturnAllChange = false;
-    }
+    if (!allCheckbox) return;
+    const total = filteredReturnGoods.length;
+    const checkedCount = selectedReturnIds.size;
+    const allChecked = (checkedCount === total && total > 0);
+    skipReturnAllChange = true;
+    allCheckbox.checked = allChecked;
+    skipReturnAllChange = false;
 }
 
 // ========== 分页 ==========
@@ -583,7 +588,7 @@ function renderReturnSpecList(list) {
     });
 }
 
-// ========== 更新批次列表（保持不变） ==========
+// ========== 更新批次列表 ==========
 function updateReturnBatchList() {
     const container = document.getElementById('returnBatchListContainer');
     if (!container) return;
@@ -774,8 +779,9 @@ function toggleReturnBatch(index) {
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    resetReturnModal();   // ← 将 resetReturnSearch() 改为 resetReturnModal()
-    document.getElementById('returnFormTitle').innerText = '添加退货单据';    document.getElementById('returnEditId').value = '';
+    resetReturnModal();
+    document.getElementById('returnFormTitle').innerText = '添加退货单据';
+    document.getElementById('returnEditId').value = '';
     document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('returnModal').style.display = 'block';
 }
@@ -950,7 +956,7 @@ async function batchDeleteReturnGoods() {
     }
 }
 
-// ========== 全选（原函数保留，但由新控件接管，故保留为空或调用新逻辑） ==========
+// ========== 全选（原函数保留，但由新控件接管，故保留为空） ==========
 function returnToggleSelectAll() {
     // 此函数已被新全选控件替代，保留以防外部调用
     const all = document.getElementById('returnSelectAll')?.checked || false;
@@ -1368,6 +1374,7 @@ function previewReturnPrint() {
     win.document.close();
     win.focus();
 }
+
 // ========== 页面加载时自动加载 ==========
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('returnGoodsList')) {
