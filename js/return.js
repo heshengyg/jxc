@@ -305,31 +305,37 @@ let selectedBatchData = null;
 
 // ========== 重置弹窗搜索 ==========
 function resetReturnModal() {
-    document.getElementById('returnSupplierSearch').value = '';
-    document.getElementById('returnGoodsSearch').value = '';
-    document.getElementById('returnSpecSearch').value = '';
-    returnSelectedSupplier = '';
-    returnSelectedGoods = '';
-    returnSelectedSpec = '';
-    selectedBatchInRecordId = null;
-    selectedBatchData = null;
-    
-    document.getElementById('returnCurGoodsId').value = '';
-    document.getElementById('returnSpec').value = '';
-    document.getElementById('returnSettleType').value = '';
-    document.getElementById('returnSalePrice').value = '';
-    document.getElementById('returnInPrice').value = '';
-    document.getElementById('returnNum').value = '';
-    document.getElementById('returnBatchRemain').value = '';
-    document.getElementById('returnBatchRemainDisplay').textContent = '0';
-    
-    document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
-    document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
-    
-    document.getElementById('returnSupplierListBox').style.display = 'none';
-    document.getElementById('returnGoodsListBox').style.display = 'none';
-    document.getElementById('returnSpecListBox').style.display = 'none';
+    try {
+        document.getElementById('returnSupplierSearch').value = '';
+        document.getElementById('returnGoodsSearch').value = '';
+        document.getElementById('returnSpecSearch').value = '';
+        returnSelectedSupplier = '';
+        returnSelectedGoods = '';
+        returnSelectedSpec = '';
+        selectedBatchInRecordId = null;
+        selectedBatchData = null;
+
+        document.getElementById('returnCurGoodsId').value = '';
+        document.getElementById('returnSpec').value = '';
+        document.getElementById('returnSettleType').value = '';
+        document.getElementById('returnSalePrice').value = '';
+        document.getElementById('returnInPrice').value = '';
+        document.getElementById('returnNum').value = '';
+        document.getElementById('returnBatchRemain').value = '';
+        document.getElementById('returnBatchRemainDisplay').textContent = '0';
+
+        document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+        document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
+
+        document.getElementById('returnSupplierListBox').style.display = 'none';
+        document.getElementById('returnGoodsListBox').style.display = 'none';
+        document.getElementById('returnSpecListBox').style.display = 'none';
+    } catch (e) {
+        console.error('重置弹窗出错:', e);
+        showMsg('重置失败，请检查控制台错误');
+    }
 }
+window.resetReturnModal = resetReturnModal;
 
 // ========== 供应商搜索下拉 ==========
 function showReturnSupplierList() {
