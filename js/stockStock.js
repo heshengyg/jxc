@@ -182,17 +182,25 @@ function bindNavClickRefresh() {
     }
 }
 
-// ====================== 新增：初始化库存筛选下拉框 ======================
-function initStockFilterSelects() {
-    const list = allStockBatchList; // 当前已加载的数据
+// ====================== 初始化库存筛选数据源 ======================
+let stockFilterData = {
+    supplier: [],
+    goodsName: [],
+    spec: [],
+    settleType: [],
+    stockStatus: ['正常', '临界', '报警'],
+    bzStatus: ['过期', '临期', '打折', '正常']
+};
 
+function initStockFilterSelects() {
+    const list = allStockBatchList;
     // 提取唯一值
     const getUnique = (key) => [...new Set(list.map(item => String(item[key] || '').trim()).filter(v => v !== ''))];
-
-    const supplierOptions = getUnique('supplier');
-    const goodsNameOptions = getUnique('goodsName');
-    const specOptions = getUnique('spec');
-    const settleTypeOptions = getUnique('settleType');
+    
+    stockFilterData.supplier = getUnique('supplier');
+    stockFilterData.goodsName = getUnique('goodsName');
+    stockFilterData.spec = getUnique('spec');
+    stockFilterData.settleType = getUnique('settleType');
 
     const stockStatusOptions = ['正常', '临界', '报警'];
     const bzStatusOptions = ['过期', '临期', '打折', '正常'];
@@ -222,6 +230,58 @@ function initStockFilterSelects() {
     fillSelect('stockFilterSettleType', settleTypeOptions);
     fillSelect('stockFilterStockStatus', stockStatusOptions);
     fillSelect('stockFilterBzStatus', bzStatusOptions);
+}
+
+// ====================== 通用筛选下拉操作 ======================
+function showStockFilterList(type) {
+    const listId = `stockFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    renderStockFilterList(type);
+    box.style.display = 'block';
+}
+
+function filterStockFilterList(type) {
+    const inputId = `stockFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderStockFilterList(type, kw);
+    const listId = `stockFilter${capitalize(type)}List`;
+    document.getElementById(listId).style.display = 'block';
+}
+
+function renderStockFilterList(type, keyword = '') {
+    const listId = `stockFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = stockFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `stockFilter${capitalize(type)}Input`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterStockStock(); // 选择后立即筛选
+        };
+        box.appendChild(div);
+    });
+}
+
+// 辅助函数：首字母大写
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
@@ -351,12 +411,12 @@ async function loadStockStock() {
  * 搜索筛选（原有点击搜索按钮依然保留可用，新增输入实时触发）
  */
 function filterStockStock() {
-    const supplier = document.getElementById('stockFilterSupplier')?.value || '';
-    const goodsName = document.getElementById('stockFilterGoodsName')?.value || '';
-    const spec = document.getElementById('stockFilterSpec')?.value || '';
-    const settleType = document.getElementById('stockFilterSettleType')?.value || '';
-    const stockStatus = document.getElementById('stockFilterStockStatus')?.value || '';
-    const bzStatus = document.getElementById('stockFilterBzStatus')?.value || '';
+    const supplier = document.getElementById('stockFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('stockFilterGoodsNameInput')?.value.trim() || '';
+    const spec = document.getElementById('stockFilterSpecInput')?.value.trim() || '';
+    const settleType = document.getElementById('stockFilterSettleTypeInput')?.value.trim() || '';
+    const stockStatus = document.getElementById('stockFilterStockStatusInput')?.value.trim() || '';
+    const bzStatus = document.getElementById('stockFilterBzStatusInput')?.value.trim() || '';
 
     filteredStockBatch = allStockBatchList.filter(item => {
         let match = true;
@@ -376,17 +436,25 @@ function filterStockStock() {
     renderStockPagination();
     renderStockTable();
 }
+
 /**
  * 重置搜索
  */
 function resetStockSearch() {
-    const selectIds = ['stockFilterSupplier', 'stockFilterGoodsName', 'stockFilterSpec', 
-                       'stockFilterSettleType', 'stockFilterStockStatus', 'stockFilterBzStatus'];
-    selectIds.forEach(id => {
-        const sel = document.getElementById(id);
-        if (sel) sel.value = '';
+    const inputIds = [
+        'stockFilterSupplierInput',
+        'stockFilterGoodsNameInput',
+        'stockFilterSpecInput',
+        'stockFilterSettleTypeInput',
+        'stockFilterStockStatusInput',
+        'stockFilterBzStatusInput'
+    ];
+    inputIds.forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) inp.value = '';
     });
-    // 重新筛选（相当于全量展示）
+    // 关闭所有下拉
+    document.querySelectorAll('[id^="stockFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterStockStock();
 }
 /**
@@ -598,3 +666,21 @@ function exportStockStockExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "库存明细");
     XLSX.writeFile(wb, "库存明细.xlsx");
 }
+
+// 全局点击关闭库存下拉框
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'stockFilterSupplierList',
+        'stockFilterGoodsNameList',
+        'stockFilterSpecList',
+        'stockFilterSettleTypeList',
+        'stockFilterStockStatusList',
+        'stockFilterBzStatusList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
