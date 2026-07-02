@@ -2,7 +2,14 @@
 let settingsData = {
     companyName: '',
     departments: ['管理员', '商品部', '库管员', '财务部', 'APP部'],
-    members: []
+    members: [],
+    discountConfig: {
+        items: [
+            { label: '打7折', multiplier: 2 },
+            { label: '打8折', multiplier: 3 },
+            { label: '打9折', multiplier: 4 }
+        ]
+    }
 };
 
 // ============================================================
@@ -619,6 +626,58 @@ function renderAll() {
     renderRoles();
     renderUsers();
     updateRoleSelect();
+    renderDiscountConfig();
+// 渲染打折配置界面
+function renderDiscountConfig() {
+    const container = document.getElementById('discountConfigContainer');
+    if (!container) return;
+    const items = settingsData.discountConfig?.items || [];
+    let html = '';
+    items.forEach((item, index) => {
+        html += `
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+                <label>状态名称：</label>
+                <input type="text" id="discountLabel_${index}" value="${item.label}" style="width:100px;padding:4px;">
+                <label>倍率：</label>
+                <input type="number" id="discountMult_${index}" value="${item.multiplier}" style="width:60px;padding:4px;" min="1" step="1">
+                <span style="color:#999;font-size:12px;">（倒计 = 倍率 × 临期天数）</span>
+            </div>
+        `;
+    });
+    // 添加新增按钮
+    html += `<button class="btn btn-sm btn-default" onclick="addDiscountItem()">+ 新增折扣档位</button>`;
+    container.innerHTML = html;
+}
+
+// 新增折扣档位
+function addDiscountItem() {
+    if (!settingsData.discountConfig) {
+        settingsData.discountConfig = { items: [] };
+    }
+    settingsData.discountConfig.items.push({ label: '新打折', multiplier: 2 });
+    saveSettings();
+    renderDiscountConfig();
+}
+
+// 保存打折配置
+function saveDiscountConfig() {
+    const container = document.getElementById('discountConfigContainer');
+    const inputs = container.querySelectorAll('input');
+    const newItems = [];
+    for (let i = 0; i < inputs.length; i += 2) {
+        const label = inputs[i].value.trim();
+        const mult = parseInt(inputs[i+1].value);
+        if (label && mult > 0) {
+            newItems.push({ label, multiplier: mult });
+        }
+    }
+    settingsData.discountConfig.items = newItems;
+    saveSettings();
+    showMsg('✅ 打折配置已保存，请刷新库存查看页面以应用新状态。');
+    // 重新渲染
+    renderDiscountConfig();
+}
+
 }
 
 function updateRoleSelect() {

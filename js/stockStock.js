@@ -28,73 +28,88 @@ function getDateDiffDay(dateStr) {
  * 新增：打折状态同样显示【临期日期-今日】的天数倒计时
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
-    // 1、保质期统一换算为总天数bzq
     const bzq = getBzTotalDay(bzVal, bzUnit);
     if (bzq <= 0) {
         return { statusText: '', countDownText: '' };
     }
-    const lq = warnDay; // 临期天数从商品基础信息读取
+    const lq = warnDay;
+    if (lq <= 0) {
+        return { statusText: '', countDownText: '' };
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let hsdq; // 最终到期日期
-    let lqrq;  // 临期日期
-    let dzrq;  // 打折日期
-
+    let hsdq;
     if (dq) {
-        // 录入到期日期，直接使用dq作为最终到期日
         hsdq = new Date(dq);
         hsdq.setHours(0, 0, 0, 0);
-        // 临期日期 = 到期日 - 临期天数
-        lqrq = new Date(hsdq.getTime() - lq * 24 * 60 * 60 * 1000);
-        // 打折日期 = 到期日 - 2*临期天数
-        dzrq = new Date(hsdq.getTime() - 2 * lq * 24 * 60 * 60 * 1000);
     } else if (sc) {
-        // 录入生产日期：通过生产日期+总保质期算出到期日
         const scDate = new Date(sc);
         scDate.setHours(0, 0, 0, 0);
-        // 到期日期 = 生产日期 + 总保质期天数
         hsdq = new Date(scDate.getTime() + bzq * 24 * 60 * 60 * 1000);
-        // 临期日期 = 生产日期 + (总保质期 - 临期天数)
-        lqrq = new Date(scDate.getTime() + (bzq - lq) * 24 * 60 * 60 * 1000);
-        // 打折日期 = 生产日期 + (总保质期 - 2*临期天数)
-        dzrq = new Date(scDate.getTime() + (bzq - 2 * lq) * 24 * 60 * 60 * 1000);
     } else {
-        // 两个日期都未填写：返回空
         return { statusText: '', countDownText: '' };
     }
 
-    let statusText = '';
-    let countDownText = '';
-    // 1、今日 >= 到期日 → 过期
     if (today >= hsdq) {
-        statusText = '过期';
-    }
-    // 2、到期日 > 今日 >= 临期日 → 临期，倒计=到期日-今日天数
-    else if (today >= lqrq) {
-        statusText = '临期';
-        const remainDay = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
-        countDownText = `${remainDay}`;
-    }
-    // 3、临期日 > 今日 >= 打折日 → 打折，倒计=临期日期 - 今日天数
-    else if (today >= dzrq) {
-        statusText = '打折';
-        const remainDay = Math.floor((lqrq - today) / (1000 * 60 * 60 * 24));
-        countDownText = `${remainDay}`;
-    }
-    // 4、打折日 > 今日 → 正常：状态文字固定为“正常”，倒计时为纯数字
-    else {
-        const remainDay = Math.floor((dzrq - today) / (1000 * 60 * 60 * 24));
-        statusText = `正常`;
-        countDownText = `${remainDay}`;
+        return { statusText: '过期', countDownText: '' };
     }
 
-    return {
-        statusText,
-        countDownText
-    };
+    // 读取配置
+    const config = window.settingsData?.discountConfig?.items || [
+        { label: '打7折', multiplier: 2 },
+        { label: '打8折', multiplier: 3 },
+        { label: '打9折', multiplier: 4 }
+    ];
+    // 按倍率从小到大排序（近→远）
+    const sorted = config.slice().sort((a, b) => a.multiplier - b.multiplier);
+
+    const halfBz = bzq / 2;
+
+    // 构建有效折扣点（只保留临界天数 <= 保质期一半的）
+    const discountPoints = [];
+    for (let item of sorted) {
+        const days = item.multiplier * lq;
+        if (days > halfBz) break;  // 一旦超过，后面的更远，也超过
+        const date = new Date(hsdq.getTime() - days * 24 * 60 * 60 * 1000);
+        discountPoints.push({
+            label: item.label,
+            date: date,
+            days: days
+        });
+    }
+
+    // 临期临界点
+    const lqDate = new Date(hsdq.getTime() - lq * 24 * 60 * 60 * 1000);
+
+    // 检查临期
+    if (today >= lqDate) {
+        const remain = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '临期', countDownText: `${remain}` };
+    }
+
+    // 从近到远检查折扣
+    for (let i = 0; i < discountPoints.length; i++) {
+        const point = discountPoints[i];
+        // 区间上限：上一个更近的临界点（或临期日期）
+        const upperDate = (i === 0) ? lqDate : discountPoints[i-1].date;
+        if (today >= point.date && today < upperDate) {
+            const remain = Math.floor((upperDate - today) / (1000 * 60 * 60 * 24));
+            return { statusText: point.label, countDownText: `${remain}` };
+        }
+    }
+
+    // 正常：在最远的折扣点之前（或没有折扣）
+    if (discountPoints.length > 0) {
+        const lastPoint = discountPoints[discountPoints.length - 1];
+        const remain = Math.floor((lastPoint.date - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '正常', countDownText: `${remain}` };
+    } else {
+        // 没有有效折扣，正常从临期开始往前
+        const remain = Math.floor((lqDate - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '正常', countDownText: `${remain}` };
+    }
 }
-
 /**
  * 库存报警：总库存 - 预警阈值
  * >0 正常  |  =0 临界  |  <0 报警
@@ -200,6 +215,17 @@ function initStockFilterSelects() {
     stockFilterData.goodsName = getUnique('goodsName');
     stockFilterData.spec = getUnique('spec');
     stockFilterData.settleType = getUnique('settleType');
+
+    // 动态生成保质期状态选项
+    const config = window.settingsData?.discountConfig?.items || [
+        { label: '打7折', multiplier: 2 },
+        { label: '打8折', multiplier: 3 },
+        { label: '打9折', multiplier: 4 }
+    ];
+    const discountLabels = config.map(item => item.label);
+    // 注意：去重，避免用户配置重复
+    const allStatus = ['过期', '临期', ...discountLabels, '正常'];
+    stockFilterData.bzStatus = [...new Set(allStatus)];
 }
 
 // ====================== 通用筛选下拉操作 ======================
@@ -489,17 +515,20 @@ function renderStockTable() {
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-        // 保质期状态背景色：过期深红，临期浅红，打折浅蓝，正常浅绿色
-        let bzBg = '';
-        if (item.bzStatusText === '过期') {
-            bzBg = 'style="background:#ff4444;color:#fff;"';
-        } else if (item.bzStatusText === '临期') {
-            bzBg = 'style="background:#ffdddd;"';
-        } else if (item.bzStatusText === '打折') {
-            bzBg = 'style="background:#ddeeff;"';
-        } else if (item.bzStatusText === '正常') {
-            bzBg = 'style="background:#d4edda;"';
-        }
+        // 保质期状态背景色
+let bzBg = '';
+if (item.bzStatusText === '过期') {
+    bzBg = 'style="background:#ff4444;color:#fff;"';
+} else if (item.bzStatusText === '临期') {
+    bzBg = 'style="background:#ffdddd;"';
+} else if (item.bzStatusText === '打7折' || item.bzStatusText === '打8折' || item.bzStatusText === '打9折') {
+    // 根据实际标签动态匹配（可能是用户自定义）
+    if (item.bzStatusText === '打7折') bzBg = 'style="background:#ffe0b2;"';
+    else if (item.bzStatusText === '打8折') bzBg = 'style="background:#fff9c4;"';
+    else if (item.bzStatusText === '打9折') bzBg = 'style="background:#c8e6c9;"';
+} else if (item.bzStatusText === '正常') {
+    bzBg = 'style="background:#d4edda;"';
+}
 
         htmlStr += `
         <tr>
