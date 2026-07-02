@@ -194,39 +194,12 @@ let stockFilterData = {
 
 function initStockFilterSelects() {
     const list = allStockBatchList;
-    // 提取唯一值
     const getUnique = (key) => [...new Set(list.map(item => String(item[key] || '').trim()).filter(v => v !== ''))];
     
     stockFilterData.supplier = getUnique('supplier');
     stockFilterData.goodsName = getUnique('goodsName');
     stockFilterData.spec = getUnique('spec');
     stockFilterData.settleType = getUnique('settleType');
-
-    const fillSelect = (id, options) => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">全部</option>';
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt;
-            sel.appendChild(option);
-        });
-        // 保留之前选中的值（如果仍存在）
-        if (currentVal && options.includes(currentVal)) {
-            sel.value = currentVal;
-        } else {
-            sel.value = '';
-        }
-    };
-
-    fillSelect('stockFilterSupplier', supplierOptions);
-    fillSelect('stockFilterGoodsName', goodsNameOptions);
-    fillSelect('stockFilterSpec', specOptions);
-    fillSelect('stockFilterSettleType', settleTypeOptions);
-    fillSelect('stockFilterStockStatus', stockStatusOptions);
-    fillSelect('stockFilterBzStatus', bzStatusOptions);
 }
 
 // ====================== 通用筛选下拉操作 ======================
