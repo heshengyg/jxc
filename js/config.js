@@ -4,7 +4,7 @@
 
 // 使用 var 使其成为全局变量（可以在任何 JS 文件中访问）
 var SUPABASE_URL = "https://otofufnndqbhserxpayo.supabase.co";
-var SUPABASE_KEY = "sb_publishable_hSCJfWIQXFi5Ft-qXq_0Qg_HzVfn5_2";
+var SUPABASE_KEY = "sb_secret_Oll5PjAyb8ylbzcdBmZyXw_KAwzeQAv";
 
 // 原有的用户数组（兼容旧登录）
 var users = [{ user: 'admin', pwd: '123', name: '管理员' }];
