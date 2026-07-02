@@ -1459,15 +1459,23 @@ function renderMemberCards(container) {
 // ============================================================
 // ===== 数据管理 =====
 // ============================================================
-function backupData() {
+async function backupData() {
     try {
+        // 从 Supabase 查询 settle_types 表
+        const settleRes = await fetch(`${SUPABASE_URL}/rest/v1/settle_types`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!settleRes.ok) throw new Error('查询 settle_types 失败');
+        const settleTypes = await settleRes.json();
+
         var data = JSON.stringify({
             goods: window.allGoods || [],
             stockIn: window.allStockInList || [],
             stockOut: window.allStockOut || [],
             returnGoods: window.allReturnGoods || [],
-            financePayment: window.allPayList || [],           // ✅ 新增
-            financeInvoice: window.allInvoiceBackList || [],   // ✅ 新增
+            financePayment: window.allPayList || [],
+            financeInvoice: window.allInvoiceBackList || [],
+            settleTypes: settleTypes,                    // ✅ 新增
             settings: settingsData,
             permissionData: permissionData
         }, null, 2);
@@ -1480,9 +1488,10 @@ function backupData() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showMsg('✅ 数据备份成功！（已包含财务付款和发票记录）');
+        showMsg('✅ 数据备份成功！（已包含财务付款、发票记录和供应商管理数据）');
     } catch(e) {
         showMsg('❌ 备份失败：' + e.message);
+        console.error(e);
     }
 }
 
@@ -1504,8 +1513,8 @@ async function importData() {
                 try {
                     var data = JSON.parse(ev.target.result);
                     
-                    // ---- 第1步：先彻底清空云端 ----
-                    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods'];
+                    // ---- 第1步：先彻底清空云端（顺序：先删子表，再删主表） ----
+                    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods', 'settle_types'];
                     for (let table of tables) {
                         const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
                             method: 'DELETE',
@@ -1518,8 +1527,9 @@ async function importData() {
                     }
 
                     // ---- 第2步：按依赖顺序插入数据（先主表，再子表） ----
-                    // 定义映射：备份文件中的 key -> Supabase 表名
+                    // settle_types 应放在 goods 之前，因为 goods 可能引用它
                     const insertMap = [
+                        { key: 'settleTypes', table: 'settle_types' },
                         { key: 'goods', table: 'goods' },
                         { key: 'stockIn', table: 'stock_in' },
                         { key: 'stockOut', table: 'stock_out' },
@@ -1535,7 +1545,7 @@ async function importData() {
                             continue;
                         }
                         
-                        // 分批插入（每批最多 500 条，避免 Supabase 限制）
+                        // 分批插入（每批最多 500 条）
                         const batchSize = 500;
                         for (let i = 0; i < rows.length; i += batchSize) {
                             const batch = rows.slice(i, i + batchSize);
@@ -1545,7 +1555,7 @@ async function importData() {
                                     apikey: SUPABASE_KEY,
                                     Authorization: `Bearer ${SUPABASE_KEY}`,
                                     'Content-Type': 'application/json',
-                                    'Prefer': 'return=minimal'  // 减少返回数据量，提高性能
+                                    'Prefer': 'return=minimal'
                                 },
                                 body: JSON.stringify(batch)
                             });
@@ -1583,11 +1593,11 @@ async function importData() {
 }
 
 async function clearAllData() {
-    if (!confirm('⚠️ 警告：此操作将永久删除 Supabase 云端的所有业务数据（商品、入库、出库、退货、财务付款、发票返回），所有用户电脑将同步变为空白！')) return;
+    if (!confirm('⚠️ 警告：此操作将永久删除 Supabase 云端的所有业务数据（商品、入库、出库、退货、财务付款、发票返回、供应商管理），所有用户电脑将同步变为空白！')) return;
     if (!confirm('再次确认：数据删除后不可恢复，请确保已点击"立即备份"！')) return;
 
     // 按依赖顺序删除（先删子表，再删主表）
-    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods'];
+    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods', 'settle_types'];
     
     try {
         for (let table of tables) {
