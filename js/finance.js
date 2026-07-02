@@ -461,7 +461,6 @@ function refreshTaxList() {
     const filterChannel = document.getElementById('taxChannelFilter').value;
 
     let list = [...allGoodsList.filter(g => g.channel === '线下')];
-    list.sort((a, b) => b.id - a.id);
 
     if(selectSupplier){
         list = list.filter(g => g.supplier === selectSupplier);
@@ -486,6 +485,14 @@ function refreshTaxList() {
         list = list.filter(g => g.channel === filterChannel);
     }
 
+    // ---- 修改1：自定义排序 - 未设置优先，再按 id 降序（最新在前） ----
+    list.sort((a, b) => {
+        const aUnset = (a.tax_rate === null || a.tax_rate === undefined || a.tax_rate === '') ? 0 : 1;
+        const bUnset = (b.tax_rate === null || b.tax_rate === undefined || b.tax_rate === '') ? 0 : 1;
+        if (aUnset !== bUnset) return aUnset - bUnset;
+        return b.id - a.id;
+    });
+
     const cfg = financePageConfig.taxRate;
     cfg.total = list.length;
     const start = (cfg.current - 1) * cfg.pageSize;
@@ -494,6 +501,10 @@ function refreshTaxList() {
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
+        // ---- 修改2：税率列显示 - 未设置时红色 ----
+        const isUnset = (item.tax_rate === null || item.tax_rate === undefined || item.tax_rate === '');
+        const taxDisplay = isUnset ? '未设置' : item.tax_rate + '%';
+        const taxStyle = isUnset ? 'style="color:red;"' : '';
         tbody.innerHTML += `
         <tr>
             <td>${start + idx + 1}</td>
@@ -501,7 +512,7 @@ function refreshTaxList() {
             <td>${item.name}</td>
             <td>${item.spec || ''}</td>
             <td>${item.channel}</td>
-            <td>${item.tax_rate ? item.tax_rate + '%' : '未设置'}</td>
+            <td ${taxStyle}>${taxDisplay}</td>
             <td><button class="btn btn-primary" onclick="openTaxEdit(${item.id})">编辑税率</button></td>
         </tr>`;
     });
