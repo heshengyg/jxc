@@ -585,25 +585,25 @@ window.switchTab = function(tabName) {
 function initSettings() {
     loadSettings();
     loadPermissionData();
-
     loadRolesFromSupabase().then(function(success) {
         renderAll();
         if (success) {
             savePermissionData();
         }
         applyUserPermissions();
-        setTimeout(applySubTabPermissions, 100);
+        // 新增：初始化默认打开基础设置，强制渲染折扣面板
+        setTimeout(()=>{
+            // 页面默认激活基础设置Tab，直接渲染
+            renderDiscountConfig();
+        }, 100);
     });
-
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
-
     const companyNameEl = document.getElementById('companyName');
     if (companyNameEl) {
         companyNameEl.addEventListener('change', saveCompanyName);
         companyNameEl.addEventListener('blur', saveCompanyName);
     }
-
     const logoInput = document.getElementById('companyLogo');
     const logoPreview = document.getElementById('logoPreview');
     if (logoInput && logoPreview) {
@@ -621,12 +621,12 @@ function initSettings() {
     }
 }
 
-// 【移到 renderAll 外部，全局函数】
-// 渲染打折配置界面
+// 渲染打折配置界面【修复discount→discountConfig】
 function renderDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     if (!container) return;
-    const items = settingsData.discount?.items || [];
+    // 错误：settings.discount  正确：settings.discountConfig
+    const items = settingsData.discountConfig?.items || [];
     let html = '';
     items.forEach((item, index) => {
         html += `
@@ -642,6 +642,7 @@ function renderDiscountConfig() {
     html += `<button class="btn btn-sm btn-default" onclick="addDiscountItem()">+ 新增折扣档位</button>`;
     container.innerHTML = html;
 }
+
 // 新增折扣档位（全局）
 function addDiscountItem() {
     if (!settingsData.discountConfig) {
@@ -651,6 +652,7 @@ function addDiscountItem() {
     saveSettings();
     renderDiscountConfig();
 }
+
 // 保存打折配置（全局）
 function saveDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
@@ -668,7 +670,6 @@ function saveDiscountConfig() {
     showMsg('✅ 打折配置已保存，请刷新库存查看页面以应用新状态。');
     renderDiscountConfig();
 }
-
 // 【renderAll 内部只保留调用，不再嵌套函数】
 function renderAll() {
     renderCompanyName();
