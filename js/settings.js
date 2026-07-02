@@ -1466,6 +1466,8 @@ function backupData() {
             stockIn: window.allStockInList || [],
             stockOut: window.allStockOut || [],
             returnGoods: window.allReturnGoods || [],
+            financePayment: window.allPayList || [],           // ✅ 新增
+            financeInvoice: window.allInvoiceBackList || [],   // ✅ 新增
             settings: settingsData,
             permissionData: permissionData
         }, null, 2);
@@ -1478,52 +1480,141 @@ function backupData() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showMsg('✅ 数据备份成功！');
+        showMsg('✅ 数据备份成功！（已包含财务付款和发票记录）');
     } catch(e) {
         showMsg('❌ 备份失败：' + e.message);
     }
 }
 
-function importData() {
-    var input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = function(e) {
-        var file = e.target.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            try {
-                var data = JSON.parse(ev.target.result);
-                if (data.goods) { window.allGoods = data.goods; }
-                if (data.stockIn) { window.allStockInList = data.stockIn; }
-                if (data.stockOut) { window.allStockOut = data.stockOut; }
-                if (data.returnGoods) { window.allReturnGoods = data.returnGoods; }
-                if (data.settings) { settingsData = data.settings; saveSettings(); }
-                if (data.permissionData) { permissionData = data.permissionData; savePermissionData(); }
-                showMsg('✅ 数据导入成功！请刷新页面查看');
-                setTimeout(function() { location.reload(); }, 1500);
-            } catch(err) {
-                showMsg('❌ 导入失败：文件格式错误');
+async function importData() {
+    return new Promise((resolve) => {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async function(e) {
+            var file = e.target.files[0];
+            if (!file) return resolve();
+            
+            if (!confirm('⚠️ 导入将先清空云端所有业务数据，再恢复为备份文件中的数据，所有设备将同步更新。确定继续吗？')) {
+                return resolve();
             }
+
+            var reader = new FileReader();
+            reader.onload = async function(ev) {
+                try {
+                    var data = JSON.parse(ev.target.result);
+                    
+                    // ---- 第1步：先彻底清空云端 ----
+                    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods'];
+                    for (let table of tables) {
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                            method: 'DELETE',
+                            headers: {
+                                apikey: SUPABASE_KEY,
+                                Authorization: `Bearer ${SUPABASE_KEY}`
+                            }
+                        });
+                        if (!res.ok) throw new Error(`清空 ${table} 失败`);
+                    }
+
+                    // ---- 第2步：按依赖顺序插入数据（先主表，再子表） ----
+                    // 定义映射：备份文件中的 key -> Supabase 表名
+                    const insertMap = [
+                        { key: 'goods', table: 'goods' },
+                        { key: 'stockIn', table: 'stock_in' },
+                        { key: 'stockOut', table: 'stock_out' },
+                        { key: 'returnGoods', table: 'return_goods' },
+                        { key: 'financePayment', table: 'finance_payment' },
+                        { key: 'financeInvoice', table: 'finance_invoice' }
+                    ];
+
+                    for (let item of insertMap) {
+                        const rows = data[item.key] || [];
+                        if (rows.length === 0) {
+                            console.log(`⏭️ 跳过空表：${item.table}`);
+                            continue;
+                        }
+                        
+                        // 分批插入（每批最多 500 条，避免 Supabase 限制）
+                        const batchSize = 500;
+                        for (let i = 0; i < rows.length; i += batchSize) {
+                            const batch = rows.slice(i, i + batchSize);
+                            const res = await fetch(`${SUPABASE_URL}/rest/v1/${item.table}`, {
+                                method: 'POST',
+                                headers: {
+                                    apikey: SUPABASE_KEY,
+                                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                                    'Content-Type': 'application/json',
+                                    'Prefer': 'return=minimal'  // 减少返回数据量，提高性能
+                                },
+                                body: JSON.stringify(batch)
+                            });
+                            if (!res.ok) {
+                                throw new Error(`导入 ${item.table} 批次失败（${i+1}-${i+batch.length}）：${res.status}`);
+                            }
+                            console.log(`✅ 已导入 ${item.table}：${i + batch.length}/${rows.length}`);
+                        }
+                    }
+
+                    // ---- 第3步：恢复本地设置和权限（非业务数据） ----
+                    if (data.settings) {
+                        settingsData = data.settings;
+                        saveSettings();
+                    }
+                    if (data.permissionData) {
+                        permissionData = data.permissionData;
+                        savePermissionData();
+                    }
+
+                    showMsg('✅ 数据恢复成功！所有设备将同步显示恢复后的数据');
+                    setTimeout(() => location.reload(), 1500);
+                    resolve();
+
+                } catch (err) {
+                    showMsg('❌ 导入失败：' + err.message);
+                    console.error(err);
+                    resolve();
+                }
+            };
+            reader.readAsText(file);
         };
-        reader.readAsText(file);
-    };
-    input.click();
+        input.click();
+    });
 }
 
-function clearAllData() {
-    if (!confirm('⚠️ 清空前请确保数据已备份！确定要清空所有数据吗？')) return;
-    if (!confirm('再次确认：此操作不可恢复！')) return;
-    window.allGoods = [];
-    window.allStockInList = [];
-    window.allStockOut = [];
-    window.allReturnGoods = [];
-    localStorage.clear();
-    showMsg('✅ 所有数据已清空');
-    setTimeout(function() { location.reload(); }, 1500);
-}
+async function clearAllData() {
+    if (!confirm('⚠️ 警告：此操作将永久删除 Supabase 云端的所有业务数据（商品、入库、出库、退货、财务付款、发票返回），所有用户电脑将同步变为空白！')) return;
+    if (!confirm('再次确认：数据删除后不可恢复，请确保已点击"立即备份"！')) return;
 
+    // 按依赖顺序删除（先删子表，再删主表）
+    const tables = ['stock_out', 'return_goods', 'finance_payment', 'finance_invoice', 'stock_in', 'goods'];
+    
+    try {
+        for (let table of tables) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                method: 'DELETE',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+            if (!res.ok) {
+                throw new Error(`删除表 ${table} 失败：${res.status} ${res.statusText}`);
+            }
+            console.log(`✅ 已清空表：${table}`);
+        }
+        
+        // 清空本地缓存（避免残留旧数据显示）
+        localStorage.removeItem('erp_settings');
+        localStorage.removeItem('permissionData');
+        
+        showMsg('✅ 所有业务数据已从云端永久删除，所有设备将同步显示空白');
+        setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+        showMsg('❌ 清空失败：' + e.message);
+        console.error(e);
+    }
+}
 // ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
