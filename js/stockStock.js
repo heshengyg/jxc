@@ -202,9 +202,6 @@ function initStockFilterSelects() {
     stockFilterData.spec = getUnique('spec');
     stockFilterData.settleType = getUnique('settleType');
 
-    const stockStatusOptions = ['正常', '临界', '报警'];
-    const bzStatusOptions = ['过期', '临期', '打折', '正常'];
-
     const fillSelect = (id, options) => {
         const sel = document.getElementById(id);
         if (!sel) return;
