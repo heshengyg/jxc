@@ -461,24 +461,34 @@
     <div class="stat-bar">
         共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
     </div>
-    <div class="search-bar">
-        <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
-        <!-- 核心：点击按钮加载库存数据 -->
-        <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
-        <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
-        
-        <select id="stockSearchField">
-            <option value="supplier">供应商</option>
-            <option value="goodsName">商品名</option>
-            <option value="spec">规格</option>
-            <option value="settleType">结算方式</option>
-            <option value="stockWarnText">库存状态</option>
-            <option value="bzStatusText">保质期状态</option>
-        </select>
-        <input type="text" id="stockSearchKeyword" placeholder="输入关键词搜索">
-        <button onclick="filterStockStock()">搜索</button>
-        <button onclick="resetStockSearch()">重置搜索</button>
-    </div>
+    <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+    <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
+    <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
+    <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
+
+    <select id="stockFilterSupplier" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部供应商</option>
+    </select>
+    <select id="stockFilterGoodsName" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部商品</option>
+    </select>
+    <select id="stockFilterSpec" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部规格</option>
+    </select>
+    <select id="stockFilterSettleType" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部结算方式</option>
+    </select>
+    <select id="stockFilterStockStatus" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部库存状态</option>
+    </select>
+    <select id="stockFilterBzStatus" onchange="filterStockStock()" style="padding:4px 6px;">
+        <option value="">全部保质期状态</option>
+    </select>
+
+    <!-- 保留按钮（搜索/重置，但筛选已经实时触发，按钮可保留备用） -->
+    <button onclick="filterStockStock()">搜索</button>
+    <button onclick="resetStockSearch()">重置</button>
+</div>
 
     <div class="table-container">
         <table class="stock-table">

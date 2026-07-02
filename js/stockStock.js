@@ -182,6 +182,48 @@ function bindNavClickRefresh() {
     }
 }
 
+// ====================== 新增：初始化库存筛选下拉框 ======================
+function initStockFilterSelects() {
+    const list = allStockBatchList; // 当前已加载的数据
+
+    // 提取唯一值
+    const getUnique = (key) => [...new Set(list.map(item => String(item[key] || '').trim()).filter(v => v !== ''))];
+
+    const supplierOptions = getUnique('supplier');
+    const goodsNameOptions = getUnique('goodsName');
+    const specOptions = getUnique('spec');
+    const settleTypeOptions = getUnique('settleType');
+
+    const stockStatusOptions = ['正常', '临界', '报警'];
+    const bzStatusOptions = ['过期', '临期', '打折', '正常'];
+
+    const fillSelect = (id, options) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">全部</option>';
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            sel.appendChild(option);
+        });
+        // 保留之前选中的值（如果仍存在）
+        if (currentVal && options.includes(currentVal)) {
+            sel.value = currentVal;
+        } else {
+            sel.value = '';
+        }
+    };
+
+    fillSelect('stockFilterSupplier', supplierOptions);
+    fillSelect('stockFilterGoodsName', goodsNameOptions);
+    fillSelect('stockFilterSpec', specOptions);
+    fillSelect('stockFilterSettleType', settleTypeOptions);
+    fillSelect('stockFilterStockStatus', stockStatusOptions);
+    fillSelect('stockFilterBzStatus', bzStatusOptions);
+}
+
 /**
  * 加载库存数据
  * 合并规则：供应商 + 商品名 + 规格 + 入库单价 + 生产日期 + 到期日期 为同一批次
@@ -296,6 +338,8 @@ async function loadStockStock() {
 
         const totalEl = document.getElementById('stockTotalCount');
         if (totalEl) totalEl.textContent = allStockBatchList.length;
+        // ===== 新增：初始化下拉框选项（必须在 filter 之前） =====
+        initStockFilterSelects();
         filterStockStock();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
@@ -307,27 +351,44 @@ async function loadStockStock() {
  * 搜索筛选（原有点击搜索按钮依然保留可用，新增输入实时触发）
  */
 function filterStockStock() {
-    const field = document.getElementById('stockSearchField').value;
-    const kw = document.getElementById('stockSearchKeyword').value.toLowerCase();
-    filteredStockBatch = allStockBatchList.filter(item => String(item[field] || '').toLowerCase().includes(kw));
+    const supplier = document.getElementById('stockFilterSupplier')?.value || '';
+    const goodsName = document.getElementById('stockFilterGoodsName')?.value || '';
+    const spec = document.getElementById('stockFilterSpec')?.value || '';
+    const settleType = document.getElementById('stockFilterSettleType')?.value || '';
+    const stockStatus = document.getElementById('stockFilterStockStatus')?.value || '';
+    const bzStatus = document.getElementById('stockFilterBzStatus')?.value || '';
+
+    filteredStockBatch = allStockBatchList.filter(item => {
+        let match = true;
+        if (supplier && item.supplier !== supplier) match = false;
+        if (goodsName && item.goodsName !== goodsName) match = false;
+        if (spec && item.spec !== spec) match = false;
+        if (settleType && item.settleType !== settleType) match = false;
+        if (stockStatus && item.stockWarnText !== stockStatus) match = false;
+        if (bzStatus && item.bzStatusText !== bzStatus) match = false;
+        return match;
+    });
 
     const searchCountEl = document.getElementById('stockSearchCount');
     if (searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
 
+    stockCurrentPage = 1;
     renderStockPagination();
     renderStockTable();
 }
-
 /**
  * 重置搜索
  */
 function resetStockSearch() {
-    document.getElementById('stockSearchKeyword').value = '';
-    document.getElementById('stockSearchField').selectedIndex = 0;
-    stockCurrentPage = 1;
+    const selectIds = ['stockFilterSupplier', 'stockFilterGoodsName', 'stockFilterSpec', 
+                       'stockFilterSettleType', 'stockFilterStockStatus', 'stockFilterBzStatus'];
+    selectIds.forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.value = '';
+    });
+    // 重新筛选（相当于全量展示）
     filterStockStock();
 }
-
 /**
  * 表头排序（新增结算方式、单价排序）
  */
