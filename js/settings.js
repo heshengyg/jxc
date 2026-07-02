@@ -621,17 +621,12 @@ function initSettings() {
     }
 }
 
-function renderAll() {
-    renderCompanyName();
-    renderRoles();
-    renderUsers();
-    updateRoleSelect();
-    renderDiscountConfig();
+// 【移到 renderAll 外部，全局函数】
 // 渲染打折配置界面
 function renderDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     if (!container) return;
-    const items = settingsData.discountConfig?.items || [];
+    const items = settingsData.discount?.items || [];
     let html = '';
     items.forEach((item, index) => {
         html += `
@@ -644,12 +639,10 @@ function renderDiscountConfig() {
             </div>
         `;
     });
-    // 添加新增按钮
     html += `<button class="btn btn-sm btn-default" onclick="addDiscountItem()">+ 新增折扣档位</button>`;
     container.innerHTML = html;
 }
-
-// 新增折扣档位
+// 新增折扣档位（全局）
 function addDiscountItem() {
     if (!settingsData.discountConfig) {
         settingsData.discountConfig = { items: [] };
@@ -658,8 +651,7 @@ function addDiscountItem() {
     saveSettings();
     renderDiscountConfig();
 }
-
-// 保存打折配置
+// 保存打折配置（全局）
 function saveDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     const inputs = container.querySelectorAll('input');
@@ -674,10 +666,16 @@ function saveDiscountConfig() {
     settingsData.discountConfig.items = newItems;
     saveSettings();
     showMsg('✅ 打折配置已保存，请刷新库存查看页面以应用新状态。');
-    // 重新渲染
     renderDiscountConfig();
 }
 
+// 【renderAll 内部只保留调用，不再嵌套函数】
+function renderAll() {
+    renderCompanyName();
+    renderRoles();
+    renderUsers();
+    updateRoleSelect();
+    renderDiscountConfig(); // 直接调用全局函数
 }
 
 function updateRoleSelect() {

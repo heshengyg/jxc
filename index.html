@@ -1232,57 +1232,72 @@ document.addEventListener('click', function(e) {
         <button class="settings-sub-btn" data-tab="permission" onclick="switchSettingsTab('permission')">权限管理</button>
     </div>
     
-    <!-- ===== 基础设置 ===== -->
+   <!-- ===== 基础设置 Tab 面板 ===== -->
+<div id="sub-base" class="settings-sub-content" style="display:none;">
     <div class="settings-section">
-    <h4>📦 保质期打折状态配置</h4>
-    <p style="font-size:13px;color:#666;">设置每个打折状态对应的临期天数倍率（倒计天数 = 倍率 × 临期天数）。<br>系统将自动判断：若某个打折状态的倒计天数 > 保质期/2，则该状态不显示，直接进入“正常”。</p>
-    <div id="discountConfigContainer"></div>
-    <button class="btn btn-primary" onclick="saveDiscountConfig()">保存打折配置</button>
-</div>
-</div>
-    
-    <!-- ===== 数据管理 ===== -->
-    <div id="sub-data" class="settings-sub-content" style="display:none;">
-        <div class="settings-section">
-            <h4>💾 数据管理</h4>
-            <div class="setting-group">
-                <button class="btn btn-success" data-module="settings" data-op="backup" onclick="backupData()">💾 立即备份</button>
-                <button class="btn btn-warning" data-module="settings" data-op="import" onclick="importData()">📂 导入数据</button>
-                <button class="btn btn-danger" data-module="settings" data-op="clear" onclick="clearAllData()">🗑️ 清空数据</button>
-            </div>
-            <div style="font-size:12px;color:#999;margin-top:10px;">
-                ⚠️ 清空数据前请确保已备份
-            </div>
+        <h4>🏢 企业基础信息</h4>
+        <!-- 这里放你原本的公司名称、logo等基础设置内容 -->
+        <div style="margin-bottom:12px;">
+            <label>公司名称：</label>
+            <input type="text" id="companyName" style="padding:4px 10px;width:300px;" placeholder="请输入公司名称">
+        </div>
+        <div style="margin-bottom:12px;">
+            <label>企业Logo：</label>
+            <input type="file" id="companyLogo" accept="image/*">
+            <img id="logoPreview" style="width:120px;margin-top:8px;display:none;">
         </div>
     </div>
-    
-    <!-- ===== 权限管理（一体化） ===== -->
-    <div id="sub-permission" class="settings-sub-content" style="display:none;">      
-        <div class="settings-section">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                <!-- 角色管理 -->
-                <div>
-                    <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
-                    <div style="display:flex;gap:6px;margin-bottom:10px;">
-                        <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-                        <button class="btn btn-primary btn-sm" data-module="settings" data-op="addRole" onclick="openAddRoleModal()">新增</button>
-                    </div>
-                    <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
-                </div>
-                
-                <!-- 用户管理 -->
-                <div>
-                    <h4 style="margin:0 0 10px 0;">👤 用户管理</h4>
-                    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-    <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-    <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
-    <select id="roleSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-        <option value="">请选择角色</option>
-    </select>
-    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
 </div>
-                    <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
+
+<!-- ===== 数据管理 ===== -->
+<div id="sub-data" class="settings-sub-content" style="display:none;">
+    <div class="settings-section">
+        <h4>💾 数据管理</h4>
+        <div class="setting-group">
+            <button class="btn btn-success" data-module="settings" data-op="backup" onclick="backupData()">💾 立即备份</button>
+            <button class="btn btn-warning" data-module="settings" data-op="import" onclick="importData()">📂 导入数据</button>
+            <button class="btn btn-danger" data-module="settings" data-op="clear" onclick="clearAllData()">🗑️ 清空数据</button>
+        </div>
+        <div style="font-size:12px;color:#999;margin-top:10px;">
+            ⚠️ 清空数据前请确保已备份
+        </div>
+    </div>
+</div>
+
+<!-- ===== 权限管理（一体化）===== -->
+<div id="sub-permission" class="settings-sub-content" style="display:none;">
+    <div class="settings-section">
+        <!-- 【移到这里】保质期打折配置，切换其他Tab会隐藏 -->
+        <h4>📦 保质期打折状态配置</h4>
+        <p style="font-size:13px;color:#666;">设置每个打折状态对应的临期天数倍率（倒计天数 = 倍率 × 临期天数）。<br>系统将自动判断：若某个打折状态的倒计天数 > 保质期/2，则该状态不显示，直接进入“正常”。</p>
+        <div id="discountConfigContainer"></div>
+        <button class="btn btn-primary" onclick="saveDiscountConfig()">保存打折配置</button>
+
+        <hr style="margin:20px 0;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <!-- 角色管理 -->
+            <div>
+                <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
+                <div style="display:flex;gap:6px;margin-bottom:10px;">
+                    <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+                    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addRole" onclick="openAddRoleModal()">新增</button>
                 </div>
+                <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+
+            <!-- 用户管理 -->
+            <div>
+                <h4 style="margin:0 0 10px 0;">👤 用户管理</h4>
+                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <input type="text" id="newMemberName" placeholder="姓名" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                    <input type="password" id="newMemberPwd" placeholder="密码" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;min-width:80px;">
+                    <select id="roleSelect" style="padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="">请选择角色</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" data-module="settings" data-op="addUser" onclick="addMember()">添加</button>
+                </div>
+                <div id="userList" style="max-height:300px;overflow-y:auto;"></div>
             </div>
         </div>
     </div>
