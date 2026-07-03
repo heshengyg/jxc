@@ -1723,13 +1723,11 @@ function applyDateChangeSort() {
             default: va = ''; vb = '';
         }
         
-        // 数值比较
         if (dateChangeSortField === 'batchRemain') {
             const numA = Number(va) || 0;
             const numB = Number(vb) || 0;
             return dateChangeSortAsc ? numA - numB : numB - numA;
         }
-        // 字符串比较
         const strA = String(va).toLowerCase();
         const strB = String(vb).toLowerCase();
         if (strA < strB) return dateChangeSortAsc ? -1 : 1;
@@ -1737,6 +1735,7 @@ function applyDateChangeSort() {
         return 0;
     });
 }
+
 function updateDateChangeSortIcon() {
     document.querySelectorAll('#sub-dateChange .dateChangeSortIcon').forEach(el => el.textContent = '');
     const thList = document.querySelectorAll('#sub-dateChange .sortable');
@@ -1757,7 +1756,6 @@ function clearDateChangeSort() {
     dateChangeSortField = '';
     dateChangeSortAsc = true;
     updateDateChangeSortIcon();
-    // 重新应用排序（恢复原始顺序）
     filteredDateChange = [...dateChangeData];
     renderDateChangePagination();
     renderDateChangeList();
