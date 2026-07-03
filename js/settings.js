@@ -789,7 +789,13 @@ function updateRoleSelect() {
 }
 
 
-function switchSettingsTab(tabKey) {
+async function switchSettingsTab(tabKey) {
+    // ✅ 如果是切换到基础设置，先重新加载最新配置
+    if (tabKey === 'basic') {
+        await loadSettings();  // 从 Supabase 重新拉取
+        renderDiscountConfig();
+    }
+
     document.querySelectorAll('.settings-sub-content').forEach(function(el) {
         el.style.display = 'none';
         el.classList.remove('active');
@@ -805,10 +811,6 @@ function switchSettingsTab(tabKey) {
     var targetBtn = document.querySelector('.settings-sub-btn[data-tab="' + tabKey + '"]');
     if (targetBtn) targetBtn.classList.add('active');
 
-    // 关键：切换到【基础设置】时，渲染折扣配置
-   if (tabKey === 'basic') {
-    renderDiscountConfig();
-}
     // 切换权限管理时渲染角色、用户列表
     if (tabKey === 'permission') {
         renderRoles();
