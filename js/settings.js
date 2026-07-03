@@ -636,17 +636,18 @@ function initSettings() {
 function renderDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     if (!container) return;
-    // 错误：settings.discount  正确：settings.discountConfig
     const items = settingsData.discountConfig?.items || [];
     let html = '';
     items.forEach((item, index) => {
         html += `
-            <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid #f0f0f0;padding-bottom:8px;">
                 <label>状态名称：</label>
-                <input type="text" id="discountLabel_${index}" value="${item.label}" style="width:100px;padding:4px;">
+                <input type="text" id="discountLabel_${index}" value="${item.label}" style="width:100px;padding:4px;border:1px solid #ddd;border-radius:4px;">
                 <label>倍率：</label>
-                <input type="number" id="discountMult_${index}" value="${item.multiplier}" style="width:60px;padding:4px;" min="1" step="1">
+                <input type="number" id="discountMult_${index}" value="${item.multiplier}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;" min="1" step="1">
                 <span style="color:#999;font-size:12px;">（倒计 = 倍率 × 临期天数）</span>
+                <button class="btn btn-sm btn-primary" onclick="saveDiscountItem(${index})" style="padding:2px 12px;font-size:12px;">保存</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteDiscountItem(${index})" style="padding:2px 12px;font-size:12px;">删除</button>
             </div>
         `;
     });
@@ -662,6 +663,45 @@ function addDiscountItem() {
     settingsData.discountConfig.items.push({ label: '新打折', multiplier: 2 });
     saveSettings();
     renderDiscountConfig();
+}
+
+// 单独保存某个折扣档位
+function saveDiscountItem(index) {
+    const labelInput = document.getElementById(`discountLabel_${index}`);
+    const multInput = document.getElementById(`discountMult_${index}`);
+    if (!labelInput || !multInput) return;
+    
+    const label = labelInput.value.trim();
+    const mult = parseInt(multInput.value);
+    if (!label || mult <= 0) {
+        showMsg('⚠️ 请填写有效的名称和倍率（大于0）');
+        return;
+    }
+    
+    const items = settingsData.discountConfig?.items || [];
+    if (index < 0 || index >= items.length) return;
+    
+    items[index].label = label;
+    items[index].multiplier = mult;
+    settingsData.discountConfig.items = items;
+    saveSettings();
+    showMsg('✅ 已保存当前折扣档位');
+    renderDiscountConfig(); // 刷新界面
+}
+
+// 删除某个折扣档位
+function deleteDiscountItem(index) {
+    const items = settingsData.discountConfig?.items || [];
+    if (index < 0 || index >= items.length) return;
+    
+    const item = items[index];
+    if (!confirm(`确定删除折扣档位「${item.label}」吗？`)) return;
+    
+    items.splice(index, 1);
+    settingsData.discountConfig.items = items;
+    saveSettings();
+    showMsg('✅ 已删除折扣档位');
+    renderDiscountConfig(); // 刷新界面
 }
 
 // 保存打折配置（全局）
