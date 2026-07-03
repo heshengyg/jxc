@@ -286,15 +286,19 @@ function capitalize(str) {
  * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
-   // 确保 settingsData 已加载（如果是异步加载，需等待）
-    if (!window.settingsData) {
-        // 简单等待 500ms，或使用更可靠的等待方式
-        await new Promise(resolve => setTimeout(resolve, 500));
+    // ✅ 新增：从 Supabase 同步最新打折配置
+    if (typeof loadSettings === 'function') {
+        try {
+            await loadSettings();
+            console.log('🔄 已同步最新打折配置');
+        } catch(e) {
+            console.warn('同步打折配置失败，使用缓存', e);
+        }
     }
+
     // 前置加载全局入库、出库、退货数据
     if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
-    // ✅ 确保退货数据已加载
     if (allReturnGoods.length === 0 && typeof loadReturnGoods === 'function') {
         await loadReturnGoods();
     }
@@ -306,26 +310,19 @@ async function loadStockStock() {
         if (!res.ok) throw new Error('读取入库批次失败');
         const inAllList = await res.json();
 
-        // ========== 核心：按规则合并库存批次 ==========
         const batchMap = new Map();
         inAllList.forEach(inItem => {
-            // 合并唯一键：供应商+商品名+规格+入库单价+生产日期+到期日期
             const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
-
-            // 计算当前单条剩余库存
             const singleRemain = getInItemRemain(inItem.id);
-
             if (batchMap.has(key)) {
-                // 同批次：累加数量
                 const batch = batchMap.get(key);
                 batch.totalRemain += singleRemain;
                 batch.totalInNum += Number(inItem.in_num || 0);
             } else {
-                // 新批次：初始化，新增结算方式
                 const goodsBase = allGoods.find(g =>
-                    g.supplier === inItem.supplier
-                    && g.name === inItem.goodsName
-                    && g.spec === inItem.spec
+                    g.supplier === inItem.supplier &&
+                    g.name === inItem.goodsName &&
+                    g.spec === inItem.spec
                 );
                 batchMap.set(key, {
                     supplier: inItem.supplier,
@@ -342,27 +339,21 @@ async function loadStockStock() {
             }
         });
 
-        // 转为数组，构建最终渲染数据
         allStockBatchList = [];
         batchMap.forEach(batch => {
-            // 修改需求1：过滤批次库存为0的行，只保留>0的数据
             if (batch.totalRemain <= 0) return;
-
             const goodsBase = batch.goodsBase;
             if (!goodsBase) return;
 
-            // 该商品【全局总库存】（所有同商品批次合计）
             const totalAllStock = getTotalStockNum(batch.supplier, batch.goodsName);
             const warnStockThreshold = goodsBase.warn_num || 0;
             const batchAmount = getBatchStockAmount(batch.totalRemain, batch.inPrice);
 
-            // 保质期参数转换
             let unitCode = "day";
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
             if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
             const warnDay = goodsBase.warn_num || 0;
 
-            // 计算保质期状态 & 倒计时
             const bzResult = calcBzStatus(
                 batch.produce_date === '-' ? '' : batch.produce_date,
                 batch.expire_date === '-' ? '' : batch.expire_date,
@@ -372,7 +363,6 @@ async function loadStockStock() {
             );
             const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
 
-            // 保质期单位展示：无保质期则为空，不再显示0天
             let bzText = '';
             if (goodsBase.shelf_life_num && goodsBase.shelf_life_unit) {
                 bzText = `${goodsBase.shelf_life_num}${goodsBase.shelf_life_unit}`;
@@ -399,7 +389,6 @@ async function loadStockStock() {
 
         const totalEl = document.getElementById('stockTotalCount');
         if (totalEl) totalEl.textContent = allStockBatchList.length;
-        // ===== 新增：初始化下拉框选项（必须在 filter 之前） =====
         initStockFilterSelects();
         filterStockStock();
     } catch (e) {
