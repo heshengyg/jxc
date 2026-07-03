@@ -1780,7 +1780,7 @@ function renderDateChangeList() {
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
                 <td>${item.batchRemain || 0}</td>
-                <td style="background-color:${statusBgColor}; color:${statusColor}; font-weight:bold; text-align:center;">${statusText}</td>
+                <td style="background-color:${statusBgColor}; color:${statusColor}; text-align:center;">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
