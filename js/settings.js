@@ -655,7 +655,8 @@ async function initSettings() {
     setTimeout(() => {
         switchSettingsTab('basic');
     }, 200);
-    });
+
+    // 以下代码原本在 setTimeout 之后，但被错误地放在了外面，现在放回函数内
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
     const companyNameEl = document.getElementById('companyName');
@@ -787,19 +788,6 @@ function updateRoleSelect() {
     });
 }
 
-function renderCompanyName() {
-    const el = document.getElementById('companyName');
-    if (el) el.value = settingsData.companyName || '';
-}
-
-function saveCompanyName() {
-    const el = document.getElementById('companyName');
-    if (el) {
-        settingsData.companyName = el.value.trim();
-        saveSettings();
-        showMsg('✅ 公司名称已保存');
-    }
-}
 
 function switchSettingsTab(tabKey) {
     document.querySelectorAll('.settings-sub-content').forEach(function(el) {
@@ -1238,7 +1226,7 @@ async function addMember() {
     });
 
     savePermissionData();
-    saveSettings();
+    await saveSettings();
     renderUsers();
     renderMembers();
     updateRoleSelect();
