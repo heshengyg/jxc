@@ -489,35 +489,74 @@ async function deleteUserFromSupabase(userId) {
 // ============================================================
 // ===== 初始化 =====
 // ============================================================
-function loadSettings() {
+async function loadSettings() {
     try {
+        // 1. 先从 Supabase 加载折扣配置
+        const { data, error } = await supabase
+            .from('system_config')
+            .select('value')
+            .eq('key', 'discountConfig')
+            .single();
+
+        if (error) {
+            console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值:', error);
+        } else if (data) {
+            // 合并到 settingsData
+            settingsData.discountConfig = data.value;
+        }
+
+        // 2. 再从 localStorage 加载其他设置（如公司名称等）
         const saved = localStorage.getItem('erp_settings');
         if (saved) {
             const parsed = JSON.parse(saved);
-            // 合并默认值，确保 discountConfig 存在
+            // 合并，但 discountConfig 以 Supabase 为准（覆盖）
             settingsData = {
-                ...settingsData,   // 保留默认结构
+                ...settingsData,
                 ...parsed,
-                discountConfig: parsed.discountConfig || { items: [
+                discountConfig: settingsData.discountConfig || { items: [
                     { label: '打7折', multiplier: 2 },
                     { label: '打8折', multiplier: 3 },
                     { label: '打9折', multiplier: 4 }
                 ] }
             };
-            // ✅ 新增：同步更新 window
-            window.settingsData = settingsData;
         }
-    } catch(e) {}
-}
 
-function saveSettings() {
-    try {
-        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
-        // ✅ 新增：同步更新 window 引用
+        // 3. 同步到 window 和 localStorage（缓存）
         window.settingsData = settingsData;
-    } catch(e) {}
+        // 可选：将最新配置写入 localStorage 作为备份
+        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+
+    } catch (e) {
+        console.error('加载设置异常:', e);
+    }
 }
 
+async function saveSettings() {
+    try {
+        // 1. 更新 Supabase
+        const { error } = await supabase
+            .from('system_config')
+            .upsert({
+                key: 'discountConfig',
+                value: settingsData.discountConfig,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+        if (error) {
+            console.error('❌ 保存到 Supabase 失败:', error);
+            showMsg('❌ 保存到云端失败，请检查网络');
+            return;
+        }
+
+        // 2. 更新 localStorage 和 window
+        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+        window.settingsData = settingsData;
+
+        console.log('✅ 配置已同步到 Supabase');
+    } catch (e) {
+        console.error('保存设置异常:', e);
+    }
+}
 function loadPermissionData() {
     try {
         const saved = localStorage.getItem('permissionData');
@@ -601,19 +640,21 @@ window.switchTab = function(tabName) {
     }
 };
 
-function initSettings() {
-    loadSettings();
+async function initSettings() {
+    await loadSettings();   // 先加载配置
     loadPermissionData();
-    loadRolesFromSupabase().then(function(success) {
-        renderAll();
-        if (success) {
-            savePermissionData();
-        }
-        applyUserPermissions();
-        // 新增：默认激活基础设置并渲染
-        setTimeout(function() {
-            switchSettingsTab('basic');  // 主动切换到基础设置
-        }, 200);
+
+    // 加载角色（原有逻辑）
+    const success = await loadRolesFromSupabase();
+    renderAll();
+    if (success) {
+        savePermissionData();
+    }
+    applyUserPermissions();
+    // 默认激活基础设置并渲染
+    setTimeout(() => {
+        switchSettingsTab('basic');
+    }, 200);
     });
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';

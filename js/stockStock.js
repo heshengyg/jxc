@@ -286,6 +286,11 @@ function capitalize(str) {
  * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
+   // 确保 settingsData 已加载（如果是异步加载，需等待）
+    if (!window.settingsData) {
+        // 简单等待 500ms，或使用更可靠的等待方式
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
     // 前置加载全局入库、出库、退货数据
     if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
