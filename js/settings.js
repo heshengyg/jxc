@@ -686,21 +686,40 @@ function renderDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     if (!container) return;
     const items = settingsData.discountConfig?.items || [];
-    let html = '';
+    
+    let html = `
+        <div style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="addDiscountItem()" style="font-size:14px;padding:6px 18px;">
+                ＋ 新增折扣档位
+            </button>
+            <span style="color:#999;font-size:12px;margin-left:10px;">共 ${items.length} 个折扣档位</span>
+        </div>
+    `;
+    
+    if (items.length === 0) {
+        html += `<div style="color:#999;padding:20px 0;text-align:center;">暂无折扣档位，请点击上方按钮添加</div>`;
+        container.innerHTML = html;
+        return;
+    }
+    
     items.forEach((item, index) => {
         html += `
-            <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid #f0f0f0;padding-bottom:8px;">
-                <label>状态名称：</label>
-                <input type="text" id="discountLabel_${index}" value="${item.label}" style="width:100px;padding:4px;border:1px solid #ddd;border-radius:4px;">
-                <label>倍率：</label>
-                <input type="number" id="discountMult_${index}" value="${item.multiplier}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;" min="1" step="1">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:10px 14px;background:#f8f9fa;border-radius:6px;border:1px solid #e8e8e8;flex-wrap:wrap;">
+                <label style="font-weight:500;color:#333;font-size:13px;white-space:nowrap;">状态名称：</label>
+                <input type="text" id="discountLabel_${index}" value="${item.label}" 
+                       style="width:120px;padding:5px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+                <label style="font-weight:500;color:#333;font-size:13px;white-space:nowrap;">倍率：</label>
+                <input type="number" id="discountMult_${index}" value="${item.multiplier}" 
+                       style="width:65px;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:14px;" min="1" step="1">
                 <span style="color:#999;font-size:12px;">（倒计 = 倍率 × 临期天数）</span>
-                <button class="btn btn-sm btn-primary" onclick="saveDiscountItem(${index})" style="padding:2px 12px;font-size:12px;">保存</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteDiscountItem(${index})" style="padding:2px 12px;font-size:12px;">删除</button>
+                <button class="btn btn-sm btn-success" onclick="saveDiscountItem(${index})" 
+                        style="padding:4px 16px;font-size:12px;border-radius:4px;">💾 保存</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteDiscountItem(${index})" 
+                        style="padding:4px 16px;font-size:12px;border-radius:4px;">🗑️ 删除</button>
             </div>
         `;
     });
-    html += `<button class="btn btn-sm btn-default" onclick="addDiscountItem()">+ 新增折扣档位</button>`;
+    
     container.innerHTML = html;
 }
 
@@ -709,7 +728,8 @@ function addDiscountItem() {
     if (!settingsData.discountConfig) {
         settingsData.discountConfig = { items: [] };
     }
-    settingsData.discountConfig.items.push({ label: '新打折', multiplier: 2 });
+    const count = settingsData.discountConfig.items.length + 1;
+    settingsData.discountConfig.items.push({ label: `新档位${count}`, multiplier: 2 });
     saveSettings();
     renderDiscountConfig();
 }
