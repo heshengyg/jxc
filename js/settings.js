@@ -12,6 +12,9 @@ let settingsData = {
     }
 };
 
+// ✅ 新增：挂载到 window，供其他模块使用
+window.settingsData = settingsData;
+
 // ============================================================
 // ===== 子版块菜单定义（查看权限细化到子版块） =====
 // ============================================================
@@ -501,6 +504,8 @@ function loadSettings() {
                     { label: '打9折', multiplier: 4 }
                 ] }
             };
+            // ✅ 新增：同步更新 window
+            window.settingsData = settingsData;
         }
     } catch(e) {}
 }
@@ -508,6 +513,8 @@ function loadSettings() {
 function saveSettings() {
     try {
         localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+        // ✅ 新增：同步更新 window 引用
+        window.settingsData = settingsData;
     } catch(e) {}
 }
 
