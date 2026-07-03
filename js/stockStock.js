@@ -509,19 +509,28 @@ function renderStockTable() {
         } else if (item.stockWarnText === '正常' || item.stockWarnText === '临界') {
             warnBg = 'style="background:#ddffdd;"';
         }
-        // 保质期状态背景色
+        // 保质期状态背景色 - 基于配置索引（第1条、第2条...）
 let bzBg = '';
 if (item.bzStatusText === '过期') {
     bzBg = 'style="background:#ff4444;color:#fff;"';
 } else if (item.bzStatusText === '临期') {
     bzBg = 'style="background:#ffdddd;"';
-} else if (item.bzStatusText === '打7折' || item.bzStatusText === '打8折' || item.bzStatusText === '打9折') {
-    // 根据实际标签动态匹配（可能是用户自定义）
-    if (item.bzStatusText === '打7折') bzBg = 'style="background:#ffe0b2;"';
-    else if (item.bzStatusText === '打8折') bzBg = 'style="background:#fff9c4;"';
-    else if (item.bzStatusText === '打9折') bzBg = 'style="background:#c8e6c9;"';
 } else if (item.bzStatusText === '正常') {
     bzBg = 'style="background:#d4edda;"';
+} else {
+    // 打折状态：根据配置中的索引分配颜色
+    const config = window.settingsData?.discountConfig?.items || [];
+    const index = config.findIndex(c => c.label === item.bzStatusText);
+    
+    // 4种颜色：浅红、浅蓝、浅黄、橘色（按索引顺序）
+    const colors = [
+        '#ffcdd2', // 浅红（第1条）
+        '#bbdefb', // 浅蓝（第2条）
+        '#fff9c4', // 浅黄（第3条）
+        '#ffe0b2'  // 橘色（第4条）
+    ];
+    const colorIndex = (index >= 0 && index < colors.length) ? index : 0;
+    bzBg = `style="background:${colors[colorIndex]};"`;
 }
 
         htmlStr += `

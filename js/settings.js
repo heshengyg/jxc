@@ -728,8 +728,20 @@ function addDiscountItem() {
     if (!settingsData.discountConfig) {
         settingsData.discountConfig = { items: [] };
     }
-    const count = settingsData.discountConfig.items.length + 1;
-    settingsData.discountConfig.items.push({ label: `新档位${count}`, multiplier: 2 });
+    const items = settingsData.discountConfig.items;
+    
+    // 限制最多4条
+    if (items.length >= 4) {
+        showMsg('⚠️ 最多支持4个折扣档位');
+        return;
+    }
+    
+    // 自动计算新倍率：上一条倍率 + 1，最小为2
+    const lastMult = items.length > 0 ? items[items.length - 1].multiplier : 1;
+    const newMult = Math.max(2, lastMult + 1);
+    
+    const count = items.length + 1;
+    items.push({ label: `档位${count}`, multiplier: newMult });
     saveSettings();
     renderDiscountConfig();
 }
@@ -750,12 +762,27 @@ function saveDiscountItem(index) {
     const items = settingsData.discountConfig?.items || [];
     if (index < 0 || index >= items.length) return;
     
+    // ✅ 倍率校验：第1条必须 > 1
+    if (index === 0 && mult <= 1) {
+        showMsg('⚠️ 第1条打折状态的倍率必须大于1');
+        return;
+    }
+    
+    // ✅ 倍率校验：后续每条必须大于上一条
+    if (index > 0) {
+        const prevMult = items[index - 1].multiplier;
+        if (mult <= prevMult) {
+            showMsg(`⚠️ 第${index+1}条倍率必须大于上一条（${prevMult}）`);
+            return;
+        }
+    }
+    
     items[index].label = label;
     items[index].multiplier = mult;
     settingsData.discountConfig.items = items;
     saveSettings();
     showMsg('✅ 已保存当前折扣档位');
-    renderDiscountConfig(); // 刷新界面
+    renderDiscountConfig();
 }
 
 // 删除某个折扣档位
@@ -778,13 +805,29 @@ function saveDiscountConfig() {
     const container = document.getElementById('discountConfigContainer');
     const inputs = container.querySelectorAll('input');
     const newItems = [];
+    let prevMult = 0;
+    
     for (let i = 0; i < inputs.length; i += 2) {
         const label = inputs[i].value.trim();
         const mult = parseInt(inputs[i+1].value);
-        if (label && mult > 0) {
-            newItems.push({ label, multiplier: mult });
+        if (!label || mult <= 0) {
+            showMsg(`⚠️ 第${Math.floor(i/2)+1}条：请填写有效的名称和倍率（大于0）`);
+            return;
         }
+        // ✅ 校验：第1条必须 > 1
+        if (i === 0 && mult <= 1) {
+            showMsg('⚠️ 第1条打折状态的倍率必须大于1');
+            return;
+        }
+        // ✅ 校验：后续每条必须大于上一条
+        if (i > 0 && mult <= prevMult) {
+            showMsg(`⚠️ 第${Math.floor(i/2)+1}条倍率必须大于上一条（${prevMult}）`);
+            return;
+        }
+        newItems.push({ label, multiplier: mult });
+        prevMult = mult;
     }
+    
     settingsData.discountConfig.items = newItems;
     saveSettings();
     showMsg('✅ 打折配置已保存，请刷新库存查看页面以应用新状态。');
