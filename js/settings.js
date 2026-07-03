@@ -624,22 +624,25 @@ function applyUserPermissions() {
 
 // 重写 switchTab
 var originalSwitchTab = window.switchTab;
-window.switchTab = function(tabName) {
+window.switchTab = async function(tabName) {
+  try {
     originalSwitchTab(tabName);
     if (tabName === 'settings') {
-        loadRolesFromSupabase().then(function() {
-            loadAllUsersFromSupabase().then(function() {
-                renderAll();
-                applyAllPermissions();
-                applySubTabPermissions();
-                console.log('✅ 数据已同步');
-            });
-        });
+        await loadRolesFromSupabase();
+        await loadAllUsersFromSupabase();
+        renderAll();
+        applyAllPermissions();
+        applySubTabPermissions();
     } else {
+        applyAllPermissions();
         setTimeout(applySubTabPermissions, 50);
     }
+    // 全局强制页面回流
+    document.body.offsetHeight;
+  } catch (err) {
+    console.error('Tab切换异常：', err);
+  }
 };
-
 async function initSettings() {
     await loadSettings();   // 先加载配置
     loadPermissionData();

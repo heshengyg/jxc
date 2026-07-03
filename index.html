@@ -216,23 +216,27 @@
     <h4>后台需更改日期的商品明细（每晨必看）</h4>
     <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
         <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
+        <!-- 新增2个按钮 -->
+        <button class="btn btn-default" onclick="refreshDateChangeList()">刷新列表</button>
+        <button class="btn btn-default" onclick="clearDateChangeSort()">清除排序</button>
         <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
     <tr>
-        <th>序列</th>
-        <th>录入日期</th>
-        <th>供应商</th>
-        <th>商品名</th>
-        <th>规格</th>
-        <th>批次库存</th>
-        <th>保质期状态</th>
-        <th>状态倒计</th>
-        <th>日期</th>
-        <th>生产/到期</th>
-        <th>需更新日期</th>
+        <!-- 所有表头增加sortable样式、点击排序事件、排序图标 -->
+        <th class="sortable" onclick="dateChangeSortTable('id')">序列 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('recordDate')">录入日期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('supplier')">供应商 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('name')">商品名 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('spec')">规格 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('batchRemain')">批次库存 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('bzStatusText')">保质期状态 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('countDownText')">状态倒计 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('dateValue')">日期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('dateType')">生产/到期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('displayValue')">需更新日期 <span class="dateChangeSortIcon"></span></th>
         <th>操作</th>
     </tr>
 </thead>
