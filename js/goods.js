@@ -1322,6 +1322,9 @@ let filteredDateChange = [];
 let dateChangeCurrentPage = 1;
 let dateChangePageSize = 10;
 let dateChangeTotalPages = 1;
+// ✅ 新增：排序字段和方向
+let dateChangeSortField = '';
+let dateChangeSortAsc = true;
 
 /**
  * 获取商品当前库存中的最早批次日期
@@ -1631,19 +1634,20 @@ function loadDateChangeTab() {
     }
     
     function doLoadDateChange() {
-        dateChangeData = getNeedUpdateGoodsList();
-        filteredDateChange = [...dateChangeData];
-        
-        console.log('需要更新的商品数量:', dateChangeData.length);
-        
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    }
+    dateChangeData = getNeedUpdateGoodsList();
+    filteredDateChange = [...dateChangeData];
+    // ✅ 重置排序
+    dateChangeSortField = '';
+    dateChangeSortAsc = true;
+    updateDateChangeSortIcon();
     
-    checkAndLoad();
+    console.log('需要更新的商品数量:', dateChangeData.length);
+    
+    updateDateChangeButton();
+    updateDateChangeStatus();
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
 }
 
 /**
@@ -1685,6 +1689,78 @@ function updateDateChangeButton() {
         btn.textContent = '需更新 (0)';
         btn.disabled = true;
     }
+}
+
+// ========== 后台更换日期排序 ==========
+function sortDateChangeTable(field) {
+    if (dateChangeSortField === field) {
+        dateChangeSortAsc = !dateChangeSortAsc;
+    } else {
+        dateChangeSortField = field;
+        dateChangeSortAsc = true;
+    }
+    applyDateChangeSort();
+    renderDateChangePagination();
+    renderDateChangeList();
+    updateDateChangeSortIcon();
+}
+
+function applyDateChangeSort() {
+    if (!dateChangeSortField) return;
+    filteredDateChange.sort((a, b) => {
+        let va, vb;
+        switch(dateChangeSortField) {
+            case 'recordDate': va = a.recordDate || ''; vb = b.recordDate || ''; break;
+            case 'supplier': va = a.supplier || ''; vb = b.supplier || ''; break;
+            case 'goodsName': va = a.name || ''; vb = b.name || ''; break;
+            case 'spec': va = a.spec || ''; vb = b.spec || ''; break;
+            case 'batchRemain': va = a.batchRemain || 0; vb = b.batchRemain || 0; break;
+            case 'bzStatus': va = a.earliestBatch?.bzStatusText || ''; vb = b.earliestBatch?.bzStatusText || ''; break;
+            case 'countDown': va = a.earliestBatch?.countDownText || ''; vb = b.earliestBatch?.countDownText || ''; break;
+            case 'date': va = a.dateValue || ''; vb = b.dateValue || ''; break;
+            case 'dateType': va = a.dateType || ''; vb = b.dateType || ''; break;
+            case 'displayValue': va = a.displayValue || ''; vb = b.displayValue || ''; break;
+            default: va = ''; vb = '';
+        }
+        
+        // 数值比较
+        if (dateChangeSortField === 'batchRemain') {
+            const numA = Number(va) || 0;
+            const numB = Number(vb) || 0;
+            return dateChangeSortAsc ? numA - numB : numB - numA;
+        }
+        // 字符串比较
+        const strA = String(va).toLowerCase();
+        const strB = String(vb).toLowerCase();
+        if (strA < strB) return dateChangeSortAsc ? -1 : 1;
+        if (strA > strB) return dateChangeSortAsc ? 1 : -1;
+        return 0;
+    });
+}
+function updateDateChangeSortIcon() {
+    document.querySelectorAll('#sub-dateChange .dateChangeSortIcon').forEach(el => el.textContent = '');
+    const thList = document.querySelectorAll('#sub-dateChange .sortable');
+    thList.forEach(th => {
+        const field = th.dataset.sort;
+        if (field === dateChangeSortField) {
+            const icon = th.querySelector('.dateChangeSortIcon');
+            if (icon) icon.textContent = dateChangeSortAsc ? ' ↑' : ' ↓';
+        }
+    });
+}
+
+function refreshDateChangeList() {
+    loadDateChangeTab();
+}
+
+function clearDateChangeSort() {
+    dateChangeSortField = '';
+    dateChangeSortAsc = true;
+    updateDateChangeSortIcon();
+    // 重新应用排序（恢复原始顺序）
+    filteredDateChange = [...dateChangeData];
+    renderDateChangePagination();
+    renderDateChangeList();
 }
 
 /**
