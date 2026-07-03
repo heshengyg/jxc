@@ -1322,6 +1322,9 @@ let filteredDateChange = [];
 let dateChangeCurrentPage = 1;
 let dateChangePageSize = 10;
 let dateChangeTotalPages = 1;
+// ✅ 新增：排序字段和方向
+let dateChangeSortField = '';
+let dateChangeSortAsc = true;
 
 /**
  * 获取商品当前库存中的最早批次日期
@@ -1631,19 +1634,20 @@ function loadDateChangeTab() {
     }
     
     function doLoadDateChange() {
-        dateChangeData = getNeedUpdateGoodsList();
-        filteredDateChange = [...dateChangeData];
-        
-        console.log('需要更新的商品数量:', dateChangeData.length);
-        
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    }
+    dateChangeData = getNeedUpdateGoodsList();
+    filteredDateChange = [...dateChangeData];
+    // ✅ 重置排序
+    dateChangeSortField = '';
+    dateChangeSortAsc = true;
+    updateDateChangeSortIcon();
     
-    checkAndLoad();
+    console.log('需要更新的商品数量:', dateChangeData.length);
+    
+    updateDateChangeButton();
+    updateDateChangeStatus();
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
 }
 
 /**
@@ -1687,6 +1691,78 @@ function updateDateChangeButton() {
     }
 }
 
+// ========== 后台更换日期排序 ==========
+function sortDateChangeTable(field) {
+    if (dateChangeSortField === field) {
+        dateChangeSortAsc = !dateChangeSortAsc;
+    } else {
+        dateChangeSortField = field;
+        dateChangeSortAsc = true;
+    }
+    applyDateChangeSort();
+    renderDateChangePagination();
+    renderDateChangeList();
+    updateDateChangeSortIcon();
+}
+
+function applyDateChangeSort() {
+    if (!dateChangeSortField) return;
+    filteredDateChange.sort((a, b) => {
+        let va, vb;
+        switch(dateChangeSortField) {
+            case 'recordDate': va = a.recordDate || ''; vb = b.recordDate || ''; break;
+            case 'supplier': va = a.supplier || ''; vb = b.supplier || ''; break;
+            case 'goodsName': va = a.name || ''; vb = b.name || ''; break;
+            case 'spec': va = a.spec || ''; vb = b.spec || ''; break;
+            case 'batchRemain': va = a.batchRemain || 0; vb = b.batchRemain || 0; break;
+            case 'bzStatus': va = a.earliestBatch?.bzStatusText || ''; vb = b.earliestBatch?.bzStatusText || ''; break;
+            case 'countDown': va = a.earliestBatch?.countDownText || ''; vb = b.earliestBatch?.countDownText || ''; break;
+            case 'date': va = a.dateValue || ''; vb = b.dateValue || ''; break;
+            case 'dateType': va = a.dateType || ''; vb = b.dateType || ''; break;
+            case 'displayValue': va = a.displayValue || ''; vb = b.displayValue || ''; break;
+            default: va = ''; vb = '';
+        }
+        
+        // 数值比较
+        if (dateChangeSortField === 'batchRemain') {
+            const numA = Number(va) || 0;
+            const numB = Number(vb) || 0;
+            return dateChangeSortAsc ? numA - numB : numB - numA;
+        }
+        // 字符串比较
+        const strA = String(va).toLowerCase();
+        const strB = String(vb).toLowerCase();
+        if (strA < strB) return dateChangeSortAsc ? -1 : 1;
+        if (strA > strB) return dateChangeSortAsc ? 1 : -1;
+        return 0;
+    });
+}
+function updateDateChangeSortIcon() {
+    document.querySelectorAll('#sub-dateChange .dateChangeSortIcon').forEach(el => el.textContent = '');
+    const thList = document.querySelectorAll('#sub-dateChange .sortable');
+    thList.forEach(th => {
+        const field = th.dataset.sort;
+        if (field === dateChangeSortField) {
+            const icon = th.querySelector('.dateChangeSortIcon');
+            if (icon) icon.textContent = dateChangeSortAsc ? ' ↑' : ' ↓';
+        }
+    });
+}
+
+function refreshDateChangeList() {
+    loadDateChangeTab();
+}
+
+function clearDateChangeSort() {
+    dateChangeSortField = '';
+    dateChangeSortAsc = true;
+    updateDateChangeSortIcon();
+    // 重新应用排序（恢复原始顺序）
+    filteredDateChange = [...dateChangeData];
+    renderDateChangePagination();
+    renderDateChangeList();
+}
+
 /**
  * 渲染日期更换列表
  */
@@ -1713,37 +1789,36 @@ function renderDateChangeList() {
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // ========== 状态颜色逻辑（与库存查看保持一致） ==========
+        // ========== 状态颜色逻辑（背景色填充） ==========
         let statusText = '无';
-        let statusColor = '#999';
+        let statusBgColor = '';
+        let statusColor = '#333';
         let countDownText = '';
         
         if (item.earliestBatch && item.earliestBatch.bzStatusText) {
             statusText = item.earliestBatch.bzStatusText;
             countDownText = item.earliestBatch.countDownText || '';
             
-            // ✅ 使用与库存查看相同的颜色逻辑
             if (statusText === '过期') {
-                statusColor = '#ff4444';
+                statusBgColor = '#ff4444';
+                statusColor = '#fff';
             } else if (statusText === '临期') {
-                statusColor = '#ff6b6b';
+                statusBgColor = '#ffdddd';
+                statusColor = '#333';
             } else if (statusText === '正常') {
-                statusColor = '#52c41a';
+                statusBgColor = '#d4edda';
+                statusColor = '#333';
             } else {
-                // 打折状态：根据配置中的索引分配颜色
                 const config = window.settingsData?.discountConfig?.items || [];
                 const index = config.findIndex(c => c.label === statusText);
-                
-                // 4种颜色：浅红、浅蓝、浅黄、橘色（按索引顺序）
-                const colors = [
-                    '#e57373', // 浅红（第1条）
-                    '#64b5f6', // 浅蓝（第2条）
-                    '#ffd54f', // 浅黄（第3条）
-                    '#ffb74d'  // 橘色（第4条）
-                ];
+                const colors = ['#ffcdd2', '#bbdefb', '#fff9c4', '#ffe0b2'];
                 const colorIndex = (index >= 0 && index < colors.length) ? index : 0;
-                statusColor = colors[colorIndex];
+                statusBgColor = colors[colorIndex];
+                statusColor = '#333';
             }
+        } else {
+            statusBgColor = '#f5f5f5';
+            statusColor = '#999';
         }
         
         // 确定日期类型显示文字和颜色
@@ -1751,10 +1826,10 @@ function renderDateChangeList() {
         let dateTypeColor = '';
         if (item.dateType === '生产日期') {
             dateTypeDisplay = '生产';
-            dateTypeColor = '#d4edda';  // 浅绿色
+            dateTypeColor = '#d4edda';
         } else if (item.dateType === '到期日期') {
             dateTypeDisplay = '到期';
-            dateTypeColor = '#f8d7da';  // 浅红色
+            dateTypeColor = '#f8d7da';
         } else {
             dateTypeDisplay = item.dateType || '';
             dateTypeColor = '#f5f5f5';
@@ -1766,14 +1841,11 @@ function renderDateChangeList() {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        // 生成复制按钮的文字内容
         let copyText = '';
         if (item.dateType === '生产日期' && item.displayValue) {
             copyText = `（${item.displayValue}生产）`;
         } else if (item.dateType === '到期日期' && item.displayValue) {
             copyText = `（${item.displayValue}到期）`;
-        } else {
-            copyText = '';
         }
         
         const html = `
@@ -1784,7 +1856,7 @@ function renderDateChangeList() {
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
                 <td>${item.batchRemain || 0}</td>
-                <td style="color:${statusColor}; font-weight:bold;">${statusText}</td>
+                <td style="background-color:${statusBgColor}; color:${statusColor}; text-align:center;">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
@@ -1798,6 +1870,7 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
+
 // ========== 新增：复制日期文本函数 ==========
 function copyDateText(text, btnElement) {
     if (!text) {
