@@ -719,9 +719,9 @@ function switchSettingsTab(tabKey) {
     if (targetBtn) targetBtn.classList.add('active');
 
     // 关键：切换到【基础设置】时，渲染折扣配置
-    if (tabKey === 'base') {
-        renderDiscountConfig();
-    }
+   if (tabKey === 'basic') {
+    renderDiscountConfig();
+}
     // 切换权限管理时渲染角色、用户列表
     if (tabKey === 'permission') {
         renderRoles();
