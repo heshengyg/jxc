@@ -489,7 +489,19 @@ async function deleteUserFromSupabase(userId) {
 function loadSettings() {
     try {
         const saved = localStorage.getItem('erp_settings');
-        if (saved) settingsData = JSON.parse(saved);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // 合并默认值，确保 discountConfig 存在
+            settingsData = {
+                ...settingsData,   // 保留默认结构
+                ...parsed,
+                discountConfig: parsed.discountConfig || { items: [
+                    { label: '打7折', multiplier: 2 },
+                    { label: '打8折', multiplier: 3 },
+                    { label: '打9折', multiplier: 4 }
+                ] }
+            };
+        }
     } catch(e) {}
 }
 
@@ -596,6 +608,19 @@ function initSettings() {
             // 页面默认激活基础设置Tab，直接渲染
             renderDiscountConfig();
         }, 100);
+    });function initSettings() {
+    loadSettings();
+    loadPermissionData();
+    loadRolesFromSupabase().then(function(success) {
+        renderAll();
+        if (success) {
+            savePermissionData();
+        }
+        applyUserPermissions();
+        // 新增：默认激活基础设置并渲染
+        setTimeout(function() {
+            switchSettingsTab('basic');  // 主动切换到基础设置
+        }, 200);
     });
     const settingsTab = document.getElementById('settingsTab');
     if (settingsTab) settingsTab.style.display = 'inline-block';
