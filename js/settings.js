@@ -603,20 +603,6 @@ function initSettings() {
             savePermissionData();
         }
         applyUserPermissions();
-        // 新增：初始化默认打开基础设置，强制渲染折扣面板
-        setTimeout(()=>{
-            // 页面默认激活基础设置Tab，直接渲染
-            renderDiscountConfig();
-        }, 100);
-    });function initSettings() {
-    loadSettings();
-    loadPermissionData();
-    loadRolesFromSupabase().then(function(success) {
-        renderAll();
-        if (success) {
-            savePermissionData();
-        }
-        applyUserPermissions();
         // 新增：默认激活基础设置并渲染
         setTimeout(function() {
             switchSettingsTab('basic');  // 主动切换到基础设置
@@ -1646,7 +1632,8 @@ function clearAllData() {
     
     showMsg('✅ 本地数据已清空，刷新页面后将从云端重新加载');
     setTimeout(() => location.reload(), 1500);
-}// ============================================================
+}
+// ============================================================
 // ===== 页面加载初始化 =====
 // ============================================================
 setTimeout(function() {
