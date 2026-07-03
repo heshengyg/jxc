@@ -835,7 +835,6 @@ function saveDiscountConfig() {
 }
 // 【renderAll 内部只保留调用，不再嵌套函数】
 function renderAll() {
-    renderCompanyName();
     renderRoles();
     renderUsers();
     updateRoleSelect();
