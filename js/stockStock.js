@@ -517,7 +517,7 @@ if (item.bzStatusText === '过期') {
     bzBg = 'style="background:#ffdddd;"';
 } else if (item.bzStatusText === '正常') {
     bzBg = 'style="background:#d4edda;"';
-} else {
+} else if (item.bzStatusText && item.bzStatusText !== '') {
     // 打折状态：根据配置中的索引分配颜色
     const config = window.settingsData?.discountConfig?.items || [];
     const index = config.findIndex(c => c.label === item.bzStatusText);
@@ -532,6 +532,7 @@ if (item.bzStatusText === '过期') {
     const colorIndex = (index >= 0 && index < colors.length) ? index : 0;
     bzBg = `style="background:${colors[colorIndex]};"`;
 }
+// 如果 bzStatusText 为空字符串，bzBg 保持 ''，不添加任何背景色
 
         htmlStr += `
         <tr>

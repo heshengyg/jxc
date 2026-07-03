@@ -1713,6 +1713,7 @@ function renderDateChangeList() {
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
+        // ========== 状态颜色逻辑（与库存查看保持一致） ==========
         let statusText = '无';
         let statusColor = '#999';
         let countDownText = '';
@@ -1721,16 +1722,31 @@ function renderDateChangeList() {
             statusText = item.earliestBatch.bzStatusText;
             countDownText = item.earliestBatch.countDownText || '';
             
-            switch(statusText) {
-                case '过期': statusColor = '#ff4d4f'; break;
-                case '临期': statusColor = '#faad14'; break;
-                case '打折': statusColor = '#1890ff'; break;
-                case '正常': statusColor = '#52c41a'; break;
-                default: statusColor = '#999';
+            // ✅ 使用与库存查看相同的颜色逻辑
+            if (statusText === '过期') {
+                statusColor = '#ff4444';
+            } else if (statusText === '临期') {
+                statusColor = '#ff6b6b';
+            } else if (statusText === '正常') {
+                statusColor = '#52c41a';
+            } else {
+                // 打折状态：根据配置中的索引分配颜色
+                const config = window.settingsData?.discountConfig?.items || [];
+                const index = config.findIndex(c => c.label === statusText);
+                
+                // 4种颜色：浅红、浅蓝、浅黄、橘色（按索引顺序）
+                const colors = [
+                    '#e57373', // 浅红（第1条）
+                    '#64b5f6', // 浅蓝（第2条）
+                    '#ffd54f', // 浅黄（第3条）
+                    '#ffb74d'  // 橘色（第4条）
+                ];
+                const colorIndex = (index >= 0 && index < colors.length) ? index : 0;
+                statusColor = colors[colorIndex];
             }
         }
         
-        // ✅ 确定日期类型显示文字和颜色
+        // 确定日期类型显示文字和颜色
         let dateTypeDisplay = '';
         let dateTypeColor = '';
         if (item.dateType === '生产日期') {
@@ -1750,8 +1766,7 @@ function renderDateChangeList() {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        // ========== 修改开始：生成复制按钮的文字内容 ==========
-        // 根据日期类型和显示值生成复制内容
+        // 生成复制按钮的文字内容
         let copyText = '';
         if (item.dateType === '生产日期' && item.displayValue) {
             copyText = `（${item.displayValue}生产）`;
@@ -1760,7 +1775,6 @@ function renderDateChangeList() {
         } else {
             copyText = '';
         }
-        // ========== 修改结束 ==========
         
         const html = `
             <tr>
@@ -1770,15 +1784,13 @@ function renderDateChangeList() {
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
                 <td>${item.batchRemain || 0}</td>
-                <td style="color:${statusColor};">${statusText}</td>
+                <td style="color:${statusColor}; font-weight:bold;">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
                 <td>${item.displayValue || ''}</td>
                 <td>
-                    <!-- ========== 修改开始：添加复制按钮 ========== -->
                     <button class="btn btn-success" onclick="copyDateText('${copyText.replace(/'/g, "\\'")}', this)" style="padding:4px 8px; font-size:12px; margin-right:4px;">复制</button>
-                    <!-- ========== 修改结束 ========== -->
                     <button class="btn btn-primary" onclick="updateSingleGoodsDate(${item.id})" style="padding:4px 12px; font-size:12px;">更新</button>
                 </td>
             </tr>
@@ -1786,7 +1798,6 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
-
 // ========== 新增：复制日期文本函数 ==========
 function copyDateText(text, btnElement) {
     if (!text) {
