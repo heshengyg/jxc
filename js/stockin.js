@@ -562,7 +562,7 @@ async function loadStockIn() {
         showMsg('加载入库记录失败：' + e.message);
     }
 }
-// 搜索筛选
+// 搜索筛选 - 模糊匹配
 function filterStockIn() {
     const supplier = document.getElementById('inFilterSupplierInput')?.value.trim() || '';
     const goodsName = document.getElementById('inFilterGoodsNameInput')?.value.trim() || '';
@@ -573,9 +573,10 @@ function filterStockIn() {
     } else {
         filteredStockIn = allStockIn.filter(item => {
             let match = true;
-            if (supplier && item.supplier !== supplier) match = false;
-            if (goodsName && item.goodsName !== goodsName) match = false;
-            if (settleType && item.settleType !== settleType) match = false;
+            // ✅ 改为模糊匹配（includes）
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.goodsName || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (settleType && !(item.settleType || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
             return match;
         });
     }
@@ -585,6 +586,7 @@ function filterStockIn() {
     renderInPagination();
     renderStockIn();
 }
+
 // 列表排序
 function inSortTable(field) {
     inSortField = field;

@@ -933,9 +933,10 @@ function filterGoods() {
     } else {
         filteredGoods = allGoods.filter(item => {
             let match = true;
-            if (supplier && item.supplier !== supplier) match = false;
-            if (goodsName && item.name !== goodsName) match = false;
-            if (channel && item.channel !== channel) match = false;
+            // ✅ 改为模糊匹配（includes）
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
             return match;
         });
     }
