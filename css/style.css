@@ -516,14 +516,38 @@ tbody tr:hover { background-color: #e6f7ef; }
     justify-content: center !important;
 }
 
-/* 弹窗内容容器 - 确保在遮罩层之上 */
+/* 当弹窗显示时 */
+.form-modal[style*="display: flex"],
+.form-modal[style*="display:flex"],
+#settleModal[style*="display: flex"],
+#settleModal[style*="display:flex"],
+#returnModal[style*="display: flex"],
+#returnModal[style*="display:flex"],
+#stockOutModal[style*="display: flex"],
+#stockOutModal[style*="display:flex"],
+#stockInModal[style*="display: flex"],
+#stockInModal[style*="display:flex"],
+#taxModal[style*="display: flex"],
+#taxModal[style*="display:flex"],
+#payModal[style*="display: flex"],
+#payModal[style*="display:flex"],
+#invoiceBackModal[style*="display: flex"],
+#invoiceBackModal[style*="display:flex"],
+#addRoleModal[style*="display: flex"],
+#addRoleModal[style*="display:flex"],
+#editUserPermModal[style*="display: flex"],
+#editUserPermModal[style*="display:flex"] {
+    display: flex !important;
+}
+
+/* 弹窗内容容器 */
 .form-container,
-#settleModal > div:not([style*="display:none"]),
-#taxModal > div:not([style*="display:none"]),
-#payModal > div:not([style*="display:none"]),
-#invoiceBackModal > div:not([style*="display:none"]),
-#addRoleModal > div:not([style*="display:none"]),
-#editUserPermModal > div:not([style*="display:none"]),
+#settleModal > div,
+#taxModal > div,
+#payModal > div,
+#invoiceBackModal > div,
+#addRoleModal > div,
+#editUserPermModal > div,
 #returnModal .form-container,
 #stockOutModal .form-container,
 #stockInModal .form-container {
@@ -534,26 +558,17 @@ tbody tr:hover { background-color: #e6f7ef; }
     overflow-y: auto !important;
     position: relative !important;
     z-index: 1000000 !important;
-}
-
-/* 当弹窗打开时（display:flex）确保显示 */
-.form-modal[style*="display:flex"],
-#settleModal[style*="display:flex"],
-#taxModal[style*="display:flex"],
-#payModal[style*="display:flex"],
-#invoiceBackModal[style*="display:flex"],
-#addRoleModal[style*="display:flex"],
-#editUserPermModal[style*="display:flex"],
-#returnModal[style*="display:flex"],
-#stockOutModal[style*="display:flex"],
-#stockInModal[style*="display:flex"] {
-    display: flex !important;
+    width: 95% !important;
+    max-width: 800px !important;
+    margin: 20px auto !important;
+    padding: 20px !important;
 }
 
 /* 确保主页面不会遮挡弹窗 */
 .main-page,
 #settings,
-.tab-content {
+.tab-content,
+.tab-content.active {
     z-index: auto !important;
     position: relative !important;
 }

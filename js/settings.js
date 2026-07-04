@@ -196,10 +196,9 @@ const OPERATION_PERMISSIONS = {
     }
 };
 
-// 挂载到 window 供其他模块使用
 window.OPERATION_PERMISSIONS = OPERATION_PERMISSIONS;
 
-//===================== 系统设置模块（完整权限版） =====================
+// ===================== 系统设置模块 =====================
 let settingsData = {
     companyName: '',
     departments: ['管理员', '商品部', '库管员', '财务部', 'APP部'],
@@ -213,26 +212,17 @@ let settingsData = {
     }
 };
 
-// ✅ 新增：挂载到 window，供其他模块使用
 window.settingsData = settingsData;
 
-// ============================================================
-// ===== 子版块菜单定义（查看权限细化到子版块） =====
-// ============================================================
+// ===== 子版块菜单定义 =====
 const ALL_MENUS = [
-    // ===== 商品管理（3个子版块） =====
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
-    // ===== 入库管理 =====
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
-    // ===== 退货管理 =====
     { key: 'returnList', label: '退货记录', module: 'returnGoods', moduleLabel: '退货管理' },
-    // ===== 出库管理 =====
     { key: 'stockOutList', label: '出库记录', module: 'stockOut', moduleLabel: '出库管理' },
-    // ===== 库存查看 =====
     { key: 'stockList', label: '库存列表', module: 'stockView', moduleLabel: '库存查看' },
-    // ===== 财务综合（9个子版块） =====
     { key: 'taxRate', label: '税率录入', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockInPrint', label: '入库单打印', module: 'finance', moduleLabel: '财务综合' },
     { key: 'payRecord', label: '财务付款记录', module: 'finance', moduleLabel: '财务综合' },
@@ -242,13 +232,11 @@ const ALL_MENUS = [
     { key: 'stockInCheck', label: '入库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'stockOutCheck', label: '出库对账', module: 'finance', moduleLabel: '财务综合' },
     { key: 'monthBeginStock', label: '月期初数', module: 'finance', moduleLabel: '财务综合' },
-    // ===== 系统设置（3个子版块） =====
     { key: 'basic', label: '基础设置', module: 'settings', moduleLabel: '系统设置' },
     { key: 'data', label: '数据管理', module: 'settings', moduleLabel: '系统设置' },
     { key: 'permission', label: '权限管理', module: 'settings', moduleLabel: '系统设置' }
 ];
 
-// ===== 大模块分组（用于界面显示） =====
 const MODULE_GROUPS = {
     goods: '商品管理',
     stockIn: '入库管理',
@@ -259,7 +247,6 @@ const MODULE_GROUPS = {
     settings: '系统设置'
 };
 
-// 大模块对应的子版块 key 列表
 const MODULE_SUB_KEYS = {
     goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
@@ -270,10 +257,7 @@ const MODULE_SUB_KEYS = {
     settings: ['basic', 'data', 'permission']
 };
 
-
-// ============================================================
-// ===== 旧 Key → 新 Key 映射表（兼容历史数据） =====
-// ============================================================
+// ===== Key 迁移映射 =====
 const KEY_MIGRATION_MAP = {
     'supplier': 'settleType',
     'expireDate': 'dateChange',
@@ -294,9 +278,7 @@ function migrateKeys(oldKeys) {
     });
 }
 
-// ============================================================
 // ===== 权限数据 =====
-// ============================================================
 let permissionData = {
     roles: [],
     users: []
@@ -304,9 +286,7 @@ let permissionData = {
 
 let currentUserId = null;
 
-// ============================================================
 // ===== 工具函数 =====
-// ============================================================
 function isCurrentUserAdmin() {
     if (!currentUserId) return false;
     var currentUser = permissionData.users.find(function(u) { return u.id === currentUserId; });
@@ -315,26 +295,29 @@ function isCurrentUserAdmin() {
     return currentRole && currentRole.name === '管理员';
 }
 
-// ============================================================
 // ===== 权限检查函数 =====
-// ============================================================
 function getUserPermissions(userId) {
+    // 先尝试通过 ID 查找
     var user = permissionData.users.find(function(u) { return u.id === userId; });
+    
+    // 如果没找到，尝试通过名称查找（兼容旧数据）
     if (!user) {
-        // 尝试通过用户名查找
         user = permissionData.users.find(function(u) { return u.name === 'admin'; });
         if (user) {
             console.log('🔄 通过用户名找到用户:', user.name);
         }
     }
+    
+    // 如果还是没找到，使用默认管理员权限
     if (!user) {
-        console.warn('⚠️ 用户不在 permissionData.users 中，使用默认管理员权限');
+        console.warn('⚠️ 用户不存在，使用默认管理员权限');
         return {
             view: ALL_MENUS.map(function(m) { return m.key; }),
             banned: []
         };
     }
     
+    // 查找角色
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     if (!role) {
         console.warn('⚠️ 角色不存在，使用默认管理员权限');
@@ -344,7 +327,7 @@ function getUserPermissions(userId) {
         };
     }
     
-    // 确保管理员拥有所有权限
+    // 管理员角色拥有所有权限
     var viewPerms = role.viewPermissions || [];
     if (role.name === '管理员') {
         viewPerms = ALL_MENUS.map(function(m) { return m.key; });
@@ -368,9 +351,7 @@ function canUserOperate(userId, moduleKey, operationKey) {
     return !(perms.banned && perms.banned.includes(fullKey));
 }
 
-// ============================================================
 // ===== 应用权限到页面按钮 =====
-// ============================================================
 function applyAllPermissions() {
     if (!currentUserId) {
         console.warn('⚠️ currentUserId 为空，跳过权限应用');
@@ -396,9 +377,7 @@ function applyAllPermissions() {
     });
 }
 
-// ============================================================
 // ===== 设置当前用户 =====
-// ============================================================
 function setCurrentUser(userId) {
     currentUserId = userId;
     if (!userId) return;
@@ -406,6 +385,7 @@ function setCurrentUser(userId) {
     console.log('🔑 setCurrentUser 被调用，用户ID:', userId);
 
     var perms = getUserPermissions(userId);
+    console.log('📊 用户权限数量:', perms.view.length);
     console.log('📊 用户权限:', perms.view);
 
     var moduleMenuMap = {
@@ -418,6 +398,7 @@ function setCurrentUser(userId) {
         'settings': ['basic', 'data', 'permission']
     };
 
+    // 显示/隐藏主Tab
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         var onclick = btn.getAttribute('onclick');
         if (!onclick) return;
@@ -432,13 +413,12 @@ function setCurrentUser(userId) {
 
         btn.style.display = hasPermission ? 'inline-block' : 'none';
     });
+    
     applyAllPermissions();
     applySubTabPermissions();
 }
 
-// ============================================================
-// ===== 子版块权限应用函数 =====
-// ============================================================
+// ===== 子版块权限应用 =====
 function applySubTabPermissions() {
     var activeTab = document.querySelector('.tab-btn.active');
     if (!activeTab) return;
@@ -479,9 +459,7 @@ function applySubTabPermissions() {
     applyAllPermissions();
 }
 
-// ============================================================
 // ===== Supabase 角色同步 =====
-// ============================================================
 async function loadRolesFromSupabase() {
     try {
         console.log('📡 从 Supabase 加载角色...');
@@ -497,7 +475,6 @@ async function loadRolesFromSupabase() {
 
         if (result.data && result.data.length > 0) {
             permissionData.roles = result.data.map(function(role) {
-                // 确保 view_permissions 是数组
                 var perms = role.view_permissions || [];
                 if (typeof perms === 'string') {
                     try {
@@ -506,9 +483,8 @@ async function loadRolesFromSupabase() {
                         perms = [];
                     }
                 }
-                // 如果 perms 为空或只有几个，使用 ALL_MENUS 作为默认（管理员全权限）
                 var migrated = migrateKeys(perms);
-                // 对于管理员角色，确保拥有所有权限
+                // 管理员强制全权限
                 if (role.name === '管理员') {
                     migrated = ALL_MENUS.map(function(m) { return m.key; });
                 }
@@ -518,7 +494,7 @@ async function loadRolesFromSupabase() {
                     viewPermissions: migrated
                 };
             });
-            console.log('✅ 从 Supabase 加载了 ' + permissionData.roles.length + ' 个角色（已迁移 Key）');
+            console.log('✅ 从 Supabase 加载了 ' + permissionData.roles.length + ' 个角色');
             return true;
         }
         return false;
@@ -527,6 +503,7 @@ async function loadRolesFromSupabase() {
         return false;
     }
 }
+
 async function saveRoleToSupabase(role) {
     try {
         const data = {
@@ -641,9 +618,7 @@ async function deleteRolePermissions(roleName) {
     }
 }
 
-// ============================================================
 // ===== Supabase 用户同步 =====
-// ============================================================
 async function syncUserToSupabase(userData) {
     try {
         const checkResult = await supabase
@@ -709,12 +684,9 @@ async function deleteUserFromSupabase(userId) {
     }
 }
 
-// ============================================================
 // ===== 初始化 =====
-// ============================================================
 async function loadSettings() {
     try {
-        // 1. 先从 Supabase 加载折扣配置
         const { data, error } = await supabase
             .from('system_config')
             .select('value')
@@ -724,15 +696,12 @@ async function loadSettings() {
         if (error) {
             console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值:', error);
         } else if (data) {
-            // 合并到 settingsData
             settingsData.discountConfig = data.value;
         }
 
-        // 2. 再从 localStorage 加载其他设置（如公司名称等）
         const saved = localStorage.getItem('erp_settings');
         if (saved) {
             const parsed = JSON.parse(saved);
-            // 合并，但 discountConfig 以 Supabase 为准（覆盖）
             settingsData = {
                 ...settingsData,
                 ...parsed,
@@ -744,9 +713,7 @@ async function loadSettings() {
             };
         }
 
-        // 3. 同步到 window 和 localStorage（缓存）
         window.settingsData = settingsData;
-        // 可选：将最新配置写入 localStorage 作为备份
         localStorage.setItem('erp_settings', JSON.stringify(settingsData));
 
     } catch (e) {
@@ -756,7 +723,6 @@ async function loadSettings() {
 
 async function saveSettings() {
     try {
-        // 1. 更新 Supabase
         const { error } = await supabase
             .from('system_config')
             .upsert({
@@ -771,7 +737,6 @@ async function saveSettings() {
             return;
         }
 
-        // 2. 更新 localStorage 和 window
         localStorage.setItem('erp_settings', JSON.stringify(settingsData));
         window.settingsData = settingsData;
 
@@ -780,6 +745,7 @@ async function saveSettings() {
         console.error('保存设置异常:', e);
     }
 }
+
 function loadPermissionData() {
     try {
         const saved = localStorage.getItem('permissionData');
@@ -817,103 +783,177 @@ function initDefaultPermissionData() {
     savePermissionData();
 }
 
-function applyUserPermissions() {
-    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
-    if (saved) {
-        try {
-            var user = JSON.parse(saved);
-            if (user && user.id) {
-                if (permissionData.roles.length === 0) {
-                    loadRolesFromSupabase().then(function() {
-                        loadAllUsersFromSupabase().then(function() {
-                            setCurrentUser(user.id);
-                            console.log('✅ 应用 Supabase 用户权限（角色已加载）:', user.name);
-                        });
-                    });
-                } else {
-                    loadAllUsersFromSupabase().then(function() {
-                        setCurrentUser(user.id);
-                        console.log('✅ 应用 Supabase 用户权限（刷新列表）:', user.name);
-                    });
-                }
-                return;
-            }
-        } catch(e) {
-            console.warn('应用用户权限失败:', e);
+// ===== 加载所有用户 =====
+async function loadAllUsersFromSupabase() {
+    try {
+        if (permissionData.roles.length === 0) {
+            await loadRolesFromSupabase();
         }
-    }
-    setCurrentUser('user_1');
-}
 
-// 重写 switchTab
-var originalSwitchTab = window.switchTab;
-window.switchTab = async function(tabName) {
-  try {
-    originalSwitchTab(tabName);
-    if (tabName === 'settings') {
-        await loadRolesFromSupabase();
-        await loadAllUsersFromSupabase();
-        renderAll();
-        applyAllPermissions();
-        applySubTabPermissions();
-    } else {
-        applyAllPermissions();
-        setTimeout(applySubTabPermissions, 50);
-    }
-    // 全局强制页面回流
-    document.body.offsetHeight;
-  } catch (err) {
-    console.error('Tab切换异常：', err);
-  }
-};
-async function initSettings() {
-    await loadSettings();   // 先加载配置
-    loadPermissionData();
+        var result = await supabase
+            .from('users')
+            .select('id, username, role, status, avatar_url');
 
-    // 加载角色（原有逻辑）
-    const success = await loadRolesFromSupabase();
-    renderAll();
-    if (success) {
-        savePermissionData();
-    }
-    applyUserPermissions();
-    // 默认激活基础设置并渲染
-    setTimeout(() => {
-        switchSettingsTab('basic');
-    }, 200);
+        if (result.error) {
+            console.error('❌ 加载用户失败:', result.error);
+            fallbackCreateAdmin();
+            return;
+        }
 
-    // 以下代码原本在 setTimeout 之后，但被错误地放在了外面，现在放回函数内
-    const settingsTab = document.getElementById('settingsTab');
-    if (settingsTab) settingsTab.style.display = 'inline-block';
-    const companyNameEl = document.getElementById('companyName');
-    if (companyNameEl) {
-        companyNameEl.addEventListener('change', saveCompanyName);
-        companyNameEl.addEventListener('blur', saveCompanyName);
-    }
-    const logoInput = document.getElementById('companyLogo');
-    const logoPreview = document.getElementById('logoPreview');
-    if (logoInput && logoPreview) {
-        logoInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    logoPreview.src = ev.target.result;
-                    logoPreview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
+        permissionData.users = [];
+        settingsData.members = [];
+
+        if (!result.data || result.data.length === 0) {
+            console.warn('⚠️ Supabase 无用户，创建默认 admin');
+            fallbackCreateAdmin();
+            return;
+        }
+
+        // 检查 admin 是否存在
+        var hasAdmin = false;
+        for (var user of result.data) {
+            if (user.username === 'admin') {
+                hasAdmin = true;
+                break;
             }
-        });
+        }
+
+        if (!hasAdmin) {
+            console.warn('⚠️ admin 用户不存在，强制创建');
+            var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+            if (adminRole) {
+                var insertResult = await supabase
+                    .from('users')
+                    .insert([{
+                        username: 'admin',
+                        email: 'admin@company.com',
+                        password_hash: bcrypt.hashSync('123', 10),
+                        role: '管理员',
+                        status: 'active',
+                        avatar_url: null
+                    }])
+                    .select();
+                if (!insertResult.error && insertResult.data && insertResult.data.length > 0) {
+                    result = await supabase
+                        .from('users')
+                        .select('id, username, role, status');
+                }
+            }
+        }
+
+        for (var user of (result.data || [])) {
+            console.log('同步用户:', user.username, '角色:', user.role);
+            var role = permissionData.roles.find(function(r) {
+                return r.name === user.role;
+            });
+
+            if (!role && user.username === 'admin') {
+                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+                if (role) {
+                    console.log('🔧 admin 用户强制分配管理员角色');
+                }
+            }
+
+            if (!role) {
+                console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
+                continue;
+            }
+
+            permissionData.users.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                roleId: role.id,
+                bannedOperations: [],
+                avatar_url: user.avatar_url || ''
+            });
+
+            settingsData.members.push({
+                id: user.id,
+                name: user.username,
+                password: '',
+                department: user.role,
+                roleId: role.id,
+                bannedOperations: []
+            });
+        }
+
+        if (permissionData.users.length === 0) {
+            fallbackCreateAdmin();
+        }
+
+        savePermissionData();
+        saveSettings();
+        console.log('✅ 已同步', permissionData.users.length, '个用户');
+
+    } catch (err) {
+        console.error('❌ 加载用户异常:', err);
+        fallbackCreateAdmin();
     }
 }
 
-// 渲染打折配置界面【修复discount→discountConfig】
-function renderDiscountConfig() {
-    const container = document.getElementById('discountConfigContainer');
-    if (!container) return;
-    const items = settingsData.discountConfig?.items || [];
+function fallbackCreateAdmin() {
+    var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
+    if (!adminRole) {
+        permissionData.roles = [
+            { id: 'role_default', name: '管理员', viewPermissions: ALL_MENUS.map(function(m) { return m.key; }) }
+        ];
+        adminRole = permissionData.roles[0];
+    }
     
-    let html = `
+    var existing = permissionData.users.find(function(u) { return u.name === 'admin'; });
+    if (!existing) {
+        permissionData.users = [{
+            id: 'user_default_admin',
+            name: 'admin',
+            password: '123',
+            roleId: adminRole.id,
+            bannedOperations: []
+        }];
+        settingsData.members = [{
+            id: 'user_default_admin',
+            name: 'admin',
+            password: '123',
+            department: '管理员',
+            roleId: adminRole.id,
+            bannedOperations: []
+        }];
+        savePermissionData();
+        saveSettings();
+        console.log('✅ 已创建默认 admin 用户');
+    }
+}
+
+// ===== 渲染函数 =====
+function renderCompanyName() {
+    // 占位函数，避免报错
+    console.log('renderCompanyName called (placeholder)');
+}
+
+function renderAll() {
+    renderCompanyName();  // 现在有定义了
+    renderRoles();
+    renderUsers();
+    updateRoleSelect();
+    renderDiscountConfig();
+}
+
+function updateRoleSelect() {
+    var select = document.getElementById('roleSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">请选择角色</option>';
+    permissionData.roles.forEach(function(role) {
+        select.innerHTML += '<option value="' + role.id + '">' + role.name + '</option>';
+    });
+}
+
+// ===== 渲染打折配置 =====
+function renderDiscountConfig() {
+    var container = document.getElementById('discountConfigContainer');
+    if (!container) return;
+    var items = settingsData.discountConfig?.items || [];
+    
+    var html = `
         <div style="margin-bottom:12px;">
             <button class="btn btn-primary" onclick="addDiscountItem()" style="font-size:14px;padding:6px 18px;">
                 ＋ 新增折扣档位
@@ -923,12 +963,12 @@ function renderDiscountConfig() {
     `;
     
     if (items.length === 0) {
-        html += `<div style="color:#999;padding:20px 0;text-align:center;">暂无折扣档位，请点击上方按钮添加</div>`;
+        html += '<div style="color:#999;padding:20px 0;text-align:center;">暂无折扣档位，请点击上方按钮添加</div>';
         container.innerHTML = html;
         return;
     }
     
-    items.forEach((item, index) => {
+    items.forEach(function(item, index) {
         html += `
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:10px 14px;background:#f8f9fa;border-radius:6px;border:1px solid #e8e8e8;flex-wrap:wrap;">
                 <label style="font-weight:500;color:#333;font-size:13px;white-space:nowrap;">状态名称：</label>
@@ -949,56 +989,49 @@ function renderDiscountConfig() {
     container.innerHTML = html;
 }
 
-// 新增折扣档位（全局）
 function addDiscountItem() {
     if (!settingsData.discountConfig) {
         settingsData.discountConfig = { items: [] };
     }
-    const items = settingsData.discountConfig.items;
+    var items = settingsData.discountConfig.items;
     
-    // 限制最多4条
     if (items.length >= 4) {
         showMsg('⚠️ 最多支持4个折扣档位');
         return;
     }
     
-    // 自动计算新倍率：上一条倍率 + 1，最小为2
-    const lastMult = items.length > 0 ? items[items.length - 1].multiplier : 1;
-    const newMult = Math.max(2, lastMult + 1);
-    
-    const count = items.length + 1;
-    items.push({ label: `档位${count}`, multiplier: newMult });
+    var lastMult = items.length > 0 ? items[items.length - 1].multiplier : 1;
+    var newMult = Math.max(2, lastMult + 1);
+    var count = items.length + 1;
+    items.push({ label: '档位' + count, multiplier: newMult });
     saveSettings();
     renderDiscountConfig();
 }
 
-// 单独保存某个折扣档位
 function saveDiscountItem(index) {
-    const labelInput = document.getElementById(`discountLabel_${index}`);
-    const multInput = document.getElementById(`discountMult_${index}`);
+    var labelInput = document.getElementById('discountLabel_' + index);
+    var multInput = document.getElementById('discountMult_' + index);
     if (!labelInput || !multInput) return;
     
-    const label = labelInput.value.trim();
-    const mult = parseInt(multInput.value);
+    var label = labelInput.value.trim();
+    var mult = parseInt(multInput.value);
     if (!label || mult <= 0) {
         showMsg('⚠️ 请填写有效的名称和倍率（大于0）');
         return;
     }
     
-    const items = settingsData.discountConfig?.items || [];
+    var items = settingsData.discountConfig?.items || [];
     if (index < 0 || index >= items.length) return;
     
-    // ✅ 倍率校验：第1条必须 > 1
     if (index === 0 && mult <= 1) {
         showMsg('⚠️ 第1条打折状态的倍率必须大于1');
         return;
     }
     
-    // ✅ 倍率校验：后续每条必须大于上一条
     if (index > 0) {
-        const prevMult = items[index - 1].multiplier;
+        var prevMult = items[index - 1].multiplier;
         if (mult <= prevMult) {
-            showMsg(`⚠️ 第${index+1}条倍率必须大于上一条（${prevMult}）`);
+            showMsg('⚠️ 第' + (index+1) + '条倍率必须大于上一条（' + prevMult + '）');
             return;
         }
     }
@@ -1011,77 +1044,24 @@ function saveDiscountItem(index) {
     renderDiscountConfig();
 }
 
-// 删除某个折扣档位
 function deleteDiscountItem(index) {
-    const items = settingsData.discountConfig?.items || [];
+    var items = settingsData.discountConfig?.items || [];
     if (index < 0 || index >= items.length) return;
     
-    const item = items[index];
-    if (!confirm(`确定删除折扣档位「${item.label}」吗？`)) return;
+    var item = items[index];
+    if (!confirm('确定删除折扣档位「' + item.label + '」吗？')) return;
     
     items.splice(index, 1);
     settingsData.discountConfig.items = items;
     saveSettings();
     showMsg('✅ 已删除折扣档位');
-    renderDiscountConfig(); // 刷新界面
-}
-
-// 保存打折配置（全局）
-function saveDiscountConfig() {
-    const container = document.getElementById('discountConfigContainer');
-    const inputs = container.querySelectorAll('input');
-    const newItems = [];
-    let prevMult = 0;
-    
-    for (let i = 0; i < inputs.length; i += 2) {
-        const label = inputs[i].value.trim();
-        const mult = parseInt(inputs[i+1].value);
-        if (!label || mult <= 0) {
-            showMsg(`⚠️ 第${Math.floor(i/2)+1}条：请填写有效的名称和倍率（大于0）`);
-            return;
-        }
-        // ✅ 校验：第1条必须 > 1
-        if (i === 0 && mult <= 1) {
-            showMsg('⚠️ 第1条打折状态的倍率必须大于1');
-            return;
-        }
-        // ✅ 校验：后续每条必须大于上一条
-        if (i > 0 && mult <= prevMult) {
-            showMsg(`⚠️ 第${Math.floor(i/2)+1}条倍率必须大于上一条（${prevMult}）`);
-            return;
-        }
-        newItems.push({ label, multiplier: mult });
-        prevMult = mult;
-    }
-    
-    settingsData.discountConfig.items = newItems;
-    saveSettings();
-    showMsg('✅ 打折配置已保存，请刷新库存查看页面以应用新状态。');
     renderDiscountConfig();
 }
-// 【renderAll 内部只保留调用，不再嵌套函数】
-function renderAll() {
-    renderCompanyName();
-    renderRoles();
-    renderUsers();
-    updateRoleSelect();
-    renderDiscountConfig(); // 直接调用全局函数
-}
 
-function updateRoleSelect() {
-    var select = document.getElementById('roleSelect');
-    if (!select) return;
-    select.innerHTML = '<option value="">请选择角色</option>';
-    permissionData.roles.forEach(function(role) {
-        select.innerHTML += '<option value="' + role.id + '">' + role.name + '</option>';
-    });
-}
-
-
+// ===== 切换到系统设置子Tab =====
 async function switchSettingsTab(tabKey) {
-    // ✅ 如果是切换到基础设置，先重新加载最新配置
     if (tabKey === 'basic') {
-        await loadSettings();  // 从 Supabase 重新拉取
+        await loadSettings();
         renderDiscountConfig();
     }
 
@@ -1100,15 +1080,13 @@ async function switchSettingsTab(tabKey) {
     var targetBtn = document.querySelector('.settings-sub-btn[data-tab="' + tabKey + '"]');
     if (targetBtn) targetBtn.classList.add('active');
 
-    // 切换权限管理时渲染角色、用户列表
     if (tabKey === 'permission') {
         renderRoles();
         renderUsers();
     }
 }
-// ============================================================
+
 // ===== 角色管理 =====
-// ============================================================
 function renderRoles() {
     var container = document.getElementById('roleList');
     if (!container) return;
@@ -1133,7 +1111,6 @@ function renderRoles() {
     });
 }
 
-// 全选/取消全选（点击大模块复选框时触发）
 function toggleModuleAll(checkbox) {
     var groupContainer = checkbox.closest('.perm-group');
     var subCheckboxes = groupContainer.querySelectorAll('.perm-group-items input[type="checkbox"]');
@@ -1153,7 +1130,6 @@ function updateModuleAll(checkbox) {
     allCheckbox.checked = allChecked;
 }
 
-// ===== 打开新增角色弹窗 =====
 function openAddRoleModal() {
     document.getElementById('roleNameInput').value = '';
     document.getElementById('addRoleModal').dataset.editId = '';
@@ -1184,7 +1160,6 @@ function openAddRoleModal() {
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
-// ===== 打开编辑角色弹窗 =====
 function editRole(roleId) {
     var role = permissionData.roles.find(function(r) { return r.id === roleId; });
     if (!role) return;
@@ -1203,7 +1178,6 @@ function editRole(roleId) {
 
     var html = '';
     for (var moduleKey in groups) {
-        // 判断该模块下所有子项是否都被选中
         var allChecked = groups[moduleKey].every(function(item) {
             return role.viewPermissions.includes(item.key);
         });
@@ -1223,7 +1197,6 @@ function editRole(roleId) {
     document.getElementById('addRoleModal').style.display = 'flex';
 }
 
-// ===== 保存角色（新增或编辑） =====
 saveRole = async function() {
     var editId = document.getElementById('addRoleModal').dataset.editId;
     var name = document.getElementById('roleNameInput').value.trim();
@@ -1232,7 +1205,6 @@ saveRole = async function() {
         return;
     }
 
-    // 只收集子版块复选框（排除全选复选框）
     var subCheckboxes = document.querySelectorAll('#roleViewPermissions .perm-group-items input[type="checkbox"]:checked');
     var viewPermissions = Array.from(subCheckboxes).map(function(cb) { return cb.value; });
     
@@ -1241,7 +1213,6 @@ saveRole = async function() {
         return;
     }
 
-    // 无论成功失败，都要关闭弹窗
     var closeModal = function() {
         document.getElementById('addRoleModal').style.display = 'none';
     };
@@ -1326,9 +1297,7 @@ function deleteRole(roleId) {
     });
 }
 
-// ============================================================
 // ===== 用户管理 =====
-// ============================================================
 function toggleUserGroup(groupId) {
     var content = document.getElementById(groupId);
     if (content) {
@@ -1558,167 +1527,7 @@ async function deleteUser(userId) {
     showMsg('✅ 用户已删除');
 }
 
-// ============================================================
-// ===== loadAllUsersFromSupabase - 加强版 admin 处理 =====
-// ============================================================
-async function loadAllUsersFromSupabase() {
-    try {
-        // 先确保角色列表已加载
-        if (permissionData.roles.length === 0) {
-            await loadRolesFromSupabase();
-        }
-
-        var result = await supabase
-            .from('users')
-            .select('id, username, role, status, avatar_url');  // 增加 avatar_url
-
-        if (result.error) {
-            console.error('❌ 加载用户失败:', result.error);
-            // 如果加载失败，使用本地默认 admin
-            fallbackCreateAdmin();
-            return;
-        }
-
-        permissionData.users = [];
-        settingsData.members = [];
-
-        // 如果没有用户，创建默认 admin
-        if (!result.data || result.data.length === 0) {
-            console.warn('⚠️ Supabase 无用户，创建默认 admin');
-            fallbackCreateAdmin();
-            return;
-        }
-
-        // 检查 admin 是否存在
-        var hasAdmin = false;
-        for (var user of result.data) {
-            if (user.username === 'admin') {
-                hasAdmin = true;
-                break;
-            }
-        }
-
-        // 如果 admin 不存在，强制添加
-        if (!hasAdmin) {
-            console.warn('⚠️ admin 用户不存在，强制创建');
-            // 先尝试创建到 Supabase
-            var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-            if (adminRole) {
-                var insertResult = await supabase
-                    .from('users')
-                    .insert([{
-                        username: 'admin',
-                        email: 'admin@company.com',
-                        password_hash: bcrypt.hashSync('123', 10),
-                        role: '管理员',
-                        status: 'active',
-                        avatar_url: null
-                    }])
-                    .select();
-                if (!insertResult.error && insertResult.data && insertResult.data.length > 0) {
-                    // 重新加载
-                    result = await supabase
-                        .from('users')
-                        .select('id, username, role, status');
-                }
-            }
-        }
-
-        // 重新遍历用户
-        for (var user of (result.data || [])) {
-            console.log('同步用户:', user.username, '角色:', user.role);
-            var role = null;
-            
-            // 精确匹配
-            role = permissionData.roles.find(function(r) {
-                return r.name === user.role;
-            });
-
-            // 🔥 关键：admin 用户强制分配"管理员"角色
-            if (!role && user.username === 'admin') {
-                role = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-                if (role) {
-                    console.log('🔧 admin 用户强制分配管理员角色');
-                }
-            }
-
-            if (!role) {
-                console.warn('⚠️ 未找到角色：' + user.role + '，跳过用户：' + user.username);
-                continue;
-            }
-
-            permissionData.users.push({
-                id: user.id,
-                name: user.username,
-                password: '',
-                roleId: role.id,
-                bannedOperations: [],
-                avatar_url: user.avatar_url || ''  // 增加
-            });
-
-            settingsData.members.push({
-                id: user.id,
-                name: user.username,
-                password: '',
-                department: user.role,
-                roleId: role.id,
-                bannedOperations: []
-            });
-        }
-
-        // 如果同步后还是没有用户，强制创建
-        if (permissionData.users.length === 0) {
-            fallbackCreateAdmin();
-        }
-
-        savePermissionData();
-        saveSettings();
-        console.log('✅ 已同步', permissionData.users.length, '个用户');
-
-    } catch (err) {
-        console.error('❌ 加载用户异常:', err);
-        fallbackCreateAdmin();
-    }
-}
-
-// ===== 兜底函数：强制创建 admin =====
-function fallbackCreateAdmin() {
-    var adminRole = permissionData.roles.find(function(r) { return r.name === '管理员'; });
-    if (!adminRole) {
-        // 如果连管理员角色都没有，创建默认角色
-        permissionData.roles = [
-            { id: 'role_default', name: '管理员', viewPermissions: ALL_MENUS.map(function(m) { return m.key; }) }
-        ];
-        adminRole = permissionData.roles[0];
-    }
-    
-    // 检查是否已有 admin
-    var existing = permissionData.users.find(function(u) { return u.name === 'admin'; });
-    if (!existing) {
-        permissionData.users = [{
-            id: 'user_default_admin',
-            name: 'admin',
-            password: '123',
-            roleId: adminRole.id,
-            bannedOperations: []
-        }];
-        settingsData.members = [{
-            id: 'user_default_admin',
-            name: 'admin',
-            password: '123',
-            department: '管理员',
-            roleId: adminRole.id,
-            bannedOperations: []
-        }];
-        savePermissionData();
-        saveSettings();
-        console.log('✅ 已创建默认 admin 用户');
-    }
-}
-
-// ============================================================
 // ===== 编辑用户操作权限 =====
-// ============================================================
 var editingUserId = null;
 
 function editUserPerm(userId) {
@@ -1843,9 +1652,7 @@ function saveUserPermissions() {
     showMsg('✅ 权限已更新');
 }
 
-// ============================================================
 // ===== renderMembers =====
-// ============================================================
 function renderMembers() {
     var container = document.getElementById('memberList') || document.getElementById('userList');
     if (!container) {
@@ -1901,9 +1708,7 @@ function renderMemberCards(container) {
     });
 }
 
-// ============================================================
 // ===== 数据管理 =====
-// ============================================================
 function backupData() {
     try {
         var data = JSON.stringify({
@@ -1913,7 +1718,7 @@ function backupData() {
             returnGoods: window.allReturnGoods || [],
             financePayment: window.allPayList || [],
             financeInvoice: window.allInvoiceBackList || [],
-            settleTypes: window.allSettleTypes || [],   // 如果有的话
+            settleTypes: window.allSettleTypes || [],
             settings: settingsData,
             permissionData: permissionData
         }, null, 2);
@@ -1933,7 +1738,7 @@ function backupData() {
 }
 
 function importData() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
         var input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
@@ -1941,7 +1746,7 @@ function importData() {
             var file = e.target.files[0];
             if (!file) return resolve();
             
-            if (!confirm('⚠️ 导入将替换当前页面的显示数据（仅影响本地显示，不影响 Supabase 云端数据）。确定继续吗？')) {
+            if (!confirm('⚠️ 导入将替换当前页面的显示数据。确定继续吗？')) {
                 return resolve();
             }
 
@@ -1950,7 +1755,6 @@ function importData() {
                 try {
                     var data = JSON.parse(ev.target.result);
                     
-                    // 只恢复到内存变量
                     if (data.goods) window.allGoods = data.goods;
                     if (data.stockIn) window.allStockInList = data.stockIn;
                     if (data.stockOut) window.allStockOut = data.stockOut;
@@ -1966,8 +1770,8 @@ function importData() {
                         savePermissionData();
                     }
                     
-                    showMsg('✅ 数据已导入（仅内存，刷新后恢复为 Supabase 数据）');
-                    setTimeout(() => location.reload(), 1500);
+                    showMsg('✅ 数据已导入，刷新页面后生效');
+                    setTimeout(function() { location.reload(); }, 1500);
                     resolve();
                 } catch (err) {
                     showMsg('❌ 导入失败：' + err.message);
@@ -1982,10 +1786,9 @@ function importData() {
 }
 
 function clearAllData() {
-    if (!confirm('⚠️ 此操作将清空当前浏览器中显示的所有数据（仅影响本地显示，不影响 Supabase 云端数据）。确定继续吗？')) return;
-    if (!confirm('再次确认：清空后刷新页面，数据将从云端重新加载。')) return;
+    if (!confirm('⚠️ 确定要清空所有数据吗？')) return;
+    if (!confirm('再次确认：清空后刷新页面将从云端重新加载。')) return;
 
-    // 清空内存变量
     window.allGoods = [];
     window.allStockInList = [];
     window.allStockOut = [];
@@ -1993,16 +1796,148 @@ function clearAllData() {
     window.allPayList = [];
     window.allInvoiceBackList = [];
     
-    // 清空本地缓存
     localStorage.removeItem('erp_settings');
     localStorage.removeItem('permissionData');
     
     showMsg('✅ 本地数据已清空，刷新页面后将从云端重新加载');
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(function() { location.reload(); }, 1500);
 }
-// ============================================================
+
+// ===== 修复 switchTab 覆盖问题 =====
+// 不再覆盖 window.switchTab，而是增强它
+var _originalSwitchTab = window.switchTab;
+
+// 如果原始 switchTab 存在，则增强它；否则创建新的
+if (typeof _originalSwitchTab === 'function') {
+    window.switchTab = async function(tabName) {
+        // 先调用原始函数
+        _originalSwitchTab(tabName);
+        // 然后应用权限
+        try {
+            if (tabName === 'settings') {
+                await loadRolesFromSupabase();
+                await loadAllUsersFromSupabase();
+                renderAll();
+                applyAllPermissions();
+                applySubTabPermissions();
+            } else {
+                applyAllPermissions();
+                setTimeout(applySubTabPermissions, 50);
+            }
+        } catch (err) {
+            console.error('Tab切换权限应用异常：', err);
+        }
+    };
+} else {
+    // 如果原始不存在，定义一个基础版本
+    window.switchTab = async function(tabName) {
+        document.querySelectorAll('.tab-content').forEach(function(el) {
+            el.classList.remove('active');
+            el.style.display = 'none';
+        });
+        var target = document.getElementById(tabName);
+        if (target) {
+            target.classList.add('active');
+            target.style.display = 'block';
+        }
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        var targetBtn = document.querySelector('.tab-btn[onclick*="' + tabName + '"]');
+        if (targetBtn) targetBtn.classList.add('active');
+        
+        try {
+            if (tabName === 'settings') {
+                await loadRolesFromSupabase();
+                await loadAllUsersFromSupabase();
+                renderAll();
+                applyAllPermissions();
+                applySubTabPermissions();
+            } else {
+                applyAllPermissions();
+                setTimeout(applySubTabPermissions, 50);
+            }
+        } catch (err) {
+            console.error('Tab切换权限应用异常：', err);
+        }
+    };
+}
+
+// ===== 初始化 =====
+async function initSettings() {
+    await loadSettings();
+    loadPermissionData();
+
+    var success = await loadRolesFromSupabase();
+    renderAll();
+    if (success) {
+        savePermissionData();
+    }
+    
+    // 应用用户权限
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    if (saved) {
+        try {
+            var user = JSON.parse(saved);
+            if (user && user.id) {
+                await loadAllUsersFromSupabase();
+                setCurrentUser(user.id);
+                console.log('✅ 应用 Supabase 用户权限:', user.name);
+            } else {
+                applyUserPermissions();
+            }
+        } catch(e) {
+            console.warn('应用用户权限失败:', e);
+            applyUserPermissions();
+        }
+    } else {
+        applyUserPermissions();
+    }
+
+    setTimeout(function() {
+        switchSettingsTab('basic');
+    }, 200);
+
+    var settingsTab = document.getElementById('settingsTab');
+    if (settingsTab) settingsTab.style.display = 'inline-block';
+}
+
+// 兼容旧的 applyUserPermissions
+function applyUserPermissions() {
+    var saved = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
+    if (saved) {
+        try {
+            var user = JSON.parse(saved);
+            if (user && user.id) {
+                if (permissionData.roles.length === 0) {
+                    loadRolesFromSupabase().then(function() {
+                        loadAllUsersFromSupabase().then(function() {
+                            setCurrentUser(user.id);
+                            console.log('✅ 应用 Supabase 用户权限（角色已加载）:', user.name);
+                        });
+                    });
+                } else {
+                    loadAllUsersFromSupabase().then(function() {
+                        setCurrentUser(user.id);
+                        console.log('✅ 应用 Supabase 用户权限（刷新列表）:', user.name);
+                    });
+                }
+                return;
+            }
+        } catch(e) {
+            console.warn('应用用户权限失败:', e);
+        }
+    }
+    // 如果找不到用户，使用默认管理员
+    var adminUser = permissionData.users.find(function(u) { return u.name === 'admin'; });
+    if (adminUser) {
+        setCurrentUser(adminUser.id);
+    } else {
+        setCurrentUser('user_1');
+    }
+}
+
 // ===== 页面加载初始化 =====
-// ============================================================
 setTimeout(function() {
     if (document.getElementById('settings')) {
         initSettings();
