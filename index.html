@@ -95,22 +95,31 @@
     <button class="btn btn-default" onclick="clearSort()">清除排序</button>
 
     <!-- 供应商搜索下拉 -->
-    <div style="position:relative; display:inline-block;">
-        <input type="text" id="goodsFilterSupplierInput" placeholder="搜索供应商"
-               onfocus="showGoodsFilterList('supplier')" 
-               oninput="filterGoodsFilterList('supplier')" 
-               style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-        <div id="goodsFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-    </div>
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="goodsFilterSupplierInput" placeholder="搜索供应商"
+           onfocus="showGoodsFilterList('supplier')" 
+           oninput="onGoodsFilterInput()"
+           style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="goodsFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+</div>
 
-    <!-- 商品名搜索下拉 -->
-    <div style="position:relative; display:inline-block;">
-        <input type="text" id="goodsFilterGoodsNameInput" placeholder="搜索商品名"
-               onfocus="showGoodsFilterList('goodsName')" 
-               oninput="filterGoodsFilterList('goodsName')" 
-               style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-        <div id="goodsFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-    </div>
+<!-- 商品名搜索下拉 -->
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="goodsFilterGoodsNameInput" placeholder="搜索商品名"
+           onfocus="showGoodsFilterList('goodsName')" 
+           oninput="onGoodsFilterInput()"
+           style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="goodsFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+</div>
+
+<!-- 结算方式搜索下拉 -->
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="goodsFilterChannelInput" placeholder="搜索结算方式"
+           onfocus="showGoodsFilterList('channel')" 
+           oninput="onGoodsFilterInput()"
+           style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="goodsFilterChannelList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+</div>
 
     <!-- 结算方式搜索下拉 -->
     <div style="position:relative; display:inline-block;">
@@ -289,27 +298,27 @@
     <!-- 供应商搜索下拉 -->
     <div style="position:relative; display:inline-block;">
         <input type="text" id="inFilterSupplierInput" placeholder="搜索供应商"
-               onfocus="showInFilterList('supplier')" 
-               oninput="filterInFilterList('supplier')" 
-               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+       onfocus="showInFilterList('supplier')" 
+       oninput="onInFilterInput()"
+       style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
         <div id="inFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
     </div>
 
     <!-- 商品名搜索下拉 -->
     <div style="position:relative; display:inline-block;">
-        <input type="text" id="inFilterGoodsNameInput" placeholder="搜索商品名"
-               onfocus="showInFilterList('goodsName')" 
-               oninput="filterInFilterList('goodsName')" 
-               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <input type="text" id="inFilterSupplierInput" placeholder="搜索供应商"
+       onfocus="showInFilterList('supplier')" 
+       oninput="onInFilterInput()"
+       style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
         <div id="inFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
     </div>
 
     <!-- 结算方式搜索下拉 -->
     <div style="position:relative; display:inline-block;">
-        <input type="text" id="inFilterSettleTypeInput" placeholder="搜索结算方式"
-               onfocus="showInFilterList('settleType')" 
-               oninput="filterInFilterList('settleType')" 
-               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <input type="text" id="inFilterSupplierInput" placeholder="搜索供应商"
+       onfocus="showInFilterList('supplier')" 
+       oninput="onInFilterInput()"
+       style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
         <div id="inFilterSettleTypeList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
     </div>
 

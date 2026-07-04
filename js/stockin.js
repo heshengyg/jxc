@@ -155,6 +155,11 @@ function resetInSearch() {
     filterStockIn();
 }
 
+// ========== 入库实时搜索（输入即搜索） ==========
+function onInFilterInput() {
+    filterStockIn();  // 直接调用筛选函数
+}
+
 // ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
 async function preLoadStockOutData() {
     // 直接等待页面初始化时已经发起的全局请求，不会新增任何网络耗时

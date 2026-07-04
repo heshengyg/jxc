@@ -1020,6 +1020,11 @@ function resetGoodsSearch() {
     document.querySelectorAll('[id^="goodsFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterGoods();
 }
+// ========== 商品实时搜索（输入即搜索） ==========
+function onGoodsFilterInput() {
+    filterGoods();  // 直接调用筛选函数
+}
+
 
 function updateSortIcon() {
     document.querySelectorAll('.sort-icon').forEach(i => i.innerText = '');
