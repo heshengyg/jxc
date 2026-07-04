@@ -160,9 +160,26 @@ function resetInSearch() {
 
 // ========== 入库实时搜索（输入即搜索） ==========
 function onInFilterInput() {
-    filterStockIn();  // 直接调用筛选函数
+    // 1. 实时筛选列表
+    filterStockIn();
+    
+    // 2. 实时更新下拉列表
+    // 判断当前哪个输入框有焦点或内容，刷新对应的下拉
+    const supplierInput = document.getElementById('inFilterSupplierInput');
+    const goodsInput = document.getElementById('inFilterGoodsNameInput');
+    const settleInput = document.getElementById('inFilterSettleTypeInput');
+    
+    if (document.activeElement === supplierInput) {
+        renderInFilterList('supplier', supplierInput.value.trim());
+        document.getElementById('inFilterSupplierList').style.display = 'block';
+    } else if (document.activeElement === goodsInput) {
+        renderInFilterList('goodsName', goodsInput.value.trim());
+        document.getElementById('inFilterGoodsNameList').style.display = 'block';
+    } else if (document.activeElement === settleInput) {
+        renderInFilterList('settleType', settleInput.value.trim());
+        document.getElementById('inFilterSettleTypeList').style.display = 'block';
+    }
 }
-
 // ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
 async function preLoadStockOutData() {
     // 直接等待页面初始化时已经发起的全局请求，不会新增任何网络耗时

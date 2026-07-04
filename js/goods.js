@@ -1026,9 +1026,25 @@ function resetGoodsSearch() {
 }
 // ========== 商品实时搜索（输入即搜索） ==========
 function onGoodsFilterInput() {
-    filterGoods();  // 直接调用筛选函数
+    // 1. 实时筛选列表
+    filterGoods();
+    
+    // 2. 实时更新下拉列表
+    const supplierInput = document.getElementById('goodsFilterSupplierInput');
+    const goodsInput = document.getElementById('goodsFilterGoodsNameInput');
+    const channelInput = document.getElementById('goodsFilterChannelInput');
+    
+    if (document.activeElement === supplierInput) {
+        renderGoodsFilterList('supplier', supplierInput.value.trim());
+        document.getElementById('goodsFilterSupplierList').style.display = 'block';
+    } else if (document.activeElement === goodsInput) {
+        renderGoodsFilterList('goodsName', goodsInput.value.trim());
+        document.getElementById('goodsFilterGoodsNameList').style.display = 'block';
+    } else if (document.activeElement === channelInput) {
+        renderGoodsFilterList('channel', channelInput.value.trim());
+        document.getElementById('goodsFilterChannelList').style.display = 'block';
+    }
 }
-
 
 function updateSortIcon() {
     document.querySelectorAll('.sort-icon').forEach(i => i.innerText = '');
