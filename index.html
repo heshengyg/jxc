@@ -456,21 +456,44 @@
         <div class="stat-bar">
             共 <span id="outTotalCount">0</span> 条出库记录，当前搜索结果 <span id="outSearchCount">0</span> 条
         </div>
-        <div class="search-bar">
-            <button class="btn btn-primary" onclick="openStockOutForm()">添加出库</button>
-            <button class="btn btn-success" onclick="downloadStockOutTemplate()">下载出库模板</button>
-            <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入出库</button>
-            <button class="btn btn-default" onclick="exportStockOutExcel()">导出出库记录</button>
-            <button class="btn btn-danger" onclick="batchDeleteStockOut()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshStockOut()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearOutSort()">清除排序</button>
-            <select id="outSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goodsName">按商品名搜索</option>
-            </select>
-            <input type="text" id="outSearchKeyword" placeholder="输入关键词" oninput="filterStockOut()">
-            <button class="btn btn-default" onclick="resetOutSearch()">重置搜索</button>
-        </div>
+        <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+    <button class="btn btn-primary" onclick="openStockOutForm()">添加出库</button>
+    <button class="btn btn-success" onclick="downloadStockOutTemplate()">下载出库模板</button>
+    <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入出库</button>
+    <button class="btn btn-default" onclick="exportStockOutExcel()">导出出库记录</button>
+    <button class="btn btn-danger" onclick="batchDeleteStockOut()">批量删除</button>
+    <button class="btn btn-default" onclick="refreshStockOut()">刷新列表</button>
+    <button class="btn btn-default" onclick="clearOutSort()">清除排序</button>
+
+    <!-- 供应商搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="outFilterSupplierInput" placeholder="搜索供应商"
+               onfocus="showOutFilterList('supplier')" 
+               oninput="onOutFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="outFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 商品名搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="outFilterGoodsNameInput" placeholder="搜索商品名"
+               onfocus="showOutFilterList('goodsName')" 
+               oninput="onOutFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="outFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 结算方式搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="outFilterSettleTypeInput" placeholder="搜索结算方式"
+               onfocus="showOutFilterList('settleType')" 
+               oninput="onOutFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="outFilterSettleTypeList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <button class="btn btn-default" onclick="resetOutSearch()">重置搜索</button>
+</div>
         <div class="table-container">
             <table>
                 <thead>

@@ -1,10 +1,103 @@
 // ===================== 出库模块 - 纯业务函数 =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
-
+// ========== 出库筛选数据 ==========
+let outFilterData = {
+    supplier: [],
+    goodsName: [],
+    settleType: ['线上', '线下']  // 结算方式固定
+};
 // 刷新出库列表
 function refreshStockOut(){
     loadStockOut();
+}
+
+// ========== 出库筛选下拉 ==========
+function initOutFilterData() {
+    if (!allStockOut || allStockOut.length === 0) return;
+    outFilterData.supplier = [...new Set(allStockOut.map(item => item.supplier).filter(s => s))].sort();
+    outFilterData.goodsName = [...new Set(allStockOut.map(item => item.goodsName).filter(n => n))].sort();
+}
+
+function showOutFilterList(type) {
+    const listId = `outFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    const inputId = `outFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderOutFilterList(type, kw);
+    box.style.display = 'block';
+}
+
+function filterOutFilterList(type) {
+    const inputId = `outFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderOutFilterList(type, kw);
+    const listId = `outFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (box) box.style.display = 'block';
+}
+
+function renderOutFilterList(type, keyword = '') {
+    const listId = `outFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = outFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `outFilter${capitalize(type)}Input`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterStockOut();
+        };
+        box.appendChild(div);
+    });
+}
+
+function resetOutSearch() {
+    document.getElementById('outFilterSupplierInput').value = '';
+    document.getElementById('outFilterGoodsNameInput').value = '';
+    document.getElementById('outFilterSettleTypeInput').value = '';
+    document.querySelectorAll('[id^="outFilter"][id$="List"]').forEach(el => el.style.display = 'none');
+    filterStockOut();
+}
+
+// ========== 出库实时搜索（输入即搜索） ==========
+function onOutFilterInput() {
+    filterStockOut();
+    // 实时更新下拉列表
+    const supplierInput = document.getElementById('outFilterSupplierInput');
+    const goodsInput = document.getElementById('outFilterGoodsNameInput');
+    const settleInput = document.getElementById('outFilterSettleTypeInput');
+    
+    if (document.activeElement === supplierInput) {
+        renderOutFilterList('supplier', supplierInput.value.trim());
+        const list = document.getElementById('outFilterSupplierList');
+        if (list) list.style.display = 'block';
+    } else if (document.activeElement === goodsInput) {
+        renderOutFilterList('goodsName', goodsInput.value.trim());
+        const list = document.getElementById('outFilterGoodsNameList');
+        if (list) list.style.display = 'block';
+    } else if (document.activeElement === settleInput) {
+        renderOutFilterList('settleType', settleInput.value.trim());
+        const list = document.getElementById('outFilterSettleTypeList');
+        if (list) list.style.display = 'block';
+    }
 }
 
 // 供应商下拉
@@ -325,6 +418,7 @@ async function loadStockOut() {
         });
         const allData = await fetchAll.json();
         allStockOut = allData;
+        initOutFilterData();
         window.allStockOut = allData;   // ✅ 新增：暴露到全局，供财务模块使用
         document.getElementById('outTotalCount').textContent = allData.length;
         outCurrentPage = 1;
@@ -335,14 +429,28 @@ async function loadStockOut() {
 }
 // 搜索筛选
 function filterStockOut() {
-    let field = document.getElementById('outSearchField').value;
-    let kw = document.getElementById('outSearchKeyword').value.toLowerCase();
-    filteredStockOut = allStockOut.filter(item => String(item[field]||'').toLowerCase().includes(kw));
+    const supplier = document.getElementById('outFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('outFilterGoodsNameInput')?.value.trim() || '';
+    const settleType = document.getElementById('outFilterSettleTypeInput')?.value.trim() || '';
+
+    if (!allStockOut || !Array.isArray(allStockOut)) {
+        filteredStockOut = [];
+    } else {
+        filteredStockOut = allStockOut.filter(item => {
+            let match = true;
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.goodsName || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (settleType && !(item.settleType || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
+            return match;
+        });
+    }
+
     document.getElementById('outSearchCount').textContent = filteredStockOut.length;
-    outCurrentPage = 1;   // ✅ 重置到第一页
+    outCurrentPage = 1;
     renderOutPagination();
     renderStockOut();
 }
+
 // 排序
 function outSortTable(field) {
     outSortField = field;
@@ -504,3 +612,18 @@ function resetOutSearch() {
         }
     });
 })();
+
+// ===== 全局点击关闭下拉列表（出库筛选） =====
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'outFilterSupplierList',
+        'outFilterGoodsNameList',
+        'outFilterSettleTypeList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
