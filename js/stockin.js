@@ -2,6 +2,13 @@
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
 
+// ========== 入库筛选数据 ==========
+let inFilterData = {
+    supplier: [],
+    goodsName: [],
+    settleType: ['线上', '线下']  // 结算方式固定
+};
+
 // 页面全局初始化：脚本加载时就后台预拉取出库数据，不用等点击入库按钮
 (function initPreLoadOut() {
     allStockOutReadyPromise = (async function () {
@@ -83,6 +90,69 @@ async function checkInUsed(inId) {
 // 刷新入库列表
 async function refreshStockIn(){
     await loadStockIn();
+}
+
+// ========== 入库筛选下拉 ==========
+function initInFilterData() {
+    if (!allStockIn || allStockIn.length === 0) return;
+    inFilterData.supplier = [...new Set(allStockIn.map(item => item.supplier).filter(s => s))].sort();
+    inFilterData.goodsName = [...new Set(allStockIn.map(item => item.goodsName).filter(n => n))].sort();
+}
+
+function showInFilterList(type) {
+    const listId = `inFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    renderInFilterList(type);
+    box.style.display = 'block';
+}
+
+function filterInFilterList(type) {
+    const inputId = `inFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderInFilterList(type, kw);
+    const listId = `inFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (box) box.style.display = 'block';
+}
+
+function renderInFilterList(type, keyword = '') {
+    const listId = `inFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = inFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `inFilter${capitalize(type)}Input`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterStockIn();
+        };
+        box.appendChild(div);
+    });
+}
+
+function resetInSearch() {
+    document.getElementById('inFilterSupplierInput').value = '';
+    document.getElementById('inFilterGoodsNameInput').value = '';
+    document.getElementById('inFilterSettleTypeInput').value = '';
+    // 关闭所有下拉
+    document.querySelectorAll('[id^="inFilter"][id$="List"]').forEach(el => el.style.display = 'none');
+    filterStockIn();
 }
 
 // ========= 预加载兜底：等待全局初始化的出库请求完成，不再重复发起网络请求 =========
@@ -472,6 +542,7 @@ async function loadStockIn() {
         });
         const allData = await fetchAll.json();
         allStockIn = allData;
+       initInFilterData();
         document.getElementById('inTotalCount').textContent = allData.length;
         
         // ✅ 确保缓存刷新
@@ -485,15 +556,27 @@ async function loadStockIn() {
 }
 // 搜索筛选
 function filterStockIn() {
-    let field = document.getElementById('inSearchField').value;
-    let kw = document.getElementById('inSearchKeyword').value.toLowerCase();
-    filteredStockIn = allStockIn.filter(item => String(item[field]||'').toLowerCase().includes(kw));
+    const supplier = document.getElementById('inFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('inFilterGoodsNameInput')?.value.trim() || '';
+    const settleType = document.getElementById('inFilterSettleTypeInput')?.value.trim() || '';
+
+    if (!allStockIn || !Array.isArray(allStockIn)) {
+        filteredStockIn = [];
+    } else {
+        filteredStockIn = allStockIn.filter(item => {
+            let match = true;
+            if (supplier && item.supplier !== supplier) match = false;
+            if (goodsName && item.goodsName !== goodsName) match = false;
+            if (settleType && item.settleType !== settleType) match = false;
+            return match;
+        });
+    }
+
     document.getElementById('inSearchCount').textContent = filteredStockIn.length;
-    inCurrentPage = 1;   // ✅ 重置当前页为第一页
+    inCurrentPage = 1;
     renderInPagination();
     renderStockIn();
 }
-
 // 列表排序
 function inSortTable(field) {
     inSortField = field;
@@ -765,3 +848,18 @@ function resetInSearch() {
         }
     });
 })();
+
+// ===== 全局点击关闭下拉列表（入库筛选） =====
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'inFilterSupplierList',
+        'inFilterGoodsNameList',
+        'inFilterSettleTypeList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
