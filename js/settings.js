@@ -1,3 +1,204 @@
+// ===================== 操作权限定义 =====================
+const OPERATION_PERMISSIONS = {
+    goods: {
+        label: '商品管理',
+        subModules: {
+            goodsInfo: {
+                label: '商品信息',
+                operations: [
+                    { key: 'add', label: '新增商品' },
+                    { key: 'edit', label: '编辑商品' },
+                    { key: 'delete', label: '删除商品' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'import', label: '批量导入' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'downloadTemplate', label: '下载模板' }
+                ]
+            },
+            settleType: {
+                label: '供应商管理',
+                operations: [
+                    { key: 'add', label: '新增供应商' },
+                    { key: 'edit', label: '编辑供应商' },
+                    { key: 'delete', label: '删除供应商' },
+                    { key: 'import', label: '批量导入' },
+                    { key: 'export', label: '导出Excel' }
+                ]
+            },
+            dateChange: {
+                label: '后台更换日期',
+                operations: [
+                    { key: 'edit', label: '编辑日期' },
+                    { key: 'batchUpdate', label: '批量更新' }
+                ]
+            }
+        }
+    },
+    stockIn: {
+        label: '入库管理',
+        subModules: {
+            stockInList: {
+                label: '入库记录',
+                operations: [
+                    { key: 'add', label: '添加入库' },
+                    { key: 'edit', label: '编辑入库' },
+                    { key: 'delete', label: '删除入库' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'import', label: '批量导入' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'downloadTemplate', label: '下载模板' }
+                ]
+            }
+        }
+    },
+    returnGoods: {
+        label: '退货管理',
+        subModules: {
+            returnList: {
+                label: '退货记录',
+                operations: [
+                    { key: 'add', label: '添加退货' },
+                    { key: 'edit', label: '编辑退货' },
+                    { key: 'delete', label: '删除退货' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'export', label: '导出Excel' }
+                ]
+            }
+        }
+    },
+    stockOut: {
+        label: '出库管理',
+        subModules: {
+            stockOutList: {
+                label: '出库记录',
+                operations: [
+                    { key: 'add', label: '添加出库' },
+                    { key: 'edit', label: '编辑出库' },
+                    { key: 'delete', label: '删除出库' },
+                    { key: 'batchDelete', label: '批量删除' },
+                    { key: 'import', label: '批量导入' },
+                    { key: 'export', label: '导出Excel' },
+                    { key: 'downloadTemplate', label: '下载模板' }
+                ]
+            }
+        }
+    },
+    stockView: {
+        label: '库存查看',
+        subModules: {
+            stockList: {
+                label: '库存列表',
+                operations: [
+                    { key: 'export', label: '导出库存报表' },
+                    { key: 'refresh', label: '刷新库存' }
+                ]
+            }
+        }
+    },
+    finance: {
+        label: '财务综合',
+        subModules: {
+            taxRate: {
+                label: '税率录入',
+                operations: [
+                    { key: 'edit', label: '编辑税率' },
+                    { key: 'refresh', label: '刷新列表' }
+                ]
+            },
+            stockInPrint: {
+                label: '入库单打印',
+                operations: [
+                    { key: 'search', label: '查询' },
+                    { key: 'print', label: '打印预览' }
+                ]
+            },
+            payRecord: {
+                label: '财务付款记录',
+                operations: [
+                    { key: 'add', label: '新增付款' },
+                    { key: 'edit', label: '编辑付款' },
+                    { key: 'delete', label: '删除付款' }
+                ]
+            },
+            invoiceBack: {
+                label: '发票返回记录',
+                operations: [
+                    { key: 'add', label: '新增发票返回' },
+                    { key: 'edit', label: '编辑发票返回' },
+                    { key: 'delete', label: '删除发票返回' }
+                ]
+            },
+            paymentBoard: {
+                label: '收付款看板',
+                operations: [
+                    { key: 'view', label: '查看' }
+                ]
+            },
+            monthInvoiceBalance: {
+                label: '发票月结余',
+                operations: [
+                    { key: 'search', label: '查询' }
+                ]
+            },
+            stockInCheck: {
+                label: '入库对账',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出对账表' }
+                ]
+            },
+            stockOutCheck: {
+                label: '出库对账',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出对账表' }
+                ]
+            },
+            monthBeginStock: {
+                label: '月期初数',
+                operations: [
+                    { key: 'search', label: '查询汇总' },
+                    { key: 'export', label: '导出期初表' }
+                ]
+            }
+        }
+    },
+    settings: {
+        label: '系统设置',
+        subModules: {
+            basic: {
+                label: '基础设置',
+                operations: [
+                    { key: 'edit', label: '编辑设置' },
+                    { key: 'save', label: '保存设置' }
+                ]
+            },
+            data: {
+                label: '数据管理',
+                operations: [
+                    { key: 'backup', label: '立即备份' },
+                    { key: 'import', label: '导入数据' },
+                    { key: 'clear', label: '清空数据' }
+                ]
+            },
+            permission: {
+                label: '权限管理',
+                operations: [
+                    { key: 'addRole', label: '新增角色' },
+                    { key: 'editRole', label: '编辑角色' },
+                    { key: 'deleteRole', label: '删除角色' },
+                    { key: 'addUser', label: '添加用户' },
+                    { key: 'deleteUser', label: '删除用户' },
+                    { key: 'editUserPerm', label: '编辑用户权限' }
+                ]
+            }
+        }
+    }
+};
+
+// 挂载到 window 供其他模块使用
+window.OPERATION_PERMISSIONS = OPERATION_PERMISSIONS;
+
 //===================== 系统设置模块（完整权限版） =====================
 let settingsData = {
     companyName: '',
@@ -120,6 +321,7 @@ function isCurrentUserAdmin() {
 function getUserPermissions(userId) {
     var user = permissionData.users.find(function(u) { return u.id === userId; });
     if (!user) {
+        // 尝试通过用户名查找
         user = permissionData.users.find(function(u) { return u.name === 'admin'; });
         if (user) {
             console.log('🔄 通过用户名找到用户:', user.name);
@@ -132,6 +334,7 @@ function getUserPermissions(userId) {
             banned: []
         };
     }
+    
     var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
     if (!role) {
         console.warn('⚠️ 角色不存在，使用默认管理员权限');
@@ -140,8 +343,15 @@ function getUserPermissions(userId) {
             banned: user.bannedOperations || []
         };
     }
+    
+    // 确保管理员拥有所有权限
+    var viewPerms = role.viewPermissions || [];
+    if (role.name === '管理员') {
+        viewPerms = ALL_MENUS.map(function(m) { return m.key; });
+    }
+    
     return {
-        view: role.viewPermissions || [],
+        view: viewPerms,
         banned: user.bannedOperations || []
     };
 }
@@ -287,7 +497,21 @@ async function loadRolesFromSupabase() {
 
         if (result.data && result.data.length > 0) {
             permissionData.roles = result.data.map(function(role) {
-                var migrated = migrateKeys(role.view_permissions || []);
+                // 确保 view_permissions 是数组
+                var perms = role.view_permissions || [];
+                if (typeof perms === 'string') {
+                    try {
+                        perms = JSON.parse(perms);
+                    } catch(e) {
+                        perms = [];
+                    }
+                }
+                // 如果 perms 为空或只有几个，使用 ALL_MENUS 作为默认（管理员全权限）
+                var migrated = migrateKeys(perms);
+                // 对于管理员角色，确保拥有所有权限
+                if (role.name === '管理员') {
+                    migrated = ALL_MENUS.map(function(m) { return m.key; });
+                }
                 return {
                     id: role.id,
                     name: role.name,
@@ -303,7 +527,6 @@ async function loadRolesFromSupabase() {
         return false;
     }
 }
-
 async function saveRoleToSupabase(role) {
     try {
         const data = {
