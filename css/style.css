@@ -545,3 +545,12 @@ tbody tr:hover { background-color: #e6f7ef; }
     margin: 20px auto !important;
     padding: 20px !important;
 }
+/* 商品筛选搜索框高度统一 */
+#sub-goodsInfo .search-bar input[type="text"] {
+    height: 34px;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
