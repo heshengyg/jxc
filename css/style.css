@@ -488,3 +488,72 @@ tbody tr:hover { background-color: #e6f7ef; }
     height: 15px;
     cursor: pointer;
 }
+
+/* ============================================================
+   全局弹窗修复 - 确保所有弹窗在最顶层显示
+   ============================================================ */
+
+/* 所有弹窗遮罩层 */
+.form-modal,
+#settleModal,
+#taxModal,
+#payModal,
+#invoiceBackModal,
+#addRoleModal,
+#editUserPermModal,
+#returnModal,
+#stockOutModal,
+#stockInModal {
+    z-index: 999999 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* 弹窗内容容器 - 确保在遮罩层之上 */
+.form-container,
+#settleModal > div:not([style*="display:none"]),
+#taxModal > div:not([style*="display:none"]),
+#payModal > div:not([style*="display:none"]),
+#invoiceBackModal > div:not([style*="display:none"]),
+#addRoleModal > div:not([style*="display:none"]),
+#editUserPermModal > div:not([style*="display:none"]),
+#returnModal .form-container,
+#stockOutModal .form-container,
+#stockInModal .form-container {
+    background: #fff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    position: relative !important;
+    z-index: 1000000 !important;
+}
+
+/* 当弹窗打开时（display:flex）确保显示 */
+.form-modal[style*="display:flex"],
+#settleModal[style*="display:flex"],
+#taxModal[style*="display:flex"],
+#payModal[style*="display:flex"],
+#invoiceBackModal[style*="display:flex"],
+#addRoleModal[style*="display:flex"],
+#editUserPermModal[style*="display:flex"],
+#returnModal[style*="display:flex"],
+#stockOutModal[style*="display:flex"],
+#stockInModal[style*="display:flex"] {
+    display: flex !important;
+}
+
+/* 确保主页面不会遮挡弹窗 */
+.main-page,
+#settings,
+.tab-content {
+    z-index: auto !important;
+    position: relative !important;
+}
