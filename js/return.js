@@ -306,33 +306,62 @@ let selectedBatchData = null;
 // ========== 重置弹窗搜索 ==========
 function resetReturnModal() {
     try {
-        document.getElementById('returnSupplierSearch').value = '';
-        document.getElementById('returnGoodsSearch').value = '';
-        document.getElementById('returnSpecSearch').value = '';
+        // 安全获取元素并重置
+        const supplierSearch = document.getElementById('returnSupplierSearch');
+        if (supplierSearch) supplierSearch.value = '';
+        
+        const goodsSearch = document.getElementById('returnGoodsSearch');
+        if (goodsSearch) goodsSearch.value = '';
+        
+        const specSearch = document.getElementById('returnSpecSearch');
+        if (specSearch) specSearch.value = '';
+        
         returnSelectedSupplier = '';
         returnSelectedGoods = '';
         returnSelectedSpec = '';
         selectedBatchInRecordId = null;
         selectedBatchData = null;
 
-        document.getElementById('returnCurGoodsId').value = '';
-        document.getElementById('returnSpec').value = '';
-        document.getElementById('returnSettleType').value = '';
-        document.getElementById('returnSalePrice').value = '';
-        document.getElementById('returnInPrice').value = '';
-        document.getElementById('returnNum').value = '';
-        document.getElementById('returnBatchRemain').value = '';
-        document.getElementById('returnBatchRemainDisplay').textContent = '0';
+        const curGoodsId = document.getElementById('returnCurGoodsId');
+        if (curGoodsId) curGoodsId.value = '';
+        
+        const specInput = document.getElementById('returnSpec');
+        if (specInput) specInput.value = '';
+        
+        const settleType = document.getElementById('returnSettleType');
+        if (settleType) settleType.value = '';
+        
+        const salePrice = document.getElementById('returnSalePrice');
+        if (salePrice) salePrice.value = '';
+        
+        const inPrice = document.getElementById('returnInPrice');
+        if (inPrice) inPrice.value = '';
+        
+        const returnNum = document.getElementById('returnNum');
+        if (returnNum) returnNum.value = '';
+        
+        const batchRemain = document.getElementById('returnBatchRemain');
+        if (batchRemain) batchRemain.value = '';
+        
+        const remainDisplay = document.getElementById('returnBatchRemainDisplay');
+        if (remainDisplay) remainDisplay.textContent = '0';
 
-        document.getElementById('returnSelectedBatchInfo').innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
-        document.getElementById('returnBatchListContainer').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
+        const batchInfo = document.getElementById('returnSelectedBatchInfo');
+        if (batchInfo) batchInfo.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">请选择批次</div>';
+        
+        const batchContainer = document.getElementById('returnBatchListContainer');
+        if (batchContainer) batchContainer.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">请选择供应商或商品</div>';
 
-        document.getElementById('returnSupplierListBox').style.display = 'none';
-        document.getElementById('returnGoodsListBox').style.display = 'none';
-        document.getElementById('returnSpecListBox').style.display = 'none';
+        // 关闭所有下拉
+        const supplierBox = document.getElementById('returnSupplierListBox');
+        if (supplierBox) supplierBox.style.display = 'none';
+        const goodsBox = document.getElementById('returnGoodsListBox');
+        if (goodsBox) goodsBox.style.display = 'none';
+        const specBox = document.getElementById('returnSpecListBox');
+        if (specBox) specBox.style.display = 'none';
     } catch (e) {
         console.error('重置弹窗出错:', e);
-        showMsg('重置失败，请检查控制台错误');
+        // 不弹出错误消息，因为可能只是元素不存在
     }
 }
 window.resetReturnModal = resetReturnModal;
@@ -797,9 +826,9 @@ function openReturnAddForm() {
     document.getElementById('returnModal').style.display = 'block';
 }
 function closeReturnForm() {
+    resetReturnModal();  // 关闭前重置所有字段和下拉
     document.getElementById('returnModal').style.display = 'none';
 }
-
 // ========== 检查退货数量 ==========
 function checkReturnNum() {
     const num = +document.getElementById('returnNum').value || 0;
@@ -1299,3 +1328,35 @@ document.addEventListener('DOMContentLoaded', function() {
         loadReturnGoods();
     }
 });
+
+// ===== 全局点击关闭下拉列表（退货模块） =====
+// 防止重复绑定
+if (!window._returnClickOutsideBound) {
+    window._returnClickOutsideBound = true;
+    document.addEventListener('click', function(e) {
+        // 供应商下拉
+        const supInput = document.getElementById('returnSupplierSearch');
+        const supList = document.getElementById('returnSupplierListBox');
+        if (supList && supList.style.display === 'block') {
+            if (supInput && !supInput.contains(e.target) && !supList.contains(e.target)) {
+                supList.style.display = 'none';
+            }
+        }
+        // 商品下拉
+        const goodsInput = document.getElementById('returnGoodsSearch');
+        const goodsList = document.getElementById('returnGoodsListBox');
+        if (goodsList && goodsList.style.display === 'block') {
+            if (goodsInput && !goodsInput.contains(e.target) && !goodsList.contains(e.target)) {
+                goodsList.style.display = 'none';
+            }
+        }
+        // 规格下拉
+        const specInput = document.getElementById('returnSpecSearch');
+        const specList = document.getElementById('returnSpecListBox');
+        if (specList && specList.style.display === 'block') {
+            if (specInput && !specInput.contains(e.target) && !specList.contains(e.target)) {
+                specList.style.display = 'none';
+            }
+        }
+    });
+}
