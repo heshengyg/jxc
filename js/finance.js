@@ -466,7 +466,7 @@ function refreshTaxList() {
 
     let list = [...allGoodsList.filter(g => g.channel === '线下')];
 
-    // ✅ 改为模糊匹配（includes）
+    // 模糊匹配
     if (selectSupplier) {
         list = list.filter(g => (g.supplier || '').toLowerCase().includes(selectSupplier.toLowerCase()));
     }
@@ -516,6 +516,7 @@ function refreshTaxList() {
     });
     renderFinancePagination('taxRate');
 }
+
 // ========== 税率录入实时搜索（输入即搜索） ==========
 function onTaxFilterInput() {
     refreshTaxList();
