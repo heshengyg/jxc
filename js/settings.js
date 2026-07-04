@@ -1,6 +1,7 @@
 // ===================== 操作权限定义 =====================
-const OPERATION_PERMISSIONS = {
-    goods: {
+if (typeof OPERATION_PERMISSIONS === 'undefined') {
+    var OPERATION_PERMISSIONS = {
+        goods: {
         label: '商品管理',
         subModules: {
             goodsInfo: {
@@ -197,6 +198,7 @@ const OPERATION_PERMISSIONS = {
 };
 
 window.OPERATION_PERMISSIONS = OPERATION_PERMISSIONS;
+}
 
 // ===================== 系统设置模块 =====================
 let settingsData = {
