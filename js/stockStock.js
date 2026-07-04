@@ -233,7 +233,10 @@ function showStockFilterList(type) {
     const listId = `stockFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
     if (!box) return;
-    renderStockFilterList(type);
+    const inputId = `stockFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderStockFilterList(type, kw);
     box.style.display = 'block';
 }
 
@@ -408,16 +411,21 @@ function filterStockStock() {
     const stockStatus = document.getElementById('stockFilterStockStatusInput')?.value.trim() || '';
     const bzStatus = document.getElementById('stockFilterBzStatusInput')?.value.trim() || '';
 
-    filteredStockBatch = allStockBatchList.filter(item => {
-        let match = true;
-        if (supplier && item.supplier !== supplier) match = false;
-        if (goodsName && item.goodsName !== goodsName) match = false;
-        if (spec && item.spec !== spec) match = false;
-        if (settleType && item.settleType !== settleType) match = false;
-        if (stockStatus && item.stockWarnText !== stockStatus) match = false;
-        if (bzStatus && item.bzStatusText !== bzStatus) match = false;
-        return match;
-    });
+    if (!allStockBatchList || !Array.isArray(allStockBatchList)) {
+        filteredStockBatch = [];
+    } else {
+        filteredStockBatch = allStockBatchList.filter(item => {
+            let match = true;
+            // ✅ 改为模糊匹配（includes）
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.goodsName || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (spec && !(item.spec || '').toLowerCase().includes(spec.toLowerCase())) match = false;
+            if (settleType && !(item.settleType || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
+            if (stockStatus && !(item.stockWarnText || '').toLowerCase().includes(stockStatus.toLowerCase())) match = false;
+            if (bzStatus && !(item.bzStatusText || '').toLowerCase().includes(bzStatus.toLowerCase())) match = false;
+            return match;
+        });
+    }
 
     const searchCountEl = document.getElementById('stockSearchCount');
     if (searchCountEl) searchCountEl.textContent = filteredStockBatch.length;
@@ -447,6 +455,41 @@ function resetStockSearch() {
     document.querySelectorAll('[id^="stockFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterStockStock();
 }
+// ========== 库存实时搜索（输入即搜索） ==========
+function onStockFilterInput() {
+    // 1. 实时筛选列表
+    filterStockStock();
+    
+    // 2. 实时更新下拉列表
+    const types = ['supplier', 'goodsName', 'spec', 'settleType', 'stockStatus', 'bzStatus'];
+    const inputIds = {
+        supplier: 'stockFilterSupplierInput',
+        goodsName: 'stockFilterGoodsNameInput',
+        spec: 'stockFilterSpecInput',
+        settleType: 'stockFilterSettleTypeInput',
+        stockStatus: 'stockFilterStockStatusInput',
+        bzStatus: 'stockFilterBzStatusInput'
+    };
+    const listIds = {
+        supplier: 'stockFilterSupplierList',
+        goodsName: 'stockFilterGoodsNameList',
+        spec: 'stockFilterSpecList',
+        settleType: 'stockFilterSettleTypeList',
+        stockStatus: 'stockFilterStockStatusList',
+        bzStatus: 'stockFilterBzStatusList'
+    };
+    
+    for (const type of types) {
+        const input = document.getElementById(inputIds[type]);
+        const list = document.getElementById(listIds[type]);
+        if (document.activeElement === input && list) {
+            renderStockFilterList(type, input.value.trim());
+            list.style.display = 'block';
+            break;
+        }
+    }
+}
+
 /**
  * 表头排序（新增结算方式、单价排序）
  */
@@ -687,3 +730,5 @@ document.addEventListener('click', function(e) {
         }
     });
 });
+window.resetStockSearch = resetStockSearch;
+window.onStockFilterInput = onStockFilterInput;

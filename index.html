@@ -541,54 +541,66 @@
             共 <span id="stockTotalCount">0</span> 条库存记录，当前搜索结果 <span id="stockSearchCount">0</span> 条
         </div>
         <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
-            <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
-            <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
-            <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterSupplierInput" placeholder="搜索供应商"
-                       onfocus="showStockFilterList('supplier')" 
-                       oninput="filterStockFilterList('supplier')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterGoodsNameInput" placeholder="搜索商品名"
-                       onfocus="showStockFilterList('goodsName')" 
-                       oninput="filterStockFilterList('goodsName')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterSpecInput" placeholder="搜索规格"
-                       onfocus="showStockFilterList('spec')" 
-                       oninput="filterStockFilterList('spec')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterSpecList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterSettleTypeInput" placeholder="搜索结算方式"
-                       onfocus="showStockFilterList('settleType')" 
-                       oninput="filterStockFilterList('settleType')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterSettleTypeList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterStockStatusInput" placeholder="搜索库存状态"
-                       onfocus="showStockFilterList('stockStatus')" 
-                       oninput="filterStockFilterList('stockStatus')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterStockStatusList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="stockFilterBzStatusInput" placeholder="搜索保质期状态"
-                       onfocus="showStockFilterList('bzStatus')" 
-                       oninput="filterStockFilterList('bzStatus')" 
-                       style="width:130px; padding:4px 6px; border:1px solid #ddd; border-radius:4px;">
-                <div id="stockFilterBzStatusList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-            </div>
-            <button onclick="filterStockStock()">搜索</button>
-            <button onclick="resetStockSearch()">重置</button>
-        </div>
+    <button class="btn btn-default" onclick="exportStockStockExcel()">导出库存报表</button>
+    <button class="btn btn-default" onclick="loadStockStock()">刷新库存</button>
+    <button class="btn btn-default" onclick="clearViewSort()">清除排序</button>
+
+    <!-- 供应商 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterSupplierInput" placeholder="搜索供应商"
+               onfocus="showStockFilterList('supplier')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 商品名 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterGoodsNameInput" placeholder="搜索商品名"
+               onfocus="showStockFilterList('goodsName')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 规格 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterSpecInput" placeholder="搜索规格"
+               onfocus="showStockFilterList('spec')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterSpecList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 结算方式 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterSettleTypeInput" placeholder="搜索结算方式"
+               onfocus="showStockFilterList('settleType')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterSettleTypeList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 库存状态 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterStockStatusInput" placeholder="搜索库存状态"
+               onfocus="showStockFilterList('stockStatus')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterStockStatusList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 保质期状态 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="stockFilterBzStatusInput" placeholder="搜索保质期状态"
+               onfocus="showStockFilterList('bzStatus')" 
+               oninput="onStockFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="stockFilterBzStatusList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <button class="btn btn-default" onclick="resetStockSearch()">重置搜索</button>
+</div>
         <div class="table-container">
             <table class="stock-table">
                 <thead>
