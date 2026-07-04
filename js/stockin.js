@@ -715,29 +715,7 @@ async function batchDeleteStockIn() {
             usedIds.push(id);
         }
     }
-// ===== 全局点击关闭下拉列表（入库模块） =====
-// 防止重复绑定
-if (!window._stockInClickOutsideBound) {
-    window._stockInClickOutsideBound = true;
-    document.addEventListener('click', function(e) {
-        // 供应商下拉
-        const supInput = document.getElementById('supSearchInput');
-        const supList = document.getElementById('supListBox');
-        if (supList && supList.style.display === 'block') {
-            if (supInput && !supInput.contains(e.target) && !supList.contains(e.target)) {
-                supList.style.display = 'none';
-            }
-        }
-        // 商品下拉
-        const goodsInput = document.getElementById('goodsSearchInput');
-        const goodsList = document.getElementById('goodsListBox');
-        if (goodsList && goodsList.style.display === 'block') {
-            if (goodsInput && !goodsInput.contains(e.target) && !goodsList.contains(e.target)) {
-                goodsList.style.display = 'none';
-            }
-        }
-    });
-}
+
     if (usedIds.length > 0) {
         showMsg(`选中数据中有 ${usedIds.length} 条已关联出库或退货单据，无法删除！`);
         return;
@@ -763,3 +741,27 @@ function resetInSearch() {
     document.getElementById('inSearchField').selectedIndex = 0;
     filterStockIn();
 }
+
+// ===== 全局点击关闭下拉列表（入库模块） =====
+(function() {
+    if (window._stockInClickOutsideBound) return;
+    window._stockInClickOutsideBound = true;
+    document.addEventListener('click', function(e) {
+        // 供应商下拉
+        const supInput = document.getElementById('supSearchInput');
+        const supList = document.getElementById('supListBox');
+        if (supList && supList.style.display === 'block') {
+            if (supInput && !supInput.contains(e.target) && !supList.contains(e.target)) {
+                supList.style.display = 'none';
+            }
+        }
+        // 商品下拉
+        const goodsInput = document.getElementById('goodsSearchInput');
+        const goodsList = document.getElementById('goodsListBox');
+        if (goodsList && goodsList.style.display === 'block') {
+            if (goodsInput && !goodsInput.contains(e.target) && !goodsList.contains(e.target)) {
+                goodsList.style.display = 'none';
+            }
+        }
+    });
+})();

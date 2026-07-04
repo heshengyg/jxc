@@ -819,23 +819,19 @@ function toggleReturnBatch(index) {
 
 // ========== 打开退货弹窗 ==========
 function openReturnAddForm() {
-    resetReturnModal();
-    document.getElementById('returnFormTitle').innerText = '添加退货单据';
-    document.getElementById('returnEditId').value = '';
-    document.getElementById('returnRecordDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('returnModal').style.display = 'block';
-}
-function closeReturnForm() {
-    resetReturnModal();  // 关闭前重置所有字段和下拉
-    document.getElementById('returnModal').style.display = 'none';
-}
-// ========== 检查退货数量 ==========
-function checkReturnNum() {
-    const num = +document.getElementById('returnNum').value || 0;
-    const remain = +document.getElementById('returnBatchRemain').value || 0;
-    if (num > remain && remain > 0) {
-        document.getElementById('returnNum').value = remain;
-        showMsg(`退货数量不能大于批次库存（${remain}）`);
+    try {
+        resetReturnModal();
+        const title = document.getElementById('returnFormTitle');
+        if (title) title.innerText = '添加退货单据';
+        const editId = document.getElementById('returnEditId');
+        if (editId) editId.value = '';
+        const recordDate = document.getElementById('returnRecordDate');
+        if (recordDate) recordDate.value = new Date().toISOString().split('T')[0];
+        const modal = document.getElementById('returnModal');
+        if (modal) modal.style.display = 'block';
+    } catch (e) {
+        console.error('打开退货弹窗失败:', e);
+        showMsg('打开退货弹窗失败，请刷新页面重试');
     }
 }
 
