@@ -835,6 +835,11 @@ function openReturnAddForm() {
     }
 }
 
+function closeReturnForm() {
+    resetReturnModal();
+    document.getElementById('returnModal').style.display = 'none';
+}
+
 // ========== 提交退货 ==========
 async function submitReturnGoods() {
     let supplier = returnSelectedSupplier || document.getElementById('returnSupplierSearch').value.trim();
