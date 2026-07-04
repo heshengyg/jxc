@@ -493,6 +493,10 @@ tbody tr:hover { background-color: #e6f7ef; }
    全局弹窗修复 - 确保所有弹窗在最顶层显示
    ============================================================ */
 
+/* ============================================================
+   全局弹窗修复 - 确保所有弹窗在最顶层显示
+   ============================================================ */
+
 /* 所有弹窗遮罩层 */
 .form-modal,
 #settleModal,
@@ -511,7 +515,7 @@ tbody tr:hover { background-color: #e6f7ef; }
     width: 100vw !important;
     height: 100vh !important;
     background: rgba(0, 0, 0, 0.5) !important;
-    display: none !important;
+    display: none;  /* 去掉 !important，让行内样式能覆盖 */
     align-items: center !important;
     justify-content: center !important;
     transform: none !important;
