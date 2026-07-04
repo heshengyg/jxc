@@ -969,10 +969,13 @@ function showGoodsFilterList(type) {
     const listId = `goodsFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
     if (!box) return;
-    renderGoodsFilterList(type);
+    // ✅ 获取当前输入框的值作为关键词
+    const inputId = `goodsFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderGoodsFilterList(type, kw);
     box.style.display = 'block';
 }
-
 function filterGoodsFilterList(type) {
     const inputId = `goodsFilter${capitalize(type)}Input`;
     const input = document.getElementById(inputId);

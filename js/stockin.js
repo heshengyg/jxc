@@ -103,10 +103,13 @@ function showInFilterList(type) {
     const listId = `inFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
     if (!box) return;
-    renderInFilterList(type);
+    // ✅ 获取当前输入框的值作为关键词
+    const inputId = `inFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderInFilterList(type, kw);
     box.style.display = 'block';
 }
-
 function filterInFilterList(type) {
     const inputId = `inFilter${capitalize(type)}Input`;
     const input = document.getElementById(inputId);
