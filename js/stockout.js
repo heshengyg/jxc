@@ -144,12 +144,25 @@ function openStockOutForm(){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
+    // 关闭下拉列表
+    const supBox = document.getElementById('outSupListBox');
+    if (supBox) supBox.style.display = 'none';
+    const goodsBox = document.getElementById('outGoodsListBox');
+    if (goodsBox) goodsBox.style.display = 'none';
+    
+    // 清空商品列表缓存
+    outCurrGoodsList = [];
+
     document.getElementById('stockOutModal').style.display = 'block';
 }
 function closeStockOutForm(){
+    // 关闭时隐藏下拉
+    const supBox = document.getElementById('outSupListBox');
+    if (supBox) supBox.style.display = 'none';
+    const goodsBox = document.getElementById('outGoodsListBox');
+    if (goodsBox) goodsBox.style.display = 'none';
     document.getElementById('stockOutModal').style.display = 'none';
 }
-
 // 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
@@ -467,3 +480,27 @@ function resetOutSearch() {
     document.getElementById('outSearchField').selectedIndex = 0;
     filterStockOut();
 }
+
+// ===== 全局点击关闭下拉列表（出库模块） =====
+(function() {
+    if (window._stockOutClickOutsideBound) return;
+    window._stockOutClickOutsideBound = true;
+    document.addEventListener('click', function(e) {
+        // 供应商下拉
+        const supInput = document.getElementById('outSupSearchInput');
+        const supList = document.getElementById('outSupListBox');
+        if (supList && supList.style.display === 'block') {
+            if (supInput && !supInput.contains(e.target) && !supList.contains(e.target)) {
+                supList.style.display = 'none';
+            }
+        }
+        // 商品下拉
+        const goodsInput = document.getElementById('outGoodsSearchInput');
+        const goodsList = document.getElementById('outGoodsListBox');
+        if (goodsList && goodsList.style.display === 'block') {
+            if (goodsInput && !goodsInput.contains(e.target) && !goodsList.contains(e.target)) {
+                goodsList.style.display = 'none';
+            }
+        }
+    });
+})();
