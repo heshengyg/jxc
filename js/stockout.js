@@ -73,6 +73,7 @@ function resetOutSearch() {
     document.getElementById('outFilterSupplierInput').value = '';
     document.getElementById('outFilterGoodsNameInput').value = '';
     document.getElementById('outFilterSettleTypeInput').value = '';
+    // 关闭所有下拉
     document.querySelectorAll('[id^="outFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterStockOut();
 }
@@ -627,3 +628,4 @@ document.addEventListener('click', function(e) {
         }
     });
 });
+window.resetOutSearch = resetOutSearch;
