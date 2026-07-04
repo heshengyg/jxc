@@ -83,10 +83,10 @@ function resetReturnSearch() {
     document.getElementById('returnFilterSupplierInput').value = '';
     document.getElementById('returnFilterGoodsNameInput').value = '';
     document.getElementById('returnFilterSettleTypeInput').value = '';
+    // 关闭所有下拉
     document.querySelectorAll('[id^="returnFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterReturnGoods();
 }
-
 // ========== 退货实时搜索（输入即搜索） ==========
 function onReturnFilterInput() {
     filterReturnGoods();
