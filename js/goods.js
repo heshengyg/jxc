@@ -1,4 +1,10 @@
 let goodsUsedCache = new Map();
+// ========== 商品筛选数据 ==========
+let goodsFilterData = {
+    supplier: [],
+    goodsName: [],
+    channel: ['线上', '线下']  // 结算方式固定
+};
 let isLoadingGoods = false;  // ✅ 添加这行
 let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
@@ -638,6 +644,7 @@ async function loadGoods(force) {
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
         allGoods = list.sort((a, b) => b.id - a.id);
+        initGoodsFilterData();
         window.allGoods = allGoods;
         isGoodsLoaded = true;
         
@@ -917,34 +924,24 @@ function resetSearch() {
 }
 
 function filterGoods() {
-    let searchField = document.getElementById('searchField');
-    let searchKeyword = document.getElementById('searchKeyword');
-    let searchCount = document.getElementById('searchCount');
-    
-    if (!searchField || !searchKeyword || !searchCount) {
-        console.warn('搜索元素不存在');
-        return;
-    }
-    
-    let field = searchField.value;
-    let kw = searchKeyword.value.toLowerCase();
-    
+    const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
+    const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
+
     if (!allGoods || !Array.isArray(allGoods)) {
         filteredGoods = [];
     } else {
-        // 保留筛选内局部去重，不修改全局allGoods，避免数据错乱卡死
-        const uniqueMap = new Map();
-        allGoods.forEach(item => {
-            if (!uniqueMap.has(item.id)) {
-                uniqueMap.set(item.id, item);
-            }
+        filteredGoods = allGoods.filter(item => {
+            let match = true;
+            if (supplier && item.supplier !== supplier) match = false;
+            if (goodsName && item.name !== goodsName) match = false;
+            if (channel && item.channel !== channel) match = false;
+            return match;
         });
-        const uniqueGoods = Array.from(uniqueMap.values());
-        
-        filteredGoods = uniqueGoods.filter(item => String(item[field] || '').toLowerCase().includes(kw));
     }
-    
-    searchCount.textContent = filteredGoods.length;
+
+    const searchCount = document.getElementById('searchCount');
+    if (searchCount) searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
 
@@ -953,12 +950,75 @@ function filterGoods() {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
         goodsUsedCache.clear();
-        for(const item of pageData) {
+        for (const item of pageData) {
             const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
             goodsUsedCache.set(item.id, used);
         }
         renderGoods();
     })();
+}
+
+// ========== 商品筛选下拉 ==========
+function initGoodsFilterData() {
+    if (!allGoods || allGoods.length === 0) return;
+    goodsFilterData.supplier = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
+    goodsFilterData.goodsName = [...new Set(allGoods.map(item => item.name).filter(n => n))].sort();
+}
+
+function showGoodsFilterList(type) {
+    const listId = `goodsFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    renderGoodsFilterList(type);
+    box.style.display = 'block';
+}
+
+function filterGoodsFilterList(type) {
+    const inputId = `goodsFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderGoodsFilterList(type, kw);
+    const listId = `goodsFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (box) box.style.display = 'block';
+}
+
+function renderGoodsFilterList(type, keyword = '') {
+    const listId = `goodsFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = goodsFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `goodsFilter${capitalize(type)}Input`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterGoods();
+        };
+        box.appendChild(div);
+    });
+}
+
+function resetGoodsSearch() {
+    document.getElementById('goodsFilterSupplierInput').value = '';
+    document.getElementById('goodsFilterGoodsNameInput').value = '';
+    document.getElementById('goodsFilterChannelInput').value = '';
+    // 关闭所有下拉
+    document.querySelectorAll('[id^="goodsFilter"][id$="List"]').forEach(el => el.style.display = 'none');
+    filterGoods();
 }
 
 function updateSortIcon() {
@@ -2226,3 +2286,18 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
+
+// ===== 全局点击关闭下拉列表（商品筛选） =====
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'goodsFilterSupplierList',
+        'goodsFilterGoodsNameList',
+        'goodsFilterChannelList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
