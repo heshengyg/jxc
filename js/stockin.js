@@ -819,11 +819,6 @@ async function batchDeleteStockIn() {
 function clearInSort(){
     inSortField = ''; inSortAsc = true; updateInSortIcon(); loadStockIn();
 }
-function resetInSearch() {
-    document.getElementById('inSearchKeyword').value = '';
-    document.getElementById('inSearchField').selectedIndex = 0;
-    filterStockIn();
-}
 
 // ===== 全局点击关闭下拉列表（入库模块） =====
 (function() {
