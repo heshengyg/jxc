@@ -187,12 +187,7 @@ function lockProduceDate(){
 
 // 打开添加入库弹窗（异步校验）
 async function openStockInForm(id=null){
-    if (id && await checkInUsed(id)) {
-    showMsg('该入库记录已生成出库或退货单据，禁止编辑！');
-    return;
-}
-    document.getElementById('inEditId').value = id || '';
-    document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
+    // ----- 新增：重置所有字段和下拉列表 -----
     document.getElementById('supSearchInput').value = '';
     document.getElementById('goodsSearchInput').value = '';
     document.getElementById('curSelectGoodsId').value = '';
@@ -205,6 +200,18 @@ async function openStockInForm(id=null){
     document.getElementById('inRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('inProduceDate').value = '';
     document.getElementById('inExpireDate').value = '';
+    // 强制关闭下拉列表
+    document.getElementById('supListBox').style.display = 'none';
+    document.getElementById('goodsListBox').style.display = 'none';
+    // ----- 新增结束 -----
+
+    if (id && await checkInUsed(id)) {
+        showMsg('该入库记录已生成出库或退货单据，禁止编辑！');
+        return;
+    }
+    document.getElementById('inEditId').value = id || '';
+    document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
+    
     if(id){
         let item = allStockIn.find(x=>x.id === id);
         if(!item) return;
