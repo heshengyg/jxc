@@ -374,19 +374,42 @@
         <div class="stat-bar">
             共 <span id="returnTotalCount">0</span> 条退货记录，当前搜索结果 <span id="returnSearchCount">0</span> 条
         </div>
-        <div class="search-bar">
-            <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
-            <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
-            <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
-            <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
-            <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
-            <select id="returnSearchField">
-                <option value="supplier">按供应商搜索</option>
-                <option value="goods_name">按商品名搜索</option>
-            </select>
-            <input type="text" id="returnSearchKeyword" placeholder="输入关键词" oninput="filterReturnGoods()">
-            <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
-        </div>
+        <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+    <button class="btn btn-primary" onclick="openReturnAddForm()">添加退货</button>
+    <button class="btn btn-default" onclick="exportReturnExcel()">导出Excel</button>
+    <button class="btn btn-danger" onclick="batchDeleteReturnGoods()">批量删除</button>
+    <button class="btn btn-default" onclick="refreshReturnGoods()">刷新列表</button>
+    <button class="btn btn-default" onclick="clearReturnSort()">清除排序</button>
+
+    <!-- 供应商搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="returnFilterSupplierInput" placeholder="搜索供应商"
+               onfocus="showReturnFilterList('supplier')" 
+               oninput="onReturnFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="returnFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 商品名搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="returnFilterGoodsNameInput" placeholder="搜索商品名"
+               onfocus="showReturnFilterList('goodsName')" 
+               oninput="onReturnFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="returnFilterGoodsNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <!-- 结算方式搜索下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="returnFilterSettleTypeInput" placeholder="搜索结算方式"
+               onfocus="showReturnFilterList('settleType')" 
+               oninput="onReturnFilterInput()"
+               style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="returnFilterSettleTypeList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+
+    <button class="btn btn-default" onclick="resetReturnSearch()">重置搜索</button>
+</div>
         <div class="table-container">
             <table>
                 <thead>

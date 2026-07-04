@@ -1,6 +1,12 @@
 // ===================== 退货管理模块 =====================
 // 全局变量
 let returnCurrentPage = 1;
+// ========== 退货筛选数据 ==========
+let returnFilterData = {
+    supplier: [],
+    goodsName: [],
+    settleType: ['线上', '线下']  // 结算方式固定
+};
 let returnPageSize = 10;
 let returnTotalPages = 1;
 let returnSortField = '';
@@ -16,6 +22,94 @@ function refreshReturnGoods() {
     loadReturnGoods();
 }
 
+// ========== 退货筛选下拉 ==========
+function initReturnFilterData() {
+    if (!allReturnGoods || allReturnGoods.length === 0) return;
+    returnFilterData.supplier = [...new Set(allReturnGoods.map(item => item.supplier).filter(s => s))].sort();
+    returnFilterData.goodsName = [...new Set(allReturnGoods.map(item => item.goods_name).filter(n => n))].sort();
+}
+
+function showReturnFilterList(type) {
+    const listId = `returnFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    const inputId = `returnFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderReturnFilterList(type, kw);
+    box.style.display = 'block';
+}
+
+function filterReturnFilterList(type) {
+    const inputId = `returnFilter${capitalize(type)}Input`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderReturnFilterList(type, kw);
+    const listId = `returnFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (box) box.style.display = 'block';
+}
+
+function renderReturnFilterList(type, keyword = '') {
+    const listId = `returnFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = returnFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `returnFilter${capitalize(type)}Input`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterReturnGoods();
+        };
+        box.appendChild(div);
+    });
+}
+
+function resetReturnSearch() {
+    document.getElementById('returnFilterSupplierInput').value = '';
+    document.getElementById('returnFilterGoodsNameInput').value = '';
+    document.getElementById('returnFilterSettleTypeInput').value = '';
+    document.querySelectorAll('[id^="returnFilter"][id$="List"]').forEach(el => el.style.display = 'none');
+    filterReturnGoods();
+}
+
+// ========== 退货实时搜索（输入即搜索） ==========
+function onReturnFilterInput() {
+    filterReturnGoods();
+    // 实时更新下拉列表
+    const supplierInput = document.getElementById('returnFilterSupplierInput');
+    const goodsInput = document.getElementById('returnFilterGoodsNameInput');
+    const settleInput = document.getElementById('returnFilterSettleTypeInput');
+    
+    if (document.activeElement === supplierInput) {
+        renderReturnFilterList('supplier', supplierInput.value.trim());
+        const list = document.getElementById('returnFilterSupplierList');
+        if (list) list.style.display = 'block';
+    } else if (document.activeElement === goodsInput) {
+        renderReturnFilterList('goodsName', goodsInput.value.trim());
+        const list = document.getElementById('returnFilterGoodsNameList');
+        if (list) list.style.display = 'block';
+    } else if (document.activeElement === settleInput) {
+        renderReturnFilterList('settleType', settleInput.value.trim());
+        const list = document.getElementById('returnFilterSettleTypeList');
+        if (list) list.style.display = 'block';
+    }
+}
+
 async function loadReturnGoods() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods?order=id.desc`, {
@@ -24,6 +118,7 @@ async function loadReturnGoods() {
         if (!res.ok) throw new Error('读取失败');
         const data = await res.json();
         allReturnGoods = data;
+        initReturnFilterData();
         const totalEl = document.getElementById('returnTotalCount');
         if (totalEl) totalEl.textContent = data.length;
         returnCurrentPage = 1;
@@ -92,11 +187,22 @@ function initReturnPrintControls() {
 
 // ========== 搜索/筛选 ==========
 function filterReturnGoods() {
-    let field = document.getElementById('returnSearchField').value;
-    let kw = document.getElementById('returnSearchKeyword').value.toLowerCase();
-    filteredReturnGoods = allReturnGoods.filter(item => 
-        String(item[field] || '').toLowerCase().includes(kw)
-    );
+    const supplier = document.getElementById('returnFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('returnFilterGoodsNameInput')?.value.trim() || '';
+    const settleType = document.getElementById('returnFilterSettleTypeInput')?.value.trim() || '';
+
+    if (!allReturnGoods || !Array.isArray(allReturnGoods)) {
+        filteredReturnGoods = [];
+    } else {
+        filteredReturnGoods = allReturnGoods.filter(item => {
+            let match = true;
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (settleType && !(item.settle_type || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
+            return match;
+        });
+    }
+
     const searchEl = document.getElementById('returnSearchCount');
     if (searchEl) searchEl.textContent = filteredReturnGoods.length;
     returnCurrentPage = 1;
@@ -1361,3 +1467,18 @@ if (!window._returnClickOutsideBound) {
         }
     });
 }
+
+// ===== 全局点击关闭下拉列表（退货筛选） =====
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'returnFilterSupplierList',
+        'returnFilterGoodsNameList',
+        'returnFilterSettleTypeList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
