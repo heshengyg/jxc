@@ -210,13 +210,6 @@ function filterReturnGoods() {
     renderReturnList();
 }
 
-function resetReturnSearch() {
-    document.getElementById('returnSearchKeyword').value = '';
-    document.getElementById('returnSearchField').selectedIndex = 0;
-    filterReturnGoods();
-}
-window.resetReturnSearch = resetReturnSearch;
-
 function clearReturnSort() {
     returnSortField = '';
     returnSortAsc = true;
