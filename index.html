@@ -659,22 +659,37 @@
         <!-- ①税率录入 -->
         <div id="sub-taxRate" class="finance-sub-content">
             <h4>商品基础税率维护</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:15px;align-items:center;flex-wrap:wrap;position:relative;">
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>供应商筛选：</label>
-                    <input type="text" id="taxSupplierSearch" placeholder="搜索/选择供应商" onclick="showTaxSupplierList()" oninput="filterTaxSupplierList()" style="width:240px;padding:6px 8px;font-size:14px;">
-                    <div id="taxSupplierListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>商品名称筛选：</label>
-                    <input type="text" id="taxGoodsSearch" placeholder="搜索/选择商品" onclick="showTaxGoodsList()" oninput="filterTaxGoodsList()" style="width:240px;padding:6px 8px;font-size:14px;">
-                    <div id="taxGoodsListBox" style="position:absolute;top:100%;left:0;width:240px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>税率筛选：</label>
-                    <input type="text" id="taxRateSearch" placeholder="搜索/选择税率" onclick="showTaxRateList()" oninput="filterTaxRateList()" style="width:200px;padding:6px 8px;font-size:14px;">
-                    <div id="taxRateListBox" style="position:absolute;top:100%;left:0;width:200px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
+            <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+    <!-- 供应商筛选 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <input type="text" id="taxSupplierSearch" placeholder="搜索供应商" 
+               onfocus="showTaxSupplierList()" 
+               oninput="onTaxFilterInput()"
+               style="width:180px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="taxSupplierListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+
+    <!-- 商品名称筛选 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <input type="text" id="taxGoodsSearch" placeholder="搜索商品名" 
+               onfocus="showTaxGoodsList()" 
+               oninput="onTaxFilterInput()"
+               style="width:180px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="taxGoodsListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+
+    <!-- 税率筛选 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <input type="text" id="taxRateSearch" placeholder="搜索税率" 
+               onfocus="showTaxRateList()" 
+               oninput="onTaxFilterInput()"
+               style="width:150px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+        <div id="taxRateListBox" style="position:absolute;top:100%;left:0;width:150px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="refreshTaxList()">刷新列表</button>
+    <button class="btn btn-default" onclick="resetTaxSearch()">重置搜索</button>
+</div>
                 <div style="display:flex;flex-direction:column;gap:4px;">
                     <label>结算方式：</label>
                     <select id="taxChannelFilter" style="padding:6px 8px;font-size:14px;">

@@ -338,8 +338,13 @@ function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
     if(taxModal) taxModal.style.display = 'none';
     initTaxSupplierFilter();
+    // 重置搜索框
+    document.getElementById('taxSupplierSearch').value = '';
+    document.getElementById('taxGoodsSearch').value = '';
+    document.getElementById('taxRateSearch').value = '';
     refreshTaxList();
 }
+
 function initTaxSupplierFilter() {
     const supplierSet = new Set();
     allGoodsList.filter(g => g.channel === '线下').forEach(g => supplierSet.add(g.supplier));
@@ -517,6 +522,43 @@ function refreshTaxList() {
         </tr>`;
     });
     renderFinancePagination('taxRate');
+}
+
+// ========== 税率录入实时搜索（输入即搜索） ==========
+function onTaxFilterInput() {
+    refreshTaxList();
+    
+    const supplierInput = document.getElementById('taxSupplierSearch');
+    const goodsInput = document.getElementById('taxGoodsSearch');
+    const rateInput = document.getElementById('taxRateSearch');
+    
+    if (document.activeElement === supplierInput) {
+        const kw = supplierInput.value.toLowerCase().trim();
+        const filtered = currTaxSupplierList.filter(s => s.toLowerCase().includes(kw));
+        renderTaxSupplierList(filtered);
+        document.getElementById('taxSupplierListBox').style.display = 'block';
+    } else if (document.activeElement === goodsInput) {
+        const kw = goodsInput.value.toLowerCase().trim();
+        const filtered = currTaxGoodsList.filter(g => g.name.toLowerCase().includes(kw));
+        renderTaxGoodsList(filtered);
+        document.getElementById('taxGoodsListBox').style.display = 'block';
+    } else if (document.activeElement === rateInput) {
+        const kw = rateInput.value.toLowerCase().trim();
+        const filtered = currTaxRateOptionList.filter(item => item.text.toLowerCase().includes(kw));
+        renderTaxRateList(filtered);
+        document.getElementById('taxRateListBox').style.display = 'block';
+    }
+}
+
+// ========== 税率录入重置搜索 ==========
+function resetTaxSearch() {
+    document.getElementById('taxSupplierSearch').value = '';
+    document.getElementById('taxGoodsSearch').value = '';
+    document.getElementById('taxRateSearch').value = '';
+    document.getElementById('taxSupplierListBox').style.display = 'none';
+    document.getElementById('taxGoodsListBox').style.display = 'none';
+    document.getElementById('taxRateListBox').style.display = 'none';
+    refreshTaxList();
 }
 
 function openTaxEdit(id) {
@@ -3330,3 +3372,6 @@ function exportMonthBeginStockExcel() {
     XLSX.writeFile(wb, `期初库存表_${endDateStr}.xlsx`);
     // showMsg('导出成功');
 }
+
+window.resetTaxSearch = resetTaxSearch;
+window.onTaxFilterInput = onTaxFilterInput;
