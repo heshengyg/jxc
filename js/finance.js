@@ -463,34 +463,28 @@ function refreshTaxList() {
     const selectSupplier = document.getElementById('taxSupplierSearch').value.trim();
     const selectGoodsName = document.getElementById('taxGoodsSearch').value.trim();
     const selectTaxText = document.getElementById('taxRateSearch').value.trim();
-    const filterChannel = document.getElementById('taxChannelFilter').value;
 
     let list = [...allGoodsList.filter(g => g.channel === '线下')];
 
-    if(selectSupplier){
-        list = list.filter(g => g.supplier === selectSupplier);
+    // ✅ 改为模糊匹配（includes）
+    if (selectSupplier) {
+        list = list.filter(g => (g.supplier || '').toLowerCase().includes(selectSupplier.toLowerCase()));
     }
-
-    if(selectGoodsName){
-        list = list.filter(g => g.name === selectGoodsName);
+    if (selectGoodsName) {
+        list = list.filter(g => (g.name || '').toLowerCase().includes(selectGoodsName.toLowerCase()));
     }
-
-    if(selectTaxText){
+    if (selectTaxText) {
         const targetTax = currTaxRateOptionList.find(item => item.text === selectTaxText);
-        if(targetTax){
-            if(targetTax.val === null){
+        if (targetTax) {
+            if (targetTax.val === null) {
                 list = list.filter(g => g.tax_rate === null || g.tax_rate === undefined || g.tax_rate === '');
-            }else if(targetTax.val !== ''){
+            } else if (targetTax.val !== '') {
                 list = list.filter(g => String(g.tax_rate) === targetTax.val);
             }
         }
     }
 
-    if(filterChannel){
-        list = list.filter(g => g.channel === filterChannel);
-    }
-
-    // ---- 修改1：自定义排序 - 未设置优先，再按 id 降序（最新在前） ----
+    // 排序：未设置优先，再按 id 降序
     list.sort((a, b) => {
         const aUnset = (a.tax_rate === null || a.tax_rate === undefined || a.tax_rate === '') ? 0 : 1;
         const bUnset = (b.tax_rate === null || b.tax_rate === undefined || b.tax_rate === '') ? 0 : 1;
@@ -506,7 +500,6 @@ function refreshTaxList() {
     const tbody = document.getElementById('taxRateList');
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // ---- 修改2：税率列显示 - 未设置时红色 ----
         const isUnset = (item.tax_rate === null || item.tax_rate === undefined || item.tax_rate === '');
         const taxDisplay = isUnset ? '未设置' : item.tax_rate + '%';
         const taxStyle = isUnset ? 'style="color:red;"' : '';
@@ -523,7 +516,6 @@ function refreshTaxList() {
     });
     renderFinancePagination('taxRate');
 }
-
 // ========== 税率录入实时搜索（输入即搜索） ==========
 function onTaxFilterInput() {
     refreshTaxList();

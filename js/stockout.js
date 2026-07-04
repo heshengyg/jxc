@@ -584,11 +584,6 @@ async function batchDeleteStockOut() {
 function clearOutSort(){
     outSortField = ''; outSortAsc = true; updateOutSortIcon(); loadStockOut();
 }
-function resetOutSearch() {
-    document.getElementById('outSearchKeyword').value = '';
-    document.getElementById('outSearchField').selectedIndex = 0;
-    filterStockOut();
-}
 
 // ===== 全局点击关闭下拉列表（出库模块） =====
 (function() {
