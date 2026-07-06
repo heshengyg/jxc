@@ -938,29 +938,50 @@
         </div>
 
         <!-- ⑥月度发票结余 -->
-        <div id="sub-monthInvoiceBalance" class="finance-sub-content" style="display:none;">
-            <h4>供应商月度发票结余表</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
-                <label>入库月份：</label>
-                <select id="monthBalanceSelect"></select>
-                <input type="text" placeholder="供应商模糊搜索" id="monthBalanceSearch">
-                <button class="btn btn-primary" onclick="searchMonthInvoiceBalance()">查询</button>
-            </div>
-            <div class="table-container">
-                <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>供应商</th>
-                            <th>统计月份</th>
-                            <th>当月发票结余金额</th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthBalanceList"></tbody>
-                </table>
-            </div>
-            <div class="pagination" id="page_monthInvoiceBalance"></div>
+<div id="sub-monthInvoiceBalance" class="finance-sub-content" style="display:none;">
+    <h4>供应商月度发票结余表</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">入库月份：</label>
+        <select id="monthBalanceSelect" onchange="searchMonthInvoiceBalance()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">请选择月份</option>
+        </select>
+        
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商筛选：</label>
+            <input type="text" id="monthBalanceSupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showMonthBalanceSupplierList()" 
+                   oninput="onMonthBalanceFilterInput()"
+                   style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="monthBalanceSupplierListBox" style="position:absolute;top:100%;left:70px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <button class="btn btn-primary" onclick="searchMonthInvoiceBalance()">查询</button>
+        <button class="btn btn-default" onclick="resetMonthBalanceSearch()">重置搜索</button>
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>供应商</th>
+                    <th>统计月份</th>
+                    <th>当月发票结余金额</th>
+                </tr>
+            </thead>
+            <tbody id="monthBalanceList"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="page_monthInvoiceBalance"></div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#monthBalanceSupplierSearchInput') && !e.target.closest('#monthBalanceSupplierListBox')) {
+            document.getElementById('monthBalanceSupplierListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
         <!-- ⑦入库对账 -->
         <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
