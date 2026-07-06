@@ -2678,16 +2678,64 @@ function exportStockInCheckExcel() {
 }
 
 // ===================== ⑧出库对账 =====================
+// 出库对账下拉缓存变量
+let checkOutSupplierList = [];
+let checkOutGoodsList = [];
+let checkOutSearchTimer = null;
+
+function initStockOutCheckPage() {
+    financePageConfig.stockOutCheck.current = 1;
+    initCheckOutMonthSelect('checkOutMonth');
+    
+    const outData = window.allStockOut || [];
+    
+    // 初始化供应商和商品下拉数据
+    const suppliers = [...new Set(outData.map(item => item.supplier).filter(Boolean))];
+    checkOutSupplierList = suppliers;
+    window._checkOutSupplierList = suppliers;
+    
+    const goodsNames = [...new Set(outData.map(item => item.goodsName).filter(Boolean))];
+    checkOutGoodsList = goodsNames;
+    window._checkOutGoodsList = goodsNames;
+    
+    // 重置搜索框
+    document.getElementById('checkOutSupplierSearchInput').value = '';
+    document.getElementById('checkOutGoodsSearchInput').value = '';
+    document.getElementById('checkOutSupplierListBox').style.display = 'none';
+    document.getElementById('checkOutGoodsListBox').style.display = 'none';
+    
+    const tbody = document.getElementById('stockOutCheckList');
+    if (tbody) tbody.innerHTML = '';
+    
+    renderFinancePagination('stockOutCheck');
+}
+
+function initCheckOutMonthSelect(selId) {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '<option value="">全部月份</option>';
+    const outData = window.allStockOut || [];
+    const monthSet = new Set();
+    outData.forEach(item => {
+        if (item.recordDate) {
+            monthSet.add(item.recordDate.substring(0, 7));
+        }
+    });
+    const monthList = Array.from(monthSet).sort().reverse();
+    monthList.forEach(m => {
+        sel.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+}
+
+// ========== 出库对账 - 供应商搜索下拉 ==========
 function showCheckOutSupplierList() {
-    const list = window._checkOutSupplierList || [];
-    renderCheckOutSupplierList(list);
+    renderCheckOutSupplierList(checkOutSupplierList);
     document.getElementById('checkOutSupplierListBox').style.display = 'block';
 }
 
 function filterCheckOutSupplierList() {
     const kw = document.getElementById('checkOutSupplierSearchInput').value.toLowerCase();
-    const list = (window._checkOutSupplierList || []).filter(s => s.toLowerCase().includes(kw));
-    renderCheckOutSupplierList(list);
+    const filtered = checkOutSupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderCheckOutSupplierList(filtered);
     document.getElementById('checkOutSupplierListBox').style.display = 'block';
 }
 
@@ -2707,21 +2755,23 @@ function renderCheckOutSupplierList(list) {
         div.onclick = function() {
             document.getElementById('checkOutSupplierSearchInput').value = s;
             document.getElementById('checkOutSupplierListBox').style.display = 'none';
+            // 输入即搜索
+            searchStockOutCheck();
         };
         box.appendChild(div);
     });
 }
 
+// ========== 出库对账 - 商品名称搜索下拉 ==========
 function showCheckOutGoodsList() {
-    const list = window._checkOutGoodsList || [];
-    renderCheckOutGoodsList(list);
+    renderCheckOutGoodsList(checkOutGoodsList);
     document.getElementById('checkOutGoodsListBox').style.display = 'block';
 }
 
 function filterCheckOutGoodsList() {
     const kw = document.getElementById('checkOutGoodsSearchInput').value.toLowerCase();
-    const list = (window._checkOutGoodsList || []).filter(s => s.toLowerCase().includes(kw));
-    renderCheckOutGoodsList(list);
+    const filtered = checkOutGoodsList.filter(s => s.toLowerCase().includes(kw));
+    renderCheckOutGoodsList(filtered);
     document.getElementById('checkOutGoodsListBox').style.display = 'block';
 }
 
@@ -2741,37 +2791,282 @@ function renderCheckOutGoodsList(list) {
         div.onclick = function() {
             document.getElementById('checkOutGoodsSearchInput').value = s;
             document.getElementById('checkOutGoodsListBox').style.display = 'none';
+            // 输入即搜索
+            searchStockOutCheck();
         };
         box.appendChild(div);
     });
 }
 
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#checkOutSupplierSearchInput') && !e.target.closest('#checkOutSupplierListBox')) {
-        document.getElementById('checkOutSupplierListBox').style.display = 'none';
+// ========== 出库对账实时搜索（输入即搜索） ==========
+function onCheckOutFilterInput() {
+    // 清除之前的定时器
+    if (checkOutSearchTimer) {
+        clearTimeout(checkOutSearchTimer);
     }
-    if (!e.target.closest('#checkOutGoodsSearchInput') && !e.target.closest('#checkOutGoodsListBox')) {
-        document.getElementById('checkOutGoodsListBox').style.display = 'none';
-    }
-});
+    // 防抖处理，300ms后执行搜索
+    checkOutSearchTimer = setTimeout(() => {
+        searchStockOutCheck();
+        // 显示下拉列表
+        const supplierInput = document.getElementById('checkOutSupplierSearchInput');
+        const goodsInput = document.getElementById('checkOutGoodsSearchInput');
+        
+        if (document.activeElement === supplierInput) {
+            const kw = supplierInput.value.toLowerCase().trim();
+            const filtered = checkOutSupplierList.filter(s => s.toLowerCase().includes(kw));
+            renderCheckOutSupplierList(filtered);
+            document.getElementById('checkOutSupplierListBox').style.display = 'block';
+        } else if (document.activeElement === goodsInput) {
+            const kw = goodsInput.value.toLowerCase().trim();
+            const filtered = checkOutGoodsList.filter(s => s.toLowerCase().includes(kw));
+            renderCheckOutGoodsList(filtered);
+            document.getElementById('checkOutGoodsListBox').style.display = 'block';
+        }
+    }, 300);
+}
 
-function initStockOutCheckPage() {
+// ========== 出库对账重置搜索 ==========
+function resetStockOutCheck() {
+    document.getElementById('checkOutSettle').value = '';
+    document.getElementById('checkOutMonth').value = '';
+    document.getElementById('checkOutSupplierSearchInput').value = '';
+    document.getElementById('checkOutGoodsSearchInput').value = '';
+    document.getElementById('checkOutTaxRateSearch').value = '';
+    document.getElementById('checkOutSupplierGroup').checked = false;
+    document.getElementById('checkOutGoodsGroup').checked = false;
+    document.getElementById('checkOutSupplierListBox').style.display = 'none';
+    document.getElementById('checkOutGoodsListBox').style.display = 'none';
+    // 重置分页到第一页
     financePageConfig.stockOutCheck.current = 1;
-    initCheckOutMonthSelect('checkOutMonth');
+    searchStockOutCheck();
+}
+
+function searchStockOutCheck() {
+    const settle = document.getElementById('checkOutSettle').value;
+    const month = document.getElementById('checkOutMonth').value;
+    const supplier = document.getElementById('checkOutSupplierSearchInput').value.trim();
+    const goodsName = document.getElementById('checkOutGoodsSearchInput').value.trim();
+    const taxRate = document.getElementById('checkOutTaxRateSearch').value;
+    const groupSupplier = document.getElementById('checkOutSupplierGroup').checked;
+    const groupGoods = document.getElementById('checkOutGoodsGroup').checked;
     
-    const outData = window.allStockOut || [];
+    let list = window.allStockOut ? [...window.allStockOut] : [];
     
-    const suppliers = [...new Set(outData.map(item => item.supplier).filter(Boolean))];
-    window._checkOutSupplierList = suppliers;
+    if (settle) list = list.filter(i => i.settleType === settle);
+    if (month) list = list.filter(i => i.recordDate && i.recordDate.substring(0, 7) === month);
+    // 模糊匹配供应商
+    if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+    // 模糊匹配商品名
+    if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+    if (taxRate !== '') {
+        list = list.filter(i => {
+            const goods = allGoodsList.find(g => 
+                g.name === i.goodsName && 
+                g.supplier === i.supplier && 
+                (g.spec || '') === (i.spec || '')
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            return rate === taxRate;
+        });
+    }
     
-    const goodsNames = [...new Set(outData.map(item => item.goodsName).filter(Boolean))];
-    window._checkOutGoodsList = goodsNames;
+    let processedList = list.map(row => {
+        let goods = allGoodsList.find(g => {
+            const gSpec = g.spec || '';
+            const rowSpec = row.spec || '';
+            return g.name === row.goodsName && 
+                   g.supplier === row.supplier && 
+                   gSpec === rowSpec;
+        });
+        
+        let taxRateVal = 0;
+        if (goods) {
+            taxRateVal = Number(goods.tax_rate || 0);
+        } else {
+            const goodsNoSpec = allGoodsList.find(g => 
+                g.name === row.goodsName && 
+                g.supplier === row.supplier
+            );
+            taxRateVal = goodsNoSpec ? Number(goodsNoSpec.tax_rate || 0) : 0;
+        }
+        
+        const channel = row.settleType || (goods ? goods.channel : '');
+        const outPrice = Number(row.outPrice) || 0;
+        const salePrice = Number(row.salePrice) || 0;
+        const qty = Number(row.outNum) || 0;
+        const outAmount = outPrice * qty;
+        const saleAmount = salePrice * qty;
+        
+        let outNoTaxAmount = 0;
+        let outTax = 0;
+        let saleNoTaxAmount = 0;
+        let saleTax = 0;
+        let taxRateDisplay = '';
+        let outPriceDisplay = '';
+        let salePriceDisplay = '';
+        const recordDate = row.recordDate || '';
+        
+        const taxDecimal = taxRateVal / 100;
+        
+        if (taxDecimal > 0) {
+            outNoTaxAmount = outAmount / (1 + taxDecimal);
+            outTax = outAmount - outNoTaxAmount;
+            saleNoTaxAmount = saleAmount / (1 + taxDecimal);
+            saleTax = saleAmount - saleNoTaxAmount;
+        } else {
+            outNoTaxAmount = outAmount;
+            outTax = 0;
+            saleNoTaxAmount = saleAmount;
+            saleTax = 0;
+        }
+        
+        if (channel === '线上') {
+            taxRateDisplay = '';
+        } else {
+            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+        }
+        outPriceDisplay = formatMoney(outPrice);
+        salePriceDisplay = formatMoney(salePrice);
+        
+        return {
+            supplier: row.supplier,
+            goodsName: row.goodsName,
+            spec: row.spec || '',
+            tax_rate_display: taxRateDisplay,
+            outNum: qty,
+            outPrice: outPriceDisplay,
+            salePrice: salePriceDisplay,
+            outAmount: outAmount,
+            outNoTaxAmount: outNoTaxAmount,
+            outTax: outTax,
+            saleAmount: saleAmount,
+            saleNoTaxAmount: saleNoTaxAmount,
+            saleTax: saleTax,
+            recordDate: recordDate
+        };
+    });
+      
+    if (groupSupplier || groupGoods) {
+        const groupMap = {};
+        processedList.forEach(row => {
+            const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    supplier: row.supplier,
+                    goodsName: row.goodsName,
+                    spec: row.spec || '',
+                    tax_rate_display: row.tax_rate_display,
+                    outNum: 0,
+                    outPrice: row.outPrice,
+                    salePrice: row.salePrice,
+                    outAmount: 0,
+                    outNoTaxAmount: 0,
+                    outTax: 0,
+                    saleAmount: 0,
+                    saleNoTaxAmount: 0,
+                    saleTax: 0,
+                    recordDate: row.recordDate || '',
+                    count: 0
+                };
+            }
+            const g = groupMap[key];
+            g.outNum += Number(row.outNum);
+            g.outAmount += row.outAmount;
+            g.outNoTaxAmount += row.outNoTaxAmount;
+            g.outTax += row.outTax;
+            g.saleAmount += row.saleAmount;
+            g.saleNoTaxAmount += row.saleNoTaxAmount;
+            g.saleTax += row.saleTax;
+            g.count++;
+            if (g.count === 1) {
+                g.recordDate = row.recordDate;
+            }
+        });
+        processedList = Object.values(groupMap);
+    }
+    
+    let summary = {
+        outNum: 0,
+        outAmount: 0,
+        outNoTaxAmount: 0,
+        outTax: 0,
+        saleAmount: 0,
+        saleNoTaxAmount: 0,
+        saleTax: 0
+    };
+    processedList.forEach(row => {
+        summary.outNum += Number(row.outNum);
+        summary.outAmount += Number(row.outAmount);
+        summary.outNoTaxAmount += Number(row.outNoTaxAmount);
+        summary.outTax += Number(row.outTax);
+        summary.saleAmount += Number(row.saleAmount);
+        summary.saleNoTaxAmount += Number(row.saleNoTaxAmount);
+        summary.saleTax += Number(row.saleTax);
+    });
+    
+    const totalTip = document.getElementById('stockOutCheckTotalTip');
+    if (totalTip) {
+        totalTip.innerText = `共 ${window.allStockOut ? window.allStockOut.length : 0} 条出库记录，当前搜索结果 ${processedList.length} 条`;
+    }
+    
+    const cfg = financePageConfig.stockOutCheck;
+    cfg.total = processedList.length;
+    const start = (cfg.current - 1) * cfg.pageSize;
+    const pageData = processedList.slice(start, start + cfg.pageSize);
     
     const tbody = document.getElementById('stockOutCheckList');
-    if (tbody) tbody.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('stockOutCheck');
+        return;
+    }
+    
+    pageData.forEach((row, index) => {
+        const seq = start + index + 1;
+        
+        tbody.innerHTML += `
+        <tr>
+            <td>${seq}</td>
+            <td>${row.supplier}</td>
+            <td>${row.goodsName}</td>
+            <td>${row.spec || ''}</td>
+            <td>${row.tax_rate_display}</td>
+            <td>${row.outNum}</td>
+            <td>${row.outPrice}</td>
+            <td>${row.salePrice}</td>
+            <td>${formatMoney(row.outAmount)}</td>
+            <td>${formatMoney(row.outNoTaxAmount)}</td>
+            <td>${formatMoney(row.outTax)}</td>
+            <td>${formatMoney(row.saleAmount)}</td>
+            <td>${formatMoney(row.saleNoTaxAmount)}</td>
+            <td>${formatMoney(row.saleTax)}</td>
+            <td>${row.recordDate}</td>
+        </tr>`;
+    });
+    
+    tbody.innerHTML += `
+    <tr style="background:#f0f4f8;font-weight:bold;">
+        <td colspan="5" style="text-align:right;">汇总：</td>
+        <td>${summary.outNum}</td>
+        <td></td>
+        <td></td>
+        <td>${formatMoney(summary.outAmount)}</td>
+        <td>${formatMoney(summary.outNoTaxAmount)}</td>
+        <td>${formatMoney(summary.outTax)}</td>
+        <td>${formatMoney(summary.saleAmount)}</td>
+        <td>${formatMoney(summary.saleNoTaxAmount)}</td>
+        <td>${formatMoney(summary.saleTax)}</td>
+        <td></td>
+    </tr>`;
     
     renderFinancePagination('stockOutCheck');
 }
+
+// 移除之前重复定义的函数 showCheckOutSupplierList、filterCheckOutSupplierList、renderCheckOutSupplierList
+// 以及 showCheckOutGoodsList、filterCheckOutGoodsList、renderCheckOutGoodsList
+// 使用上面的新版本覆盖
 function initCheckOutMonthSelect(selId) {
     const sel = document.getElementById(selId);
     sel.innerHTML = '<option value="">全部月份</option>';
