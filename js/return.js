@@ -160,20 +160,24 @@ function initReturnPrintControls() {
         checkbox.type = 'checkbox';
         checkbox.id = 'returnPrintAllCheck';
         checkbox.style.marginRight = '5px';
-        // ===== 全选复选框 onchange（参照 finance.js） =====
-        checkbox.onchange = function () {
-    if (skipReturnAllChange) return;
-    const checked = this.checked;
-    // 设置所有行复选框
-    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
-    // 更新选中集合
-    selectedReturnIds.clear();
-    if (checked) {
-        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-    }
-    skipReturnAllChange = false;
-    // 全选复选框自身已经设置，但为了保险，确保状态一致（此处可省略，但保留）
-};
+        
+        // ===== 全选复选框 onchange（完全参照 finance.js） =====
+        checkbox.onchange = function() {
+            if (skipReturnAllChange) {
+                skipReturnAllChange = false;
+                return;
+            }
+            if (this.checked) {
+                // 全选：将所有行ID加入集合
+                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+                document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = true);
+            } else {
+                // 取消全选：清空集合
+                selectedReturnIds.clear();
+                document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = false);
+            }
+        };
+
         const textNode = firstTh.childNodes[0];
         if (textNode) {
             firstTh.insertBefore(checkbox, textNode);
