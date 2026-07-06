@@ -827,31 +827,48 @@
         </div>
 
         <!-- ③财务付款记录 -->
-        <div id="sub-payRecord" class="finance-sub-content" style="display:none;">
-            <h4>财务付款台账（线下供应商）</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
-                <button class="btn btn-primary" onclick="openPayAddModal()">新增付款记录</button>
-                <label>供应商筛选：</label>
-                <select id="paySupplierFilter"></select>
-                <button class="btn btn-default" onclick="refreshPayRecordList()">刷新</button>
-            </div>
-            <div class="table-container">
-                <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>付款日期</th>
-                            <th>供应商</th>
-                            <th>付款金额</th>
-                            <th>备注</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="payRecordList"></tbody>
-                </table>
-            </div>
-            <div class="pagination" id="page_payRecord"></div>
+<div id="sub-payRecord" class="finance-sub-content" style="display:none;">
+    <h4>财务付款台账（线下供应商）</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="openPayAddModal()">新增付款记录</button>
+        <button class="btn btn-default" onclick="refreshPayRecordList()">刷新列表</button>
+        <button class="btn btn-default" onclick="resetPaySearch()">重置搜索</button>
+        
+        <!-- 供应商搜索下拉 -->
+        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+            <label>供应商筛选：</label>
+            <input type="text" id="paySupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showPaySupplierList()" 
+                   oninput="onPayFilterInput()"
+                   style="width:180px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="paySupplierListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>付款日期</th>
+                    <th>供应商</th>
+                    <th>付款金额</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="payRecordList"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="page_payRecord"></div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#paySupplierSearchInput') && !e.target.closest('#paySupplierListBox')) {
+            document.getElementById('paySupplierListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
         <!-- ④发票返回记录 -->
         <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">

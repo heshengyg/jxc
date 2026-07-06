@@ -1189,6 +1189,10 @@ function previewAndPrint() {
 
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
+// 付款记录下拉缓存变量
+let paySupplierList = [];
+let paySearchTimer = null;
+
 async function initPayRecordPage() {
     try {
         const payModal = document.getElementById('payModal');
@@ -1201,18 +1205,24 @@ async function initPayRecordPage() {
         }
         financePageConfig.payRecord.current = 1;
         initPaySupplierSelect();
+        
+        // 初始化搜索下拉数据
+        paySupplierList = [...offlineSupplierList];
+        
+        // 重置搜索框
+        document.getElementById('paySupplierSearchInput').value = '';
+        document.getElementById('paySupplierListBox').style.display = 'none';
+        
         refreshPayRecordList();
     } catch(e) {
         console.error('initPayRecordPage 执行失败:', e);
     }
 }
+
 function initPaySupplierSelect() {
-    const filterSel = document.getElementById('paySupplierFilter');
     const editSel = document.getElementById('paySupplier');
-    filterSel.innerHTML = '<option value="">全部供应商</option>';
     editSel.innerHTML = '<option value="">请选择供应商</option>';
     offlineSupplierList.forEach(s => {
-        filterSel.innerHTML += `<option value="${s}">${s}</option>`;
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
@@ -1222,11 +1232,78 @@ function initPaySupplierSelect() {
     };
 }
 
+// ========== 付款记录 - 供应商搜索下拉 ==========
+function showPaySupplierList() {
+    renderPaySupplierList(paySupplierList);
+    document.getElementById('paySupplierListBox').style.display = 'block';
+}
+
+function filterPaySupplierList() {
+    const kw = document.getElementById('paySupplierSearchInput').value.toLowerCase();
+    const filtered = paySupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderPaySupplierList(filtered);
+    document.getElementById('paySupplierListBox').style.display = 'block';
+}
+
+function renderPaySupplierList(list) {
+    const box = document.getElementById('paySupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('paySupplierSearchInput').value = s;
+            document.getElementById('paySupplierListBox').style.display = 'none';
+            // 输入即搜索
+            refreshPayRecordList();
+        };
+        box.appendChild(div);
+    });
+}
+
+// ========== 付款记录实时搜索（输入即搜索） ==========
+function onPayFilterInput() {
+    // 清除之前的定时器
+    if (paySearchTimer) {
+        clearTimeout(paySearchTimer);
+    }
+    // 防抖处理，500ms后执行搜索
+    paySearchTimer = setTimeout(() => {
+        refreshPayRecordList();
+        // 显示下拉列表
+        const input = document.getElementById('paySupplierSearchInput');
+        if (document.activeElement === input) {
+            const kw = input.value.toLowerCase().trim();
+            const filtered = paySupplierList.filter(s => s.toLowerCase().includes(kw));
+            renderPaySupplierList(filtered);
+            document.getElementById('paySupplierListBox').style.display = 'block';
+        }
+    }, 300);
+}
+
+// ========== 付款记录重置搜索 ==========
+function resetPaySearch() {
+    document.getElementById('paySupplierSearchInput').value = '';
+    document.getElementById('paySupplierListBox').style.display = 'none';
+    refreshPayRecordList();
+}
+
 function refreshPayRecordList() {
-    const filterSupplier = document.getElementById('paySupplierFilter').value;
+    const filterSupplier = document.getElementById('paySupplierSearchInput').value.trim();
     let list = [...allPayList];
     list.sort((a, b) => b.id - a.id);
-    if (filterSupplier) list = list.filter(p => p.supplier === filterSupplier);
+    
+    // 模糊匹配供应商
+    if (filterSupplier) {
+        list = list.filter(p => (p.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+    }
 
     const cfg = financePageConfig.payRecord;
     cfg.total = list.length;
@@ -1235,6 +1312,11 @@ function refreshPayRecordList() {
 
     const tbody = document.getElementById('payRecordList');
     tbody.innerHTML = '';
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('payRecord');
+        return;
+    }
     pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
@@ -1353,6 +1435,7 @@ async function deletePayRecord(id) {
     refreshPayRecordList();
     showMsg('删除成功');
 }
+
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
 async function initInvoiceBackPage() {
