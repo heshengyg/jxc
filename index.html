@@ -834,14 +834,14 @@
         <button class="btn btn-default" onclick="refreshPayRecordList()">刷新列表</button>
         <button class="btn btn-default" onclick="resetPaySearch()">重置搜索</button>
         
-        <!-- 供应商搜索下拉 -->
-        <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-            <label>供应商筛选：</label>
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商筛选：</label>
             <input type="text" id="paySupplierSearchInput" placeholder="搜索供应商" 
                    onfocus="showPaySupplierList()" 
                    oninput="onPayFilterInput()"
-                   style="width:180px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-            <div id="paySupplierListBox" style="position:absolute;top:100%;left:0;width:180px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+                   style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="paySupplierListBox" style="position:absolute;top:100%;left:70px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
     </div>
     <div class="table-container">
@@ -871,32 +871,49 @@
 </div>
 
         <!-- ④发票返回记录 -->
-        <div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
-            <h4>发票返回台账（线下供应商）</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;">
-                <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票返回记录</button>
-                <label>供应商筛选：</label>
-                <select id="invoiceBackSupplierFilter"></select>
-                <button class="btn btn-default" onclick="refreshInvoiceBackList()">刷新</button>
-            </div>
-            <div class="table-container">
-                <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>返回日期</th>
-                            <th>供应商</th>
-                            <th>返回发票金额</th>
-                            <th>发票号码</th>
-                            <th>备注</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoiceBackList"></tbody>
-                </table>
-            </div>
-            <div class="pagination" id="page_invoiceBack"></div>
+<div id="sub-invoiceBack" class="finance-sub-content" style="display:none;">
+    <h4>发票返回台账（线下供应商）</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="openInvoiceBackAddModal()">新增发票返回记录</button>
+        <button class="btn btn-default" onclick="refreshInvoiceBackList()">刷新列表</button>
+        <button class="btn btn-default" onclick="resetInvoiceBackSearch()">重置搜索</button>
+        
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商筛选：</label>
+            <input type="text" id="invoiceBackSupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showInvoiceBackSupplierList()" 
+                   oninput="onInvoiceBackFilterInput()"
+                   style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="invoiceBackSupplierListBox" style="position:absolute;top:100%;left:70px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>返回日期</th>
+                    <th>供应商</th>
+                    <th>返回发票金额</th>
+                    <th>发票号码</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="invoiceBackList"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="page_invoiceBack"></div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#invoiceBackSupplierSearchInput') && !e.target.closest('#invoiceBackSupplierListBox')) {
+            document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
         <!-- ⑤收付款看板 -->
         <div id="sub-paymentBoard" class="finance-sub-content" style="display:none;">

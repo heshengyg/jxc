@@ -1438,6 +1438,10 @@ async function deletePayRecord(id) {
 
 // ===================== ④发票返回记录模块 =====================
 let currentInvoiceBackEditId = null;
+// 发票返回记录下拉缓存变量
+let invoiceBackSupplierList = [];
+let invoiceBackSearchTimer = null;
+
 async function initInvoiceBackPage() {
     try {
         const invoiceBackModal = document.getElementById('invoiceBackModal');
@@ -1450,29 +1454,24 @@ async function initInvoiceBackPage() {
         }
         financePageConfig.invoiceBack.current = 1;
         initInvoiceBackSupplierSelect();
+        
+        // 初始化搜索下拉数据
+        invoiceBackSupplierList = [...offlineSupplierList];
+        
+        // 重置搜索框
+        document.getElementById('invoiceBackSupplierSearchInput').value = '';
+        document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
+        
         refreshInvoiceBackList();
     } catch(e) {
         console.error('initInvoiceBackPage 执行失败:', e);
     }
 }
+
 function initInvoiceBackSupplierSelect() {
-    const filterSel = document.getElementById('invoiceBackSupplierFilter');
     const editSel = document.getElementById('invoiceBackSupplier');
-    filterSel.innerHTML = '<option value="">全部供应商</option>';
     editSel.innerHTML = '<option value="">请选择供应商</option>';
-    
-    if (offlineSupplierList.length === 0) {
-        loadOfflineSupplier().then(() => {
-            offlineSupplierList.forEach(s => {
-                filterSel.innerHTML += `<option value="${s}">${s}</option>`;
-                editSel.innerHTML += `<option value="${s}">${s}</option>`;
-            });
-        });
-        return;
-    }
-    
     offlineSupplierList.forEach(s => {
-        filterSel.innerHTML += `<option value="${s}">${s}</option>`;
         editSel.innerHTML += `<option value="${s}">${s}</option>`;
     });
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
@@ -1482,38 +1481,78 @@ function initInvoiceBackSupplierSelect() {
     };
 }
 
-// ========== 更新发票结余显示 ==========
-function updateInvoiceBackBalance(supplier) {
-    const displayEl = document.getElementById('invoiceBackBalanceDisplay');
-    if (!displayEl) return;
-    
-    if (!supplier) {
-        displayEl.textContent = '请选择供应商';
-        displayEl.style.color = '#999';
+// ========== 发票返回记录 - 供应商搜索下拉 ==========
+function showInvoiceBackSupplierList() {
+    renderInvoiceBackSupplierList(invoiceBackSupplierList);
+    document.getElementById('invoiceBackSupplierListBox').style.display = 'block';
+}
+
+function filterInvoiceBackSupplierList() {
+    const kw = document.getElementById('invoiceBackSupplierSearchInput').value.toLowerCase();
+    const filtered = invoiceBackSupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderInvoiceBackSupplierList(filtered);
+    document.getElementById('invoiceBackSupplierListBox').style.display = 'block';
+}
+
+function renderInvoiceBackSupplierList(list) {
+    const box = document.getElementById('invoiceBackSupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
         return;
     }
-    
-    let totalIn = 0;
-    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
-        totalIn += Number(item.in_price) * Number(item.in_num);
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('invoiceBackSupplierSearchInput').value = s;
+            document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
+            // 输入即搜索
+            refreshInvoiceBackList();
+        };
+        box.appendChild(div);
     });
-    
-    let totalBack = 0;
-    allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
-        totalBack += Number(b.invoice_amount);
-    });
-    
-    const balance = totalBack - totalIn;
-    
-    displayEl.textContent = `￥${balance.toFixed(2)}`;
-    displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+}
+
+// ========== 发票返回记录实时搜索（输入即搜索） ==========
+function onInvoiceBackFilterInput() {
+    // 清除之前的定时器
+    if (invoiceBackSearchTimer) {
+        clearTimeout(invoiceBackSearchTimer);
+    }
+    // 防抖处理，300ms后执行搜索
+    invoiceBackSearchTimer = setTimeout(() => {
+        refreshInvoiceBackList();
+        // 显示下拉列表
+        const input = document.getElementById('invoiceBackSupplierSearchInput');
+        if (document.activeElement === input) {
+            const kw = input.value.toLowerCase().trim();
+            const filtered = invoiceBackSupplierList.filter(s => s.toLowerCase().includes(kw));
+            renderInvoiceBackSupplierList(filtered);
+            document.getElementById('invoiceBackSupplierListBox').style.display = 'block';
+        }
+    }, 300);
+}
+
+// ========== 发票返回记录重置搜索 ==========
+function resetInvoiceBackSearch() {
+    document.getElementById('invoiceBackSupplierSearchInput').value = '';
+    document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
+    refreshInvoiceBackList();
 }
 
 function refreshInvoiceBackList() {
-    const filterSupplier = document.getElementById('invoiceBackSupplierFilter').value;
+    const filterSupplier = document.getElementById('invoiceBackSupplierSearchInput').value.trim();
     let list = [...allInvoiceBackList];
     list.sort((a, b) => b.id - a.id);
-    if (filterSupplier) list = list.filter(i => i.supplier === filterSupplier);
+    
+    // 模糊匹配供应商
+    if (filterSupplier) {
+        list = list.filter(i => (i.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+    }
 
     const cfg = financePageConfig.invoiceBack;
     cfg.total = list.length;
@@ -1522,6 +1561,11 @@ function refreshInvoiceBackList() {
 
     const tbody = document.getElementById('invoiceBackList');
     tbody.innerHTML = '';
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('invoiceBack');
+        return;
+    }
     pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
