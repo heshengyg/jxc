@@ -924,7 +924,6 @@ function filterGoods() {
     } else {
         filteredGoods = allGoods.filter(item => {
             let match = true;
-            // ✅ 改为模糊匹配（includes）
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
             if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
             if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
@@ -937,15 +936,18 @@ function filterGoods() {
     currentPage = 1;
     renderPagination();
 
-    // 批量预查当前页商品是否被使用
+    // ✅ 先清空缓存，再批量查询
+    goodsUsedCache.clear();
+    
+    // ✅ 批量预查当前页商品是否被使用
     (async () => {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
-        goodsUsedCache.clear();
         for (const item of pageData) {
             const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
             goodsUsedCache.set(item.id, used);
         }
+        // ✅ 查询完成后重新渲染
         renderGoods();
     })();
 }
@@ -1077,19 +1079,24 @@ function renderGoods() {
         let shelfText = (item.shelf_life_num && item.shelf_life_unit) ? `${item.shelf_life_num}${item.shelf_life_unit}` : '';
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
-        let isUsed = goodsUsedCache.get(item.id) ?? false;
         
-        // ===== 删除按钮：只有有入库记录才变灰（灰色只表示有入库记录） =====
+        // ✅ 从缓存获取状态，如果缓存中没有则默认为 false（未使用）
+        const isUsed = goodsUsedCache.get(item.id) ?? false;
+        
+        // ===== 删除按钮：有入库记录才变灰 =====
         let delBtn = '';
         if (isUsed) {
-            delBtn = `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`;
+            delBtn = `<button class="btn btn-danger" disabled style="opacity:0.5;cursor:not-allowed;" title="该商品已有入库记录，无法删除">删除</button>`;
         } else {
             delBtn = `<button class="btn btn-danger" onclick="deleteGoods(${item.id})">删除</button>`;
         }
         
+        // 复选框：有入库记录则禁用
+        const checkboxDisabled = isUsed ? 'disabled' : '';
+        
         let html = `
             <tr>
-                <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
+                <td><input type="checkbox" class="item-checkbox" value="${item.id}" ${checkboxDisabled}></td>
                 <td>${seqNum}</td>
                 <td>${item.supplier || ''}</td>
                 <td>${item.name || ''}</td>
@@ -1110,7 +1117,6 @@ function renderGoods() {
         tb.innerHTML += html;
     }
 }
-
 function renderPagination() {
     // ✅ 确保 filteredGoods 是数组
     const totalItems = Array.isArray(filteredGoods) ? filteredGoods.length : 0;
