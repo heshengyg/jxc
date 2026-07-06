@@ -596,35 +596,11 @@ async function loadGoods(force) {
         console.log('强制刷新商品数据...');
         isLoadingGoods = false;
         isGoodsLoaded = false;
-        // 继续执行下面的加载逻辑
     } else {
-        // ✅ 如果正在加载，跳过
         if (isLoadingGoods) {
             console.log('商品数据正在加载中，跳过重复请求');
             return;
         }
-        
-        // ========== 修改开始：当切换到商品列表时，强制刷新数据 ==========
-        // ✅ 修改：不再使用缓存，每次都重新加载，确保数据最新
-        // 删除或注释掉这段缓存逻辑
-        // if (isGoodsLoaded && allGoods && allGoods.length > 0) {
-        //     console.log('商品数据已加载，直接渲染');
-        //     const goodsTbody = document.getElementById('goodsList');
-        //     if(goodsTbody) goodsTbody.innerHTML = '';
-        //     let searchField = document.getElementById('searchField');
-        //     if (searchField) {
-        //         filterGoods();
-        //     } else {
-        //         filteredGoods = [...allGoods];
-        //         let searchCount = document.getElementById('searchCount');
-        //         if (searchCount) searchCount.textContent = filteredGoods.length;
-        //         currentPage = 1;
-        //         renderPagination();
-        //         renderGoods();
-        //     }
-        //     return;
-        // }
-        // ========== 修改结束 ==========
     }
     
     try {
@@ -642,17 +618,9 @@ async function loadGoods(force) {
         let totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
         
-        let searchField = document.getElementById('searchField');
-        if (searchField) {
-            filterGoods();
-        } else {
-            filteredGoods = [...allGoods];
-            let searchCount = document.getElementById('searchCount');
-            if (searchCount) searchCount.textContent = filteredGoods.length;
-            currentPage = 1;
-            renderPagination();
-            renderGoods();
-        }
+        // ✅ 统一调用 filterGoods，它会负责填充缓存并渲染
+        filterGoods();
+        
         loadSettleListSilently();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
@@ -661,7 +629,6 @@ async function loadGoods(force) {
         isLoadingGoods = false;
     }
 }
-
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -924,7 +891,6 @@ function filterGoods() {
     } else {
         filteredGoods = allGoods.filter(item => {
             let match = true;
-            // ✅ 改为模糊匹配（includes）
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
             if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
             if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
@@ -937,17 +903,26 @@ function filterGoods() {
     currentPage = 1;
     renderPagination();
 
-    // 批量预查当前页商品是否被使用
+    // ✅ 先清空缓存
+    goodsUsedCache.clear();
+    
+    // ✅ 批量预查当前页商品是否被使用
     (async () => {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
-        goodsUsedCache.clear();
         for (const item of pageData) {
             const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
             goodsUsedCache.set(item.id, used);
         }
+        // ✅ 查询完成后重新渲染
         renderGoods();
     })();
+    
+    // ✅ 注意：这里不能直接调用 renderGoods()，因为缓存还是空的
+    // 但为了不让页面空白，可以先渲染一个占位状态（所有按钮都可点击，等异步完成后刷新）
+    // 或者直接不渲染，等异步完成后再渲染
+    // 我们选择先渲染一次（缓存为空，所有按钮都可点击），等异步完成后再刷新
+    renderGoods();
 }
 
 // ========== 商品筛选下拉 ==========
