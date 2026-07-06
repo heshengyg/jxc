@@ -160,24 +160,20 @@ function initReturnPrintControls() {
         checkbox.type = 'checkbox';
         checkbox.id = 'returnPrintAllCheck';
         checkbox.style.marginRight = '5px';
-        
-        // ===== 全选复选框 onchange（完全参照 finance.js） =====
-        checkbox.onchange = function() {
-            if (skipReturnAllChange) {
-                skipReturnAllChange = false;
-                return;
-            }
-            if (this.checked) {
-                // 全选：将所有行ID加入集合
-                filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-                document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = true);
-            } else {
-                // 取消全选：清空集合
-                selectedReturnIds.clear();
-                document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = false);
-            }
-        };
-
+        // ===== 全选复选框 onchange（参照 finance.js） =====
+        checkbox.onchange = function () {
+    if (skipReturnAllChange) return;
+    const checked = this.checked;
+    // 设置所有行复选框
+    document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
+    // 更新选中集合
+    selectedReturnIds.clear();
+    if (checked) {
+        filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
+    }
+    skipReturnAllChange = false;
+    // 全选复选框自身已经设置，但为了保险，确保状态一致（此处可省略，但保留）
+};
         const textNode = firstTh.childNodes[0];
         if (textNode) {
             firstTh.insertBefore(checkbox, textNode);
@@ -252,19 +248,12 @@ function renderReturnList() {
     let pageData = filteredReturnGoods.slice(start, start + returnPageSize);
     let tb = document.getElementById('returnGoodsList');
     if (!tb) return;
-    
-    // ✅ 先清空表格内容
     tb.innerHTML = '';
     
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#999;">暂无退货记录</td></tr>';
-        // 即使没有数据，也要确保全选复选框存在
-        ensureReturnAllCheckbox();
         return;
     }
-    
-    // ✅ 在填充数据之前，确保全选复选框存在
-    ensureReturnAllCheckbox();
     
     for (let idx = 0; idx < pageData.length; idx++) {
         const item = pageData[idx];
@@ -319,86 +308,42 @@ function renderReturnList() {
         tb.innerHTML += summaryHtml;
     }
 
-    // ========== 绑定行复选框的 change 事件 ==========
-    document.querySelectorAll('.return-item-checkbox').forEach(checkbox => {
-        checkbox.onchange = function() {
-            const id = Number(this.dataset.id);
-            if (this.checked) {
-                selectedReturnIds.add(id);
-            } else {
-                selectedReturnIds.delete(id);
-            }
-            // 同步全选状态
-            const allCb = document.getElementById('returnPrintAllCheck');
-            if (allCb) {
-                const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
-                skipReturnAllChange = true;
-                allCb.checked = allChecked;
-                skipReturnAllChange = false;
-            }
-        };
-    });
-
-    // ========== 同步全选状态 ==========
-    const allCb = document.getElementById('returnPrintAllCheck');
-    if (allCb) {
-        const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
-        skipReturnAllChange = true;
-        allCb.checked = allChecked;
-        skipReturnAllChange = false;
-    }
-}
-
-// ===== 独立的全选复选框创建函数 =====
-function ensureReturnAllCheckbox() {
-    const thead = document.querySelector('#returnGoodsList thead');
-    if (!thead) {
-        console.warn('⚠️ thead 不存在，无法创建全选复选框');
-        return;
-    }
-    const firstTh = thead.querySelector('tr th:first-child');
-    if (!firstTh) {
-        console.warn('⚠️ firstTh 不存在');
-        return;
-    }
-    
-    // ✅ 强制移除旧的全选复选框（如果有）
-    const oldCheckbox = firstTh.querySelector('input[type="checkbox"]');
-    if (oldCheckbox) {
-        oldCheckbox.remove();
-        console.log('🗑️ 已移除旧的全选复选框');
-    }
-    
-    // 创建新的全选复选框
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'returnPrintAllCheck';
-    checkbox.style.marginRight = '5px';
-    
-    // 全选事件
-    checkbox.onchange = function() {
-        if (skipReturnAllChange) {
-            skipReturnAllChange = false;
-            return;
-        }
+    // 绑定checkbox change事件，同步 selectedReturnIds 和全选状态
+document.querySelectorAll('.return-item-checkbox').forEach(cb => {
+    cb.onchange = function() {
+        const id = Number(this.dataset.id);
         if (this.checked) {
-            filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
-            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = true);
+            selectedReturnIds.add(id);
         } else {
-            selectedReturnIds.clear();
-            document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = false);
+            selectedReturnIds.delete(id);
+        }
+        // ===== 直接计算全选状态并设置全选复选框（无需调用外部函数） =====
+        const allCheckbox = document.getElementById('returnPrintAllCheck');
+        if (allCheckbox) {
+            const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
+            skipReturnAllChange = true;
+            allCheckbox.checked = allChecked;
+            skipReturnAllChange = false;
         }
     };
-    
-    // 插入到第一个 th 的开头
-    const textNode = firstTh.childNodes[0];
-    if (textNode) {
-        firstTh.insertBefore(checkbox, textNode);
-    } else {
-        firstTh.prepend(checkbox);
-    }
-    console.log('✅ 全选复选框已创建，ID: returnPrintAllCheck');
+});
+
+    // 更新全选状态
+    updateReturnAllCheckboxState();
 }
+
+// ===== 更新全选复选框状态（参照 finance.js：基于集合大小判断） =====
+function updateReturnAllCheckboxState() {
+    const allCheckbox = document.getElementById('returnPrintAllCheck');
+    if (!allCheckbox) return;
+    const total = filteredReturnGoods.length;
+    const checkedCount = selectedReturnIds.size;
+    const allChecked = (checkedCount === total && total > 0);
+    skipReturnAllChange = true;
+    allCheckbox.checked = allChecked;
+    skipReturnAllChange = false;
+}
+
 // ========== 分页 ==========
 function renderReturnPagination() {
     returnTotalPages = Math.ceil(filteredReturnGoods.length / returnPageSize) || 1;
