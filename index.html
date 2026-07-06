@@ -984,82 +984,100 @@
 </div>
 
         <!-- ⑦入库对账 -->
-        <div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
-            <h4>入库财务对账表</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <label>结算方式：</label>
-                <select id="checkInSettle">
-                    <option value="">全部</option>
-                    <option value="线上">线上</option>
-                    <option value="线下">线下</option>
-                </select>
-                <label>发票状态：</label>
-                <select id="checkInInvoice">
-                    <option value="">全部</option>
-                    <option value="已开票">已开票</option>
-                    <option value="未开票">未开票</option>
-                </select>
-                <label>入库月份：</label>
-                <select id="checkInMonth"></select>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>供应商：</label>
-                    <input type="text" id="checkInSupplierSearchInput" 
-                           placeholder="搜索/选择供应商" 
-                           onclick="showCheckInSupplierList()" 
-                           oninput="filterCheckInSupplierList()" 
-                           style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-                    <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>商品名：</label>
-                    <input type="text" id="checkInGoodsSearchInput" 
-                           placeholder="搜索/选择商品" 
-                           onclick="showCheckInGoodsList()" 
-                           oninput="filterCheckInGoodsList()" 
-                           style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-                    <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <label>税率：</label>
-                <select id="checkInTaxRateSearch">
-                    <option value="">全部税率</option>
-                    <option value="0">0%</option>
-                    <option value="9">9%</option>
-                    <option value="13">13%</option>
-                </select>
-                <label><input type="checkbox" id="checkInSupplierGroup">按供应商汇总</label>
-                <label><input type="checkbox" id="checkInGoodsGroup">按商品汇总</label>
-                <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
-                <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
-                <button class="btn btn-success" onclick="exportStockInCheckExcel()">导出入库对账表</button>
-            </div>
-            <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
-                共 0 条入库记录，当前搜索结果 0 条
-            </div>
-            <div class="table-container">
-                <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>供应商</th>
-                            <th>商品名称</th>
-                            <th>规格</th>
-                            <th>税率</th>
-                            <th>发票状态</th>
-                            <th>入库单价</th>
-                            <th>入库数量</th>
-                            <th>是否付清</th>
-                            <th>含税入库金额</th>
-                            <th>不含税金额</th>
-                            <th>税额</th>
-                            <th>发票结余</th>
-                            <th>录入日期</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stockInCheckList"></tbody>
-                </table>
-            </div>
-            <div class="pagination" id="page_stockInCheck"></div>
+<div id="sub-stockInCheck" class="finance-sub-content" style="display:none;">
+    <h4>入库财务对账表</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">结算方式：</label>
+        <select id="checkInSettle" onchange="searchStockInCheck()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
+        </select>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">发票状态：</label>
+        <select id="checkInInvoice" onchange="searchStockInCheck()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部</option>
+            <option value="已开票">已开票</option>
+            <option value="未开票">未开票</option>
+        </select>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">入库月份：</label>
+        <select id="checkInMonth" onchange="searchStockInCheck()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;"></select>
+        
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商：</label>
+            <input type="text" id="checkInSupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showCheckInSupplierList()" 
+                   oninput="onCheckInFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="checkInSupplierListBox" style="position:absolute;top:100%;left:60px;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <!-- 商品名搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">商品名：</label>
+            <input type="text" id="checkInGoodsSearchInput" placeholder="搜索商品" 
+                   onfocus="showCheckInGoodsList()" 
+                   oninput="onCheckInFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="checkInGoodsListBox" style="position:absolute;top:100%;left:60px;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        </div>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">税率：</label>
+        <select id="checkInTaxRateSearch" onchange="searchStockInCheck()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部税率</option>
+            <option value="0">0%</option>
+            <option value="9">9%</option>
+            <option value="13">13%</option>
+        </select>
+        
+        <label style="white-space:nowrap;font-size:14px;"><input type="checkbox" id="checkInSupplierGroup" onchange="searchStockInCheck()">按供应商汇总</label>
+        <label style="white-space:nowrap;font-size:14px;"><input type="checkbox" id="checkInGoodsGroup" onchange="searchStockInCheck()">按商品汇总</label>
+        
+        <button class="btn btn-primary" onclick="searchStockInCheck()">查询汇总</button>
+        <button class="btn btn-default" onclick="resetStockInCheck()">重置搜索</button>
+        <button class="btn btn-success" onclick="exportStockInCheckExcel()">导出入库对账表</button>
+    </div>
+    <div class="stat-bar" id="stockInCheckTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+        共 0 条入库记录，当前搜索结果 0 条
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>供应商</th>
+                    <th>商品名称</th>
+                    <th>规格</th>
+                    <th>税率</th>
+                    <th>发票状态</th>
+                    <th>入库单价</th>
+                    <th>入库数量</th>
+                    <th>是否付清</th>
+                    <th>含税入库金额</th>
+                    <th>不含税金额</th>
+                    <th>税额</th>
+                    <th>发票结余</th>
+                    <th>录入日期</th>
+                </tr>
+            </thead>
+            <tbody id="stockInCheckList"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="page_stockInCheck"></div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#checkInSupplierSearchInput') && !e.target.closest('#checkInSupplierListBox')) {
+            document.getElementById('checkInSupplierListBox').style.display = 'none';
+        }
+        if (!e.target.closest('#checkInGoodsSearchInput') && !e.target.closest('#checkInGoodsListBox')) {
+            document.getElementById('checkInGoodsListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
         <!-- ⑧出库对账 -->
         <div id="sub-stockOutCheck" class="finance-sub-content" style="display:none;">
