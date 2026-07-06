@@ -1355,7 +1355,8 @@ function exportExcel() {
 
 // ========== 商品批量导入 ==========
 function importGoodsExcel() {
-    let fileInput = document.getElementById('fileInput');
+    // ✅ 改为 goodsFileInput
+    let fileInput = document.getElementById('goodsFileInput');
     let file = fileInput.files[0];
     if (!file) {
         showMsg('请选择文件');
@@ -1406,7 +1407,6 @@ function importGoodsExcel() {
                     if (found) {
                         channel = found.channel;
                     } else {
-                        // 如果找不到，默认设为"线下"
                         channel = '线下';
                     }
                 }
@@ -1479,7 +1479,6 @@ function importGoodsExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
-
 // ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
     // 默认激活商品信息子Tab（统一管理显示和加载）
