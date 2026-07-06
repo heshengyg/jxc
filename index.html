@@ -88,7 +88,7 @@
             <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
     <button class="btn btn-primary" onclick="openAddForm()">新增商品</button>
     <button class="btn btn-success" onclick="downloadTemplate()">下载导入模板</button>
-    <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">批量导入</button>
+    <button class="btn btn-warning" onclick="document.getElementById('goodsFileInput').click()">批量导入</button>
     <button class="btn btn-default" onclick="exportExcel()">导出Excel</button>
     <button class="btn btn-danger" onclick="batchDelete()">批量删除</button>
     <button class="btn btn-default" onclick="refreshGoods()">刷新列表</button>
@@ -1738,6 +1738,8 @@
 
 <!-- 供应商批量导入文件选择框 -->
 <input type="file" id="settleFileInput" accept=".xlsx,.xls" onchange="importSettleExcel()" hidden>
+<!-- 商品批量导入文件选择框 -->
+<input type="file" id="goodsFileInput" accept=".xlsx,.xls" onchange="importGoodsExcel()" hidden>
 
 <!-- JS 加载 -->
 <script src="./js/config.js"></script>
