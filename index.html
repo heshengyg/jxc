@@ -1170,73 +1170,91 @@
 </div>
 
         <!-- ⑨月期初库存 -->
-        <div id="sub-monthBeginStock" class="finance-sub-content" style="display:none;">
-            <h4>月末库存期初核算表</h4>
-            <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <label>结算方式：</label>
-                <select id="beginSettle">
-                    <option value="">全部</option>
-                    <option value="线上">线上</option>
-                    <option value="线下">线下</option>
-                </select>
-                <label>统计月份：</label>
-                <select id="beginMonth"></select>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>供应商：</label>
-                    <input type="text" id="beginSupplierSearchInput" 
-                           placeholder="搜索/选择供应商" 
-                           onclick="showBeginSupplierList()" 
-                           oninput="filterBeginSupplierList()" 
-                           style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-                    <div id="beginSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>商品名：</label>
-                    <input type="text" id="beginGoodsSearchInput" 
-                           placeholder="搜索/选择商品" 
-                           onclick="showBeginGoodsList()" 
-                           oninput="filterBeginGoodsList()" 
-                           style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-                    <div id="beginGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <label>税率：</label>
-                <select id="beginTaxRateSearch">
-                    <option value="">全部税率</option>
-                    <option value="0">0%</option>
-                    <option value="9">9%</option>
-                    <option value="13">13%</option>
-                </select>
-                <label><input type="checkbox" id="beginSupplierGroup">按供应商汇总</label>
-                <label><input type="checkbox" id="beginGoodsGroup">按商品汇总</label>
-                <button class="btn btn-primary" onclick="searchMonthBeginStock()">查询汇总</button>
-                <button class="btn btn-default" onclick="resetMonthBeginStock()">重置搜索</button>
-                <button class="btn btn-success" onclick="exportMonthBeginStockExcel()">导出期初库存表</button>
-            </div>
-            <div class="stat-bar" id="monthBeginStockTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
-                共 0 条库存记录，当前搜索结果 0 条
-            </div>
-            <div class="table-container">
-                <table border="1" cellpadding="6" cellspacing="0" width="100%">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>供应商</th>
-                            <th>商品名称</th>
-                            <th>规格</th>
-                            <th>税率</th>
-                            <th>入库单价</th>
-                            <th>月末库存</th>
-                            <th>含税库存金额</th>
-                            <th>不含税金额</th>
-                            <th>税额</th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthBeginStockList"></tbody>
-                </table>
-            </div>
-            <div class="pagination" id="page_monthBeginStock"></div>
+<div id="sub-monthBeginStock" class="finance-sub-content" style="display:none;">
+    <h4>月末库存期初核算表</h4>
+    <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">结算方式：</label>
+        <select id="beginSettle" onchange="searchMonthBeginStock()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
+        </select>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">统计月份：</label>
+        <select id="beginMonth" onchange="searchMonthBeginStock()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">请选择月份</option>
+        </select>
+        
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商：</label>
+            <input type="text" id="beginSupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showBeginSupplierList()" 
+                   oninput="onBeginFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="beginSupplierListBox" style="position:absolute;top:100%;left:60px;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <!-- 商品名搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">商品名：</label>
+            <input type="text" id="beginGoodsSearchInput" placeholder="搜索商品" 
+                   onfocus="showBeginGoodsList()" 
+                   oninput="onBeginFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="beginGoodsListBox" style="position:absolute;top:100%;left:60px;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+        </div>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">税率：</label>
+        <select id="beginTaxRateSearch" onchange="searchMonthBeginStock()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部税率</option>
+            <option value="0">0%</option>
+            <option value="9">9%</option>
+            <option value="13">13%</option>
+        </select>
+        
+        <label style="white-space:nowrap;font-size:14px;"><input type="checkbox" id="beginSupplierGroup" onchange="searchMonthBeginStock()">按供应商汇总</label>
+        <label style="white-space:nowrap;font-size:14px;"><input type="checkbox" id="beginGoodsGroup" onchange="searchMonthBeginStock()">按商品汇总</label>
+        
+        <button class="btn btn-primary" onclick="searchMonthBeginStock()">查询汇总</button>
+        <button class="btn btn-default" onclick="resetMonthBeginStock()">重置搜索</button>
+        <button class="btn btn-success" onclick="exportMonthBeginStockExcel()">导出期初库存表</button>
     </div>
+    <div class="stat-bar" id="monthBeginStockTotalTip" style="margin: 10px 0; font-size: 14px; color: #333;">
+        共 0 条库存记录，当前搜索结果 0 条
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>供应商</th>
+                    <th>商品名称</th>
+                    <th>规格</th>
+                    <th>税率</th>
+                    <th>入库单价</th>
+                    <th>月末库存</th>
+                    <th>含税库存金额</th>
+                    <th>不含税金额</th>
+                    <th>税额</th>
+                </tr>
+            </thead>
+            <tbody id="monthBeginStockList"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="page_monthBeginStock"></div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#beginSupplierSearchInput') && !e.target.closest('#beginSupplierListBox')) {
+            document.getElementById('beginSupplierListBox').style.display = 'none';
+        }
+        if (!e.target.closest('#beginGoodsSearchInput') && !e.target.closest('#beginGoodsListBox')) {
+            document.getElementById('beginGoodsListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
     <!-- 系统设置 -->
     <div id="settings" class="tab-content">

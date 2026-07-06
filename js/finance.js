@@ -3233,109 +3233,10 @@ function exportStockOutCheckExcel() {
 }
 
 // ===================== ⑨月期初库存 =====================
-function showBeginSupplierList() {
-    const list = window._beginSupplierList || [];
-    renderBeginSupplierList(list);
-    document.getElementById('beginSupplierListBox').style.display = 'block';
-}
-
-function filterBeginSupplierList() {
-    const kw = document.getElementById('beginSupplierSearchInput').value.toLowerCase();
-    const list = (window._beginSupplierList || []).filter(s => s.toLowerCase().includes(kw));
-    renderBeginSupplierList(list);
-    document.getElementById('beginSupplierListBox').style.display = 'block';
-}
-
-function renderBeginSupplierList(list) {
-    const box = document.getElementById('beginSupplierListBox');
-    box.innerHTML = '';
-    if (list.length === 0) {
-        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
-        return;
-    }
-    list.forEach(s => {
-        const div = document.createElement('div');
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.style.borderBottom = '1px solid #eee';
-        div.innerText = s;
-        div.onclick = function() {
-            document.getElementById('beginSupplierSearchInput').value = s;
-            document.getElementById('beginSupplierListBox').style.display = 'none';
-        };
-        box.appendChild(div);
-    });
-}
-
-function showBeginGoodsList() {
-    const list = window._beginGoodsList || [];
-    renderBeginGoodsList(list);
-    document.getElementById('beginGoodsListBox').style.display = 'block';
-}
-
-function filterBeginGoodsList() {
-    const kw = document.getElementById('beginGoodsSearchInput').value.toLowerCase();
-    const list = (window._beginGoodsList || []).filter(s => s.toLowerCase().includes(kw));
-    renderBeginGoodsList(list);
-    document.getElementById('beginGoodsListBox').style.display = 'block';
-}
-
-function renderBeginGoodsList(list) {
-    const box = document.getElementById('beginGoodsListBox');
-    box.innerHTML = '';
-    if (list.length === 0) {
-        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
-        return;
-    }
-    list.forEach(s => {
-        const div = document.createElement('div');
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.style.borderBottom = '1px solid #eee';
-        div.innerText = s;
-        div.onclick = function() {
-            document.getElementById('beginGoodsSearchInput').value = s;
-            document.getElementById('beginGoodsListBox').style.display = 'none';
-        };
-        box.appendChild(div);
-    });
-}
-
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#beginSupplierSearchInput') && !e.target.closest('#beginSupplierListBox')) {
-        document.getElementById('beginSupplierListBox').style.display = 'none';
-    }
-    if (!e.target.closest('#beginGoodsSearchInput') && !e.target.closest('#beginGoodsListBox')) {
-        document.getElementById('beginGoodsListBox').style.display = 'none';
-    }
-});
-
-function calcMonthEndStock(supplier, goodsName, spec, inPrice, produceDate, expireDate, endDate) {
-    const inRecords = allStockInList.filter(item => {
-        const itemKey = `${item.supplier}|${item.goodsName}|${item.spec || ''}|${item.in_price || 0}|${item.produce_date || ''}|${item.expire_date || ''}`;
-        const batchKey = `${supplier}|${goodsName}|${spec || ''}|${inPrice || 0}|${produceDate || ''}|${expireDate || ''}`;
-        return itemKey === batchKey && item.record_date && item.record_date <= endDate;
-    });
-    
-    if (inRecords.length === 0) return 0;
-    
-    let totalIn = 0;
-    const inIds = [];
-    inRecords.forEach(rec => {
-        totalIn += Number(rec.in_num || 0);
-        inIds.push(rec.id);
-    });
-    
-    let totalOut = 0;
-    const outData = window.allStockOut || [];
-    outData.forEach(out => {
-        if (out.recordDate && out.recordDate <= endDate && inIds.includes(out.inRecordId)) {
-            totalOut += Number(out.outNum || 0);
-        }
-    });
-    
-    return Math.max(0, totalIn - totalOut);
-}
+// 月期初库存下拉缓存变量
+let beginSupplierList = [];
+let beginGoodsList = [];
+let beginSearchTimer = null;
 
 function initMonthBeginPage() {
     financePageConfig.monthBeginStock.current = 1;
@@ -3344,11 +3245,20 @@ function initMonthBeginPage() {
     
     const inData = allStockInList || [];
     
+    // 初始化供应商和商品下拉数据
     const suppliers = [...new Set(inData.map(item => item.supplier).filter(Boolean))];
+    beginSupplierList = suppliers;
     window._beginSupplierList = suppliers;
     
     const goodsNames = [...new Set(inData.map(item => item.goodsName).filter(Boolean))];
+    beginGoodsList = goodsNames;
     window._beginGoodsList = goodsNames;
+    
+    // 重置搜索框
+    document.getElementById('beginSupplierSearchInput').value = '';
+    document.getElementById('beginGoodsSearchInput').value = '';
+    document.getElementById('beginSupplierListBox').style.display = 'none';
+    document.getElementById('beginGoodsListBox').style.display = 'none';
     
     const tbody = document.getElementById('monthBeginStockList');
     if (tbody) tbody.innerHTML = '';
@@ -3378,8 +3288,124 @@ function initBeginMonthSelect(selId) {
     });
 }
 
-function searchMonthBeginStock() {
+// ========== 月期初库存 - 供应商搜索下拉 ==========
+function showBeginSupplierList() {
+    renderBeginSupplierList(beginSupplierList);
+    document.getElementById('beginSupplierListBox').style.display = 'block';
+}
+
+function filterBeginSupplierList() {
+    const kw = document.getElementById('beginSupplierSearchInput').value.toLowerCase();
+    const filtered = beginSupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderBeginSupplierList(filtered);
+    document.getElementById('beginSupplierListBox').style.display = 'block';
+}
+
+function renderBeginSupplierList(list) {
+    const box = document.getElementById('beginSupplierListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('beginSupplierSearchInput').value = s;
+            document.getElementById('beginSupplierListBox').style.display = 'none';
+            // 输入即搜索
+            searchMonthBeginStock();
+        };
+        box.appendChild(div);
+    });
+}
+
+// ========== 月期初库存 - 商品名称搜索下拉 ==========
+function showBeginGoodsList() {
+    renderBeginGoodsList(beginGoodsList);
+    document.getElementById('beginGoodsListBox').style.display = 'block';
+}
+
+function filterBeginGoodsList() {
+    const kw = document.getElementById('beginGoodsSearchInput').value.toLowerCase();
+    const filtered = beginGoodsList.filter(s => s.toLowerCase().includes(kw));
+    renderBeginGoodsList(filtered);
+    document.getElementById('beginGoodsListBox').style.display = 'block';
+}
+
+function renderBeginGoodsList(list) {
+    const box = document.getElementById('beginGoodsListBox');
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('beginGoodsSearchInput').value = s;
+            document.getElementById('beginGoodsListBox').style.display = 'none';
+            // 输入即搜索
+            searchMonthBeginStock();
+        };
+        box.appendChild(div);
+    });
+}
+
+// ========== 月期初库存实时搜索（输入即搜索） ==========
+function onBeginFilterInput() {
+    // 清除之前的定时器
+    if (beginSearchTimer) {
+        clearTimeout(beginSearchTimer);
+    }
+    // 防抖处理，300ms后执行搜索
+    beginSearchTimer = setTimeout(() => {
+        searchMonthBeginStock();
+        // 显示下拉列表
+        const supplierInput = document.getElementById('beginSupplierSearchInput');
+        const goodsInput = document.getElementById('beginGoodsSearchInput');
+        
+        if (document.activeElement === supplierInput) {
+            const kw = supplierInput.value.toLowerCase().trim();
+            const filtered = beginSupplierList.filter(s => s.toLowerCase().includes(kw));
+            renderBeginSupplierList(filtered);
+            document.getElementById('beginSupplierListBox').style.display = 'block';
+        } else if (document.activeElement === goodsInput) {
+            const kw = goodsInput.value.toLowerCase().trim();
+            const filtered = beginGoodsList.filter(s => s.toLowerCase().includes(kw));
+            renderBeginGoodsList(filtered);
+            document.getElementById('beginGoodsListBox').style.display = 'block';
+        }
+    }, 300);
+}
+
+// ========== 月期初库存重置搜索 ==========
+function resetMonthBeginStock() {
+    document.getElementById('beginSettle').value = '';
+    document.getElementById('beginMonth').value = '';
+    document.getElementById('beginSupplierSearchInput').value = '';
+    document.getElementById('beginGoodsSearchInput').value = '';
+    document.getElementById('beginTaxRateSearch').value = '';
+    document.getElementById('beginSupplierGroup').checked = false;
+    document.getElementById('beginGoodsGroup').checked = false;
+    document.getElementById('beginSupplierListBox').style.display = 'none';
+    document.getElementById('beginGoodsListBox').style.display = 'none';
+    // 重置分页到第一页
     financePageConfig.monthBeginStock.current = 1;
+    searchMonthBeginStock();
+}
+
+function searchMonthBeginStock() {
+    // 注意：不在这里重置分页，由调用方决定
+    // 重置按钮会重置分页，下拉点击和实时搜索保持当前分页
     
     const settle = document.getElementById('beginSettle').value;
     const month = document.getElementById('beginMonth').value;
@@ -3391,6 +3417,9 @@ function searchMonthBeginStock() {
     
     if (!month) {
         showMsg('请先选择统计月份');
+        const tbody = document.getElementById('monthBeginStockList');
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">请选择统计月份</td></tr>';
+        renderFinancePagination('monthBeginStock');
         return;
     }
     
@@ -3404,8 +3433,10 @@ function searchMonthBeginStock() {
         if (!item.record_date || item.record_date > endDateStr) return;
         
         if (settle && item.settleType !== settle) return;
-        if (supplier && item.supplier !== supplier) return;
-        if (goodsName && item.goodsName !== goodsName) return;
+        // 模糊匹配供应商
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) return;
+        // 模糊匹配商品名
+        if (goodsName && !(item.goodsName || '').toLowerCase().includes(goodsName.toLowerCase())) return;
         
         let taxRateVal = 0;
         if (taxRate !== '') {
@@ -3561,7 +3592,7 @@ function searchMonthBeginStock() {
     tbody.innerHTML = '';
     
     if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">暂无匹配数据</td></tr>';
         renderFinancePagination('monthBeginStock');
         return;
     }
@@ -3596,19 +3627,6 @@ function searchMonthBeginStock() {
     renderFinancePagination('monthBeginStock');
 }
 
-function resetMonthBeginStock() {
-    document.getElementById('beginSettle').value = '';
-    document.getElementById('beginMonth').value = '';
-    document.getElementById('beginSupplierSearchInput').value = '';
-    document.getElementById('beginGoodsSearchInput').value = '';
-    document.getElementById('beginTaxRateSearch').value = '';
-    document.getElementById('beginSupplierGroup').checked = false;
-    document.getElementById('beginGoodsGroup').checked = false;
-    document.getElementById('beginSupplierListBox').style.display = 'none';
-    document.getElementById('beginGoodsListBox').style.display = 'none';
-    searchMonthBeginStock();
-}
-
 function exportMonthBeginStockExcel() {
     searchMonthBeginStock();
     
@@ -3634,8 +3652,10 @@ function exportMonthBeginStockExcel() {
     allStockInList.forEach(item => {
         if (!item.record_date || item.record_date > endDateStr) return;
         if (settle && item.settleType !== settle) return;
-        if (supplier && item.supplier !== supplier) return;
-        if (goodsName && item.goodsName !== goodsName) return;
+        // 模糊匹配供应商
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) return;
+        // 模糊匹配商品名
+        if (goodsName && !(item.goodsName || '').toLowerCase().includes(goodsName.toLowerCase())) return;
         
         let taxRateVal = 0;
         if (taxRate !== '') {
@@ -3791,7 +3811,6 @@ function exportMonthBeginStockExcel() {
     XLSX.writeFile(wb, `期初库存表_${endDateStr}.xlsx`);
     // showMsg('导出成功');
 }
-
 window.resetTaxSearch = resetTaxSearch;
 window.onTaxFilterInput = onTaxFilterInput;
 window.onPrintFilterInput = onPrintFilterInput;
