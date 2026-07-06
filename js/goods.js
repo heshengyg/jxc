@@ -1353,6 +1353,133 @@ function exportExcel() {
     XLSX.writeFile(wb, "商品列表.xlsx");
 }
 
+// ========== 商品批量导入 ==========
+function importGoodsExcel() {
+    let fileInput = document.getElementById('fileInput');
+    let file = fileInput.files[0];
+    if (!file) {
+        showMsg('请选择文件');
+        return;
+    }
+
+    let reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, { type: 'array' });
+            let sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let json = XLSX.utils.sheet_to_json(sheet);
+
+            if (json.length === 0) {
+                showMsg('Excel 文件为空或格式不正确');
+                fileInput.value = '';
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+            let failDetails = [];
+
+            for (let row of json) {
+                // 支持多种列名
+                let supplier = row['供应商'] || row['supplier'] || '';
+                let name = row['商品名称'] || row['goodsName'] || row['name'] || '';
+                let spec = row['规格'] || row['spec'] || '';
+                let channel = row['销售渠道'] || row['channel'] || row['结算方式'] || '';
+                let salePrice = parseFloat(row['销售单价'] || row['sale_price'] || 0);
+                let taxRate = row['税率'] || row['tax_rate'] || '';
+                let onlineCost = parseFloat(row['线上成本价'] || row['online_cost'] || 0);
+                let warnNum = parseInt(row['库存预警阈值'] || row['warn_num'] || 0);
+                let shelfLifeNum = row['保质期时长'] || row['shelf_life_num'] || '';
+                let shelfLifeUnit = row['保质期单位'] || row['shelf_life_unit'] || '';
+
+                // ✅ 校验：供应商和商品名必须存在
+                if (!supplier || !name) {
+                    failCount++;
+                    failDetails.push(`缺少供应商或商品名: 供应商="${supplier}", 商品名="${name}"`);
+                    continue;
+                }
+
+                // ✅ 如果渠道为空，尝试从 settleData 中查找
+                if (!channel) {
+                    let found = settleData.find(s => s.supplier === supplier);
+                    if (found) {
+                        channel = found.channel;
+                    } else {
+                        // 如果找不到，默认设为"线下"
+                        channel = '线下';
+                    }
+                }
+
+                // ✅ 构建数据对象，空值转为 null
+                let postData = {
+                    supplier: supplier.trim(),
+                    name: name.trim(),
+                    spec: spec.trim() || null,
+                    channel: channel.trim(),
+                    tax_rate: taxRate || null,
+                    sale_price: salePrice || 0,
+                    online_cost: onlineCost || null,
+                    warn_num: warnNum || null,
+                    shelf_life_num: shelfLifeNum || null,
+                    shelf_life_unit: shelfLifeUnit || null
+                };
+
+                try {
+                    let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+                        method: 'POST',
+                        headers: {
+                            apikey: SUPABASE_KEY,
+                            Authorization: `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(postData)
+                    });
+
+                    if (res.ok) {
+                        successCount++;
+                    } else {
+                        let errorText = await res.text();
+                        failCount++;
+                        failDetails.push(`${name} 导入失败: ${errorText}`);
+                        console.error('导入失败:', errorText);
+                    }
+                } catch (err) {
+                    failCount++;
+                    failDetails.push(`${name} 导入异常: ${err.message}`);
+                    console.error('导入异常:', err);
+                }
+            }
+
+            // ✅ 显示导入结果
+            let msg = `导入完成：成功 ${successCount} 条`;
+            if (failCount > 0) {
+                msg += `，失败 ${failCount} 条`;
+                if (failDetails.length > 0) {
+                    msg += '\n' + failDetails.slice(0, 5).join('\n');
+                    if (failDetails.length > 5) {
+                        msg += `\n... 还有 ${failDetails.length - 5} 条错误`;
+                    }
+                }
+            }
+            showMsg(msg);
+
+            fileInput.value = '';
+            // ✅ 导入完成后刷新列表
+            await loadGoods(true);
+            if (typeof loadAllGoods === 'function') {
+                await loadAllGoods();
+            }
+
+        } catch (err) {
+            showMsg('导入失败：' + err.message);
+            console.error(err);
+            fileInput.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
 // ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
     // 默认激活商品信息子Tab（统一管理显示和加载）
