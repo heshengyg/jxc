@@ -52,6 +52,9 @@ let filteredSettle = [];      // 筛选后的结算类型
 let settleCurrentPage = 1;
 let settlePageSize = 10;
 let settleTotalPages = 1;
+// 供应商管理下拉缓存变量
+let settleSupplierList = [];
+let settleSearchTimer = null;
 
 // ========== 结算类型管理 ==========
 // 加载结算类型列表（从独立的settle_types表）
@@ -80,8 +83,19 @@ async function loadSettleList() {
         
         settleData = list;
         
-        // 更新供应商下拉列表
-        updateSettleSupplierFilter();
+        // 初始化供应商下拉数据
+        const suppliers = settleData.map(s => s.supplier).sort();
+        settleSupplierList = suppliers;
+        
+        // 重置搜索框
+        const searchInput = document.getElementById('settleSupplierSearchInput');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        const listBox = document.getElementById('settleSupplierListBox');
+        if (listBox) {
+            listBox.style.display = 'none';
+        }
         
         let totalCountEl = document.getElementById('settleTotalCount');
         if (totalCountEl) totalCountEl.textContent = settleData.length;
@@ -98,31 +112,85 @@ async function loadSettleList() {
     }
 }
 
-// 更新结算类型供应商筛选下拉
-function updateSettleSupplierFilter() {
-    let select = document.getElementById('settleSupplierSearch');
-    if (!select) return;
-    let currentValue = select.value;
-    select.innerHTML = '<option value="">全部供应商</option>';
-    let suppliers = settleData.map(s => s.supplier).sort();
-    suppliers.forEach(sup => {
-        let opt = document.createElement('option');
-        opt.value = sup;
-        opt.textContent = sup;
-        select.appendChild(opt);
+// ========== 供应商管理 - 供应商搜索下拉 ==========
+function showSettleSupplierList() {
+    renderSettleSupplierList(settleSupplierList);
+    document.getElementById('settleSupplierListBox').style.display = 'block';
+}
+
+function filterSettleSupplierList() {
+    const kw = document.getElementById('settleSupplierSearchInput').value.toLowerCase();
+    const filtered = settleSupplierList.filter(s => s.toLowerCase().includes(kw));
+    renderSettleSupplierList(filtered);
+    document.getElementById('settleSupplierListBox').style.display = 'block';
+}
+
+function renderSettleSupplierList(list) {
+    const box = document.getElementById('settleSupplierListBox');
+    if (!box) return;
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配数据</div>';
+        return;
+    }
+    list.forEach(s => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = s;
+        div.onclick = function() {
+            document.getElementById('settleSupplierSearchInput').value = s;
+            document.getElementById('settleSupplierListBox').style.display = 'none';
+            // 输入即搜索
+            filterSettleList();
+        };
+        box.appendChild(div);
     });
-    select.value = currentValue;
+}
+
+// ========== 供应商管理实时搜索（输入即搜索） ==========
+function onSettleFilterInput() {
+    // 清除之前的定时器
+    if (settleSearchTimer) {
+        clearTimeout(settleSearchTimer);
+    }
+    // 防抖处理，300ms后执行搜索
+    settleSearchTimer = setTimeout(() => {
+        filterSettleList();
+        // 显示下拉列表
+        const input = document.getElementById('settleSupplierSearchInput');
+        if (document.activeElement === input) {
+            const kw = input.value.toLowerCase().trim();
+            const filtered = settleSupplierList.filter(s => s.toLowerCase().includes(kw));
+            renderSettleSupplierList(filtered);
+            document.getElementById('settleSupplierListBox').style.display = 'block';
+        }
+    }, 300);
+}
+
+// ========== 供应商管理重置搜索 ==========
+function resetSettleSearch() {
+    document.getElementById('settleSupplierSearchInput').value = '';
+    document.getElementById('settleChannelSearch').value = '';
+    document.getElementById('settleSupplierListBox').style.display = 'none';
+    filterSettleList();
 }
 
 // 筛选结算类型列表
 function filterSettleList() {
-    // ✅ 从隐藏域获取供应商值
-    let supplier = document.getElementById('settleSupplierSearch').value;
+    let supplier = document.getElementById('settleSupplierSearchInput').value.trim();
     let channel = document.getElementById('settleChannelSearch').value;
     
     filteredSettle = settleData.filter(item => {
-        let matchSupplier = !supplier || item.supplier === supplier;
+        let matchSupplier = true;
         let matchChannel = !channel || item.channel === channel;
+        
+        // 模糊匹配供应商
+        if (supplier) {
+            matchSupplier = (item.supplier || '').toLowerCase().includes(supplier.toLowerCase());
+        }
+        
         return matchSupplier && matchChannel;
     });
     
@@ -134,85 +202,9 @@ function filterSettleList() {
     renderSettleList();
 }
 
-// ========== 供应商管理搜索下拉 ==========
-function showSettleSupplierList() {
-    const box = document.getElementById('settleSupplierListBox');
-    if (!box) return;
-    const searchInput = document.getElementById('settleSupplierSearchInput');
-    if (!searchInput) return;
-    
-    let suppliers = settleData.map(s => s.supplier).sort();
-    box.innerHTML = '';
-    if (suppliers.length === 0) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">暂无供应商</div>';
-        box.style.display = 'block';
-        return;
-    }
-    suppliers.forEach(sup => {
-        let div = document.createElement('div');
-        div.textContent = sup;
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        div.onclick = function() {
-            searchInput.value = sup;
-            document.getElementById('settleSupplierSearch').value = sup;
-            box.style.display = 'none';
-            filterSettleList();
-        };
-        box.appendChild(div);
-    });
-    box.style.display = 'block';
-}
-
-function filterSettleSupplierList() {
-    const box = document.getElementById('settleSupplierListBox');
-    if (!box) return;
-    const searchInput = document.getElementById('settleSupplierSearchInput');
-    if (!searchInput) return;
-    
-    let keyword = searchInput.value.toLowerCase();
-    let suppliers = settleData.map(s => s.supplier).sort();
-    box.innerHTML = '';
-    let filtered = suppliers.filter(s => s.toLowerCase().includes(keyword));
-    if (filtered.length === 0) {
-        box.innerHTML = '<div style="padding:8px;color:#999;">无匹配供应商</div>';
-        box.style.display = 'block';
-        return;
-    }
-    filtered.forEach(sup => {
-        let div = document.createElement('div');
-        div.textContent = sup;
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        div.onclick = function() {
-            searchInput.value = sup;
-            document.getElementById('settleSupplierSearch').value = sup;
-            box.style.display = 'none';
-            filterSettleList();
-        };
-        box.appendChild(div);
-    });
-    box.style.display = 'block';
-}
-
-// 点击空白关闭下拉
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#settleSupplierSearchInput') && !e.target.closest('#settleSupplierListBox')) {
-        const box = document.getElementById('settleSupplierListBox');
-        if (box) box.style.display = 'none';
-    }
-});
-
-// 重置结算类型搜索
-function resetSettleSearch() {
-    document.getElementById('settleSupplierSearchInput').value = '';
-    document.getElementById('settleSupplierSearch').value = '';
-    document.getElementById('settleChannelSearch').value = '';
-    filterSettleList();
+// 重置结算类型搜索（旧版本，保留兼容）
+function resetSettleSearchOld() {
+    resetSettleSearch();
 }
 
 function refreshSettleList() {
@@ -300,7 +292,6 @@ function changeSettlePageSize() {
     renderSettlePagination(); 
     renderSettleList(); 
 }
-
 // ========== 结算类型CRUD ==========
 // 新增结算类型 - 弹窗形式
 function openSettleForm() {

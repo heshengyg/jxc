@@ -173,62 +173,74 @@
         </div>
 
         <div id="sub-settleType" class="finance-sub-content" style="display:none;">
-            <h4>供应商管理</h4>
-            <div class="stat-bar">
-                共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
-            </div>
-            <div class="search-bar">
-                <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
-                <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
-                <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
-                <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
-                <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <label style="white-space:nowrap;font-weight:bold;">供应商：</label>
-                    <div style="position:relative;display:inline-block;">
-                        <input type="text" id="settleSupplierSearchInput" placeholder="搜索/选择供应商" onclick="showSettleSupplierList()" oninput="filterSettleSupplierList()" style="width:160px;padding:6px 8px;font-size:14px;border:1px solid #ddd;border-radius:4px;">
-                        <div id="settleSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                    </div>
-                </div>
-                <input type="hidden" id="settleSupplierSearch" value="">
-                <select id="settleChannelSearch" onchange="filterSettleList()" style="padding:6px 8px;border:1px solid #ddd;border-radius:4px;">
-                    <option value="">全部结算方式</option>
-                    <option value="线上">线上</option>
-                    <option value="线下">线下</option>
-                </select>
-                <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>供应商</th>
-                            <th>结算方式</th>
-                            <th>涉及商品数</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="settleTypeList"></tbody>
-                </table>
-            </div>
-            <div class="pagination">
-                <div class="page-info">
-                    每页显示 <select id="settlePageSize" onchange="changeSettlePageSize()">
-                        <option value="5">5</option>
-                        <option value="10" selected>10</option>
-                        <option value="20">20</option>
-                    </select> 条，当前第 <span id="settleCurrentPage">1</span> / <span id="settleTotalPages">1</span> 页
-                </div>
-                <div class="page-controls">
-                    <button class="page-btn" onclick="settleGoToPage(1)">首页</button>
-                    <button class="page-btn" onclick="settlePrevPage()">上一页</button>
-                    <span id="settlePageNumbers"></span>
-                    <button class="page-btn" onclick="settleNextPage()">下一页</button>
-                    <button class="page-btn" onclick="settleGoToPage(settleTotalPages)">末页</button>
-                </div>
-            </div>
+    <h4>供应商管理</h4>
+    <div class="stat-bar">
+        共 <span id="settleTotalCount">0</span> 条供应商，当前搜索结果 <span id="settleSearchCount">0</span> 条
+    </div>
+    <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+        <button class="btn btn-primary" onclick="openSettleForm()">新增供应商</button>
+        <button class="btn btn-success" onclick="downloadSettleTemplate()">下载导入模板</button>
+        <button class="btn btn-warning" onclick="document.getElementById('settleFileInput').click()">批量导入</button>
+        <button class="btn btn-default" onclick="exportSettleExcel()">导出Excel</button>
+        <button class="btn btn-default" onclick="refreshSettleList()">刷新列表</button>
+        <button class="btn btn-default" onclick="resetSettleSearch()">重置搜索</button>
+        
+        <!-- 供应商搜索下拉 - 单行显示 -->
+        <div style="position:relative;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;font-weight:bold;font-size:14px;">供应商：</label>
+            <input type="text" id="settleSupplierSearchInput" placeholder="搜索供应商" 
+                   onfocus="showSettleSupplierList()" 
+                   oninput="onSettleFilterInput()"
+                   style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="settleSupplierListBox" style="position:absolute;top:100%;left:60px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">结算方式：</label>
+        <select id="settleChannelSearch" onchange="filterSettleList()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+            <option value="">全部</option>
+            <option value="线上">线上</option>
+            <option value="线下">线下</option>
+        </select>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>供应商</th>
+                    <th>结算方式</th>
+                    <th>涉及商品数</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="settleTypeList"></tbody>
+        </table>
+    </div>
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="settlePageSize" onchange="changeSettlePageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="settleCurrentPage">1</span> / <span id="settleTotalPages">1</span> 页
+        </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="settleGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="settlePrevPage()">上一页</button>
+            <span id="settlePageNumbers"></span>
+            <button class="page-btn" onclick="settleNextPage()">下一页</button>
+            <button class="page-btn" onclick="settleGoToPage(settleTotalPages)">末页</button>
+        </div>
+    </div>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#settleSupplierSearchInput') && !e.target.closest('#settleSupplierListBox')) {
+            document.getElementById('settleSupplierListBox').style.display = 'none';
+        }
+    });
+    </script>
+</div>
 
         <div id="sub-dateChange" class="finance-sub-content" style="display:none;">
             <h4>后台需更改日期的商品明细（每晨必看）</h4>
