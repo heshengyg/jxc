@@ -729,29 +729,42 @@
             <h4>线下入库单打印</h4>
             <div id="stockTotalTip" style="margin: 8px 0; font-size:14px; color:#333;"></div>
             <div class="search-bar" style="margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:relative;">
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>供应商：</label>
-                    <input type="text" id="printSupplierSearch" placeholder="搜索/选择供应商" onclick="showPrintSupplierList()" oninput="filterPrintSupplierList()" style="width:160px;padding:6px 8px;">
-                    <div id="printSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>商品名称：</label>
-                    <input type="text" id="printGoodsNameSearch" placeholder="模糊搜索" onclick="showPrintGoodsList()" oninput="filterPrintGoodsList()" style="width:160px;padding:6px 8px;">
-                    <div id="printGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
-                    <label>规格：</label>
-                    <input type="text" id="printSpecSearch" placeholder="模糊搜索" onclick="showPrintSpecList()" oninput="filterPrintSpecList()" style="width:140px;padding:6px 8px;">
-                    <div id="printSpecListBox" style="position:absolute;top:100%;left:0;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
-                </div>
-                <label>入库起始日期：</label>
-                <input type="date" id="printStartDate">
-                <label>入库结束日期：</label>
-                <input type="date" id="printEndDate">
-                <button class="btn btn-primary" onclick="searchPrintStockIn()">查询</button>
-                <button class="btn btn-default" onclick="clearPrintSort()">清除排序</button>
-                <button class="btn btn-success" onclick="previewAndPrint()">打印预览</button>
-            </div>
+    <!-- 供应商 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>供应商：</label>
+        <input type="text" id="printSupplierSearch" placeholder="搜索供应商" 
+               onfocus="showPrintSupplierList()" 
+               oninput="onPrintFilterInput()"
+               style="width:160px;padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;font-size:14px;">
+        <div id="printSupplierListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+    <!-- 商品名称 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>商品名称：</label>
+        <input type="text" id="printGoodsNameSearch" placeholder="搜索商品名" 
+               onfocus="showPrintGoodsList()" 
+               oninput="onPrintFilterInput()"
+               style="width:160px;padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;font-size:14px;">
+        <div id="printGoodsListBox" style="position:absolute;top:100%;left:0;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+    <!-- 规格 -->
+    <div style="position:relative;display:flex;flex-direction:column;gap:4px;">
+        <label>规格：</label>
+        <input type="text" id="printSpecSearch" placeholder="搜索规格" 
+               onfocus="showPrintSpecList()" 
+               oninput="onPrintFilterInput()"
+               style="width:140px;padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;font-size:14px;">
+        <div id="printSpecListBox" style="position:absolute;top:100%;left:0;width:140px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
+    </div>
+    <label>入库起始日期：</label>
+    <input type="date" id="printStartDate" onchange="onPrintFilterInput()">
+    <label>入库结束日期：</label>
+    <input type="date" id="printEndDate" onchange="onPrintFilterInput()">
+    <button class="btn btn-primary" onclick="searchPrintStockIn(true)">查询</button>
+    <button class="btn btn-default" onclick="clearPrintSort()">清除排序</button>
+    <button class="btn btn-default" onclick="resetPrintSearch()">重置搜索</button>
+    <button class="btn btn-success" onclick="previewAndPrint()">打印预览</button>
+</div>
             <div class="table-container">
                 <table border="1" cellpadding="6" cellspacing="0" width="100%">
                     <thead>

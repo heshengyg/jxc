@@ -793,6 +793,24 @@ function clearPrintSort(){
     searchPrintStockIn();
 }
 
+// ========== 入库单打印实时搜索（输入即搜索） ==========
+function onPrintFilterInput() {
+    searchPrintStockIn(false);
+}
+// ========== 入库单打印重置搜索 ==========
+function resetPrintSearch() {
+    document.getElementById('printSupplierSearch').value = '';
+    document.getElementById('printGoodsNameSearch').value = '';
+    document.getElementById('printSpecSearch').value = '';
+    document.getElementById('printStartDate').value = '';
+    document.getElementById('printEndDate').value = '';
+    // 关闭所有下拉
+    document.getElementById('printSupplierListBox').style.display = 'none';
+    document.getElementById('printGoodsListBox').style.display = 'none';
+    document.getElementById('printSpecListBox').style.display = 'none';
+    searchPrintStockIn(true);
+}
+
 function searchPrintStockIn(resetPage = true) {
     if (resetPage) {
         selectedPrintIds.clear();
@@ -805,12 +823,15 @@ function searchPrintStockIn(resetPage = true) {
     const end = document.getElementById('printEndDate').value;
 
     let list = allStockInList.filter(item => item.settleType === '线下');
-    if (supplier) list = list.filter(i => i.supplier === supplier);
-    if (goodsName) list = list.filter(i => i.goodsName.toLowerCase().includes(goodsName));
+    
+    // ✅ 改为模糊匹配（includes）
+    if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+    if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName));
     if (spec) list = list.filter(i => (i.spec || '').toLowerCase().includes(spec));
     if (start) list = list.filter(i => i.record_date >= start);
     if (end) list = list.filter(i => i.record_date <= end);
 
+    // 排序逻辑保持不变
     const cfg = financePageConfig.stockInPrint;
     list.sort((a,b)=>{
         let val1 = a[cfg.sortField], val2 = b[cfg.sortField];
@@ -819,7 +840,7 @@ function searchPrintStockIn(resetPage = true) {
             val2 = val2.toLowerCase();
         }
         if(val1 > val2) return cfg.sortType === 'desc' ? -1 : 1;
-        if(val1 < val2) return cfg.sortType === 'desc' ? -1 : 1;
+        if(val1 < val2) return cfg.sortType === 'desc' ? 1 : -1;
         return 0;
     });
     printStockInData = list;
@@ -850,6 +871,7 @@ function searchPrintStockIn(resetPage = true) {
         </tr>`;
     });
 
+    // 底部汇总（保持不变）
     const groupMap = {};
     list.forEach(row=>{
         if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
@@ -870,6 +892,7 @@ function searchPrintStockIn(resetPage = true) {
     cfg.total = list.length;
     renderFinancePagination('stockInPrint');
 
+    // 全选逻辑保持不变
     document.getElementById('printAllCheck').onchange = function () {
         if (skipPrintAllChange) {
             skipPrintAllChange = false;
@@ -3368,3 +3391,5 @@ function exportMonthBeginStockExcel() {
 
 window.resetTaxSearch = resetTaxSearch;
 window.onTaxFilterInput = onTaxFilterInput;
+window.onPrintFilterInput = onPrintFilterInput;
+window.resetPrintSearch = resetPrintSearch;
