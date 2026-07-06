@@ -312,7 +312,7 @@ function renderReturnList() {
         tb.innerHTML += summaryHtml;
     }
 
-    // ========== 绑定行复选框的 change 事件（参照 finance.js） ==========
+    // ========== 绑定行复选框的 change 事件（完全参照 finance.js） ==========
     document.querySelectorAll('.return-item-checkbox').forEach(checkbox => {
         checkbox.onchange = function() {
             const id = Number(this.dataset.id);
@@ -321,27 +321,27 @@ function renderReturnList() {
             } else {
                 selectedReturnIds.delete(id);
             }
-            // 更新全选状态
-            updateReturnAllCheckboxState();
+            // ✅ 完全参照 finance.js 的逻辑
+            const allCheckbox = document.getElementById('returnPrintAllCheck');
+            if (allCheckbox) {
+                const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
+                skipReturnAllChange = true;
+                allCheckbox.checked = allChecked;
+                skipReturnAllChange = false;
+            }
         };
     });
 
-    // 更新全选状态
-    updateReturnAllCheckboxState();
+    // ✅ 每次渲染完成后，同步全选状态
+    const allCheckbox = document.getElementById('returnPrintAllCheck');
+    if (allCheckbox) {
+        const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
+        skipReturnAllChange = true;
+        allCheckbox.checked = allChecked;
+        skipReturnAllChange = false;
+    }
 }
 
-// ===== 更新全选复选框状态（参照 finance.js） =====
-function updateReturnAllCheckboxState() {
-    const allCheckbox = document.getElementById('returnPrintAllCheck');
-    if (!allCheckbox) return;
-    const total = filteredReturnGoods.length;
-    const checkedCount = selectedReturnIds.size;
-    const allChecked = (checkedCount === total && total > 0);
-    // 使用 skipReturnAllChange 防止触发全选的 onchange
-    skipReturnAllChange = true;
-    allCheckbox.checked = allChecked;
-    skipReturnAllChange = false;
-}
 // ========== 分页 ==========
 function renderReturnPagination() {
     returnTotalPages = Math.ceil(filteredReturnGoods.length / returnPageSize) || 1;
