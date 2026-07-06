@@ -666,37 +666,37 @@ function showAddSupplierList() {
     const searchInput = document.getElementById('addSupplierSearch');
     if (!searchInput) return;
     
+    // ✅ 确保 settleData 已加载
+    if (!settleData || settleData.length === 0) {
+        // 尝试重新加载
+        loadSettleListSilently();
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">加载中...</div>';
+        box.style.display = 'block';
+        setTimeout(() => showAddSupplierList(), 500);
+        return;
+    }
+    
     let suppliers = settleData.map(s => s.supplier).sort();
+    // ✅ 根据输入框的值进行过滤
+    const keyword = searchInput.value.toLowerCase().trim();
+    if (keyword) {
+        suppliers = suppliers.filter(s => s.toLowerCase().includes(keyword));
+    }
+    
     box.innerHTML = '';
+    if (suppliers.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配供应商</div>';
+        box.style.display = 'block';
+        return;
+    }
     suppliers.forEach(sup => {
         let div = document.createElement('div');
         div.textContent = sup;
-        div.onclick = function() {
-            searchInput.value = sup;
-            document.getElementById('add_supplier').value = sup;
-            box.style.display = 'none';
-            onSupplierChange();
-            // 手动触发 change 事件，以便编辑弹窗中的监听器能捕获
-            var evt = new Event('change', { bubbles: true });
-            searchInput.dispatchEvent(evt);
-        };
-        box.appendChild(div);
-    });
-    box.style.display = 'block';
-}
-
-function filterAddSupplierList() {
-    const box = document.getElementById('addSupplierListBox');
-    if (!box) return;
-    const searchInput = document.getElementById('addSupplierSearch');
-    if (!searchInput) return;
-    
-    let keyword = searchInput.value.toLowerCase();
-    let suppliers = settleData.map(s => s.supplier).sort();
-    box.innerHTML = '';
-    suppliers.filter(s => s.toLowerCase().includes(keyword)).forEach(sup => {
-        let div = document.createElement('div');
-        div.textContent = sup;
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.onmouseover = function() { this.style.background = '#e5efff'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
         div.onclick = function() {
             searchInput.value = sup;
             document.getElementById('add_supplier').value = sup;
@@ -709,6 +709,11 @@ function filterAddSupplierList() {
         box.appendChild(div);
     });
     box.style.display = 'block';
+}
+
+function filterAddSupplierList() {
+    // ✅ 直接调用 showAddSupplierList，它会根据输入框值过滤
+    showAddSupplierList();
 }
 
 // 点击空白关闭下拉
