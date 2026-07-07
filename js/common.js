@@ -275,7 +275,10 @@ let outSortField = '', outSortAsc = true;
 const shelfToExpireDays = [
     { shelf: 1, expire: 1 },{ shelf: 7, expire: 2 },{ shelf: 15, expire: 4 },
     { shelf: 30, expire: 5 },{ shelf: 90, expire: 10 },{ shelf: 180, expire: 15 },
-    { shelf: 365, expire: 20 },{ shelf: 730, expire: 45 }
+    { shelf: 365, expire: 20 },{ shelf: 730, expire: 45 },
+    { shelf: 1095, expire: 50 },  // 3年 → 50天
+    { shelf: 1460, expire: 60 },  // 4年 → 60天
+    { shelf: 1825, expire: 70 }   // 5年 → 70天
 ];
 let currSupplierList = [];
 let currGoodsList = [];
