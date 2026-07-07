@@ -1760,16 +1760,25 @@ function getNeedUpdateGoodsList() {
             // 获取商品当前的销售价（优先使用调整后的价格）
             const currentSalePrice = item.adjusted_sale_price || item.sale_price || 0;
             
+            // 加载临时保存的改价状态
+            const tempState = loadPriceTempState(item.id);
+            let newSalePrice = null;
+            let priceStatus = 'pending';
+            if (tempState) {
+                newSalePrice = tempState.newSalePrice;
+                priceStatus = tempState.priceStatus;
+            }
+            
             result.push({
                 id: item.id,
                 supplier: item.supplier || '',
                 name: item.name || '',
                 spec: item.spec || '-',
                 channel: item.channel || '',
-                settleType: item.channel || '',  // 结算方式
+                settleType: item.channel || '',
                 sale_price: item.sale_price || 0,
                 adjusted_sale_price: item.adjusted_sale_price || null,
-                currentSalePrice: currentSalePrice,  // 当前实际销售价
+                currentSalePrice: currentSalePrice,
                 online_cost: item.online_cost || 0,
                 tax_rate: item.tax_rate || '',
                 warn_num: item.warn_num || 0,
@@ -1784,10 +1793,8 @@ function getNeedUpdateGoodsList() {
                 displayValue: check.displayValue || '',
                 batchRemain: check.earliest.batchRemain || 0,
                 recordDate: check.earliest.recordDate || null,
-                // 新增：待更新销售价（初始为空）
-                newSalePrice: null,
-                // 新增：是否需要改价标记
-                priceStatus: 'pending'  // pending | updated | skipped
+                newSalePrice: newSalePrice,
+                priceStatus: priceStatus
             });
         }
     }
@@ -2080,14 +2087,12 @@ async function updateSingleGoodsDateWithPrice(id) {
         return;
     }
     
-    // 构建确认消息
     let confirmMsg = `确认更新"${item.name}"？\n\n${dateType}：${dateValue}`;
     if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
         confirmMsg += `\n新销售价：${formatMoney(item.newSalePrice)}`;
     } else {
         confirmMsg += `\n销售价：保持不变`;
     }
-    
     if (!confirm(confirmMsg)) return;
     
     try {
@@ -2100,7 +2105,6 @@ async function updateSingleGoodsDateWithPrice(id) {
         }
         updateData.saved_date_updated_at = new Date().toISOString();
         
-        // 如果设置了新价格，更新到商品表
         if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
             updateData.adjusted_sale_price = item.newSalePrice;
         }
@@ -2122,10 +2126,11 @@ async function updateSingleGoodsDateWithPrice(id) {
             return;
         }
         
+        // ✅ 更新成功后清除临时状态
+        clearPriceTempState(item.id);
+        
         showMsg(`✅ "${item.name}" 更新成功！`);
-        // 强制重新加载商品数据
         await loadGoods(true);
-        // 强制刷新后台更换日期列表
         loadDateChangeTab();
     } catch (e) {
         showMsg('更新失败：' + e.message);
@@ -2137,7 +2142,6 @@ async function updateSingleGoodsDateWithPrice(id) {
  * 批量更新所有商品日期（一键更新）
  */
 async function batchUpdateGoodsDate() {
-    // 获取所有可以更新的商品（有新价格或已跳过）
     const canUpdateList = filteredDateChange.filter(item => {
         return (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
     });
@@ -2147,17 +2151,16 @@ async function batchUpdateGoodsDate() {
         return;
     }
     
-    // 统计更新详情
-    let updateCount = canUpdateList.length;
     let priceUpdateCount = canUpdateList.filter(item => item.newSalePrice !== null && item.newSalePrice !== undefined).length;
     let skipCount = canUpdateList.filter(item => item.priceStatus === 'skipped').length;
     
-    if (!confirm(`⚠ 确认批量更新 ${updateCount} 条商品？\n\n其中 ${priceUpdateCount} 条将更新价格，${skipCount} 条保持原价。\n\n点击后数据将完全消失（不可逆）！`)) {
+    if (!confirm(`⚠ 确认批量更新 ${canUpdateList.length} 条商品？\n\n其中 ${priceUpdateCount} 条将更新价格，${skipCount} 条保持原价。\n\n点击后数据将完全消失（不可逆）！`)) {
         return;
     }
     
     let successCount = 0;
     let failCount = 0;
+    const successIds = [];
     
     for (const item of canUpdateList) {
         try {
@@ -2173,7 +2176,6 @@ async function batchUpdateGoodsDate() {
             }
             updateData.saved_date_updated_at = new Date().toISOString();
             
-            // 如果设置了新价格，更新到商品表
             if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
                 updateData.adjusted_sale_price = item.newSalePrice;
             }
@@ -2190,6 +2192,7 @@ async function batchUpdateGoodsDate() {
             
             if (response.ok) {
                 successCount++;
+                successIds.push(item.id);
             } else {
                 failCount++;
                 console.error('更新失败:', item.name, await response.text());
@@ -2200,10 +2203,11 @@ async function batchUpdateGoodsDate() {
         }
     }
     
+    // ✅ 批量更新成功后清除临时状态
+    successIds.forEach(id => clearPriceTempState(id));
+    
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
-    // 强制重新加载商品数据
     await loadGoods(true);
-    // 强制刷新后台更换日期列表
     loadDateChangeTab();
 }
 
@@ -2622,6 +2626,8 @@ function confirmPriceChange(id) {
     if (item) {
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
+        // 保存到 localStorage
+        savePriceTempState(id, newPrice, 'updated');
     }
     
     closePriceModal();
@@ -2634,6 +2640,8 @@ function skipPriceChange(id) {
     if (item) {
         item.newSalePrice = null;
         item.priceStatus = 'skipped';
+        // 保存到 localStorage
+        savePriceTempState(id, null, 'skipped');
     }
     closePriceModal();
     renderDateChangeList();
@@ -2696,10 +2704,54 @@ function fallbackCopyPrice2(text, id) {
     }
     document.body.removeChild(textarea);
 }
-// 在文件末尾或合适位置添加
+
+// ========== 改价临时状态存储（localStorage） ==========
+function savePriceTempState(id, newSalePrice, priceStatus) {
+    try {
+        let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
+        if (newSalePrice !== null && newSalePrice !== undefined) {
+            tempData[id] = { newSalePrice: newSalePrice, priceStatus: priceStatus || 'updated' };
+        } else if (priceStatus === 'skipped') {
+            tempData[id] = { newSalePrice: null, priceStatus: 'skipped' };
+        } else {
+            delete tempData[id];
+        }
+        localStorage.setItem('priceTempState', JSON.stringify(tempData));
+    } catch(e) {
+        console.warn('保存临时状态失败', e);
+    }
+}
+
+function loadPriceTempState(id) {
+    try {
+        let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
+        return tempData[id] || null;
+    } catch(e) {
+        return null;
+    }
+}
+
+function clearPriceTempState(id) {
+    try {
+        let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
+        delete tempData[id];
+        localStorage.setItem('priceTempState', JSON.stringify(tempData));
+    } catch(e) {
+        console.warn('清除临时状态失败', e);
+    }
+}
+
+function clearAllPriceTempState() {
+    localStorage.removeItem('priceTempState');
+}
+
 window.openPriceModal = openPriceModal;
 window.closePriceModal = closePriceModal;
 window.confirmPriceChange = confirmPriceChange;
 window.skipPriceChange = skipPriceChange;
 window.copyNewPrice = copyNewPrice;
 window.updateSingleGoodsDateWithPrice = updateSingleGoodsDateWithPrice;
+window.savePriceTempState = savePriceTempState;
+window.loadPriceTempState = loadPriceTempState;
+window.clearPriceTempState = clearPriceTempState;
+window.clearAllPriceTempState = clearAllPriceTempState;
