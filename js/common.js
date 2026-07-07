@@ -343,25 +343,31 @@ function switchTab(tabId) {
     
     // 4. ✅ 如果切换到商品管理，重新激活默认子Tab
     if (tabId === 'goods') {
+        // ========== 关键修复：先隐藏所有子版块内容 ==========
+        document.querySelectorAll('#goods .finance-sub-content').forEach(function(div) {
+            div.style.display = 'none';
+        });
+        
+        // 移除所有子Tab的active状态
+        document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        
         // 激活商品信息子Tab
         const goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
         if (goodsInfoBtn) {
-            // 移除所有子Tab的active状态
-            document.querySelectorAll('#goods .finance-sub-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
             goodsInfoBtn.classList.add('active');
-            
-            // 显示商品信息内容，隐藏结算类型内容
-            const goodsInfoContent = document.getElementById('sub-goodsInfo');
-            const settleTypeContent = document.getElementById('sub-settleType');
-            if (goodsInfoContent) goodsInfoContent.style.display = 'block';
-            if (settleTypeContent) settleTypeContent.style.display = 'none';
-            
-            // 重新加载商品列表
-            if (typeof loadGoods === 'function') {
-                loadGoods();
-            }
+        }
+        
+        // 显示商品信息内容
+        const goodsInfoContent = document.getElementById('sub-goodsInfo');
+        if (goodsInfoContent) {
+            goodsInfoContent.style.display = 'block';
+        }
+        
+        // 重新加载商品列表
+        if (typeof loadGoods === 'function') {
+            loadGoods();
         }
     }
     
@@ -372,7 +378,7 @@ function switchTab(tabId) {
             case 'stockIn':
                 if (typeof loadStockIn === 'function') loadStockIn();
                 break;
-            case 'returnGoods':  // ✅ 新增退货管理
+            case 'returnGoods':
                 if (typeof loadReturnGoods === 'function') loadReturnGoods();
                 break;
             case 'stockOut':
@@ -392,15 +398,12 @@ function switchTab(tabId) {
     }
     
     // ========== 新增：切换Tab后应用权限控制 ==========
-    // 延迟执行，确保DOM渲染完成
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {
             applyAllPermissions();
         }
     }, 150);
-    // ========== 新增结束 ==========
 }
-
 
 // ============================================================
 // ===== 权限控制统一管理（新增） =====
