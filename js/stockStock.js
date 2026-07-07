@@ -367,10 +367,19 @@ async function loadStockStock() {
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
             if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
             // 修改为：使用公式计算临期天数
-const warnDay = typeof calculateExpireDays === 'function' 
+const expireResult = typeof calculateExpireDays === 'function' 
     ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
     : (goodsBase.warn_num || 0);
 
+// 如果返回的是字符串（如"5天"），提取数字；否则直接使用数字
+let warnDay = 0;
+if (typeof expireResult === 'string' && expireResult.includes('天')) {
+    warnDay = parseInt(expireResult) || 0;
+} else if (typeof expireResult === 'number') {
+    warnDay = expireResult;
+} else {
+    warnDay = Number(expireResult) || 0;
+}
             const bzResult = calcBzStatus(
                 batch.produce_date === '-' ? '' : batch.produce_date,
                 batch.expire_date === '-' ? '' : batch.expire_date,
