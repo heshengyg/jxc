@@ -1768,17 +1768,33 @@ function getNeedUpdateGoodsList() {
                 supplier: item.supplier || '',
                 name: item.name || '',
                 spec: item.spec || '-',
+                channel: item.channel || '',
                 settleType: item.channel || '',
-                currentSalePrice: currentSalePrice,  // 原销售价（从商品表读取）
-                // ... 其他字段
-                newSalePrice: newSalePrice,          // 临时新价格
-                priceStatus: priceStatus              // 临时状态
+                sale_price: item.sale_price || 0,
+                currentSalePrice: currentSalePrice,
+                online_cost: item.online_cost || 0,
+                tax_rate: item.tax_rate || '',
+                warn_num: item.warn_num || 0,
+                shelf_life_num: item.shelf_life_num || '',
+                shelf_life_unit: item.shelf_life_unit || '',
+                saved_produce_date: item.saved_produce_date || null,
+                saved_expire_date: item.saved_expire_date || null,
+                saved_date_updated_at: item.saved_date_updated_at || null,
+                earliestBatch: check.earliest,
+                dateType: check.dateType,
+                dateValue: check.dateValue,
+                displayValue: check.displayValue || '',
+                batchRemain: check.earliest.batchRemain || 0,
+                recordDate: check.earliest.recordDate || null,
+                // 临时改价状态
+                newSalePrice: newSalePrice,
+                priceStatus: priceStatus
             });
         }
     }
+    
     return result;
 }
-
 /**
  * 加载后台更换日期列表
  */
