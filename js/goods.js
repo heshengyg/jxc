@@ -2431,8 +2431,6 @@ function renderDateChangeList() {
         // 需更新销售价显示
 let newPriceDisplay = '';
 let newPriceBg = '';
-// 判断是否需要改价（只有线下且状态不是正常和过期才需要）
-const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
 
 if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
     newPriceDisplay = formatMoney(item.newSalePrice);
