@@ -40,8 +40,7 @@ function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
     console.log('计算出的 bzq:', bzq);
     console.log('halfBz:', bzq/2);
 
-    const bzq = getBzTotalDay(bzVal, bzUnit);
-    if (bzq <= 0) {
+        if (bzq <= 0) {
         return { statusText: '', countDownText: '' };
     }
     const lq = warnDay;
