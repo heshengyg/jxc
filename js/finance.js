@@ -1389,6 +1389,38 @@ function updatePayPayableDisplay(supplier) {
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
 
+// ========== 更新发票结余显示 ==========
+function updateInvoiceBackBalance(supplier) {
+    const displayEl = document.getElementById('invoiceBackBalanceDisplay');
+    if (!displayEl) return;
+    
+    if (!supplier) {
+        displayEl.textContent = '请选择供应商';
+        displayEl.style.color = '#999';
+        return;
+    }
+    
+    let totalIn = 0;
+    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
+        totalIn += Number(item.in_price) * Number(item.in_num);
+    });
+    
+    let totalBack = 0;
+    allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
+        totalBack += Number(b.invoice_amount);
+    });
+    
+    const balance = totalBack - totalIn;
+    
+    displayEl.textContent = `￥${balance.toFixed(2)}`;
+    displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+}
+// ===================== 👆 添加结束 =====================
+
+function closePayModal() {
+    document.getElementById('payModal').style.display = 'none';
+}
+
 function closePayModal() {
     document.getElementById('payModal').style.display = 'none';
 }
@@ -1598,6 +1630,12 @@ function openInvoiceBackAddModal() {
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
+    
+    // 🔧 如果当前有选中的供应商，立即更新显示
+    const supplier = document.getElementById('invoiceBackSupplier').value;
+    if (supplier) {
+        updateInvoiceBackBalance(supplier);
+    }
 }
 
 function openInvoiceBackEdit(id) {
@@ -1608,6 +1646,7 @@ function openInvoiceBackEdit(id) {
     document.getElementById('invoiceBackAmount').value = row.invoice_amount;
     document.getElementById('invoiceBackNo').value = row.invoice_no || '';
     document.getElementById('invoiceBackRemark').value = row.remark || '';
+    // 🔧 编辑时更新发票结余
     updateInvoiceBackBalance(row.supplier);
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
