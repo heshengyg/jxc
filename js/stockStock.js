@@ -28,6 +28,18 @@ function getDateDiffDay(dateStr) {
  * 新增：打折状态同样显示【临期日期-今日】的天数倒计时
  */
 function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
+// 🔧 在这里添加调试日志
+    console.log('=== 调试 calcBzStatus ===');
+    console.log('生产日期:', sc);
+    console.log('到期日期:', dq);
+    console.log('保质期数值:', bzVal);
+    console.log('保质期单位:', bzUnit);
+    console.log('临期天数:', warnDay);
+    
+    const bzq = getBzTotalDay(bzVal, bzUnit);
+    console.log('计算出的 bzq:', bzq);
+    console.log('halfBz:', bzq/2);
+
     const bzq = getBzTotalDay(bzVal, bzUnit);
     if (bzq <= 0) {
         return { statusText: '', countDownText: '' };
