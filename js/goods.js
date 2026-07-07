@@ -1748,19 +1748,13 @@ function getNeedUpdateGoodsList() {
         return result;
     }
     
-    console.log('开始遍历商品，总数:', allGoods.length);
-    
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
-        console.log('商品:', item.name, 'needUpdate:', check.needUpdate);
-        
         if (check.needUpdate && check.earliest) {
-            console.log('✅ 添加商品到列表:', item.name);
+            // 直接从 goods.sale_price 读取原销售价
+            const currentSalePrice = item.sale_price || 0;
             
-            // 获取商品当前的销售价（优先使用调整后的价格）
-            const currentSalePrice = item.adjusted_sale_price || item.sale_price || 0;
-            
-            // 加载临时保存的改价状态
+            // 从 localStorage 恢复临时改价状态
             const tempState = loadPriceTempState(item.id);
             let newSalePrice = null;
             let priceStatus = 'pending';
@@ -1774,32 +1768,14 @@ function getNeedUpdateGoodsList() {
                 supplier: item.supplier || '',
                 name: item.name || '',
                 spec: item.spec || '-',
-                channel: item.channel || '',
                 settleType: item.channel || '',
-                sale_price: item.sale_price || 0,
-                adjusted_sale_price: item.adjusted_sale_price || null,
-                currentSalePrice: currentSalePrice,
-                online_cost: item.online_cost || 0,
-                tax_rate: item.tax_rate || '',
-                warn_num: item.warn_num || 0,
-                shelf_life_num: item.shelf_life_num || '',
-                shelf_life_unit: item.shelf_life_unit || '',
-                saved_produce_date: item.saved_produce_date || null,
-                saved_expire_date: item.saved_expire_date || null,
-                saved_date_updated_at: item.saved_date_updated_at || null,
-                earliestBatch: check.earliest,
-                dateType: check.dateType,
-                dateValue: check.dateValue,
-                displayValue: check.displayValue || '',
-                batchRemain: check.earliest.batchRemain || 0,
-                recordDate: check.earliest.recordDate || null,
-                newSalePrice: newSalePrice,
-                priceStatus: priceStatus
+                currentSalePrice: currentSalePrice,  // 原销售价（从商品表读取）
+                // ... 其他字段
+                newSalePrice: newSalePrice,          // 临时新价格
+                priceStatus: priceStatus              // 临时状态
             });
         }
     }
-    
-    console.log('需要更新的商品总数:', result.length);
     return result;
 }
 
@@ -2057,26 +2033,16 @@ function fallbackCopy(text, btnElement) {
  */
 async function updateSingleGoodsDateWithPrice(id) {
     const item = filteredDateChange.find(d => d.id === id);
-    if (!item) {
-        showMsg('找不到该商品');
-        return;
-    }
+    if (!item) return;
     
-    // ===== 获取当前商品的保质期状态 =====
+    // 判断是否需要改价
     const statusText = item.earliestBatch?.bzStatusText || '';
-    
-    // ===== 判断是否需要改价（线下且非正常/过期） =====
     const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
     
-    // ===== 检查是否可以更新 =====
-    if (needPriceChange) {
-        // 需要改价的商品：必须有新价格或已跳过
-        if (item.newSalePrice === null && item.priceStatus !== 'skipped') {
-            showMsg('请先设置新销售价或点击"无需修改"');
-            return;
-        }
+    if (needPriceChange && item.newSalePrice === null && item.priceStatus !== 'skipped') {
+        showMsg('请先设置新销售价或点击"无需修改"');
+        return;
     }
-    // 不需要改价的商品（线上 或 正常/过期状态）：直接通过，无需检查
     
     const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
     if (!earliest || earliest.batchRemain <= 0) {
@@ -2084,74 +2050,38 @@ async function updateSingleGoodsDateWithPrice(id) {
         return;
     }
     
-    let dateType = '';
-    let dateValue = '';
-    if (earliest.produce_date) {
-        dateType = '生产日期';
-        dateValue = earliest.produce_date;
-    } else if (earliest.expire_date) {
-        dateType = '到期日期';
-        dateValue = earliest.expire_date;
-    } else {
-        showMsg('该批次没有有效日期');
-        return;
-    }
+    // 构建更新数据
+    const updateData = {
+        saved_produce_date: earliest.produce_date || null,
+        saved_expire_date: earliest.expire_date || null,
+        saved_date_updated_at: new Date().toISOString()
+    };
     
-    // 构建确认消息
-    let confirmMsg = `确认更新"${item.name}"？\n\n${dateType}：${dateValue}`;
+    // ===== 关键：如果有新价格，直接更新 sale_price =====
     if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-        confirmMsg += `\n新销售价：${formatMoney(item.newSalePrice)}`;
-    } else {
-        confirmMsg += `\n销售价：保持不变`;
+        updateData.sale_price = item.newSalePrice;
     }
     
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(`确认更新"${item.name}"？\n\n${updateData.saved_produce_date ? '生产日期：' + updateData.saved_produce_date : ''}${updateData.saved_expire_date ? '\n到期日期：' + updateData.saved_expire_date : ''}\n${item.newSalePrice !== null ? '销售价：' + formatMoney(item.newSalePrice) : '销售价保持不变'}`)) return;
     
-    try {
-        const updateData = {};
-        if (earliest.produce_date) {
-            updateData.saved_produce_date = earliest.produce_date;
-        }
-        if (earliest.expire_date) {
-            updateData.saved_expire_date = earliest.expire_date;
-        }
-        updateData.saved_date_updated_at = new Date().toISOString();
-        
-        // 如果设置了新价格，更新到商品表
-        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-            updateData.adjusted_sale_price = item.newSalePrice;
-        }
-        
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
-            method: 'PATCH',
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('更新失败:', errorText);
-            showMsg('更新失败：' + errorText);
-            return;
-        }
-        
-        // 更新成功后清除临时状态
-        clearPriceTempState(item.id);
-        
-        showMsg(`✅ "${item.name}" 更新成功！`);
-        // 强制重新加载商品数据
-        await loadGoods(true);
-        // 强制刷新后台更换日期列表
-        loadDateChangeTab();
-    } catch (e) {
-        showMsg('更新失败：' + e.message);
-        console.error(e);
-    }
+    await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+    });
+    
+    // 清除临时状态
+    clearPriceTempState(item.id);
+    
+    showMsg(`✅ 更新成功！${item.newSalePrice !== null ? ' 新销售价：' + formatMoney(item.newSalePrice) : ''}`);
+    await loadGoods(true);
+    loadDateChangeTab();
 }
+
 /**
  * 批量更新所有商品日期（一键更新）
  */
@@ -2161,19 +2091,13 @@ async function batchUpdateGoodsDate() {
     });
     
     if (canUpdateList.length === 0) {
-        showMsg('没有可更新的商品，请先为每个商品设置新价格或标记"无需修改"');
+        showMsg('没有可更新的商品，请先设置新价格或标记"无需修改"');
         return;
     }
     
-    let priceUpdateCount = canUpdateList.filter(item => item.newSalePrice !== null && item.newSalePrice !== undefined).length;
-    let skipCount = canUpdateList.filter(item => item.priceStatus === 'skipped').length;
-    
-    if (!confirm(`⚠ 确认批量更新 ${canUpdateList.length} 条商品？\n\n其中 ${priceUpdateCount} 条将更新价格，${skipCount} 条保持原价。\n\n点击后数据将完全消失（不可逆）！`)) {
-        return;
-    }
+    if (!confirm(`⚠ 确认批量更新 ${canUpdateList.length} 条商品？\n点击后数据将完全消失（不可逆）！`)) return;
     
     let successCount = 0;
-    let failCount = 0;
     const successIds = [];
     
     for (const item of canUpdateList) {
@@ -2181,17 +2105,15 @@ async function batchUpdateGoodsDate() {
             const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
             if (!earliest || earliest.batchRemain <= 0) continue;
             
-            const updateData = {};
-            if (earliest.produce_date) {
-                updateData.saved_produce_date = earliest.produce_date;
-            }
-            if (earliest.expire_date) {
-                updateData.saved_expire_date = earliest.expire_date;
-            }
-            updateData.saved_date_updated_at = new Date().toISOString();
+            const updateData = {
+                saved_produce_date: earliest.produce_date || null,
+                saved_expire_date: earliest.expire_date || null,
+                saved_date_updated_at: new Date().toISOString()
+            };
             
+            // ===== 直接更新 sale_price =====
             if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-                updateData.adjusted_sale_price = item.newSalePrice;
+                updateData.sale_price = item.newSalePrice;
             }
             
             const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
@@ -2207,24 +2129,17 @@ async function batchUpdateGoodsDate() {
             if (response.ok) {
                 successCount++;
                 successIds.push(item.id);
-            } else {
-                failCount++;
-                console.error('更新失败:', item.name, await response.text());
             }
         } catch (e) {
-            failCount++;
             console.error('更新失败:', item.name, e);
         }
     }
     
-    // ✅ 批量更新成功后清除临时状态
     successIds.forEach(id => clearPriceTempState(id));
-    
-    showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
+    showMsg(`✅ 批量更新完成！成功 ${successCount} 条`);
     await loadGoods(true);
     loadDateChangeTab();
 }
-
 // ========== 日期更换分页 ==========
 function renderDateChangePagination() {
     dateChangeTotalPages = Math.ceil(filteredDateChange.length / dateChangePageSize) || 1;
