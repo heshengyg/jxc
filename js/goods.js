@@ -2429,22 +2429,36 @@ function renderDateChangeList() {
         const currentPriceDisplay = formatMoney(item.currentSalePrice || 0);
         
         // 需更新销售价显示
-        let newPriceDisplay = '';
-        let newPriceBg = '';
-        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-            newPriceDisplay = formatMoney(item.newSalePrice);
-            newPriceBg = 'style="background:#e6f7ff;"';
-        } else if (item.priceStatus === 'skipped') {
-            newPriceDisplay = '无需修改';
-            newPriceBg = 'style="background:#d4edda;color:#155724;"';
-        } else {
-            newPriceDisplay = '待改价';
-            newPriceBg = 'style="background:#fff3cd;color:#856404;"';
-        }
+let newPriceDisplay = '';
+let newPriceBg = '';
+// 判断是否需要改价（只有线下且状态不是正常和过期才需要）
+const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
+
+if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+    newPriceDisplay = formatMoney(item.newSalePrice);
+    newPriceBg = 'style="background:#e6f7ff;"';
+} else if (item.priceStatus === 'skipped') {
+    newPriceDisplay = '无需修改';
+    newPriceBg = 'style="background:#d4edda;color:#155724;"';
+} else if (needPriceChange) {
+    newPriceDisplay = '待改价';
+    newPriceBg = 'style="background:#fff3cd;color:#856404;"';
+} else {
+    // 正常/过期状态：置空，无颜色
+    newPriceDisplay = '';
+    newPriceBg = '';
+}
         
-        // 判断是否可以更新（必须有新价格或已跳过）
-        const canUpdate = (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
-        const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
+        // 判断是否可以更新：
+// 1. 如果需要改价（线下且非正常/过期）：必须有新价格或已跳过
+// 2. 如果不需要改价（线上 或 正常/过期状态）：直接可以更新
+let canUpdate = false;
+if (needPriceChange) {
+    canUpdate = (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
+} else {
+    canUpdate = true;  // 正常/过期/线上 直接可更新
+}
+const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
         
         const rowNum = start + idx + 1;
         const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
@@ -2460,32 +2474,35 @@ function renderDateChangeList() {
             copyDateText = `（${item.displayValue}到期）`;
         }
         
-        // 构建操作按钮
-        let actionButtons = '';
-        
-        // 只有线下且非正常状态才显示改价按钮
-        if (needPriceChange) {
-            actionButtons += `
-                <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px; font-size:12px; margin-right:4px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer;">改价</button>
-            `;
-        }
-        
-        // 复制新价按钮（有新价格时才显示）
-        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-            actionButtons += `
-                <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 8px; font-size:12px; margin-right:4px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer;">复制新价</button>
-            `;
-        }
-        
-        // 复制日期按钮
-        actionButtons += `
-            <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:4px 8px; font-size:12px; margin-right:4px;">复制日期</button>
-        `;
-        
-        // 更新按钮
-        actionButtons += `
-            <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:4px 12px; font-size:12px;">更新</button>
-        `;
+        // 构建操作按钮 - 统一按钮样式，间距合理
+let actionButtons = '';
+actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
+
+// 只有线下且非正常状态才显示改价按钮
+if (needPriceChange) {
+    actionButtons += `
+        <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:3px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">改价</button>
+    `;
+}
+
+// 复制新价按钮（有新价格时才显示）
+if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+    actionButtons += `
+        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:3px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制新价</button>
+    `;
+}
+
+// 复制日期按钮
+actionButtons += `
+    <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
+`;
+
+// 更新按钮
+actionButtons += `
+    <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
+`;
+
+actionButtons += '</div>';
         
         const html = `
             <tr>
@@ -2533,6 +2550,9 @@ function openPriceModal(id) {
         return;
     }
     
+    // 获取保质期状态
+    const statusText = item.earliestBatch?.bzStatusText || '未知';
+    
     const modal = document.createElement('div');
     modal.id = 'priceModal';
     modal.style.cssText = `
@@ -2544,13 +2564,19 @@ function openPriceModal(id) {
     modal.innerHTML = `
         <div style="background:#fff; border-radius:8px; padding:30px; width:420px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
             <h3 style="margin-top:0; margin-bottom:20px; color:#333;">修改销售价</h3>
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:10px;">
                 <label style="font-weight:bold; display:block; margin-bottom:4px;">商品</label>
                 <span style="font-size:14px;">${item.name} (${item.spec || '-'})</span>
             </div>
-            <div style="margin-bottom:12px;">
-                <label style="font-weight:bold; display:block; margin-bottom:4px;">原销售价</label>
-                <span style="font-size:18px; color:#ff6b6b; font-weight:bold;">${formatMoney(item.currentSalePrice || 0)}</span>
+            <div style="margin-bottom:10px; display:flex; gap:20px;">
+                <div>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px;">保质期状态</label>
+                    <span style="font-size:14px; padding:2px 12px; border-radius:3px; ${statusText === '过期' ? 'background:#ff4444;color:#fff;' : statusText === '临期' ? 'background:#ffdddd;' : statusText === '正常' ? 'background:#d4edda;' : 'background:#bbdefb;'}">${statusText}</span>
+                </div>
+                <div>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px;">原销售价</label>
+                    <span style="font-size:18px; color:#ff6b6b; font-weight:bold;">${formatMoney(item.currentSalePrice || 0)}</span>
+                </div>
             </div>
             <div style="margin-bottom:20px;">
                 <label style="font-weight:bold; display:block; margin-bottom:4px;">新销售价</label>
@@ -2624,18 +2650,40 @@ function copyNewPrice(id) {
     }
     
     const text = formatMoney(item.newSalePrice);
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            showMsg('✅ 已复制：' + text);
-        }).catch(() => {
-            fallbackCopyPrice(text);
-        });
-    } else {
-        fallbackCopyPrice(text);
-    }
+    
+    // 复制到剪贴板
+    const doCopy = function() {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                showCopyFeedback(id);
+            }).catch(function() {
+                fallbackCopyPrice2(text, id);
+            });
+        } else {
+            fallbackCopyPrice2(text, id);
+        }
+    };
+    
+    doCopy();
 }
 
-function fallbackCopyPrice(text) {
+// 复制反馈函数
+function showCopyFeedback(id) {
+    // 查找该行所有的"复制新价"按钮
+    const buttons = document.querySelectorAll('button[onclick*="copyNewPrice(' + id + ')"]');
+    buttons.forEach(function(btn) {
+        const originalText = btn.textContent;
+        btn.textContent = '√已复制';
+        btn.style.background = '#28a745';
+        setTimeout(function() {
+            btn.textContent = '复制新价';
+            btn.style.background = '#17a2b8';
+        }, 2000);
+    });
+}
+
+// 降级复制方案（带反馈）
+function fallbackCopyPrice2(text, id) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -2644,13 +2692,12 @@ function fallbackCopyPrice(text) {
     textarea.select();
     try {
         document.execCommand('copy');
-        showMsg('✅ 已复制：' + text);
+        showCopyFeedback(id);
     } catch (e) {
         showMsg('复制失败，请手动复制');
     }
     document.body.removeChild(textarea);
 }
-
 // 在文件末尾或合适位置添加
 window.openPriceModal = openPriceModal;
 window.closePriceModal = closePriceModal;
