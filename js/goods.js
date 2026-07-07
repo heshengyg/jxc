@@ -2062,11 +2062,21 @@ async function updateSingleGoodsDateWithPrice(id) {
         return;
     }
     
-    // 检查是否可以更新
-    if (item.newSalePrice === null && item.priceStatus !== 'skipped') {
-        showMsg('请先设置新销售价或点击"无需修改"');
-        return;
+    // ===== 获取当前商品的保质期状态 =====
+    const statusText = item.earliestBatch?.bzStatusText || '';
+    
+    // ===== 判断是否需要改价（线下且非正常/过期） =====
+    const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
+    
+    // ===== 检查是否可以更新 =====
+    if (needPriceChange) {
+        // 需要改价的商品：必须有新价格或已跳过
+        if (item.newSalePrice === null && item.priceStatus !== 'skipped') {
+            showMsg('请先设置新销售价或点击"无需修改"');
+            return;
+        }
     }
+    // 不需要改价的商品（线上 或 正常/过期状态）：直接通过，无需检查
     
     const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
     if (!earliest || earliest.batchRemain <= 0) {
@@ -2087,12 +2097,14 @@ async function updateSingleGoodsDateWithPrice(id) {
         return;
     }
     
+    // 构建确认消息
     let confirmMsg = `确认更新"${item.name}"？\n\n${dateType}：${dateValue}`;
     if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
         confirmMsg += `\n新销售价：${formatMoney(item.newSalePrice)}`;
     } else {
         confirmMsg += `\n销售价：保持不变`;
     }
+    
     if (!confirm(confirmMsg)) return;
     
     try {
@@ -2105,6 +2117,7 @@ async function updateSingleGoodsDateWithPrice(id) {
         }
         updateData.saved_date_updated_at = new Date().toISOString();
         
+        // 如果设置了新价格，更新到商品表
         if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
             updateData.adjusted_sale_price = item.newSalePrice;
         }
@@ -2126,18 +2139,19 @@ async function updateSingleGoodsDateWithPrice(id) {
             return;
         }
         
-        // ✅ 更新成功后清除临时状态
+        // 更新成功后清除临时状态
         clearPriceTempState(item.id);
         
         showMsg(`✅ "${item.name}" 更新成功！`);
+        // 强制重新加载商品数据
         await loadGoods(true);
+        // 强制刷新后台更换日期列表
         loadDateChangeTab();
     } catch (e) {
         showMsg('更新失败：' + e.message);
         console.error(e);
     }
 }
-
 /**
  * 批量更新所有商品日期（一键更新）
  */
