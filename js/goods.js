@@ -1757,14 +1757,19 @@ function getNeedUpdateGoodsList() {
         if (check.needUpdate && check.earliest) {
             console.log('✅ 添加商品到列表:', item.name);
             
-            // ✅ 手动构造数据，不使用扩展运算符
+            // 获取商品当前的销售价（优先使用调整后的价格）
+            const currentSalePrice = item.adjusted_sale_price || item.sale_price || 0;
+            
             result.push({
                 id: item.id,
                 supplier: item.supplier || '',
                 name: item.name || '',
                 spec: item.spec || '-',
                 channel: item.channel || '',
+                settleType: item.channel || '',  // 结算方式
                 sale_price: item.sale_price || 0,
+                adjusted_sale_price: item.adjusted_sale_price || null,
+                currentSalePrice: currentSalePrice,  // 当前实际销售价
                 online_cost: item.online_cost || 0,
                 tax_rate: item.tax_rate || '',
                 warn_num: item.warn_num || 0,
@@ -1778,7 +1783,11 @@ function getNeedUpdateGoodsList() {
                 dateValue: check.dateValue,
                 displayValue: check.displayValue || '',
                 batchRemain: check.earliest.batchRemain || 0,
-                recordDate: check.earliest.recordDate || null
+                recordDate: check.earliest.recordDate || null,
+                // 新增：待更新销售价（初始为空）
+                newSalePrice: null,
+                // 新增：是否需要改价标记
+                priceStatus: 'pending'  // pending | updated | skipped
             });
         }
     }
@@ -1786,6 +1795,7 @@ function getNeedUpdateGoodsList() {
     console.log('需要更新的商品总数:', result.length);
     return result;
 }
+
 /**
  * 加载后台更换日期列表
  */
@@ -2038,10 +2048,16 @@ function fallbackCopy(text, btnElement) {
 /**
  * 单条更新商品日期
  */
-async function updateSingleGoodsDate(id) {
-    const item = allGoods.find(g => g.id === id);
+async function updateSingleGoodsDateWithPrice(id) {
+    const item = filteredDateChange.find(d => d.id === id);
     if (!item) {
         showMsg('找不到该商品');
+        return;
+    }
+    
+    // 检查是否可以更新
+    if (item.newSalePrice === null && item.priceStatus !== 'skipped') {
+        showMsg('请先设置新销售价或点击"无需修改"');
         return;
     }
     
@@ -2064,7 +2080,14 @@ async function updateSingleGoodsDate(id) {
         return;
     }
     
-    const confirmMsg = `确认平台已更新"${item.name}"日期？\n一旦更新数据消失（不可逆）！\n\n${dateType}：${dateValue}`;
+    // 构建确认消息
+    let confirmMsg = `确认更新"${item.name}"？\n\n${dateType}：${dateValue}`;
+    if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+        confirmMsg += `\n新销售价：${formatMoney(item.newSalePrice)}`;
+    } else {
+        confirmMsg += `\n销售价：保持不变`;
+    }
+    
     if (!confirm(confirmMsg)) return;
     
     try {
@@ -2077,7 +2100,12 @@ async function updateSingleGoodsDate(id) {
         }
         updateData.saved_date_updated_at = new Date().toISOString();
         
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${id}`, {
+        // 如果设置了新价格，更新到商品表
+        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+            updateData.adjusted_sale_price = item.newSalePrice;
+        }
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
             method: 'PATCH',
             headers: {
                 apikey: SUPABASE_KEY,
@@ -2094,10 +2122,10 @@ async function updateSingleGoodsDate(id) {
             return;
         }
         
-        showMsg(`✅ 商品"${item.name}"日期更新成功！`);
-        // ✅ 强制重新加载商品数据
+        showMsg(`✅ "${item.name}" 更新成功！`);
+        // 强制重新加载商品数据
         await loadGoods(true);
-        // ✅ 强制刷新后台更换日期列表
+        // 强制刷新后台更换日期列表
         loadDateChangeTab();
     } catch (e) {
         showMsg('更新失败：' + e.message);
@@ -2109,20 +2137,29 @@ async function updateSingleGoodsDate(id) {
  * 批量更新所有商品日期（一键更新）
  */
 async function batchUpdateGoodsDate() {
-    const needUpdateList = getNeedUpdateGoodsList();
-    if (needUpdateList.length === 0) {
-        showMsg('没有需要更新的商品');
+    // 获取所有可以更新的商品（有新价格或已跳过）
+    const canUpdateList = filteredDateChange.filter(item => {
+        return (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
+    });
+    
+    if (canUpdateList.length === 0) {
+        showMsg('没有可更新的商品，请先为每个商品设置新价格或标记"无需修改"');
         return;
     }
     
-    if (!confirm(`⚠ 确认一键更新 ${needUpdateList.length} 条商品？\n\n点击后所有数据将完全消失（不可逆）！\n请确认平台商品日期都已更改为最新日期！`)) {
+    // 统计更新详情
+    let updateCount = canUpdateList.length;
+    let priceUpdateCount = canUpdateList.filter(item => item.newSalePrice !== null && item.newSalePrice !== undefined).length;
+    let skipCount = canUpdateList.filter(item => item.priceStatus === 'skipped').length;
+    
+    if (!confirm(`⚠ 确认批量更新 ${updateCount} 条商品？\n\n其中 ${priceUpdateCount} 条将更新价格，${skipCount} 条保持原价。\n\n点击后数据将完全消失（不可逆）！`)) {
         return;
     }
     
     let successCount = 0;
     let failCount = 0;
     
-    for (const item of needUpdateList) {
+    for (const item of canUpdateList) {
         try {
             const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec);
             if (!earliest || earliest.batchRemain <= 0) continue;
@@ -2135,6 +2172,11 @@ async function batchUpdateGoodsDate() {
                 updateData.saved_expire_date = earliest.expire_date;
             }
             updateData.saved_date_updated_at = new Date().toISOString();
+            
+            // 如果设置了新价格，更新到商品表
+            if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+                updateData.adjusted_sale_price = item.newSalePrice;
+            }
             
             const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
@@ -2159,9 +2201,9 @@ async function batchUpdateGoodsDate() {
     }
     
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`);
-    // ✅ 强制重新加载商品数据
+    // 强制重新加载商品数据
     await loadGoods(true);
-    // ✅ 强制刷新后台更换日期列表
+    // 强制刷新后台更换日期列表
     loadDateChangeTab();
 }
 
@@ -2282,7 +2324,7 @@ function updateDateChangeSortIcon() {
 // 【关键修改】修改 renderDateChangeList 渲染前先应用排序
 // 找到原函数 renderDateChangeList，在最开头第一行加入下面代码，替换原有函数开头：
 function renderDateChangeList() {
-    // 新增：排序处理
+    // 排序处理
     if(dateChangeSortField) {
         filteredDateChange.sort((a, b) => {
             let valA = a[dateChangeSortField];
@@ -2304,7 +2346,6 @@ function renderDateChangeList() {
         });
     }
 
-    // ========== 下面保留你原来 renderDateChangeList 所有代码，完全不动 ==========
     const tb = document.getElementById('dateChangeList');
     if (!tb) {
         console.warn('dateChangeList元素不存在');
@@ -2321,13 +2362,13 @@ function renderDateChangeList() {
     console.log('当前页数据量:', pageData.length);
     
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
+        tb.innerHTML = '<tr><td colspan="16" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>';
         return;
     }
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // ========== 状态颜色逻辑（背景色填充） ==========
+        // ========== 状态颜色逻辑 ==========
         let statusText = '无';
         let statusBgColor = '';
         let statusColor = '#333';
@@ -2359,7 +2400,7 @@ function renderDateChangeList() {
             statusColor = '#999';
         }
         
-        // 确定日期类型显示文字和颜色
+        // 确定日期类型显示
         let dateTypeDisplay = '';
         let dateTypeColor = '';
         if (item.dateType === '生产日期') {
@@ -2373,18 +2414,78 @@ function renderDateChangeList() {
             dateTypeColor = '#f5f5f5';
         }
         
+        // 结算方式颜色
+        let settleColor = '';
+        if (item.settleType === '线上') {
+            settleColor = 'style="color:#52c41a;font-weight:bold;"';
+        } else if (item.settleType === '线下') {
+            settleColor = 'style="color:#ff6b6b;font-weight:bold;"';
+        }
+        
+        // 判断是否需要改价（只有线下且状态不是正常的才需要改价）
+        const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
+        
+        // 当前销售价显示
+        const currentPriceDisplay = formatMoney(item.currentSalePrice || 0);
+        
+        // 需更新销售价显示
+        let newPriceDisplay = '';
+        let newPriceBg = '';
+        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+            newPriceDisplay = formatMoney(item.newSalePrice);
+            newPriceBg = 'style="background:#e6f7ff;"';
+        } else if (item.priceStatus === 'skipped') {
+            newPriceDisplay = '无需修改';
+            newPriceBg = 'style="background:#d4edda;color:#155724;"';
+        } else {
+            newPriceDisplay = '待改价';
+            newPriceBg = 'style="background:#fff3cd;color:#856404;"';
+        }
+        
+        // 判断是否可以更新（必须有新价格或已跳过）
+        const canUpdate = (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
+        const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
+        
         const rowNum = start + idx + 1;
         const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
         const recordDateStr = item.earliestBatch && item.earliestBatch.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        let copyText = '';
+        // 构建复制用的文本
+        let copyDateText = '';
         if (item.dateType === '生产日期' && item.displayValue) {
-            copyText = `（${item.displayValue}生产）`;
+            copyDateText = `（${item.displayValue}生产）`;
         } else if (item.dateType === '到期日期' && item.displayValue) {
-            copyText = `（${item.displayValue}到期）`;
+            copyDateText = `（${item.displayValue}到期）`;
         }
+        
+        // 构建操作按钮
+        let actionButtons = '';
+        
+        // 只有线下且非正常状态才显示改价按钮
+        if (needPriceChange) {
+            actionButtons += `
+                <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px; font-size:12px; margin-right:4px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer;">改价</button>
+            `;
+        }
+        
+        // 复制新价按钮（有新价格时才显示）
+        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+            actionButtons += `
+                <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 8px; font-size:12px; margin-right:4px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer;">复制新价</button>
+            `;
+        }
+        
+        // 复制日期按钮
+        actionButtons += `
+            <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:4px 8px; font-size:12px; margin-right:4px;">复制日期</button>
+        `;
+        
+        // 更新按钮
+        actionButtons += `
+            <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:4px 12px; font-size:12px;">更新</button>
+        `;
         
         const html = `
             <tr>
@@ -2393,16 +2494,16 @@ function renderDateChangeList() {
                 <td>${item.supplier || ''}</td>
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
+                <td ${settleColor}>${item.settleType || '-'}</td>
                 <td>${item.batchRemain || 0}</td>
                 <td style="background-color:${statusBgColor}; color:${statusColor}; text-align:center;">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
                 <td>${item.displayValue || ''}</td>
-                <td>
-                    <button class="btn btn-success" onclick="copyDateText('${copyText.replace(/'/g, "\\'")}', this)" style="padding:4px 8px; font-size:12px; margin-right:4px;">复制</button>
-                    <button class="btn btn-primary" onclick="updateSingleGoodsDate(${item.id})" style="padding:4px 12px; font-size:12px;">更新</button>
-                </td>
+                <td>${currentPriceDisplay}</td>
+                <td ${newPriceBg}>${newPriceDisplay}</td>
+                <td>${actionButtons}</td>
             </tr>
         `;
         tb.innerHTML += html;
@@ -2423,3 +2524,137 @@ document.addEventListener('click', function(e) {
         }
     });
 });
+
+// ========== 改价弹窗 ==========
+function openPriceModal(id) {
+    const item = filteredDateChange.find(d => d.id === id);
+    if (!item) {
+        showMsg('找不到该商品');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'priceModal';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        z-index: 99999;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background:#fff; border-radius:8px; padding:30px; width:420px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0; margin-bottom:20px; color:#333;">修改销售价</h3>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:bold; display:block; margin-bottom:4px;">商品</label>
+                <span style="font-size:14px;">${item.name} (${item.spec || '-'})</span>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:bold; display:block; margin-bottom:4px;">原销售价</label>
+                <span style="font-size:18px; color:#ff6b6b; font-weight:bold;">${formatMoney(item.currentSalePrice || 0)}</span>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-weight:bold; display:block; margin-bottom:4px;">新销售价</label>
+                <input type="number" id="priceModalInput" step="0.01" min="0" 
+                    style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:16px;"
+                    placeholder="请输入新销售价">
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="closePriceModal()" style="padding:8px 20px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer;">取消</button>
+                <button onclick="skipPriceChange(${id})" style="padding:8px 20px; border:none; border-radius:4px; background:#28a745; color:#fff; cursor:pointer;">无需修改</button>
+                <button onclick="confirmPriceChange(${id})" style="padding:8px 20px; border:none; border-radius:4px; background:#007bff; color:#fff; cursor:pointer;">确认改价</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => {
+        const input = document.getElementById('priceModalInput');
+        if (input) input.focus();
+    }, 100);
+    
+    document.getElementById('priceModalInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            confirmPriceChange(id);
+        }
+    });
+}
+
+function closePriceModal() {
+    const modal = document.getElementById('priceModal');
+    if (modal) modal.remove();
+}
+
+function confirmPriceChange(id) {
+    const input = document.getElementById('priceModalInput');
+    if (!input) return;
+    
+    const newPrice = parseFloat(input.value);
+    if (isNaN(newPrice) || newPrice < 0) {
+        showMsg('请输入有效的销售价（大于等于0）');
+        return;
+    }
+    
+    const item = filteredDateChange.find(d => d.id === id);
+    if (item) {
+        item.newSalePrice = newPrice;
+        item.priceStatus = 'updated';
+    }
+    
+    closePriceModal();
+    renderDateChangeList();
+    showMsg('✅ 已设置新销售价：' + formatMoney(newPrice));
+}
+
+function skipPriceChange(id) {
+    const item = filteredDateChange.find(d => d.id === id);
+    if (item) {
+        item.newSalePrice = null;
+        item.priceStatus = 'skipped';
+    }
+    closePriceModal();
+    renderDateChangeList();
+    showMsg('✅ 已标记为"无需修改"');
+}
+
+function copyNewPrice(id) {
+    const item = filteredDateChange.find(d => d.id === id);
+    if (!item || item.newSalePrice === null || item.newSalePrice === undefined) {
+        showMsg('没有可复制的新价格');
+        return;
+    }
+    
+    const text = formatMoney(item.newSalePrice);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showMsg('✅ 已复制：' + text);
+        }).catch(() => {
+            fallbackCopyPrice(text);
+        });
+    } else {
+        fallbackCopyPrice(text);
+    }
+}
+
+function fallbackCopyPrice(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showMsg('✅ 已复制：' + text);
+    } catch (e) {
+        showMsg('复制失败，请手动复制');
+    }
+    document.body.removeChild(textarea);
+}
+
+// 在文件末尾或合适位置添加
+window.openPriceModal = openPriceModal;
+window.closePriceModal = closePriceModal;
+window.confirmPriceChange = confirmPriceChange;
+window.skipPriceChange = skipPriceChange;
+window.copyNewPrice = copyNewPrice;
+window.updateSingleGoodsDateWithPrice = updateSingleGoodsDateWithPrice;

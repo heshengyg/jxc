@@ -244,23 +244,26 @@
             <div class="table-container">
                 <table>
                     <thead>
-                        <tr>
-                            <th class="sortable" onclick="dateChangeSortTable('id')">序列 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('recordDate')">录入日期 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('supplier')">供应商 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('name')">商品名 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('spec')">规格 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('batchRemain')">批次库存 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('bzStatusText')">保质期状态 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('countDownText')">状态倒计 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('dateValue')">日期 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('dateType')">生产/到期 <span class="dateChangeSortIcon"></span></th>
-                            <th class="sortable" onclick="dateChangeSortTable('displayValue')">需更新日期 <span class="dateChangeSortIcon"></span></th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
+    <tr>
+        <th class="sortable" onclick="dateChangeSortTable('id')">序列 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('recordDate')">录入日期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('supplier')">供应商 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('name')">商品名 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('spec')">规格 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('settleType')">结算方式 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('batchRemain')">批次库存 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('bzStatusText')">保质期状态 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('countDownText')">状态倒计 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('dateValue')">日期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('dateType')">生产/到期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('displayValue')">需更新日期 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('currentSalePrice')">原销售价 <span class="dateChangeSortIcon"></span></th>
+        <th class="sortable" onclick="dateChangeSortTable('newSalePriceDisplay')">需更新销售价 <span class="dateChangeSortIcon"></span></th>
+        <th>操作</th>
+    </tr>
+</thead>
                     <tbody id="dateChangeList">
-                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>
+                        <tr><td colspan="14" style="text-align:center;padding:30px;color:#999;">暂无需要更新的商品</td></tr>
                     </tbody>
                 </table>
             </div>
