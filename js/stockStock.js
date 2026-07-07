@@ -366,7 +366,10 @@ async function loadStockStock() {
             let unitCode = "day";
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
             if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
-            const warnDay = goodsBase.warn_num || 0;
+            // 修改为：使用公式计算临期天数
+const warnDay = typeof calculateExpireDays === 'function' 
+    ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
+    : (goodsBase.warn_num || 0);
 
             const bzResult = calcBzStatus(
                 batch.produce_date === '-' ? '' : batch.produce_date,
