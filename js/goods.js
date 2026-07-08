@@ -2712,7 +2712,7 @@ function openPriceModal(id) {
     // 获取保质期状态key
     const statusKey = item.earliestBatch?.bzStatusText || '正常';
     // ✅ 转换为显示名称
-    const statusText = getBzStatusLabel(statusKey);
+    const statusText = statusKey || '正常';
     
     // ... 弹窗代码中使用 statusText 显示 ...
 }    
