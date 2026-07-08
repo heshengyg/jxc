@@ -1912,10 +1912,32 @@ function renderDateChangeFilterList(type, keyword = '') {
     const listId = `dateChangeFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
     if (!box) return;
-    let data = dateChangeFilterData[type] || [];
+    
+    // ✅ 实时从 dateChangeData 提取数据
+    let data = [];
+    if (type === 'supplier') {
+        data = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
+    } else if (type === 'goodsName') {
+        data = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
+    } else if (type === 'spec') {
+        data = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
+    } else if (type === 'settleType') {
+        data = ['线上', '线下'];
+    } else if (type === 'bzStatus') {
+        const bzSet = new Set();
+        dateChangeData.forEach(item => {
+            if (item.earliestBatch && item.earliestBatch.bzStatusText) {
+                bzSet.add(item.earliestBatch.bzStatusText);
+            }
+        });
+        data = [...bzSet].sort();
+    }
+    
+    // 关键词过滤
     if (keyword) {
         data = data.filter(item => item.toLowerCase().includes(keyword));
     }
+    
     box.innerHTML = '';
     if (data.length === 0) {
         box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
@@ -1936,7 +1958,6 @@ function renderDateChangeFilterList(type, keyword = '') {
         box.appendChild(div);
     });
 }
-
 function onDateChangeFilterInput() {
     filterDateChangeList();
     // 显示下拉列表
