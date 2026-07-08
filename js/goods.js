@@ -1,3 +1,4 @@
+
 let goodsUsedCache = new Map();
 // ========== 商品筛选数据 ==========
 let goodsFilterData = {
@@ -55,6 +56,19 @@ let settleTotalPages = 1;
 // 供应商管理下拉缓存变量
 let settleSupplierList = [];
 let settleSearchTimer = null;
+let allGoods = [];
+let filteredGoods = [];
+let currentPage = 1;
+let pageSize = 10;
+let sortField = '';
+let sortAsc = true;
+let filteredReturnGoods = [];
+let allReturnGoods = [];
+
+function capitalize(str = '') {
+    if(!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 // ========== 结算类型管理 ==========
 // 加载结算类型列表（从独立的settle_types表）
@@ -519,48 +533,29 @@ function exportSettleExcel() {
 
 // ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
-    const buttons = document.querySelectorAll('#goods .finance-sub-btn');
-    if (buttons.length === 0) {
-        console.warn('没有找到子Tab按钮');
-        return;
-    }
-    buttons.forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    
-    const targetBtn = document.querySelector('#goods .finance-sub-btn[data-tab="' + tab + '"]');
-    if (targetBtn) {
-        targetBtn.classList.add('active');
-    }
-    
+    // 1. 优先隐藏所有内容，不依赖按钮
     const contents = document.querySelectorAll('#goods .finance-sub-content');
-    contents.forEach(function(div) {
-        div.style.display = 'none';
-    });
-    
+    contents.forEach(div => div.style.display = 'none');
     const targetContent = document.getElementById('sub-' + tab);
-    if (targetContent) {
-        targetContent.style.display = 'block';
-        console.log('显示子Tab:', tab);
-    } else {
-        console.warn('找不到子Tab内容: sub-' + tab);
-        return;
-    }
-    
+    if (targetContent) targetContent.style.display = 'block';
+
+    // 2. 容错处理按钮，找不到不阻断流程
+    const buttons = document.querySelectorAll('#goods .finance-sub-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
+
+    // 3. 各Tab加载逻辑
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
         currentPage = 1;
         const goodsTbody = document.getElementById('goodsList');
         if(goodsTbody) goodsTbody.innerHTML = '';
-        // ========== 修改开始：直接强制刷新商品数据 ==========
-        // 移除缓存判断，每次切换到商品列表都强制从数据库重新加载
         loadGoods(true);
-        // ========== 修改结束 ==========
     } else if (tab === 'dateChange') {
-    // ✅ 每次点击都重新加载
-    loadDateChangeTab();
-}
+        loadDateChangeTab();
+    }
 }
 
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
@@ -591,36 +586,30 @@ function clearSort() {
 }
 
 async function loadGoods(force) {
-    // ✅ 如果强制刷新，跳过缓存检查
     if (force) {
-        console.log('强制刷新商品数据...');
         isLoadingGoods = false;
         isGoodsLoaded = false;
+        allGoods = []; // 新增：强制刷新清空旧数据
     } else {
-        if (isLoadingGoods) {
-            console.log('商品数据正在加载中，跳过重复请求');
-            return;
-        }
+        if (isLoadingGoods) return;
     }
-    
     try {
         isLoadingGoods = true;
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error('读取失败');
-        let list = await res.json();
+        const list = await res.json();
         allGoods = list.sort((a, b) => b.id - a.id);
-        initGoodsFilterData();
         window.allGoods = allGoods;
+        initGoodsFilterData();
         isGoodsLoaded = true;
-        
-        let totalCountEl = document.getElementById('totalCount');
+        // 等待缓存预查完成再渲染，解决空白
+        await filterGoodsWaitCache();
+        const totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
-        
-        // ✅ 统一调用 filterGoods，它会负责填充缓存并渲染
-        filterGoods();
-        
+        renderPagination();
+        renderGoods();
         loadSettleListSilently();
     } catch (e) {
         showMsg('加载商品失败：' + e.message);
@@ -629,6 +618,32 @@ async function loadGoods(force) {
         isLoadingGoods = false;
     }
 }
+
+// 新增：等待缓存异步完成的筛选函数，替换原filterGoods同步渲染
+async function filterGoodsWaitCache() {
+    const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
+    const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
+    filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
+        let match = true;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
+        return match;
+    }) : [];
+    const searchCount = document.getElementById('searchCount');
+    if (searchCount) searchCount.textContent = filteredGoods.length;
+    currentPage = 1;
+    goodsUsedCache.clear();
+    const start = (currentPage - 1) * pageSize;
+    const pageData = filteredGoods.slice(start, start + pageSize);
+    // 同步预查缓存
+    for (const item of pageData) {
+        const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+        goodsUsedCache.set(item.id, used);
+    }
+}
+
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -890,24 +905,19 @@ function filterGoods() {
     const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
     const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
     const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
-
-    if (!allGoods || !Array.isArray(allGoods)) {
-        filteredGoods = [];
-    } else {
-        filteredGoods = allGoods.filter(item => {
-            let match = true;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
-            return match;
-        });
-    }
-
+    filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
+        let match = true;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
+        return match;
+    }) : [];
     const searchCount = document.getElementById('searchCount');
     if (searchCount) searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
-
+    renderGoods();
+}
     // ✅ 先清空缓存
     goodsUsedCache.clear();
     
