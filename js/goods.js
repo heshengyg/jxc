@@ -1862,7 +1862,7 @@ async function loadDateChangeTab() {
 
 // ========== 改日改价 - 筛选功能 ==========
 function initDateChangeFilterData() {
-    // ✅ 兜底：永远保留线上/线下
+    // 只保留供应商和规格的缓存（用于其他地方）
     dateChangeFilterData = { 
         supplier: [], 
         goodsName: [], 
@@ -1875,13 +1875,11 @@ function initDateChangeFilterData() {
         return;
     }
     
-    // 供应商去重
     dateChangeFilterData.supplier = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
-    // 商品名去重
     dateChangeFilterData.goodsName = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
-    // 规格去重
     dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s))].sort();
-    // 保质期状态去重
+    // settleType 固定，不覆盖
+    // bzStatus 从 earliestBatch 提取
     const bzSet = new Set();
     dateChangeData.forEach(item => {
         if (item.earliestBatch && item.earliestBatch.bzStatusText) {
@@ -1912,16 +1910,20 @@ function filterDateChangeFilterList(type) {
 }
 
 function renderDateChangeFilterList(type, keyword = '') {
+    // 处理 ID 映射
     let listId = `dateChangeFilter${capitalize(type)}List`;
     if (type === 'settleType') {
         listId = 'dateChangeFilterSettleList';
     }
     const box = document.getElementById(listId);
-    if (!box) return;
+    if (!box) {
+        console.warn('找不到下拉列表元素:', listId);
+        return;
+    }
     
     let data = [];
     
-    // ✅ 全部从 dateChangeData 实时提取，不依赖 dateChangeFilterData
+    // ✅ 直接从 dateChangeData 实时提取
     if (type === 'settleType') {
         data = ['线上', '线下'];
     } else if (type === 'supplier') {
@@ -1962,7 +1964,13 @@ function renderDateChangeFilterList(type, keyword = '') {
             if (type === 'settleType') {
                 inputId = 'dateChangeFilterSettle';
             }
-            document.getElementById(inputId).value = opt;
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = opt;
+                // 触发 input 事件，让搜索生效
+                const evt = new Event('input', { bubbles: true });
+                input.dispatchEvent(evt);
+            }
             box.style.display = 'none';
             filterDateChangeList();
         };
