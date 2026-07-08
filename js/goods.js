@@ -1513,7 +1513,7 @@ let dateChangeFilterData = {
     settleType: [],
     bzStatus: []
 };
-let dateChangeFilteredList = [];
+
 
 /**
  * 获取商品当前库存中的最早批次日期
