@@ -2712,6 +2712,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ========== 改价弹窗 ==========
+// ========== 改价弹窗 ==========
 function openPriceModal(id) {
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) {
@@ -2721,11 +2722,9 @@ function openPriceModal(id) {
     
     // 获取保质期状态key
     const statusKey = item.earliestBatch?.bzStatusText || '正常';
-    // ✅ 转换为显示名称
+    // 转换为显示名称
     const statusText = statusKey || '正常';
     
-    // ... 弹窗代码中使用 statusText 显示 ...
-}    
     const modal = document.createElement('div');
     modal.id = 'priceModal';
     modal.style.cssText = `
@@ -2797,7 +2796,7 @@ async function confirmPriceChange(id) {
     if (item) {
         const bzStatus = item.earliestBatch?.bzStatusText || '正常';
         
-        // ✅ 正常状态 → 直接更新商品信息表
+        // ✅ 正常状态 → 直接更新商品信息主表goods
         if (bzStatus === '正常') {
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
@@ -2815,18 +2814,17 @@ async function confirmPriceChange(id) {
                 return;
             }
         } else {
-            // ✅ 其他状态 → 存到 price_temp_state 表（按状态存储）
+            // ✅ 临期/特殊状态 → 存入price_temp_state临时价格表，批量更新时统一写入商品表
             await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
             showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
         }
         
-        // 更新本地数据
+        // 同步更新页面缓存数据
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
     }
     
     closePriceModal();
-    // ✅ 重新加载列表，确保从 Supabase 同步最新数据
     await loadDateChangeTab();
 }
 
