@@ -397,6 +397,228 @@ function switchTab(tabId) {
         console.error('加载Tab数据失败:', e);
     }
     
+// ===================== 保质期状态与价格匹配（新增） =====================
+
+/**
+ * 计算保质期状态
+ * @param {string} produceDate - 生产日期
+ * @param {string} expireDate - 到期日期
+ * @param {number} shelfLifeNum - 保质期时长
+ * @param {string} shelfLifeUnit - 保质期单位（天/个月/年）
+ * @returns {string} 保质期状态（正常/临期/过期/打折状态）
+ */
+function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
+    // 如果都没有日期，返回'正常'
+    if ((!produceDate || produceDate === '') && (!expireDate || expireDate === '')) {
+        return '正常';
+    }
+    
+    // 计算保质期天数
+    let shelfDays = 0;
+    if (shelfLifeNum && shelfLifeUnit) {
+        switch (shelfLifeUnit) {
+            case '天': shelfDays = Number(shelfLifeNum); break;
+            case '个月': shelfDays = Number(shelfLifeNum) * 30; break;
+            case '年': shelfDays = Number(shelfLifeNum) * 365; break;
+        }
+    }
+    
+    // 如果没有保质期信息，无法计算状态，返回'正常'
+    if (shelfDays === 0) {
+        return '正常';
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 如果有到期日期
+    if (expireDate && expireDate !== '') {
+        const expire = new Date(expireDate);
+        expire.setHours(0, 0, 0, 0);
+        const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff < 0) return '过期';
+        
+                // 从配置读取打折状态
+        const config = window.settingsData?.discountConfig?.items || [];
+        for (let i = 0; i < config.length; i++) {
+            const item = config[i];
+            const threshold = Math.ceil(shelfDays * item.multiplier);
+            if (daysDiff <= threshold) {
+                return 'discount_' + (i + 1);
+            }
+        }
+        return '正常';
+    
+    // 如果有生产日期（没有到期日期，用生产日期+保质期计算）
+    if (produceDate && produceDate !== '') {
+        const produce = new Date(produceDate);
+        produce.setHours(0, 0, 0, 0);
+        const expire = new Date(produce);
+        expire.setDate(expire.getDate() + shelfDays);
+        const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff < 0) return '过期';
+        
+               const config = window.settingsData?.discountConfig?.items || [];
+        for (let i = 0; i < config.length; i++) {
+            const item = config[i];
+            const threshold = Math.ceil(shelfDays * item.multiplier);
+            if (daysDiff <= threshold) {
+                return 'discount_' + (i + 1);
+            }
+        }
+        return '正常';
+    
+    return '正常';
+}
+
+/**
+ * 根据商品ID和保质期状态获取销售价
+ * 优先级：正常状态→商品信息表 sale_price
+ *         其他状态→price_temp_state表查询，无则返回商品信息表 sale_price
+ * @param {number} goodsId - 商品ID
+ * @param {string} bzStatus - 保质期状态
+ * @param {number} defaultPrice - 默认价格（商品信息表的价格）
+ * @returns {Promise<number>} 销售价
+ */
+async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
+    // 正常状态或过期状态直接返回默认价格（过期返回0）
+    if (bzStatus === '正常') {
+        return Number(defaultPrice) || 0;
+    }
+    if (bzStatus === '过期') {
+        return 0;
+    }
+    
+    // 其他状态查询 price_temp_state 表
+    try {
+                const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&bz_status=eq.${bzStatus}&select=sale_price`,
+            {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].new_sale_price !== null) {
+            return Number(data[0].new_sale_price);
+        }
+    } catch (e) {
+        console.warn('获取临时价格失败:', e);
+    }
+    
+    // 兜底：返回默认价格
+    return Number(defaultPrice) || 0;
+}
+
+/**
+ * 根据入库记录的日期计算保质期状态并匹配价格
+ * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
+ * @param {Object} goodsItem - 商品对象（包含 shelf_life_num, shelf_life_unit, sale_price）
+ * @returns {Promise<Object>} { bzStatus, salePrice }
+ */
+async function calcPriceByInRecord(inRecord, goodsItem) {
+    if (!inRecord || !goodsItem) {
+        return { bzStatus: '正常', salePrice: Number(goodsItem?.sale_price) || 0 };
+    }
+    
+    const bzStatus = calcBzStatus(
+        inRecord.produce_date,
+        inRecord.expire_date,
+        goodsItem.shelf_life_num,
+        goodsItem.shelf_life_unit
+    );
+    
+    const salePrice = await getSalePriceByBzStatus(
+        goodsItem.id,
+        bzStatus,
+        goodsItem.sale_price
+    );
+    
+    return { bzStatus, salePrice };
+}
+
+/**
+ * 根据入库记录的日期计算保质期状态并匹配价格
+ * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
+ * @param {Object} goodsItem - 商品对象（包含 shelf_life_num, shelf_life_unit, sale_price）
+ * @returns {Promise<Object>} { bzStatus, salePrice }
+ */
+async function calcPriceByInRecord(inRecord, goodsItem) {
+    if (!inRecord || !goodsItem) {
+        return { bzStatus: '正常', salePrice: Number(goodsItem?.sale_price) || 0 };
+    }
+    
+    const bzStatus = calcBzStatus(
+        inRecord.produce_date,
+        inRecord.expire_date,
+        goodsItem.shelf_life_num,
+        goodsItem.shelf_life_unit
+    );
+    
+    const salePrice = await getSalePriceByBzStatus(
+        goodsItem.id,
+        bzStatus,
+        goodsItem.sale_price
+    );
+    
+    return { bzStatus, salePrice };
+}
+
+// ========== ✅ 新增：状态key与显示名称互相转换 ==========
+/**
+ * 将状态key转换为显示名称
+ * @param {string} bzStatusKey - 状态key（如 discount_1, 正常, 临期, 过期）
+ * @returns {string} 显示名称
+ */
+function getBzStatusLabel(bzStatusKey) {
+    if (!bzStatusKey) return '正常';
+    if (bzStatusKey === '正常') return '正常';
+    if (bzStatusKey === '临期') return '临期';
+    if (bzStatusKey === '过期') return '过期';
+    
+    // 提取序号：discount_1 → 1
+    const match = bzStatusKey.match(/discount_(\d+)/);
+    if (match) {
+        const index = parseInt(match[1]) - 1;
+        const config = window.settingsData?.discountConfig?.items || [];
+        if (config[index] && config[index].label) {
+            return config[index].label;
+        }
+        return bzStatusKey;
+    }
+    return bzStatusKey;
+}
+
+/**
+ * 根据显示名称获取状态key
+ * @param {string} label - 显示名称（如 打6.5折）
+ * @returns {string} 状态key（如 discount_1）
+ */
+function getBzStatusKeyByLabel(label) {
+    if (!label) return '正常';
+    if (label === '正常') return '正常';
+    if (label === '临期') return '临期';
+    if (label === '过期') return '过期';
+    
+    const config = window.settingsData?.discountConfig?.items || [];
+    const index = config.findIndex(item => item.label === label);
+    if (index !== -1) {
+        return 'discount_' + (index + 1);
+    }
+    return label;
+}
+
+// ========== 暴露到全局 ==========
+window.calcBzStatus = calcBzStatus;
+window.getSalePriceByBzStatus = getSalePriceByBzStatus;
+window.calcPriceByInRecord = calcPriceByInRecord;
+window.getBzStatusLabel = getBzStatusLabel;        // ✅ 新增
+window.getBzStatusKeyByLabel = getBzStatusKeyByLabel;  // ✅ 新增
+
     // ========== 新增：切换Tab后应用权限控制 ==========
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {

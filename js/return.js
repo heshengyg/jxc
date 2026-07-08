@@ -881,14 +881,55 @@ function toggleReturnBatch(index) {
     };
     
     document.getElementById('returnSupplierSearch').value = batch.supplier;
-    
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
     
+    // ========== ✅ 修改：根据保质期状态匹配销售价 ==========
     const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
-    document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
+    if (goodsInfo) {
+        // 计算该批次的保质期状态
+        const bzStatus = calcBzStatus(
+            batch.produce_date,
+            batch.expire_date,
+            goodsInfo.shelf_life_num,
+            goodsInfo.shelf_life_unit
+        );
+        // 根据状态取价
+        (async function() {
+            let price = await getSalePriceByBzStatus(goodsInfo.id, bzStatus, goodsInfo.sale_price);
+            document.getElementById('returnSalePrice').value = formatMoney(price);
+        })();
+    } else {
+        document.getElementById('returnSalePrice').value = '￥0.00';
+    }
     
+    const produceDisplay = selectedBatchData.produceDate || '-';
+    const expireDisplay = selectedBatchData.expireDate || '-';
+    
+    document.getElementById('returnSelectedBatchInfo').innerHTML = `
+        <div style="background:#f0f9f4;padding:12px;border-radius:4px;border-left:3px solid #52c41a;">
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                <span><strong>供应商：</strong>${batch.supplier}</span>
+                <span><strong>商品：</strong>${batch.goodsName}</span>
+                <span><strong>规格：</strong>${batch.spec || '-'}</span>
+                <span><strong>生产日期：</strong>${produceDisplay}</span>
+                <span><strong>到期日期：</strong>${expireDisplay}</span>
+                <span><strong>入库单价：</strong>${formatMoney(selectedBatchData.inPrice)}</span>
+                <span><strong>批次库存：</strong><span style="color:#ff4d4f;font-weight:bold;">${selectedBatchData.batchRemain}</span></span>
+            </div>
+        </div>
+    `;
+    document.getElementById('returnInPrice').value = formatMoney(selectedBatchData.inPrice);
+    document.getElementById('returnBatchRemain').value = selectedBatchData.batchRemain;
+    document.getElementById('returnBatchRemainDisplay').textContent = selectedBatchData.batchRemain;
+    document.getElementById('returnNum').max = selectedBatchData.batchRemain;
+    document.getElementById('returnNum').value = '';
+    
+    updateReturnBatchList();
+    
+    console.log('✅ 已选择批次:', selectedBatchInRecordId, selectedBatchData);
+}    
     const produceDisplay = selectedBatchData.produceDate || '-';
     const expireDisplay = selectedBatchData.expireDate || '-';
     
