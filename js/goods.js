@@ -918,10 +918,8 @@ function filterGoods() {
     renderPagination();
     renderGoods();
 
-    // ✅ 先清空缓存
+    // 下面所有异步缓存代码，全部在函数内部，不能跑到 } 外面
     goodsUsedCache.clear();
-    
-    // ✅ 批量预查当前页商品是否被使用
     (async () => {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
@@ -929,14 +927,8 @@ function filterGoods() {
             const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
             goodsUsedCache.set(item.id, used);
         }
-        // ✅ 查询完成后重新渲染
         renderGoods();
     })();
-    
-    // ✅ 注意：这里不能直接调用 renderGoods()，因为缓存还是空的
-    // 但为了不让页面空白，可以先渲染一个占位状态（所有按钮都可点击，等异步完成后刷新）
-    // 或者直接不渲染，等异步完成后再渲染
-    // 我们选择先渲染一次（缓存为空，所有按钮都可点击），等异步完成后再刷新
     renderGoods();
 }
     // ✅ 先清空缓存
@@ -3137,5 +3129,6 @@ window.resetDateChangeFilter = resetDateChangeFilter;
 window.showDateChangeFilterList = showDateChangeFilterList;
 window.onDateChangeFilterInput = onDateChangeFilterInput;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
+window.switchGoodsSubTab = switchGoodsSubTab;
 // ✅ 确保文件以换行结束
 console.log('goods.js 加载完成');
