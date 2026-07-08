@@ -1835,29 +1835,27 @@ async function loadDateChangeTab() {
     }
     
     async function doLoadDateChange() {
-    try {
-        dateChangeData = await getNeedUpdateGoodsList();
-        dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-        
-        // 初始化筛选数据源
-        initDateChangeFilterData();
-        
-        console.log('需要更新的商品数量:', dateChangeFilteredList.length);
-        
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    } catch (e) {
-        console.error('加载后台更换日期失败:', e);
-        dateChangeFilteredList = [];
-        dateChangeData = [];
-        renderDateChangeList();
-        showMsg('加载数据失败，请刷新重试');
+        try {
+            dateChangeData = await getNeedUpdateGoodsList();
+            dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+            initDateChangeFilterData();
+            console.log('需要更新的商品数量:', dateChangeFilteredList.length);
+            updateDateChangeButton();
+            updateDateChangeStatus();
+            dateChangeCurrentPage = 1;
+            renderDateChangePagination();
+            renderDateChangeList();
+        } catch (e) {
+            console.error('加载后台更换日期失败:', e);
+            dateChangeFilteredList = [];
+            dateChangeData = [];
+            renderDateChangeList();
+            showMsg('加载数据失败，请刷新重试');
+        }
     }
-}
-checkAndLoad();
+    
+    // ✅ 调用 checkAndLoad
+    checkAndLoad();
 }
 
 // ========== 改日改价 - 筛选功能 ==========
