@@ -1860,15 +1860,26 @@ async function loadDateChangeTab() {
 
 // ========== 改日改价 - 筛选功能 ==========
 function initDateChangeFilterData() {
+    // ✅ 即使 dateChangeData 为空，也保留基础数据
     if (!dateChangeData || dateChangeData.length === 0) {
-        dateChangeFilterData = { supplier: [], goodsName: [], spec: [], settleType: [], bzStatus: [] };
+        dateChangeFilterData = { 
+            supplier: [], 
+            goodsName: [], 
+            spec: [], 
+            settleType: ['线上', '线下'],  // ✅ 固定为线上/线下
+            bzStatus: [] 
+        };
         return;
     }
+    // ✅ 从 dateChangeData 提取供应商（去重）
     dateChangeFilterData.supplier = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
+    // ✅ 从 dateChangeData 提取商品名（去重）
     dateChangeFilterData.goodsName = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
+    // ✅ 从 dateChangeData 提取规格（去重）
     dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
-    dateChangeFilterData.settleType = [...new Set(dateChangeData.map(item => item.settleType || '').filter(s => s))].sort();
-    // 保质期状态从 earliestBatch 中提取
+    // ✅ 固定为线上/线下
+    dateChangeFilterData.settleType = ['线上', '线下'];
+    // ✅ 从 earliestBatch 提取保质期状态（去重）
     const bzSet = new Set();
     dateChangeData.forEach(item => {
         if (item.earliestBatch && item.earliestBatch.bzStatusText) {
@@ -1877,7 +1888,6 @@ function initDateChangeFilterData() {
     });
     dateChangeFilterData.bzStatus = [...bzSet].sort();
 }
-
 function showDateChangeFilterList(type) {
     const listId = `dateChangeFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
@@ -2595,7 +2605,9 @@ function exportDateChangeExcel() {
 }
 
 // ===== 全局点击关闭下拉列表（商品筛选） =====
+// ===== 全局点击关闭下拉列表（商品筛选 + 改日改价） =====
 document.addEventListener('click', function(e) {
+    // 商品筛选下拉关闭
     const listIds = [
         'goodsFilterSupplierList',
         'goodsFilterGoodsNameList',
@@ -2604,6 +2616,23 @@ document.addEventListener('click', function(e) {
     listIds.forEach(id => {
         const box = document.getElementById(id);
         if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+
+    // ✅ 新增：改日改价下拉关闭
+    const dateChangeListIds = [
+        'dateChangeFilterSupplierList',
+        'dateChangeFilterGoodsList',
+        'dateChangeFilterSpecList',
+        'dateChangeFilterSettleList',
+        'dateChangeFilterBzStatusList'
+    ];
+    dateChangeListIds.forEach(id => {
+        const box = document.getElementById(id);
+        // 对应的输入框 ID 是去掉 "List" 后的部分
+        const inputId = id.replace('List', '');
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${inputId}`)) {
             box.style.display = 'none';
         }
     });
