@@ -1912,7 +1912,12 @@ function filterDateChangeFilterList(type) {
 }
 
 function renderDateChangeFilterList(type, keyword = '') {
-    const listId = `dateChangeFilter${capitalize(type)}List`;
+    // ✅ 修正：settleType 对应的 listId 是 dateChangeFilterSettleList
+    let listId = `dateChangeFilter${capitalize(type)}List`;
+    // 如果是 settleType，修正为 settle（匹配 HTML ID）
+    if (type === 'settleType') {
+        listId = 'dateChangeFilterSettleList';
+    }
     const box = document.getElementById(listId);
     if (!box) return;
     
@@ -1927,7 +1932,6 @@ function renderDateChangeFilterList(type, keyword = '') {
             ? [...dateChangeFilterData.supplier] 
             : [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
     } else if (type === 'goodsName') {
-        // ✅ 商品名：优先用缓存，兜底实时提取
         data = dateChangeFilterData.goodsName.length 
             ? [...dateChangeFilterData.goodsName] 
             : [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
@@ -1963,7 +1967,11 @@ function renderDateChangeFilterList(type, keyword = '') {
         div.style.borderBottom = '1px solid #eee';
         div.textContent = opt;
         div.onclick = function() {
-            const inputId = `dateChangeFilter${capitalize(type)}`;
+            // 获取正确的 input ID
+            let inputId = `dateChangeFilter${capitalize(type)}`;
+            if (type === 'settleType') {
+                inputId = 'dateChangeFilterSettle';
+            }
             document.getElementById(inputId).value = opt;
             box.style.display = 'none';
             filterDateChangeList();
@@ -1973,7 +1981,6 @@ function renderDateChangeFilterList(type, keyword = '') {
         box.appendChild(div);
     });
 }
-
 // 全局防抖定时器
 let dateFilterTimer = null;
 
