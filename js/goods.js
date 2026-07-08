@@ -1890,10 +1890,18 @@ function initDateChangeFilterData() {
 }
 
 function showDateChangeFilterList(type) {
-    const listId = `dateChangeFilter${capitalize(type)}List`;
+    let listId = `dateChangeFilter${capitalize(type)}List`;
+    let inputId = `dateChangeFilter${capitalize(type)}`;
+    // ✅ 修正 ID 映射
+    if (type === 'settleType') {
+        listId = 'dateChangeFilterSettleList';
+        inputId = 'dateChangeFilterSettle';
+    } else if (type === 'goodsName') {
+        listId = 'dateChangeFilterGoodsList';
+        inputId = 'dateChangeFilterGoods';
+    }
     const box = document.getElementById(listId);
     if (!box) return;
-    const inputId = `dateChangeFilter${capitalize(type)}`;
     const input = document.getElementById(inputId);
     const kw = input ? input.value.toLowerCase().trim() : '';
     renderDateChangeFilterList(type, kw);
@@ -1901,26 +1909,38 @@ function showDateChangeFilterList(type) {
 }
 
 function filterDateChangeFilterList(type) {
-    const inputId = `dateChangeFilter${capitalize(type)}`;
+    let inputId = `dateChangeFilter${capitalize(type)}`;
+    let listId = `dateChangeFilter${capitalize(type)}List`;
+    // ✅ 修正 ID 映射
+    if (type === 'settleType') {
+        inputId = 'dateChangeFilterSettle';
+        listId = 'dateChangeFilterSettleList';
+    } else if (type === 'goodsName') {
+        inputId = 'dateChangeFilterGoods';
+        listId = 'dateChangeFilterGoodsList';
+    }
     const input = document.getElementById(inputId);
     const kw = input.value.toLowerCase().trim();
     renderDateChangeFilterList(type, kw);
-    const listId = `dateChangeFilter${capitalize(type)}List`;
     document.getElementById(listId).style.display = 'block';
 }
 
 function renderDateChangeFilterList(type, keyword = '') {
-    // 处理 ID 映射
     let listId = `dateChangeFilter${capitalize(type)}List`;
+    let inputId = `dateChangeFilter${capitalize(type)}`;
+    // ✅ 修正 ID 映射
     if (type === 'settleType') {
         listId = 'dateChangeFilterSettleList';
+        inputId = 'dateChangeFilterSettle';
+    } else if (type === 'goodsName') {
+        listId = 'dateChangeFilterGoodsList';
+        inputId = 'dateChangeFilterGoods';
     }
     const box = document.getElementById(listId);
     if (!box) {
         console.warn('找不到下拉列表元素:', listId);
         return;
-    }
-    
+    }    
     let data = [];
     
     // ✅ 直接从 dateChangeData 实时提取
@@ -1987,25 +2007,19 @@ function onDateChangeFilterInput() {
     if(dateFilterTimer) clearTimeout(dateFilterTimer);
     dateFilterTimer = setTimeout(() => {
         filterDateChangeList();
-        // 显示下拉列表
         const types = ['supplier', 'goodsName', 'spec', 'settleType', 'bzStatus'];
-        const inputIds = {
-            supplier: 'dateChangeFilterSupplier',
-            goodsName: 'dateChangeFilterGoods',
-            spec: 'dateChangeFilterSpec',
-            settleType: 'dateChangeFilterSettle',
-            bzStatus: 'dateChangeFilterBzStatus'
-        };
-        const listIds = {
-            supplier: 'dateChangeFilterSupplierList',
-            goodsName: 'dateChangeFilterGoodsList',
-            spec: 'dateChangeFilterSpecList',
-            settleType: 'dateChangeFilterSettleList',
-            bzStatus: 'dateChangeFilterBzStatusList'
+        // ✅ 使用正确的 ID 映射
+        const idMap = {
+            supplier: { input: 'dateChangeFilterSupplier', list: 'dateChangeFilterSupplierList' },
+            goodsName: { input: 'dateChangeFilterGoods', list: 'dateChangeFilterGoodsList' },
+            spec: { input: 'dateChangeFilterSpec', list: 'dateChangeFilterSpecList' },
+            settleType: { input: 'dateChangeFilterSettle', list: 'dateChangeFilterSettleList' },
+            bzStatus: { input: 'dateChangeFilterBzStatus', list: 'dateChangeFilterBzStatusList' }
         };
         for (const type of types) {
-            const input = document.getElementById(inputIds[type]);
-            const list = document.getElementById(listIds[type]);
+            const ids = idMap[type];
+            const input = document.getElementById(ids.input);
+            const list = document.getElementById(ids.list);
             if (document.activeElement === input && list) {
                 renderDateChangeFilterList(type, input.value.trim());
                 list.style.display = 'block';
