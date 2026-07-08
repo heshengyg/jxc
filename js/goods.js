@@ -1741,7 +1741,7 @@ function checkNeedDateUpdate(goodsItem) {
 /**
  * 获取所有需要更新日期的商品列表
  */
-function getNeedUpdateGoodsList() {
+async function getNeedUpdateGoodsList() {
     const result = [];
     if (!allGoods || allGoods.length === 0) {
         console.log('allGoods 为空');
@@ -1798,7 +1798,7 @@ function getNeedUpdateGoodsList() {
 /**
  * 加载后台更换日期列表
  */
-function loadDateChangeTab() {
+async function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
     function checkAndLoad() {
@@ -2127,7 +2127,6 @@ async function batchUpdateGoodsDate() {
                 saved_date_updated_at: new Date().toISOString()
             };
             
-            // ===== 直接更新 sale_price =====
             if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
                 updateData.sale_price = item.newSalePrice;
             }
@@ -2151,11 +2150,16 @@ async function batchUpdateGoodsDate() {
         }
     }
     
-    successIds.forEach(id => clearPriceTempState(id));
+    // 批量清除临时状态
+    for (const id of successIds) {
+        await clearPriceTempState(id);
+    }
+    
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条`);
     await loadGoods(true);
     loadDateChangeTab();
 }
+
 // ========== 日期更换分页 ==========
 function renderDateChangePagination() {
     dateChangeTotalPages = Math.ceil(filteredDateChange.length / dateChangePageSize) || 1;
@@ -2557,7 +2561,7 @@ function closePriceModal() {
     if (modal) modal.remove();
 }
 
-function confirmPriceChange(id) {
+async function confirmPriceChange(id) {
     const input = document.getElementById('priceModalInput');
     if (!input) return;
     
@@ -2580,7 +2584,7 @@ function confirmPriceChange(id) {
     showMsg('✅ 已设置新销售价：' + formatMoney(newPrice));
 }
 
-function skipPriceChange(id) {
+async function skipPriceChange(id) {
     const item = filteredDateChange.find(d => d.id === id);
     if (item) {
         item.newSalePrice = null;
@@ -2650,8 +2654,124 @@ function fallbackCopyPrice2(text, id) {
     document.body.removeChild(textarea);
 }
 
-// ========== 改价临时状态存储（localStorage） ==========
-function savePriceTempState(id, newSalePrice, priceStatus) {
+// ========== 改价临时状态存储（Supabase 跨设备同步） ==========
+async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
+    try {
+        // 先检查是否存在记录
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const existData = await checkRes.json();
+        
+        let body = {
+            goods_id: goodsId,
+            new_sale_price: newSalePrice,
+            price_status: priceStatus || 'updated',
+            updated_at: new Date().toISOString()
+        };
+        
+        if (existData && existData.length > 0) {
+            // 更新已有记录
+            await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?id=eq.${existData[0].id}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+        } else {
+            // 插入新记录
+            await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state`, {
+                method: 'POST',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+        }
+        console.log('✅ 改价状态已保存到 Supabase:', goodsId, newSalePrice, priceStatus);
+    } catch(e) {
+        console.warn('保存临时状态到Supabase失败:', e);
+        // 降级到 localStorage
+        savePriceTempStateLocal(goodsId, newSalePrice, priceStatus);
+    }
+}
+
+async function loadPriceTempState(goodsId) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=*`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const data = await res.json();
+        if (data && data.length > 0) {
+            return {
+                newSalePrice: data[0].new_sale_price,
+                priceStatus: data[0].price_status
+            };
+        }
+        // 如果Supabase没有，降级到 localStorage
+        return loadPriceTempStateLocal(goodsId);
+    } catch(e) {
+        console.warn('从Supabase加载临时状态失败:', e);
+        return loadPriceTempStateLocal(goodsId);
+    }
+}
+
+async function clearPriceTempState(goodsId) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const data = await res.json();
+        if (data && data.length > 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?id=eq.${data[0].id}`, {
+                method: 'DELETE',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            });
+        }
+        // 同时清除 localStorage
+        clearPriceTempStateLocal(goodsId);
+        console.log('✅ 改价状态已从Supabase清除:', goodsId);
+    } catch(e) {
+        console.warn('从Supabase清除临时状态失败:', e);
+        clearPriceTempStateLocal(goodsId);
+    }
+}
+
+async function clearAllPriceTempState() {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state`, {
+            method: 'DELETE',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        localStorage.removeItem('priceTempState');
+        console.log('✅ 所有改价状态已清除');
+    } catch(e) {
+        console.warn('清除所有临时状态失败:', e);
+    }
+}
+
+// ========== localStorage 降级方案（离线备份） ==========
+function savePriceTempStateLocal(id, newSalePrice, priceStatus) {
     try {
         let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
         if (newSalePrice !== null && newSalePrice !== undefined) {
@@ -2663,11 +2783,11 @@ function savePriceTempState(id, newSalePrice, priceStatus) {
         }
         localStorage.setItem('priceTempState', JSON.stringify(tempData));
     } catch(e) {
-        console.warn('保存临时状态失败', e);
+        console.warn('保存临时状态到localStorage失败', e);
     }
 }
 
-function loadPriceTempState(id) {
+function loadPriceTempStateLocal(id) {
     try {
         let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
         return tempData[id] || null;
@@ -2676,18 +2796,14 @@ function loadPriceTempState(id) {
     }
 }
 
-function clearPriceTempState(id) {
+function clearPriceTempStateLocal(id) {
     try {
         let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
         delete tempData[id];
         localStorage.setItem('priceTempState', JSON.stringify(tempData));
     } catch(e) {
-        console.warn('清除临时状态失败', e);
+        console.warn('清除localStorage临时状态失败', e);
     }
-}
-
-function clearAllPriceTempState() {
-    localStorage.removeItem('priceTempState');
 }
 
 window.openPriceModal = openPriceModal;
