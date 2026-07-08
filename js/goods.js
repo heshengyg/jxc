@@ -2482,12 +2482,13 @@ async function confirmPriceChange(id) {
     if (item) {
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
-        // 保存到 localStorage
-        savePriceTempState(id, newPrice, 'updated');
+        // ✅ 等待保存到 Supabase
+        await savePriceTempState(id, newPrice, 'updated');
     }
     
     closePriceModal();
-    renderDateChangeList();
+    // ✅ 重新加载列表，确保从 Supabase 同步最新数据
+    await loadDateChangeTab();
     showMsg('✅ 已设置新销售价：' + formatMoney(newPrice));
 }
 
@@ -2496,11 +2497,12 @@ async function skipPriceChange(id) {
     if (item) {
         item.newSalePrice = null;
         item.priceStatus = 'skipped';
-        // 保存到 localStorage
-        savePriceTempState(id, null, 'skipped');
+        // ✅ 等待保存到 Supabase
+        await savePriceTempState(id, null, 'skipped');
     }
     closePriceModal();
-    renderDateChangeList();
+    // ✅ 重新加载列表
+    await loadDateChangeTab();
     showMsg('✅ 已标记为"无需修改"');
 }
 
@@ -2564,7 +2566,6 @@ function fallbackCopyPrice2(text, id) {
 // ========== 改价临时状态存储（Supabase 跨设备同步） ==========
 async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
     try {
-        // 先检查是否存在记录
         const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`, {
             headers: {
                 apikey: SUPABASE_KEY,
@@ -2575,13 +2576,12 @@ async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
         
         let body = {
             goods_id: goodsId,
-            new_sale_price: newSalePrice,
+            new_sale_price: newSalePrice,  // 可以是 null
             price_status: priceStatus || 'updated',
             updated_at: new Date().toISOString()
         };
         
         if (existData && existData.length > 0) {
-            // 更新已有记录
             await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?id=eq.${existData[0].id}`, {
                 method: 'PATCH',
                 headers: {
@@ -2592,7 +2592,6 @@ async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
                 body: JSON.stringify(body)
             });
         } else {
-            // 插入新记录
             await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state`, {
                 method: 'POST',
                 headers: {
@@ -2606,11 +2605,9 @@ async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
         console.log('✅ 改价状态已保存到 Supabase:', goodsId, newSalePrice, priceStatus);
     } catch(e) {
         console.warn('保存临时状态到Supabase失败:', e);
-        // 降级到 localStorage
         savePriceTempStateLocal(goodsId, newSalePrice, priceStatus);
     }
 }
-
 async function loadPriceTempState(goodsId) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=*`, {
