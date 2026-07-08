@@ -2163,7 +2163,7 @@ function fallbackCopy(text, btnElement) {
  * 单条更新商品日期
  */
 async function updateSingleGoodsDateWithPrice(id) {
-    const item = filteredDateChange.find(d => d.id === id);
+    const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) return;
     
     // 判断是否需要改价
@@ -2217,7 +2217,7 @@ async function updateSingleGoodsDateWithPrice(id) {
  * 批量更新所有商品日期（一键更新）
  */
 async function batchUpdateGoodsDate() {
-    const canUpdateList = filteredDateChange.filter(item => {
+    const canUpdateList = dateChangeFilteredList.filter(item => {
         return (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
     });
     
@@ -2277,7 +2277,7 @@ async function batchUpdateGoodsDate() {
 
 // ========== 日期更换分页 ==========
 function renderDateChangePagination() {
-    dateChangeTotalPages = Math.ceil(filteredDateChange.length / dateChangePageSize) || 1;
+    dateChangeTotalPages = Math.ceil(dateChangeFilteredList.length / dateChangePageSize) || 1;
     
     const currentPageEl = document.getElementById('dateChangeCurrentPage');
     const totalPagesEl = document.getElementById('dateChangeTotalPages');
@@ -2352,7 +2352,7 @@ function dateChangeSortTable(field) {
     }
     updateDateChangeSortIcon();
     // 执行排序
-    filteredDateChange.sort((a, b) => {
+    dateChangeFilteredList.sort((a, b) => {
         let valA = a[field];
         let valB = b[field];
         // 日期类型特殊处理
@@ -2420,7 +2420,7 @@ function renderDateChangeList() {
         return;
     }
     
-    console.log('渲染日期更换列表，数据量:', filteredDateChange.length);
+    console.log('渲染日期更换列表，数据量:', dateChangeFilteredList.length);
     
     tb.innerHTML = '';
     
@@ -2683,7 +2683,7 @@ document.addEventListener('click', function(e) {
 
 // ========== 改价弹窗 ==========
 function openPriceModal(id) {
-    const item = filteredDateChange.find(d => d.id === id);
+    const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) {
         showMsg('找不到该商品');
         return;
@@ -2759,7 +2759,7 @@ async function confirmPriceChange(id) {
         return;
     }
     
-    const item = filteredDateChange.find(d => d.id === id);
+    const item = dateChangeFilteredList.find(d => d.id === id);
     if (item) {
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
@@ -2774,7 +2774,7 @@ async function confirmPriceChange(id) {
 }
 
 async function skipPriceChange(id) {
-    const item = filteredDateChange.find(d => d.id === id);
+    const item = dateChangeFilteredList.find(d => d.id === id);
     if (item) {
         item.newSalePrice = null;
         item.priceStatus = 'skipped';
@@ -2788,7 +2788,7 @@ async function skipPriceChange(id) {
 }
 
 function copyNewPrice(id) {
-    const item = filteredDateChange.find(d => d.id === id);
+    const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item || item.newSalePrice === null || item.newSalePrice === undefined) {
         showMsg('没有可复制的新价格');
         return;
