@@ -2934,4 +2934,5 @@ window.filterDateChangeList = filterDateChangeList;
 window.resetDateChangeFilter = resetDateChangeFilter;
 window.showDateChangeFilterList = showDateChangeFilterList;
 window.onDateChangeFilterInput = onDateChangeFilterInput;
-}
+// 在文件最后添加这行（确保文件以换行结束）
+// EOF
