@@ -1498,9 +1498,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // ========== 后台更换日期模块 ==========
 // ============================================================
 
-// 日期更换相关变量
+// 日期更换相关变量（原有代码顶部）
 let dateChangeData = [];
-let filteredDateChange = [];
+let dateChangeFilteredList = []; // 提前初始化，避免渲染时报空
 let dateChangeCurrentPage = 1;
 let dateChangePageSize = 10;
 let dateChangeTotalPages = 1;
@@ -1835,24 +1835,26 @@ async function loadDateChangeTab() {
     }
     
     async function doLoadDateChange() {
-        try {
-            dateChangeData = await getNeedUpdateGoodsList();
-            dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-            initDateChangeFilterData();
-            console.log('需要更新的商品数量:', dateChangeFilteredList.length);
-            updateDateChangeButton();
-            updateDateChangeStatus();
-            dateChangeCurrentPage = 1;
-            renderDateChangePagination();
-            renderDateChangeList();
-        } catch (e) {
-            console.error('加载后台更换日期失败:', e);
-            dateChangeFilteredList = [];
-            dateChangeData = [];
-            renderDateChangeList();
-            showMsg('加载数据失败，请刷新重试');
-        }
+    try {
+        dateChangeData = await getNeedUpdateGoodsList();
+        dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+        // ✅ 强制重新初始化筛选下拉数据源
+        initDateChangeFilterData();
+        console.log('需要更新的商品数量:', dateChangeFilteredList.length);
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
+    } catch (e) {
+        console.error('加载后台更换日期失败:', e);
+        dateChangeFilteredList = [];
+        dateChangeData = [];
+        initDateChangeFilterData(); // 空数据也要初始化兜底渠道
+        renderDateChangeList();
+        showMsg('加载数据失败，请刷新重试');
     }
+}
     
     // ✅ 调用 checkAndLoad
     checkAndLoad();
@@ -1860,26 +1862,26 @@ async function loadDateChangeTab() {
 
 // ========== 改日改价 - 筛选功能 ==========
 function initDateChangeFilterData() {
-    // ✅ 即使 dateChangeData 为空，也保留基础数据
+    // ✅ 兜底：永远保留线上/线下
+    dateChangeFilterData = { 
+        supplier: [], 
+        goodsName: [], 
+        spec: [], 
+        settleType: ['线上', '线下'],
+        bzStatus: [] 
+    };
+    
     if (!dateChangeData || dateChangeData.length === 0) {
-        dateChangeFilterData = { 
-            supplier: [], 
-            goodsName: [], 
-            spec: [], 
-            settleType: ['线上', '线下'],  // ✅ 固定为线上/线下
-            bzStatus: [] 
-        };
         return;
     }
-    // ✅ 从 dateChangeData 提取供应商（去重）
+    
+    // 供应商去重
     dateChangeFilterData.supplier = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
-    // ✅ 从 dateChangeData 提取商品名（去重）
+    // 商品名去重
     dateChangeFilterData.goodsName = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
-    // ✅ 从 dateChangeData 提取规格（去重）
-    dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
-    // ✅ 固定为线上/线下
-    dateChangeFilterData.settleType = ['线上', '线下'];
-    // ✅ 从 earliestBatch 提取保质期状态（去重）
+    // 规格去重
+    dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s))].sort();
+    // 保质期状态去重
     const bzSet = new Set();
     dateChangeData.forEach(item => {
         if (item.earliestBatch && item.earliestBatch.bzStatusText) {
@@ -1888,6 +1890,7 @@ function initDateChangeFilterData() {
     });
     dateChangeFilterData.bzStatus = [...bzSet].sort();
 }
+
 function showDateChangeFilterList(type) {
     const listId = `dateChangeFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
@@ -1913,16 +1916,25 @@ function renderDateChangeFilterList(type, keyword = '') {
     const box = document.getElementById(listId);
     if (!box) return;
     
-    // ✅ 实时从 dateChangeData 提取数据
     let data = [];
-    if (type === 'supplier') {
-        data = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
-    } else if (type === 'goodsName') {
-        data = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
-    } else if (type === 'spec') {
-        data = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
-    } else if (type === 'settleType') {
+    
+    // 分类型读取数据源
+    if (type === 'settleType') {
+        // ✅ 结算方式固定为线上/线下
         data = ['线上', '线下'];
+    } else if (type === 'supplier') {
+        data = dateChangeFilterData.supplier.length 
+            ? [...dateChangeFilterData.supplier] 
+            : [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
+    } else if (type === 'goodsName') {
+        // ✅ 商品名：优先用缓存，兜底实时提取
+        data = dateChangeFilterData.goodsName.length 
+            ? [...dateChangeFilterData.goodsName] 
+            : [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
+    } else if (type === 'spec') {
+        data = dateChangeFilterData.spec.length 
+            ? [...dateChangeFilterData.spec] 
+            : [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s))].sort();
     } else if (type === 'bzStatus') {
         const bzSet = new Set();
         dateChangeData.forEach(item => {
@@ -1933,9 +1945,10 @@ function renderDateChangeFilterList(type, keyword = '') {
         data = [...bzSet].sort();
     }
     
-    // 关键词过滤
+    // 关键词模糊匹配
     if (keyword) {
-        data = data.filter(item => item.toLowerCase().includes(keyword));
+        const kwLow = keyword.toLowerCase();
+        data = data.filter(item => item.toLowerCase().includes(kwLow));
     }
     
     box.innerHTML = '';
@@ -1955,36 +1968,45 @@ function renderDateChangeFilterList(type, keyword = '') {
             box.style.display = 'none';
             filterDateChangeList();
         };
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
         box.appendChild(div);
     });
 }
+
+// 全局防抖定时器
+let dateFilterTimer = null;
+
 function onDateChangeFilterInput() {
-    filterDateChangeList();
-    // 显示下拉列表
-    const types = ['supplier', 'goodsName', 'spec', 'settleType', 'bzStatus'];
-    const inputIds = {
-        supplier: 'dateChangeFilterSupplier',
-        goodsName: 'dateChangeFilterGoods',
-        spec: 'dateChangeFilterSpec',
-        settleType: 'dateChangeFilterSettle',
-        bzStatus: 'dateChangeFilterBzStatus'
-    };
-    const listIds = {
-        supplier: 'dateChangeFilterSupplierList',
-        goodsName: 'dateChangeFilterGoodsList',
-        spec: 'dateChangeFilterSpecList',
-        settleType: 'dateChangeFilterSettleList',
-        bzStatus: 'dateChangeFilterBzStatusList'
-    };
-    for (const type of types) {
-        const input = document.getElementById(inputIds[type]);
-        const list = document.getElementById(listIds[type]);
-        if (document.activeElement === input && list) {
-            renderDateChangeFilterList(type, input.value.trim());
-            list.style.display = 'block';
-            break;
+    if(dateFilterTimer) clearTimeout(dateFilterTimer);
+    dateFilterTimer = setTimeout(() => {
+        filterDateChangeList();
+        // 显示下拉列表
+        const types = ['supplier', 'goodsName', 'spec', 'settleType', 'bzStatus'];
+        const inputIds = {
+            supplier: 'dateChangeFilterSupplier',
+            goodsName: 'dateChangeFilterGoods',
+            spec: 'dateChangeFilterSpec',
+            settleType: 'dateChangeFilterSettle',
+            bzStatus: 'dateChangeFilterBzStatus'
+        };
+        const listIds = {
+            supplier: 'dateChangeFilterSupplierList',
+            goodsName: 'dateChangeFilterGoodsList',
+            spec: 'dateChangeFilterSpecList',
+            settleType: 'dateChangeFilterSettleList',
+            bzStatus: 'dateChangeFilterBzStatusList'
+        };
+        for (const type of types) {
+            const input = document.getElementById(inputIds[type]);
+            const list = document.getElementById(listIds[type]);
+            if (document.activeElement === input && list) {
+                renderDateChangeFilterList(type, input.value.trim());
+                list.style.display = 'block';
+                break;
+            }
         }
-    }
+    }, 250);
 }
 
 function filterDateChangeList() {
