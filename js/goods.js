@@ -218,7 +218,7 @@ function renderSettleList() {
     if (!tb) return;
     tb.innerHTML = '';
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;">暂无数据</td></tr>';
         return;
     }
     pageData.forEach((item, idx) => {
@@ -1505,6 +1505,16 @@ let dateChangeCurrentPage = 1;
 let dateChangePageSize = 10;
 let dateChangeTotalPages = 1;
 
+// 改日改价 - 筛选数据源
+let dateChangeFilterData = {
+    supplier: [],
+    goodsName: [],
+    spec: [],
+    settleType: [],
+    bzStatus: []
+};
+let dateChangeFilteredList = [];
+
 /**
  * 获取商品当前库存中的最早批次日期
  * @param {string} supplier - 供应商
@@ -1825,30 +1835,175 @@ async function loadDateChangeTab() {
     }
     
     async function doLoadDateChange() {
-        try {
-            dateChangeData = await getNeedUpdateGoodsList();
-            // 确保是数组
-            filteredDateChange = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-            
-            console.log('需要更新的商品数量:', filteredDateChange.length);
-            
-            updateDateChangeButton();
-            updateDateChangeStatus();
-            dateChangeCurrentPage = 1;
-            renderDateChangePagination();
-            renderDateChangeList();
-        } catch (e) {
-            console.error('加载后台更换日期失败:', e);
-            // 出错时显示空列表
-            filteredDateChange = [];
-            dateChangeData = [];
-            renderDateChangeList();
-            showMsg('加载数据失败，请刷新重试');
+    try {
+        dateChangeData = await getNeedUpdateGoodsList();
+        dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+        
+        // 初始化筛选数据源
+        initDateChangeFilterData();
+        
+        console.log('需要更新的商品数量:', dateChangeFilteredList.length);
+        
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
+    } catch (e) {
+        console.error('加载后台更换日期失败:', e);
+        dateChangeFilteredList = [];
+        dateChangeData = [];
+        renderDateChangeList();
+        showMsg('加载数据失败，请刷新重试');
+    }
+}
+
+// ========== 改日改价 - 筛选功能 ==========
+function initDateChangeFilterData() {
+    if (!dateChangeData || dateChangeData.length === 0) {
+        dateChangeFilterData = { supplier: [], goodsName: [], spec: [], settleType: [], bzStatus: [] };
+        return;
+    }
+    dateChangeFilterData.supplier = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
+    dateChangeFilterData.goodsName = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
+    dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
+    dateChangeFilterData.settleType = [...new Set(dateChangeData.map(item => item.settleType || '').filter(s => s))].sort();
+    // 保质期状态从 earliestBatch 中提取
+    const bzSet = new Set();
+    dateChangeData.forEach(item => {
+        if (item.earliestBatch && item.earliestBatch.bzStatusText) {
+            bzSet.add(item.earliestBatch.bzStatusText);
+        }
+    });
+    dateChangeFilterData.bzStatus = [...bzSet].sort();
+}
+
+function showDateChangeFilterList(type) {
+    const listId = `dateChangeFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    const inputId = `dateChangeFilter${capitalize(type)}`;
+    const input = document.getElementById(inputId);
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderDateChangeFilterList(type, kw);
+    box.style.display = 'block';
+}
+
+function filterDateChangeFilterList(type) {
+    const inputId = `dateChangeFilter${capitalize(type)}`;
+    const input = document.getElementById(inputId);
+    const kw = input.value.toLowerCase().trim();
+    renderDateChangeFilterList(type, kw);
+    const listId = `dateChangeFilter${capitalize(type)}List`;
+    document.getElementById(listId).style.display = 'block';
+}
+
+function renderDateChangeFilterList(type, keyword = '') {
+    const listId = `dateChangeFilter${capitalize(type)}List`;
+    const box = document.getElementById(listId);
+    if (!box) return;
+    let data = dateChangeFilterData[type] || [];
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    box.innerHTML = '';
+    if (data.length === 0) {
+        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    data.forEach(opt => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = opt;
+        div.onclick = function() {
+            const inputId = `dateChangeFilter${capitalize(type)}`;
+            document.getElementById(inputId).value = opt;
+            box.style.display = 'none';
+            filterDateChangeList();
+        };
+        box.appendChild(div);
+    });
+}
+
+function onDateChangeFilterInput() {
+    filterDateChangeList();
+    // 显示下拉列表
+    const types = ['supplier', 'goodsName', 'spec', 'settleType', 'bzStatus'];
+    const inputIds = {
+        supplier: 'dateChangeFilterSupplier',
+        goodsName: 'dateChangeFilterGoods',
+        spec: 'dateChangeFilterSpec',
+        settleType: 'dateChangeFilterSettle',
+        bzStatus: 'dateChangeFilterBzStatus'
+    };
+    const listIds = {
+        supplier: 'dateChangeFilterSupplierList',
+        goodsName: 'dateChangeFilterGoodsList',
+        spec: 'dateChangeFilterSpecList',
+        settleType: 'dateChangeFilterSettleList',
+        bzStatus: 'dateChangeFilterBzStatusList'
+    };
+    for (const type of types) {
+        const input = document.getElementById(inputIds[type]);
+        const list = document.getElementById(listIds[type]);
+        if (document.activeElement === input && list) {
+            renderDateChangeFilterList(type, input.value.trim());
+            list.style.display = 'block';
+            break;
         }
     }
-    
-    checkAndLoad();
 }
+
+function filterDateChangeList() {
+    const supplier = document.getElementById('dateChangeFilterSupplier')?.value.trim() || '';
+    const goodsName = document.getElementById('dateChangeFilterGoods')?.value.trim() || '';
+    const spec = document.getElementById('dateChangeFilterSpec')?.value.trim() || '';
+    const settleType = document.getElementById('dateChangeFilterSettle')?.value.trim() || '';
+    const bzStatus = document.getElementById('dateChangeFilterBzStatus')?.value.trim() || '';
+
+    if (!dateChangeData || !Array.isArray(dateChangeData)) {
+        dateChangeFilteredList = [];
+    } else {
+        dateChangeFilteredList = dateChangeData.filter(item => {
+            let match = true;
+            // 获取保质期状态
+            const itemBzStatus = item.earliestBatch?.bzStatusText || '';
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (spec && !(item.spec || '').toLowerCase().includes(spec.toLowerCase())) match = false;
+            if (settleType && !(item.settleType || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
+            if (bzStatus && !itemBzStatus.toLowerCase().includes(bzStatus.toLowerCase())) match = false;
+            return match;
+        });
+    }
+    dateChangeCurrentPage = 1;
+    renderDateChangePagination();
+    renderDateChangeList();
+}
+
+function resetDateChangeFilter() {
+    const inputIds = [
+        'dateChangeFilterSupplier',
+        'dateChangeFilterGoods',
+        'dateChangeFilterSpec',
+        'dateChangeFilterSettle',
+        'dateChangeFilterBzStatus'
+    ];
+    inputIds.forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) inp.value = '';
+    });
+    document.querySelectorAll('[id^="dateChangeFilter"][id$="List"]').forEach(el => el.style.display = 'none');
+    filterDateChangeList();
+}
+
+// 辅助函数：首字母大写（如果 goods.js 中没有，添加；如果有，使用已有的）
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 /**
  * 更新状态文字
  */
@@ -2186,7 +2341,7 @@ function updateDateChangeSortIcon() {
 function renderDateChangeList() {
     // 排序处理
     if(dateChangeSortField) {
-        filteredDateChange.sort((a, b) => {
+        dateChangeFilteredList.sort((a, b) => {
             let valA = a[dateChangeSortField];
             let valB = b[dateChangeSortField];
             if (['recordDate','dateValue'].includes(dateChangeSortField)) {
@@ -2217,7 +2372,7 @@ function renderDateChangeList() {
     tb.innerHTML = '';
     
     const start = (dateChangeCurrentPage - 1) * dateChangePageSize;
-    const pageData = filteredDateChange.slice(start, start + dateChangePageSize);
+    const pageData = dateChangeFilteredList.slice(start, start + dateChangePageSize);
     
     console.log('当前页数据量:', pageData.length);
     
@@ -2383,6 +2538,60 @@ actionButtons += '</div>';
         `;
         tb.innerHTML += html;
     });
+}
+
+// ========== 改日改价 - 导出Excel ==========
+function exportDateChangeExcel() {
+    if (dateChangeFilteredList.length === 0) {
+        showMsg('暂无数据可导出');
+        return;
+    }
+    
+    const header = [
+        '序列', '录入日期', '供应商', '商品名', '规格', '结算方式', '批次库存',
+        '保质期状态', '状态倒计时', '日期', '生产/到期', '需更新日期', '原销售价', '需更新销售价'
+    ];
+    
+    const expData = dateChangeFilteredList.map((item, idx) => {
+        const statusText = item.earliestBatch?.bzStatusText || '';
+        const countDownText = item.earliestBatch?.countDownText || '';
+        const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
+        const recordDateStr = item.earliestBatch?.recordDate 
+            ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
+            : '-';
+        
+        let newPriceDisplay = '';
+        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+            newPriceDisplay = formatMoney(item.newSalePrice);
+        } else if (item.priceStatus === 'skipped') {
+            newPriceDisplay = '无需修改';
+        } else {
+            const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
+            newPriceDisplay = needPriceChange ? '待改价' : '';
+        }
+        
+        return [
+            idx + 1,
+            recordDateStr,
+            item.supplier || '',
+            item.name || '',
+            item.spec || '-',
+            item.settleType || '-',
+            item.batchRemain || 0,
+            statusText,
+            countDownText,
+            dateStr,
+            item.dateType || '',
+            item.displayValue || '',
+            formatMoney(item.currentSalePrice || 0),
+            newPriceDisplay
+        ];
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '改日改价明细');
+    XLSX.writeFile(wb, `改日改价明细_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ===== 全局点击关闭下拉列表（商品筛选） =====
@@ -2720,3 +2929,8 @@ window.savePriceTempState = savePriceTempState;
 window.loadPriceTempState = loadPriceTempState;
 window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
+window.exportDateChangeExcel = exportDateChangeExcel;
+window.filterDateChangeList = filterDateChangeList;
+window.resetDateChangeFilter = resetDateChangeFilter;
+window.showDateChangeFilterList = showDateChangeFilterList;
+window.onDateChangeFilterInput = onDateChangeFilterInput;

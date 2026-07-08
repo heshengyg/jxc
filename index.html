@@ -77,7 +77,7 @@
         <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
             <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
-            <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">后台更换日期</button>
+            <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">改日改价</button>
         </div>
 
         <div id="sub-goodsInfo" class="finance-sub-content">
@@ -234,13 +234,59 @@
 </div>
 
         <div id="sub-dateChange" class="finance-sub-content" style="display:none;">
-            <h4>后台需更改日期的商品明细（每晨必看）</h4>
-            <div style="margin:10px 0; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-                <span style="color:#ff6b6b; font-size:14px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
-                <button class="btn btn-default" onclick="refreshDateChangeList()">刷新列表</button>
-                <button class="btn btn-default" onclick="clearDateChangeSort()">清除排序</button>
-                <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
-            </div>
+            <h4>改日改价 - 需更改日期和价格的商品明细（每晨必看）</h4>
+            <div style="margin:10px 0; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span style="color:#ff6b6b; font-size:13px;">⚠ 如果点击"需更新"则所有数据完全消失（不可逆），点击前确保平台商品日期都已更改。</span>
+    <button class="btn btn-default" onclick="refreshDateChangeList()">刷新列表</button>
+    <button class="btn btn-default" onclick="clearDateChangeSort()">清除排序</button>
+    <button class="btn btn-success" onclick="exportDateChangeExcel()">导出Excel</button>
+    <button id="batchUpdateDateBtn" onclick="batchUpdateGoodsDate()" style="padding:8px 20px; border:none; border-radius:4px; font-weight:bold; font-size:15px; cursor:pointer; background:#d9d9d9; color:#999; cursor:not-allowed;">需更新 (0)</button>
+</div>
+
+<!-- 搜索筛选栏 -->
+<div style="margin:10px 0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <!-- 供应商下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="dateChangeFilterSupplier" placeholder="搜索供应商"
+               onfocus="showDateChangeFilterList('supplier')" 
+               oninput="onDateChangeFilterInput()"
+               style="width:130px; padding:5px 10px; height:32px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:13px;">
+        <div id="dateChangeFilterSupplierList" style="position:absolute; top:100%; left:0; width:100%; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+    <!-- 商品名下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="dateChangeFilterGoods" placeholder="搜索商品名"
+               onfocus="showDateChangeFilterList('goodsName')" 
+               oninput="onDateChangeFilterInput()"
+               style="width:130px; padding:5px 10px; height:32px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:13px;">
+        <div id="dateChangeFilterGoodsList" style="position:absolute; top:100%; left:0; width:100%; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+    <!-- 规格下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="dateChangeFilterSpec" placeholder="搜索规格"
+               onfocus="showDateChangeFilterList('spec')" 
+               oninput="onDateChangeFilterInput()"
+               style="width:130px; padding:5px 10px; height:32px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:13px;">
+        <div id="dateChangeFilterSpecList" style="position:absolute; top:100%; left:0; width:100%; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+    <!-- 结算方式下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="dateChangeFilterSettle" placeholder="搜索结算方式"
+               onfocus="showDateChangeFilterList('settleType')" 
+               oninput="onDateChangeFilterInput()"
+               style="width:130px; padding:5px 10px; height:32px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:13px;">
+        <div id="dateChangeFilterSettleList" style="position:absolute; top:100%; left:0; width:100%; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+    <!-- 保质期状态下拉 -->
+    <div style="position:relative; display:inline-block;">
+        <input type="text" id="dateChangeFilterBzStatus" placeholder="搜索保质期状态"
+               onfocus="showDateChangeFilterList('bzStatus')" 
+               oninput="onDateChangeFilterInput()"
+               style="width:140px; padding:5px 10px; height:32px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:13px;">
+        <div id="dateChangeFilterBzStatusList" style="position:absolute; top:100%; left:0; width:100%; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+    </div>
+    <button class="btn btn-default" onclick="resetDateChangeFilter()">重置搜索</button>
+</div>
             <div class="table-container">
                 <table>
                     <thead>
