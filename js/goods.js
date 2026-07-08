@@ -1856,6 +1856,7 @@ async function loadDateChangeTab() {
         renderDateChangeList();
         showMsg('加载数据失败，请刷新重试');
     }
+}
 checkAndLoad();
 }
 
