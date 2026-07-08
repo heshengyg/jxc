@@ -905,28 +905,23 @@ function filterGoods() {
     const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
     const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
     const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
-
-    if (!allGoods || !Array.isArray(allGoods)) {
-        filteredGoods = [];
-    } else {
-        filteredGoods = allGoods.filter(item => {
-            let match = true;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
-            return match;
-        });
-    }
-
+    filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
+        let match = true;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
+        return match;
+    }) : [];
     const searchCount = document.getElementById('searchCount');
     if (searchCount) searchCount.textContent = filteredGoods.length;
     currentPage = 1;
     renderPagination();
+    renderGoods();
 
-    // 清空缓存
+    // ✅ 先清空缓存
     goodsUsedCache.clear();
     
-    // 批量预查当前页商品是否被使用
+    // ✅ 批量预查当前页商品是否被使用
     (async () => {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
@@ -934,9 +929,14 @@ function filterGoods() {
             const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
             goodsUsedCache.set(item.id, used);
         }
+        // ✅ 查询完成后重新渲染
         renderGoods();
     })();
     
+    // ✅ 注意：这里不能直接调用 renderGoods()，因为缓存还是空的
+    // 但为了不让页面空白，可以先渲染一个占位状态（所有按钮都可点击，等异步完成后刷新）
+    // 或者直接不渲染，等异步完成后再渲染
+    // 我们选择先渲染一次（缓存为空，所有按钮都可点击），等异步完成后再刷新
     renderGoods();
 }
     // ✅ 先清空缓存
