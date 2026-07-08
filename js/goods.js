@@ -218,7 +218,7 @@ function renderSettleList() {
     if (!tb) return;
     tb.innerHTML = '';
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;">暂无数据</td></tr>';
         return;
     }
     pageData.forEach((item, idx) => {
