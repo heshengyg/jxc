@@ -917,11 +917,8 @@ function filterGoods() {
     currentPage = 1;
     renderPagination();
 
-    // 缓存预查逻辑全部包裹在函数内部，无游离代码
     goodsUsedCache.clear();
-    // 先渲染空白占位列表
     renderGoods();
-    // 异步预查缓存，完成后刷新列表
     (async () => {
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
@@ -3114,7 +3111,7 @@ function clearPriceTempStateLocal(id) {
     }
 }
 
-// ========== 全局暴露所有商品模块函数，解决 xxx is not defined ==========
+// 全局挂载商品模块全部核心函数
 window.switchGoodsSubTab = switchGoodsSubTab;
 window.refreshGoods = refreshGoods;
 window.loadGoods = loadGoods;
@@ -3122,7 +3119,6 @@ window.filterGoods = filterGoods;
 window.resetGoodsSearch = resetGoodsSearch;
 window.onGoodsFilterInput = onGoodsFilterInput;
 window.clearSort = clearSort;
-window.goodsSortTable = goodsSortTable;
 window.openAddForm = openAddForm;
 window.openEditForm = openEditForm;
 window.closeForm = closeForm;
@@ -3137,47 +3133,17 @@ window.changePageSize = changePageSize;
 window.downloadTemplate = downloadTemplate;
 window.exportExcel = exportExcel;
 window.importGoodsExcel = importGoodsExcel;
-window.showAddSupplierList = showAddSupplierList;
-window.filterAddSupplierList = filterAddSupplierList;
-window.onSupplierChange = onSupplierChange;
 
-// 供应商管理模块全局函数
+// 供应商管理模块
 window.openSettleForm = openSettleForm;
 window.openSettleEditForm = openSettleEditForm;
-window.closeSettleModal = closeSettleModal;
 window.submitSettleForm = submitSettleForm;
 window.deleteSettleType = deleteSettleType;
-window.refreshSettleList = refreshSettleList;
-window.resetSettleSearch = resetSettleSearch;
 window.filterSettleList = filterSettleList;
-window.settleGoToPage = settleGoToPage;
-window.settlePrevPage = settlePrevPage;
-window.settleNextPage = settleNextPage;
-window.changeSettlePageSize = changeSettlePageSize;
-window.downloadSettleTemplate = downloadSettleTemplate;
-window.importSettleExcel = importSettleExcel;
-window.exportSettleExcel = exportSettleExcel;
 
-// 改日改价模块全局函数
+// 改日改价模块
 window.loadDateChangeTab = loadDateChangeTab;
-window.refreshDateChangeList = refreshDateChangeList;
-window.clearDateChangeSort = clearDateChangeSort;
-window.dateChangeSortTable = dateChangeSortTable;
-window.resetDateChangeFilter = resetDateChangeFilter;
-window.filterDateChangeList = filterDateChangeList;
-window.onDateChangeFilterInput = onDateChangeFilterInput;
-window.dateChangeGoToPage = dateChangeGoToPage;
-window.dateChangePrevPage = dateChangePrevPage;
-window.dateChangeNextPage = dateChangeNextPage;
-window.changeDateChangePageSize = changeDateChangePageSize;
 window.updateSingleGoodsDateWithPrice = updateSingleGoodsDateWithPrice;
 window.batchUpdateGoodsDate = batchUpdateGoodsDate;
-window.exportDateChangeExcel = exportDateChangeExcel;
-window.copyDateText = copyDateText;
-window.copyNewPrice = copyNewPrice;
-window.openPriceModal = openPriceModal;
-window.closePriceModal = closePriceModal;
-window.confirmPriceChange = confirmPriceChange;
-window.skipPriceChange = skipPriceChange;
 // ✅ 确保文件以换行结束
 console.log('goods.js 加载完成');
