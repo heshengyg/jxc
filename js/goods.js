@@ -2709,9 +2709,13 @@ function openPriceModal(id) {
         return;
     }
     
-    // 获取保质期状态
-    const statusText = item.earliestBatch?.bzStatusText || '未知';
+    // 获取保质期状态key
+    const statusKey = item.earliestBatch?.bzStatusText || '正常';
+    // ✅ 转换为显示名称
+    const statusText = getBzStatusLabel(statusKey);
     
+    // ... 弹窗代码中使用 statusText 显示 ...
+}    
     const modal = document.createElement('div');
     modal.id = 'priceModal';
     modal.style.cssText = `
@@ -2781,16 +2785,91 @@ async function confirmPriceChange(id) {
     
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (item) {
+        const bzStatus = item.earliestBatch?.bzStatusText || '正常';
+        
+        // ✅ 正常状态 → 直接更新商品信息表
+        if (bzStatus === '正常') {
+            try {
+                await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ sale_price: newPrice })
+                });
+                showMsg('✅ 正常状态销售价已更新到商品信息表');
+            } catch (e) {
+                showMsg('更新失败：' + e.message);
+                return;
+            }
+        } else {
+            // ✅ 其他状态 → 存到 price_temp_state 表（按状态存储）
+            await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
+            showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
+        }
+        
+        // 更新本地数据
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
-        // ✅ 等待保存到 Supabase
-        await savePriceTempState(id, newPrice, 'updated');
     }
     
     closePriceModal();
     // ✅ 重新加载列表，确保从 Supabase 同步最新数据
     await loadDateChangeTab();
-    showMsg('✅ 已设置新销售价：' + formatMoney(newPrice));
+}
+
+// ========== 新增：按状态保存临时价格 ==========
+async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
+    try {
+        // 先检查是否存在
+        const checkRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&bz_status=eq.${bzStatus}&select=id`,
+            {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        const existData = await checkRes.json();
+        
+        let body = {
+            goods_id: goodsId,
+            bz_status: bzStatus,
+            new_sale_price: newSalePrice,
+            price_status: 'updated',
+            updated_at: new Date().toISOString()
+        };
+        
+        if (existData && existData.length > 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?id=eq.${existData[0].id}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+        } else {
+            await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state`, {
+                method: 'POST',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+        }
+        console.log('✅ 保存 ' + bzStatus + ' 状态价格成功:', goodsId, newSalePrice);
+    } catch(e) {
+        console.warn('保存临时价格失败:', e);
+        // 降级到 localStorage
+        savePriceTempStateLocal(goodsId, newSalePrice, 'updated');
+    }
 }
 
 async function skipPriceChange(id) {
@@ -2919,9 +2998,11 @@ async function loadPriceTempState(goodsId) {
         });
         const data = await res.json();
         if (data && data.length > 0) {
+            // 返回第一个匹配的（兼容旧逻辑）
             return {
                 newSalePrice: data[0].new_sale_price,
-                priceStatus: data[0].price_status
+                priceStatus: data[0].price_status,
+                bzStatus: data[0].bz_status
             };
         }
         // 如果Supabase没有，降级到 localStorage
@@ -3026,5 +3107,6 @@ window.filterDateChangeList = filterDateChangeList;
 window.resetDateChangeFilter = resetDateChangeFilter;
 window.showDateChangeFilterList = showDateChangeFilterList;
 window.onDateChangeFilterInput = onDateChangeFilterInput;
+window.savePriceTempStateByStatus = savePriceTempStateByStatus;
 // ✅ 确保文件以换行结束
 console.log('goods.js 加载完成');
