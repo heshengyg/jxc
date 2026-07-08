@@ -1912,9 +1912,7 @@ function filterDateChangeFilterList(type) {
 }
 
 function renderDateChangeFilterList(type, keyword = '') {
-    // ✅ 修正：settleType 对应的 listId 是 dateChangeFilterSettleList
     let listId = `dateChangeFilter${capitalize(type)}List`;
-    // 如果是 settleType，修正为 settle（匹配 HTML ID）
     if (type === 'settleType') {
         listId = 'dateChangeFilterSettleList';
     }
@@ -1923,22 +1921,15 @@ function renderDateChangeFilterList(type, keyword = '') {
     
     let data = [];
     
-    // 分类型读取数据源
+    // ✅ 全部从 dateChangeData 实时提取，不依赖 dateChangeFilterData
     if (type === 'settleType') {
-        // ✅ 结算方式固定为线上/线下
         data = ['线上', '线下'];
     } else if (type === 'supplier') {
-        data = dateChangeFilterData.supplier.length 
-            ? [...dateChangeFilterData.supplier] 
-            : [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
+        data = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
     } else if (type === 'goodsName') {
-        data = dateChangeFilterData.goodsName.length 
-            ? [...dateChangeFilterData.goodsName] 
-            : [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
+        data = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
     } else if (type === 'spec') {
-        data = dateChangeFilterData.spec.length 
-            ? [...dateChangeFilterData.spec] 
-            : [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s))].sort();
+        data = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s && s !== '-'))].sort();
     } else if (type === 'bzStatus') {
         const bzSet = new Set();
         dateChangeData.forEach(item => {
@@ -1949,7 +1940,7 @@ function renderDateChangeFilterList(type, keyword = '') {
         data = [...bzSet].sort();
     }
     
-    // 关键词模糊匹配
+    // 关键词过滤
     if (keyword) {
         const kwLow = keyword.toLowerCase();
         data = data.filter(item => item.toLowerCase().includes(kwLow));
@@ -1967,7 +1958,6 @@ function renderDateChangeFilterList(type, keyword = '') {
         div.style.borderBottom = '1px solid #eee';
         div.textContent = opt;
         div.onclick = function() {
-            // 获取正确的 input ID
             let inputId = `dateChangeFilter${capitalize(type)}`;
             if (type === 'settleType') {
                 inputId = 'dateChangeFilterSettle';
@@ -1981,6 +1971,7 @@ function renderDateChangeFilterList(type, keyword = '') {
         box.appendChild(div);
     });
 }
+
 // 全局防抖定时器
 let dateFilterTimer = null;
 
