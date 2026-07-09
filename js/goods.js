@@ -588,7 +588,7 @@ async function loadGoods(force) {
     if (force) {
         isLoadingGoods = false;
         isGoodsLoaded = false;
-        allGoods = []; // 新增：强制刷新清空旧数据
+        allGoods = [];
     } else {
         if (isLoadingGoods) return;
     }
@@ -603,7 +603,6 @@ async function loadGoods(force) {
         window.allGoods = allGoods;
         initGoodsFilterData();
         isGoodsLoaded = true;
-        // 等待缓存预查完成再渲染，解决空白
         await filterGoodsWaitCache();
         const totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
@@ -618,7 +617,7 @@ async function loadGoods(force) {
     }
 }
 
-// 新增：等待缓存异步完成的筛选函数
+// 等待缓存异步完成的筛选函数
 async function filterGoodsWaitCache() {
     const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
     const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
@@ -636,7 +635,6 @@ async function filterGoodsWaitCache() {
     goodsUsedCache.clear();
     const start = (currentPage - 1) * pageSize;
     const pageData = filteredGoods.slice(start, start + pageSize);
-    // 同步预查缓存
     for (const item of pageData) {
         const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
         goodsUsedCache.set(item.id, used);
@@ -682,7 +680,6 @@ function showAddSupplierList() {
     
     // ✅ 确保 settleData 已加载
     if (!settleData || settleData.length === 0) {
-        // 尝试重新加载
         loadSettleListSilently();
         box.innerHTML = '<div style="padding:6px 10px;color:#999;">加载中...</div>';
         box.style.display = 'block';
@@ -691,7 +688,6 @@ function showAddSupplierList() {
     }
     
     let suppliers = settleData.map(s => s.supplier).sort();
-    // ✅ 根据输入框的值进行过滤
     const keyword = searchInput.value.toLowerCase().trim();
     if (keyword) {
         suppliers = suppliers.filter(s => s.toLowerCase().includes(keyword));
@@ -716,7 +712,6 @@ function showAddSupplierList() {
             document.getElementById('add_supplier').value = sup;
             box.style.display = 'none';
             onSupplierChange();
-            // 手动触发 change 事件
             var evt = new Event('change', { bubbles: true });
             searchInput.dispatchEvent(evt);
         };
@@ -726,7 +721,6 @@ function showAddSupplierList() {
 }
 
 function filterAddSupplierList() {
-    // ✅ 直接调用 showAddSupplierList，它会根据输入框值过滤
     showAddSupplierList();
 }
 
@@ -757,7 +751,6 @@ function openAddForm() {
         document.getElementById('formTitle').innerText = '新增商品';
         document.getElementById('editId').value = '';
 
-        // 显式清空所有字段（最可靠方式）
         document.getElementById('addSupplierSearch').value = '';
         document.getElementById('add_supplier').value = '';
         document.getElementById('add_name').value = '';
@@ -770,14 +763,12 @@ function openAddForm() {
         document.getElementById('add_shelf_life_num').value = '';
         document.getElementById('add_shelf_life_unit').value = '';
 
-        // 重置所有禁用状态（确保新增时所有字段可用，渠道除外）
         document.getElementById('add_supplier').disabled = false;
         document.getElementById('addSupplierSearch').disabled = false;
         document.getElementById('add_name').disabled = false;
         document.getElementById('add_spec').disabled = false;
-        document.getElementById('add_channel').disabled = true;  // 渠道永远只读
+        document.getElementById('add_channel').disabled = true;
 
-        // 税率控制：仅财务/管理员可编辑
         var taxSelect = document.getElementById('add_tax_rate');
         if (taxSelect) {
             try {
@@ -788,10 +779,8 @@ function openAddForm() {
             }
         }
 
-        // 线上成本价控制（根据渠道，此时渠道为空，默认线下禁用）
         toggleOnlineCostInput();
 
-        // 显示弹窗
         document.getElementById('formModal').style.display = 'block';
     } catch (e) {
         console.error('openAddForm 执行错误:', e);
@@ -810,7 +799,6 @@ async function openEditForm(id) {
     document.getElementById('formTitle').innerText = '编辑商品';
     document.getElementById('editId').value = id;
 
-    // 填充所有字段
     document.getElementById('addSupplierSearch').value = item.supplier || '';
     document.getElementById('add_supplier').value = item.supplier || '';
     document.getElementById('add_name').value = item.name || '';
@@ -823,20 +811,16 @@ async function openEditForm(id) {
     document.getElementById('add_shelf_life_num').value = item.shelf_life_num || '';
     document.getElementById('add_shelf_life_unit').value = item.shelf_life_unit || '';
 
-    // 初始启用（渠道永远只读）
     document.getElementById('add_supplier').disabled = false;
     document.getElementById('addSupplierSearch').disabled = false;
     document.getElementById('add_name').disabled = false;
     document.getElementById('add_spec').disabled = false;
     document.getElementById('add_channel').disabled = true;
 
-    // 控制线上成本价（根据渠道）
     toggleOnlineCostInput();
 
-    // 检查是否有入库记录
     let isUsed = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
 
-    // 先清除之前可能绑定的监听（防止堆积）
     ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) {
@@ -845,7 +829,6 @@ async function openEditForm(id) {
         }
     });
 
-    // 从 sessionStorage 获取当前用户角色，避免依赖 permissionData 异步加载
     var savedUser = sessionStorage.getItem('supabase_user') || sessionStorage.getItem('user');
     var userRole = '';
     if (savedUser) {
@@ -857,31 +840,25 @@ async function openEditForm(id) {
     var isFinanceOrAdminRole = (userRole === '管理员' || userRole === '财务部');
 
     if (isUsed) {
-        // 有入库记录：供应商、商品名、规格、税率 → 全部锁死
         document.getElementById('add_supplier').disabled = true;
         document.getElementById('addSupplierSearch').disabled = true;
         document.getElementById('add_name').disabled = true;
         document.getElementById('add_spec').disabled = true;
         document.getElementById('add_tax_rate').disabled = true;
     } else {
-        // 无入库记录：税率初始保留原值，根据角色设置禁用/启用
         var taxSelect = document.getElementById('add_tax_rate');
         if (taxSelect) {
-            taxSelect.disabled = !isFinanceOrAdminRole;   // 财务/管理员可编辑，其他禁用
-            // 税率值保持原样（已在填充时设置）
+            taxSelect.disabled = !isFinanceOrAdminRole;
         }
 
-        // 绑定事件：当供应商、商品名、规格变化时清空税率
         function handleFieldChange() {
-            // 再次检查是否已变为有入库记录（防止异步变化）
             if (isUsed) return;
             var taxSelect = document.getElementById('add_tax_rate');
             if (taxSelect) {
-                taxSelect.value = '';   // 清空税率
-                taxSelect.disabled = !isFinanceOrAdminRole;   // 根据角色决定是否可编辑
+                taxSelect.value = '';
+                taxSelect.disabled = !isFinanceOrAdminRole;
             }
         }
-        // 为三个字段绑定 input 和 change 事件
         ['addSupplierSearch', 'add_name', 'add_spec'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) {
@@ -940,7 +917,6 @@ function showGoodsFilterList(type) {
     const listId = `goodsFilter${capitalize(type)}List`;
     const box = document.getElementById(listId);
     if (!box) return;
-    // ✅ 获取当前输入框的值作为关键词
     const inputId = `goodsFilter${capitalize(type)}Input`;
     const input = document.getElementById(inputId);
     const kw = input ? input.value.toLowerCase().trim() : '';
@@ -990,16 +966,13 @@ function resetGoodsSearch() {
     document.getElementById('goodsFilterSupplierInput').value = '';
     document.getElementById('goodsFilterGoodsNameInput').value = '';
     document.getElementById('goodsFilterChannelInput').value = '';
-    // 关闭所有下拉
     document.querySelectorAll('[id^="goodsFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterGoods();
 }
 // ========== 商品实时搜索（输入即搜索） ==========
 function onGoodsFilterInput() {
-    // 1. 实时筛选列表
     filterGoods();
     
-    // 2. 实时更新下拉列表
     const supplierInput = document.getElementById('goodsFilterSupplierInput');
     const goodsInput = document.getElementById('goodsFilterGoodsNameInput');
     const channelInput = document.getElementById('goodsFilterChannelInput');
@@ -1058,7 +1031,6 @@ function renderGoods() {
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
         let isUsed = goodsUsedCache.get(item.id) ?? false;
         
-        // ===== 删除按钮：只有有入库记录才变灰（灰色只表示有入库记录） =====
         let delBtn = '';
         if (isUsed) {
             delBtn = `<button class="btn btn-danger" disabled style="opacity:0.5">删除</button>`;
@@ -1091,11 +1063,9 @@ function renderGoods() {
 }
 
 function renderPagination() {
-    // ✅ 确保 filteredGoods 是数组
     const totalItems = Array.isArray(filteredGoods) ? filteredGoods.length : 0;
     totalPages = Math.ceil(totalItems / pageSize) || 1;
     
-    // ✅ 确保 currentPage 不超过总页数
     if (currentPage > totalPages) {
         currentPage = totalPages;
     }
@@ -1148,7 +1118,6 @@ function changePageSize() {
 function toggleSelectAll() {
     let all = document.getElementById('selectAll').checked;
     document.querySelectorAll('.item-checkbox').forEach(cb => {
-        // 只勾选未被禁用的checkbox
         if (!cb.disabled) {
             cb.checked = all;
         }
@@ -1160,7 +1129,6 @@ function closeForm() {
 }
 
 function isDuplicate(supplier, name, spec, editId) {
-    // ✅ 确保 allGoods 是最新的
     if (!allGoods || allGoods.length === 0) {
         return false;
     }
@@ -1174,7 +1142,7 @@ function isDuplicate(supplier, name, spec, editId) {
 
 async function submitForm() {
     let editId = document.getElementById('editId').value;
-    let supplier = document.getElementById('add_supplier').value;  // 从隐藏域获取
+    let supplier = document.getElementById('add_supplier').value;
     let name = document.getElementById('add_name').value;
     let spec = document.getElementById('add_spec').value;
     let channel = document.getElementById('add_channel').value;
@@ -1228,7 +1196,6 @@ async function submitForm() {
             showMsg('新增成功');
         }
         closeForm();
-        // ✅ 强制重新加载商品数据，绕过缓存
         await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
@@ -1239,7 +1206,6 @@ async function submitForm() {
 }
 
 async function deleteGoods(id) {
-    // ===== 检查管理员权限 =====
     if (!isCurrentUserAdmin()) {
         showMsg('只有管理员可以删除商品');
         return;
@@ -1265,7 +1231,6 @@ async function deleteGoods(id) {
     }
 }
 async function batchDelete() {
-    // ===== 只有管理员可以批量删除 =====
     if (!isCurrentUserAdmin()) {
         showMsg('只有管理员可以批量删除商品');
         return;
@@ -1333,7 +1298,6 @@ function exportExcel() {
         showMsg("暂无数据可导出");
         return;
     }
-    // ✅ 增加"临期天数"和"操作"列，共11列
     let header = ["供应商", "商品名称", "规格", "销售渠道", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期", "临期天数"];
     let exportData = filteredGoods.map(item => {
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit || ''}` : "";
@@ -1348,7 +1312,7 @@ function exportExcel() {
             item.online_cost || 0,
             item.warn_num || 0,
             shelf,
-            expire  // ✅ 新增临期天数
+            expire
         ];
     });
     let ws = XLSX.utils.aoa_to_sheet([header, ...exportData]);
@@ -1359,7 +1323,6 @@ function exportExcel() {
 
 // ========== 商品批量导入 ==========
 function importGoodsExcel() {
-    // ✅ 改为 goodsFileInput
     let fileInput = document.getElementById('goodsFileInput');
     let file = fileInput.files[0];
     if (!file) {
@@ -1386,7 +1349,6 @@ function importGoodsExcel() {
             let failDetails = [];
 
             for (let row of json) {
-                // 支持多种列名
                 let supplier = row['供应商'] || row['supplier'] || '';
                 let name = row['商品名称'] || row['goodsName'] || row['name'] || '';
                 let spec = row['规格'] || row['spec'] || '';
@@ -1398,14 +1360,12 @@ function importGoodsExcel() {
                 let shelfLifeNum = row['保质期时长'] || row['shelf_life_num'] || '';
                 let shelfLifeUnit = row['保质期单位'] || row['shelf_life_unit'] || '';
 
-                // ✅ 校验：供应商和商品名必须存在
                 if (!supplier || !name) {
                     failCount++;
                     failDetails.push(`缺少供应商或商品名: 供应商="${supplier}", 商品名="${name}"`);
                     continue;
                 }
 
-                // ✅ 如果渠道为空，尝试从 settleData 中查找
                 if (!channel) {
                     let found = settleData.find(s => s.supplier === supplier);
                     if (found) {
@@ -1415,7 +1375,6 @@ function importGoodsExcel() {
                     }
                 }
 
-                // ✅ 构建数据对象，空值转为 null
                 let postData = {
                     supplier: supplier.trim(),
                     name: name.trim(),
@@ -1455,7 +1414,6 @@ function importGoodsExcel() {
                 }
             }
 
-            // ✅ 显示导入结果
             let msg = `导入完成：成功 ${successCount} 条`;
             if (failCount > 0) {
                 msg += `，失败 ${failCount} 条`;
@@ -1469,7 +1427,6 @@ function importGoodsExcel() {
             showMsg(msg);
 
             fileInput.value = '';
-            // ✅ 导入完成后刷新列表
             await loadGoods(true);
             if (typeof loadAllGoods === 'function') {
                 await loadAllGoods();
@@ -1485,10 +1442,7 @@ function importGoodsExcel() {
 }
 // ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // 默认激活商品信息子Tab（统一管理显示和加载）
     switchGoodsSubTab('goodsInfo');
-    
-    // 加载库存数据（供后台更换日期使用）
     if (typeof loadStockStock === 'function') {
         loadStockStock();
     }
@@ -1497,14 +1451,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // ========== 后台更换日期模块 ==========
 // ============================================================
 
-// 日期更换相关变量（原有代码顶部）
 let dateChangeData = [];
-let dateChangeFilteredList = []; // 提前初始化，避免渲染时报空
+let dateChangeFilteredList = [];
 let dateChangeCurrentPage = 1;
 let dateChangePageSize = 10;
 let dateChangeTotalPages = 1;
 
-// 改日改价 - 筛选数据源
 let dateChangeFilterData = {
     supplier: [],
     goodsName: [],
@@ -1513,28 +1465,16 @@ let dateChangeFilterData = {
     bzStatus: []
 };
 
-
-/**
- * 获取商品当前库存中的最早批次日期
- * @param {string} supplier - 供应商
- * @param {string} goodsName - 商品名
- * @param {string} spec - 规格
- * @returns {Object} { produce_date, expire_date, batchRemain, recordDate, bzStatusText, countDownText }
- */
 function getEarliestBatchDate(supplier, goodsName, spec) {
     try {
-        // 直接从 allStockBatchList 中查找
         if (!allStockBatchList || allStockBatchList.length === 0) {
             return null;
         }
         
-        // ✅ 筛选出该商品的所有批次 - 修复 spec 匹配
         const batchList = allStockBatchList.filter(function(item) {
-            // 供应商和商品名必须匹配
             if (item.supplier !== supplier || item.goodsName !== goodsName) {
                 return false;
             }
-            // 规格匹配：如果商品规格为null或'-'，匹配库存中规格为'-'或null的
             const itemSpec = item.spec || '-';
             const targetSpec = spec || '-';
             return itemSpec === targetSpec;
@@ -1544,7 +1484,6 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             return null;
         }
         
-        // ✅ 按日期排序：有生产日期的按生产日期升序，有到期日期的按到期日期升序
         batchList.sort(function(a, b) {
             const getDate = function(item) {
                 if (item.produce_date && item.produce_date !== '-') {
@@ -1558,21 +1497,17 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             const dateA = getDate(a);
             const dateB = getDate(b);
             
-            // 都没有日期
             if (!dateA && !dateB) return 0;
             if (!dateA) return 1;
             if (!dateB) return -1;
             
-            // 按日期升序（最早的在前）
             return dateA.date - dateB.date;
         });
         
-        // 取排序后的第一个批次（最早批次）
         const earliest = batchList[0];
         
         console.log('最早批次:', earliest.goodsName, '生产日期:', earliest.produce_date, '到期日期:', earliest.expire_date);
         
-        // ✅ 获取该批次对应的入库记录，提取录入日期
         let recordDate = null;
         if (earliest && allStockIn) {
             const matchedIn = allStockIn.find(function(item) {
@@ -1594,7 +1529,6 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
             }
         }
         
-        // 确定日期类型
         let produceDate = null;
         let expireDate = null;
         let dateType = '';
@@ -1626,13 +1560,6 @@ function getEarliestBatchDate(supplier, goodsName, spec) {
     }
 }
 
-/**
- * 格式化日期显示
- * @param {string} dateStr - 日期字符串
- * @param {string} dateType - '生产日期' 或 '到期日期'
- * @param {Object} goodsItem - 商品对象（用于获取保质期）
- * @returns {string} 格式化后的日期
- */
 function formatDateTimeValue(dateStr, dateType, goodsItem) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -1640,12 +1567,10 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
     const month = date.getMonth() + 1;
     const day = date.getDate();
     
-    // 到期日期：永远显示 年月日
     if (dateType === '到期日期') {
         return `${year}年${month}月${day}日`;
     }
     
-    // 生产日期：根据保质期判断
     let shelfDays = 0;
     if (goodsItem && goodsItem.shelf_life_num && goodsItem.shelf_life_unit) {
         switch (goodsItem.shelf_life_unit) {
@@ -1662,11 +1587,6 @@ function formatDateTimeValue(dateStr, dateType, goodsItem) {
     }
 }
 
-/**
- * 判断商品是否需要更新日期
- * @param {Object} goodsItem - 商品对象
- * @returns {Object} { needUpdate: boolean, earliest: Object, dateType: string, dateValue: string }
- */
 function checkNeedDateUpdate(goodsItem) {
     const earliest = getEarliestBatchDate(goodsItem.supplier, goodsItem.name, goodsItem.spec || '-');
     if (!earliest || earliest.batchRemain <= 0) {
@@ -1684,7 +1604,6 @@ function checkNeedDateUpdate(goodsItem) {
     let dateType = '';
     let dateValue = null;
     
-    // 检查生产日期
     if (earliest.produce_date) {
         const currentDate = new Date(earliest.produce_date);
         const currentDateStr = currentDate.toISOString().split('T')[0];
@@ -1725,7 +1644,6 @@ function checkNeedDateUpdate(goodsItem) {
         }
     }
     
-    // 检查到期日期
     if (!needUpdate && earliest.expire_date) {
         const savedDate = savedExpire ? new Date(savedExpire).toISOString().split('T')[0] : null;
         const currentDate = new Date(earliest.expire_date).toISOString().split('T')[0];
@@ -1747,14 +1665,11 @@ function checkNeedDateUpdate(goodsItem) {
     };
 }
 
-/**
- * 获取所有需要更新日期的商品列表
- */
 async function getNeedUpdateGoodsList() {
     const result = [];
     if (!allGoods || allGoods.length === 0) {
         console.log('allGoods 为空');
-        return result;  // 确保返回空数组
+        return result;
     }
     
     for (const item of allGoods) {
@@ -1762,7 +1677,6 @@ async function getNeedUpdateGoodsList() {
         if (check.needUpdate && check.earliest) {
             const currentSalePrice = item.sale_price || 0;
             
-            // 从 Supabase 加载临时改价状态
             let newSalePrice = null;
             let priceStatus = 'pending';
             try {
@@ -1808,9 +1722,6 @@ async function getNeedUpdateGoodsList() {
     return result;
 }
 
-/**
- * 加载后台更换日期列表
- */
 async function loadDateChangeTab() {
     console.log('加载后台更换日期...');
     
@@ -1837,7 +1748,6 @@ async function loadDateChangeTab() {
     try {
         dateChangeData = await getNeedUpdateGoodsList();
         dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-        // ✅ 强制重新初始化筛选下拉数据源
         initDateChangeFilterData();
         console.log('需要更新的商品数量:', dateChangeFilteredList.length);
         updateDateChangeButton();
@@ -1849,19 +1759,16 @@ async function loadDateChangeTab() {
         console.error('加载后台更换日期失败:', e);
         dateChangeFilteredList = [];
         dateChangeData = [];
-        initDateChangeFilterData(); // 空数据也要初始化兜底渠道
+        initDateChangeFilterData();
         renderDateChangeList();
         showMsg('加载数据失败，请刷新重试');
     }
 }
     
-    // ✅ 调用 checkAndLoad
     checkAndLoad();
 }
 
-// ========== 改日改价 - 筛选功能 ==========
 function initDateChangeFilterData() {
-    // 只保留供应商和规格的缓存（用于其他地方）
     dateChangeFilterData = { 
         supplier: [], 
         goodsName: [], 
@@ -1877,8 +1784,6 @@ function initDateChangeFilterData() {
     dateChangeFilterData.supplier = [...new Set(dateChangeData.map(item => item.supplier || '').filter(s => s))].sort();
     dateChangeFilterData.goodsName = [...new Set(dateChangeData.map(item => item.name || '').filter(s => s))].sort();
     dateChangeFilterData.spec = [...new Set(dateChangeData.map(item => item.spec || '').filter(s => s))].sort();
-    // settleType 固定，不覆盖
-    // bzStatus 从 earliestBatch 提取
     const bzSet = new Set();
     dateChangeData.forEach(item => {
         if (item.earliestBatch && item.earliestBatch.bzStatusText) {
@@ -1891,7 +1796,6 @@ function initDateChangeFilterData() {
 function showDateChangeFilterList(type) {
     let listId = `dateChangeFilter${capitalize(type)}List`;
     let inputId = `dateChangeFilter${capitalize(type)}`;
-    // ✅ 修正 ID 映射
     if (type === 'settleType') {
         listId = 'dateChangeFilterSettleList';
         inputId = 'dateChangeFilterSettle';
@@ -1910,7 +1814,6 @@ function showDateChangeFilterList(type) {
 function filterDateChangeFilterList(type) {
     let inputId = `dateChangeFilter${capitalize(type)}`;
     let listId = `dateChangeFilter${capitalize(type)}List`;
-    // ✅ 修正 ID 映射
     if (type === 'settleType') {
         inputId = 'dateChangeFilterSettle';
         listId = 'dateChangeFilterSettleList';
@@ -1927,7 +1830,6 @@ function filterDateChangeFilterList(type) {
 function renderDateChangeFilterList(type, keyword = '') {
     let listId = `dateChangeFilter${capitalize(type)}List`;
     let inputId = `dateChangeFilter${capitalize(type)}`;
-    // ✅ 修正 ID 映射
     if (type === 'settleType') {
         listId = 'dateChangeFilterSettleList';
         inputId = 'dateChangeFilterSettle';
@@ -1942,7 +1844,6 @@ function renderDateChangeFilterList(type, keyword = '') {
     }    
     let data = [];
     
-    // ✅ 直接从 dateChangeData 实时提取
     if (type === 'settleType') {
         data = ['线上', '线下'];
     } else if (type === 'supplier') {
@@ -1961,7 +1862,6 @@ function renderDateChangeFilterList(type, keyword = '') {
         data = [...bzSet].sort();
     }
     
-    // 关键词过滤
     if (keyword) {
         const kwLow = keyword.toLowerCase();
         data = data.filter(item => item.toLowerCase().includes(kwLow));
@@ -1986,7 +1886,6 @@ function renderDateChangeFilterList(type, keyword = '') {
             const input = document.getElementById(inputId);
             if (input) {
                 input.value = opt;
-                // 触发 input 事件，让搜索生效
                 const evt = new Event('input', { bubbles: true });
                 input.dispatchEvent(evt);
             }
@@ -1999,7 +1898,6 @@ function renderDateChangeFilterList(type, keyword = '') {
     });
 }
 
-// 全局防抖定时器
 let dateFilterTimer = null;
 
 function onDateChangeFilterInput() {
@@ -2007,7 +1905,6 @@ function onDateChangeFilterInput() {
     dateFilterTimer = setTimeout(() => {
         filterDateChangeList();
         const types = ['supplier', 'goodsName', 'spec', 'settleType', 'bzStatus'];
-        // ✅ 使用正确的 ID 映射
         const idMap = {
             supplier: { input: 'dateChangeFilterSupplier', list: 'dateChangeFilterSupplierList' },
             goodsName: { input: 'dateChangeFilterGoods', list: 'dateChangeFilterGoodsList' },
@@ -2040,7 +1937,6 @@ function filterDateChangeList() {
     } else {
         dateChangeFilteredList = dateChangeData.filter(item => {
             let match = true;
-            // 获取保质期状态
             const itemBzStatus = item.earliestBatch?.bzStatusText || '';
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
             if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
@@ -2071,14 +1967,6 @@ function resetDateChangeFilter() {
     filterDateChangeList();
 }
 
-// 辅助函数：首字母大写（如果 goods.js 中没有，添加；如果有，使用已有的）
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-/**
- * 更新状态文字
- */
 function updateDateChangeStatus() {
     const statusEl = document.getElementById('dateChangeStatus');
     if (!statusEl) return;
@@ -2094,13 +1982,9 @@ function updateDateChangeStatus() {
     }
 }
 
-/**
- * 更新"需更新"按钮状态
- */
 function updateDateChangeButton() {
     const btn = document.getElementById('batchUpdateDateBtn');
     if (!btn) return;
-    // 确保 dateChangeData 是数组
     const count = Array.isArray(dateChangeData) ? dateChangeData.length : 0;
     
     if (count > 0) {
@@ -2120,39 +2004,32 @@ function updateDateChangeButton() {
     }
 }
 
-// ========== 新增：复制日期文本函数 ==========
 function copyDateText(text, btnElement) {
     if (!text) {
         showMsg('没有可复制的内容');
         return;
     }
     
-    // 使用 navigator.clipboard 复制
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {
-            // 复制成功，显示反馈
             const originalText = btnElement.textContent;
             btnElement.textContent = '√已复制';
             btnElement.style.background = '#52c41a';
             btnElement.style.color = '#ffffff';
             
-            // 2秒后恢复
             setTimeout(function() {
                 btnElement.textContent = '复制';
                 btnElement.style.background = '';
                 btnElement.style.color = '';
             }, 2000);
         }).catch(function() {
-            // 降级方案：使用 document.execCommand
             fallbackCopy(text, btnElement);
         });
     } else {
-        // 降级方案
         fallbackCopy(text, btnElement);
     }
 }
 
-// 降级复制方案
 function fallbackCopy(text, btnElement) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -2162,7 +2039,6 @@ function fallbackCopy(text, btnElement) {
     textarea.select();
     try {
         document.execCommand('copy');
-        // 复制成功
         const originalText = btnElement.textContent;
         btnElement.textContent = '√已复制';
         btnElement.style.background = '#52c41a';
@@ -2178,14 +2054,10 @@ function fallbackCopy(text, btnElement) {
     document.body.removeChild(textarea);
 }
 
-/**
- * 单条更新商品日期
- */
 async function updateSingleGoodsDateWithPrice(id) {
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) return;
     
-    // 判断是否需要改价
     const statusText = item.earliestBatch?.bzStatusText || '';
     const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
     
@@ -2200,14 +2072,12 @@ async function updateSingleGoodsDateWithPrice(id) {
         return;
     }
     
-    // 构建更新数据
     const updateData = {
         saved_produce_date: earliest.produce_date || null,
         saved_expire_date: earliest.expire_date || null,
         saved_date_updated_at: new Date().toISOString()
     };
     
-    // ===== 关键：如果有新价格，直接更新 sale_price =====
     if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
         updateData.sale_price = item.newSalePrice;
     }
@@ -2224,7 +2094,6 @@ async function updateSingleGoodsDateWithPrice(id) {
         body: JSON.stringify(updateData)
     });
     
-    // 清除临时状态
     clearPriceTempState(item.id);
     
     showMsg(`✅ 更新成功！${item.newSalePrice !== null ? ' 新销售价：' + formatMoney(item.newSalePrice) : ''}`);
@@ -2232,9 +2101,6 @@ async function updateSingleGoodsDateWithPrice(id) {
     loadDateChangeTab();
 }
 
-/**
- * 批量更新所有商品日期（一键更新）
- */
 async function batchUpdateGoodsDate() {
     const canUpdateList = dateChangeFilteredList.filter(item => {
         return (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
@@ -2284,7 +2150,6 @@ async function batchUpdateGoodsDate() {
         }
     }
     
-    // 批量清除临时状态
     for (const id of successIds) {
         await clearPriceTempState(id);
     }
@@ -2294,7 +2159,6 @@ async function batchUpdateGoodsDate() {
     loadDateChangeTab();
 }
 
-// ========== 日期更换分页 ==========
 function renderDateChangePagination() {
     dateChangeTotalPages = Math.ceil(dateChangeFilteredList.length / dateChangePageSize) || 1;
     
@@ -2343,17 +2207,13 @@ function changeDateChangePageSize() {
     renderDateChangeList();
 }
 
-// ===================== 后台更换日期 排序、刷新、清除排序 新增函数 =====================
-// 排序全局变量
 let dateChangeSortField = '';
 let dateChangeSortAsc = true;
 
-// 刷新列表
 function refreshDateChangeList() {
     loadDateChangeTab();
 }
 
-// 清除排序
 function clearDateChangeSort() {
     dateChangeSortField = '';
     dateChangeSortAsc = true;
@@ -2361,7 +2221,6 @@ function clearDateChangeSort() {
     loadDateChangeTab();
 }
 
-// 表头排序触发
 function dateChangeSortTable(field) {
     if (dateChangeSortField === field) {
         dateChangeSortAsc = !dateChangeSortAsc;
@@ -2370,16 +2229,13 @@ function dateChangeSortTable(field) {
         dateChangeSortAsc = true;
     }
     updateDateChangeSortIcon();
-    // 执行排序
     dateChangeFilteredList.sort((a, b) => {
         let valA = a[field];
         let valB = b[field];
-        // 日期类型特殊处理
         if (['recordDate','dateValue'].includes(field)) {
             valA = new Date(valA || 0);
             valB = new Date(valB || 0);
         }
-        // 数字类型
         if (field === 'batchRemain') {
             valA = Number(valA || 0);
             valB = Number(valB || 0);
@@ -2396,7 +2252,6 @@ function dateChangeSortTable(field) {
     renderDateChangeList();
 }
 
-// 更新排序箭头图标
 function updateDateChangeSortIcon() {
     document.querySelectorAll('.dateChangeSortIcon').forEach(icon => icon.textContent = '');
     const thList = document.querySelectorAll('#sub-dateChange .sortable');
@@ -2408,9 +2263,7 @@ function updateDateChangeSortIcon() {
     }
 }
 
-// 【关键修改】修改 renderDateChangeList 渲染前先应用排序
 function renderDateChangeList() {
-    // 排序处理
     if(dateChangeSortField) {
         dateChangeFilteredList.sort((a, b) => {
             let valA = a[dateChangeSortField];
@@ -2454,7 +2307,6 @@ function renderDateChangeList() {
     
     tb.innerHTML = '';
     pageData.forEach((item, idx) => {
-        // ========== 状态颜色逻辑 ==========
         let statusText = '无';
         let statusBgColor = '';
         let statusColor = '#333';
@@ -2486,7 +2338,6 @@ function renderDateChangeList() {
             statusColor = '#999';
         }
         
-        // 确定日期类型显示
         let dateTypeDisplay = '';
         let dateTypeColor = '';
         if (item.dateType === '生产日期') {
@@ -2500,7 +2351,6 @@ function renderDateChangeList() {
             dateTypeColor = '#f5f5f5';
         }
         
-        // 结算方式颜色
         let settleColor = '';
         if (item.settleType === '线上') {
             settleColor = 'style="color:#52c41a;font-weight:bold;"';
@@ -2508,13 +2358,9 @@ function renderDateChangeList() {
             settleColor = 'style="color:#ff6b6b;font-weight:bold;"';
         }
         
-        // 判断是否需要改价（只有线下且状态不是正常的才需要改价）
         const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
-        
-        // 当前销售价显示
         const currentPriceDisplay = formatMoney(item.currentSalePrice || 0);
         
-        // 需更新销售价显示
         let newPriceDisplay = '';
         let newPriceBg = '';
 
@@ -2528,17 +2374,15 @@ function renderDateChangeList() {
             newPriceDisplay = '待改价';
             newPriceBg = 'style="background:#fff3cd;color:#856404;"';
         } else {
-            // 正常/过期状态：置空，无颜色
             newPriceDisplay = '';
             newPriceBg = '';
         }
         
-        // 判断是否可以更新：
         let canUpdate = false;
         if (needPriceChange) {
             canUpdate = (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
         } else {
-            canUpdate = true;  // 正常/过期/线上 直接可更新
+            canUpdate = true;
         }
         const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
         
@@ -2548,7 +2392,6 @@ function renderDateChangeList() {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        // 构建复制用的文本
         let copyDateText = '';
         if (item.dateType === '生产日期' && item.displayValue) {
             copyDateText = `（${item.displayValue}生产）`;
@@ -2556,30 +2399,25 @@ function renderDateChangeList() {
             copyDateText = `（${item.displayValue}到期）`;
         }
         
-        // 构建操作按钮
         let actionButtons = '';
         actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
 
-        // 只有线下且非正常状态才显示改价按钮
         if (needPriceChange) {
             actionButtons += `
                 <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:3px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">改价</button>
             `;
         }
 
-        // 复制新价按钮（有新价格时才显示）
         if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
             actionButtons += `
                 <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:3px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制新价</button>
             `;
         }
 
-        // 复制日期按钮
         actionButtons += `
             <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
         `;
 
-        // 更新按钮
         actionButtons += `
             <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
         `;
@@ -2609,7 +2447,6 @@ function renderDateChangeList() {
     });
 }
 
-// ========== 改日改价 - 导出Excel ==========
 function exportDateChangeExcel() {
     if (dateChangeFilteredList.length === 0) {
         showMsg('暂无数据可导出');
@@ -2663,9 +2500,7 @@ function exportDateChangeExcel() {
     XLSX.writeFile(wb, `改日改价明细_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-// ===== 全局点击关闭下拉列表（商品筛选 + 改日改价） =====
 document.addEventListener('click', function(e) {
-    // 商品筛选下拉关闭
     const listIds = [
         'goodsFilterSupplierList',
         'goodsFilterGoodsNameList',
@@ -2678,7 +2513,6 @@ document.addEventListener('click', function(e) {
         }
     });
 
-    // 改日改价下拉关闭
     const dateChangeListIds = [
         'dateChangeFilterSupplierList',
         'dateChangeFilterGoodsList',
@@ -2699,7 +2533,6 @@ document.addEventListener('click', function(e) {
 // ========== 改价弹窗相关函数（新改价逻辑） ==========
 // ============================================================
 
-// ========== 改价弹窗 ==========
 function openPriceModal(id) {
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) {
@@ -2707,7 +2540,6 @@ function openPriceModal(id) {
         return;
     }
     
-    // 获取保质期状态
     const statusText = item.earliestBatch?.bzStatusText || '未知';
     
     const modal = document.createElement('div');
@@ -2781,7 +2613,6 @@ async function confirmPriceChange(id) {
     if (item) {
         const bzStatus = item.earliestBatch?.bzStatusText || '正常';
         
-        // ✅ 正常状态 → 直接更新商品信息主表goods
         if (bzStatus === '正常') {
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
@@ -2799,12 +2630,10 @@ async function confirmPriceChange(id) {
                 return;
             }
         } else {
-            // ✅ 临期/特殊状态 → 存入price_temp_state临时价格表
             await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
             showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
         }
         
-        // 同步更新页面缓存数据
         item.newSalePrice = newPrice;
         item.priceStatus = 'updated';
     }
@@ -2813,10 +2642,8 @@ async function confirmPriceChange(id) {
     await loadDateChangeTab();
 }
 
-// ========== 按状态保存临时价格 ==========
 async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
     try {
-        // 先检查是否存在
         const checkRes = await fetch(
             `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&bz_status=eq.${bzStatus}&select=id`,
             {
@@ -2929,7 +2756,6 @@ function fallbackCopyPrice2(text, id) {
     document.body.removeChild(textarea);
 }
 
-// ========== 改价临时状态存储（Supabase + localStorage） ==========
 async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
     try {
         const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`, {
@@ -3040,7 +2866,6 @@ async function clearAllPriceTempState() {
     }
 }
 
-// ========== localStorage 降级方案 ==========
 function savePriceTempStateLocal(id, newSalePrice, priceStatus) {
     try {
         let tempData = JSON.parse(localStorage.getItem('priceTempState') || '{}');
@@ -3076,7 +2901,7 @@ function clearPriceTempStateLocal(id) {
     }
 }
 
-// ========== 暴露改价相关函数到全局 ==========
+// ========== 暴露函数到全局 ==========
 window.openPriceModal = openPriceModal;
 window.closePriceModal = closePriceModal;
 window.confirmPriceChange = confirmPriceChange;
@@ -3094,5 +2919,4 @@ window.showDateChangeFilterList = showDateChangeFilterList;
 window.onDateChangeFilterInput = onDateChangeFilterInput;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
 
-// ✅ 确保文件以换行结束
 console.log('goods.js 加载完成');
