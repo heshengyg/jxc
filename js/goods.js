@@ -56,13 +56,13 @@ let settleTotalPages = 1;
 let settleSupplierList = [];
 let settleSearchTimer = null;
 
-let allGoods = [];
-let filteredGoods = [];
-let currentPage = 1;
-let pageSize = 10;
-let totalPages = 1;
-let sortField = '';
-let sortAsc = true;
+allGoods = [];
+filteredGoods = [];
+currentPage = 1;
+pageSize = 10;
+totalPages = 1;
+sortField = '';
+sortAsc = true;
 
 function capitalize(str = '') {
     if(!str) return '';
@@ -1738,6 +1738,34 @@ async function loadDateChangeTab() {
             allStockBatchList = [];
             await loadStockStock();
         }
+// ========== 新增：如果 allStockBatchList 为空，手动构建 ==========
+        if ((!allStockBatchList || allStockBatchList.length === 0) && allStockIn && allStockIn.length > 0) {
+            console.log('🔄 allStockBatchList 为空，手动构建...');
+            const groupMap = {};
+            allStockIn.forEach(record => {
+                const key = record.supplier + '|' + record.goodsName + '|' + (record.spec || '') + '|' + (record.produce_date || '') + '|' + (record.expire_date || '');
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        supplier: record.supplier,
+                        goodsName: record.goodsName,
+                        spec: record.spec || '',
+                        settleType: record.settleType || '',
+                        inRecords: [],
+                        batchRemain: 0,
+                        produce_date: record.produce_date || '-',
+                        expire_date: record.expire_date || '-',
+                        bzStatusText: '正常',
+                        countDownText: '',
+                        recordDate: record.record_date || null
+                    };
+                }
+                groupMap[key].batchRemain += (record.remain_num || 0);
+                groupMap[key].inRecords.push(record);
+            });
+            allStockBatchList = Object.values(groupMap);
+            window.allStockBatchList = allStockBatchList;
+            console.log('✅ 手动构建完成，allStockBatchList 长度:', allStockBatchList.length);
+        }
         
         setTimeout(async function() {
             await doLoadDateChange();
@@ -1748,6 +1776,43 @@ async function loadDateChangeTab() {
     try {
         dateChangeData = await getNeedUpdateGoodsList();
         dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+// ========== 新增：如果 getNeedUpdateGoodsList 返回空，手动构建 ==========
+        if (dateChangeFilteredList.length === 0 && allStockBatchList && allStockBatchList.length > 0) {
+            console.log('🔄 getNeedUpdateGoodsList 返回空，手动构建改日改价数据...');
+            dateChangeData = [];
+            for (const item of allGoods || []) {
+                const batches = (allStockBatchList || []).filter(b => 
+                    b.supplier === item.supplier && 
+                    b.goodsName === item.name &&
+                    (b.spec || '-') === (item.spec || '-')
+                );
+                if (batches.length > 0) {
+                    const earliest = batches[0];
+                    const dateType = (earliest.produce_date && earliest.produce_date !== '-') ? '生产日期' : 
+                                     (earliest.expire_date && earliest.expire_date !== '-') ? '到期日期' : '';
+                    const dateValue = (earliest.produce_date && earliest.produce_date !== '-') ? earliest.produce_date : 
+                                      (earliest.expire_date || null);
+                    dateChangeData.push({
+                        id: item.id,
+                        supplier: item.supplier || '',
+                        name: item.name || '',
+                        spec: item.spec || '-',
+                        settleType: item.channel || '',
+                        currentSalePrice: item.sale_price || 0,
+                        batchRemain: earliest.batchRemain || 0,
+                        earliestBatch: earliest,
+                        dateType: dateType,
+                        dateValue: dateValue,
+                        displayValue: dateValue || '',
+                        recordDate: earliest.recordDate || null,
+                        newSalePrice: null,
+                        priceStatus: 'pending'
+                    });
+                }
+            }
+            dateChangeFilteredList = [...dateChangeData];
+            console.log('✅ 手动构建改日改价数据:', dateChangeFilteredList.length, '条');
+        }
         initDateChangeFilterData();
         console.log('需要更新的商品数量:', dateChangeFilteredList.length);
         updateDateChangeButton();
