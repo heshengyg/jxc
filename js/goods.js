@@ -1704,6 +1704,31 @@ async function getNeedUpdateGoodsList() {
         return result;
     }
     
+    // ========== 批量加载所有 price_temp_state 数据 ==========
+    let priceMap = {};
+    try {
+        const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?select=*`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const priceData = await priceRes.json();
+        // 按 goods_id 建立索引
+        priceData.forEach(item => {
+            priceMap[item.goods_id] = {
+                expirePrice: item.expire_price || item.sale_price,
+                discount1Price: item.discount_1_price,
+                discount2Price: item.discount_2_price,
+                discount3Price: item.discount_3_price,
+                discount4Price: item.discount_4_price
+            };
+        });
+        console.log('✅ 加载 price_temp_state 数据:', priceData.length, '条');
+    } catch(e) {
+        console.warn('加载 price_temp_state 失败:', e);
+    }
+    
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
         if (check.needUpdate && check.earliest) {
@@ -1711,14 +1736,28 @@ async function getNeedUpdateGoodsList() {
             
             let newSalePrice = null;
             let priceStatus = 'pending';
-            try {
-                const tempState = await loadPriceTempState(item.id);
-                if (tempState) {
-                    newSalePrice = tempState.newSalePrice;
-                    priceStatus = tempState.priceStatus;
+            
+            // ========== 根据状态从 priceMap 中获取对应的价格 ==========
+            const bzStatus = check.earliest.bzStatusText || '';
+            const priceData = priceMap[item.id];
+            
+            if (priceData) {
+                // 根据状态获取对应的价格
+                if (bzStatus === '临期') {
+                    newSalePrice = priceData.expirePrice;
+                } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
+                    newSalePrice = priceData.discount1Price;
+                } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
+                    newSalePrice = priceData.discount2Price;
+                } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
+                    newSalePrice = priceData.discount3Price;
+                } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
+                    newSalePrice = priceData.discount4Price;
                 }
-            } catch(e) {
-                console.warn('加载临时状态失败，使用默认值', e);
+                
+                if (newSalePrice !== null && newSalePrice !== undefined) {
+                    priceStatus = 'updated';
+                }
             }
             
             result.push({
@@ -2707,42 +2746,47 @@ async function confirmPriceChange(id) {
     }
     
     const item = dateChangeFilteredList.find(d => d.id === id);
-    if (item) {
-        const bzStatus = item.earliestBatch?.bzStatusText || '正常';
-        
-        if (bzStatus === '正常') {
-            try {
-                await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
-                    method: 'PATCH',
-                    headers: {
-                        apikey: SUPABASE_KEY,
-                        Authorization: `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ sale_price: newPrice })
-                });
-                showMsg('✅ 正常状态销售价已更新到商品信息表');
-            } catch (e) {
-                showMsg('更新失败：' + e.message);
-                return;
-            }
-        } else {
-            await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
-            showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
+    if (!item) {
+        showMsg('找不到该商品');
+        return;
+    }
+    
+    const bzStatus = item.earliestBatch?.bzStatusText || '正常';
+    console.log('确认改价:', item.name, '状态:', bzStatus, '新价格:', newPrice);
+    
+    if (bzStatus === '正常') {
+        // 正常状态 → 更新 goods 表
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sale_price: newPrice })
+            });
+            showMsg('✅ 正常状态销售价已更新到商品信息表');
+        } catch (e) {
+            showMsg('更新失败：' + e.message);
+            return;
         }
-        
-        item.newSalePrice = newPrice;
-        item.priceStatus = 'updated';
+    } else {
+        // 其他状态 → 存入 price_temp_state 表
+        await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
+        showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
     }
     
     closePriceModal();
+    // ========== 重新加载改日改价 ==========
     await loadDateChangeTab();
 }
 
 async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
     try {
+        // 先检查是否存在
         const checkRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&bz_status=eq.${bzStatus}&select=id`,
+            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`,
             {
                 headers: {
                     apikey: SUPABASE_KEY,
@@ -2752,12 +2796,27 @@ async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
         );
         const existData = await checkRes.json();
         
-        let body = {
-            goods_id: goodsId,
-            bz_status: bzStatus,
-            new_sale_price: newSalePrice,
-            price_status: 'updated',
-            updated_at: new Date().toISOString()
+        // 根据状态决定更新哪个字段
+        let updateField = {};
+        if (bzStatus === '临期') {
+            updateField = { expire_price: newSalePrice };
+        } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
+            updateField = { discount_1_price: newSalePrice };
+        } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
+            updateField = { discount_2_price: newSalePrice };
+        } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
+            updateField = { discount_3_price: newSalePrice };
+        } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
+            updateField = { discount_4_price: newSalePrice };
+        } else {
+            // 其他状态（如正常）不存储
+            return;
+        }
+        
+        const body = {
+            goods_id: Number(goodsId),
+            updated_at: new Date().toISOString(),
+            ...updateField
         };
         
         if (existData && existData.length > 0) {
@@ -2900,24 +2959,29 @@ async function savePriceTempState(goodsId, newSalePrice, priceStatus) {
 
 async function loadPriceTempState(goodsId) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=*`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=*`,
+            {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
             }
-        });
+        );
         const data = await res.json();
         if (data && data.length > 0) {
             return {
-                newSalePrice: data[0].new_sale_price,
-                priceStatus: data[0].price_status,
-                bzStatus: data[0].bz_status
+                expirePrice: data[0].expire_price,
+                discount1Price: data[0].discount_1_price,
+                discount2Price: data[0].discount_2_price,
+                discount3Price: data[0].discount_3_price,
+                discount4Price: data[0].discount_4_price
             };
         }
-        return loadPriceTempStateLocal(goodsId);
+        return null;
     } catch(e) {
         console.warn('从Supabase加载临时状态失败:', e);
-        return loadPriceTempStateLocal(goodsId);
+        return null;
     }
 }
 
