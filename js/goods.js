@@ -1157,14 +1157,19 @@ async function submitForm() {
     if (+salePrice <= 0) return showMsg('销售单价必须大于0');
     if (isDuplicate(supplier, name, spec, editId)) return showMsg('该供应商下已存在同名同规格商品！');
     
-    // ========== 检测销售价是否变动 ==========
+    let oldSalePrice = null;
     let priceChanged = false;
-    let goodsId = editId;
+    let newPrice = +salePrice;
+    
     if (editId) {
         const oldItem = allGoods.find(g => g.id == editId);
-        if (oldItem && Number(oldItem.sale_price) !== Number(salePrice)) {
-            priceChanged = true;
-            console.log('⚠️ 销售价变动:', oldItem.sale_price, '→', salePrice);
+        if (oldItem) {
+            oldSalePrice = Number(oldItem.sale_price);
+            // 用户输入的新价格 != 数据库中的旧价格 → 价格变动
+            if (newPrice !== oldSalePrice) {
+                priceChanged = true;
+                console.log('⚠️ 销售价变动:', oldSalePrice, '→', newPrice);
+            }
         }
     }
     
@@ -1174,12 +1179,13 @@ async function submitForm() {
         spec: spec.trim() || null,
         channel: channel,
         tax_rate: taxRate,
-        sale_price: +salePrice,
+        sale_price: newPrice,
         online_cost: onlineCost ? +onlineCost : null,
         warn_num: warnNum ? +warnNum : null,
         shelf_life_num: shelfNum ? +shelfNum : null,
         shelf_life_unit: shelfUnit || null,
-        last_sale_price: +salePrice  // 新增：记录本次销售价
+        // ✅ last_sale_price 记录上一次的价格（即修改前的 sale_price）
+        last_sale_price: editId ? oldSalePrice : null
     };
     
     try {
@@ -1195,7 +1201,6 @@ async function submitForm() {
             });
             showMsg('编辑成功');
             
-            // ========== 如果销售价变动，清空 price_temp_state ==========
             if (priceChanged) {
                 await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, {
                     method: 'DELETE',
@@ -1205,11 +1210,11 @@ async function submitForm() {
                     }
                 });
                 console.log('✅ 已清空商品', editId, '的所有临时价格（销售价变动）');
-                showMsg('⚠️ 销售价已变动，所有状态价格已清空');
+                showMsg('⚠️ 销售价已变动，所有状态价格已清空，请重新设置');
             }
         } else {
-            // 新增商品时，last_sale_price = sale_price
-            data.last_sale_price = +salePrice;
+            // 新增商品：last_sale_price 为 null
+            data.last_sale_price = null;
             await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: 'POST',
                 headers: {
