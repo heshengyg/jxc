@@ -1714,10 +1714,9 @@ async function getNeedUpdateGoodsList() {
             }
         });
         const priceData = await priceRes.json();
-        // 按 goods_id 建立索引
         priceData.forEach(item => {
             priceMap[item.goods_id] = {
-                expirePrice: item.expire_price || item.sale_price,
+                expirePrice: item.expire_price,
                 discount1Price: item.discount_1_price,
                 discount2Price: item.discount_2_price,
                 discount3Price: item.discount_3_price,
@@ -1732,31 +1731,44 @@ async function getNeedUpdateGoodsList() {
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
         if (check.needUpdate && check.earliest) {
-            const currentSalePrice = item.sale_price || 0;
+            const normalPrice = item.sale_price || 0;
+            const bzStatus = check.earliest.bzStatusText || '';
             
+            // ========== 根据状态获取当前销售价 ==========
+            let currentSalePrice = normalPrice;  // 默认正常价格
             let newSalePrice = null;
             let priceStatus = 'pending';
             
-            // ========== 根据状态从 priceMap 中获取对应的价格 ==========
-            const bzStatus = check.earliest.bzStatusText || '';
             const priceData = priceMap[item.id];
             
             if (priceData) {
                 // 根据状态获取对应的价格
                 if (bzStatus === '临期') {
-                    newSalePrice = priceData.expirePrice;
+                    currentSalePrice = priceData.expirePrice !== null && priceData.expirePrice !== undefined 
+                        ? priceData.expirePrice 
+                        : normalPrice;
                 } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
-                    newSalePrice = priceData.discount1Price;
+                    currentSalePrice = priceData.discount1Price !== null && priceData.discount1Price !== undefined 
+                        ? priceData.discount1Price 
+                        : normalPrice;
                 } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
-                    newSalePrice = priceData.discount2Price;
+                    currentSalePrice = priceData.discount2Price !== null && priceData.discount2Price !== undefined 
+                        ? priceData.discount2Price 
+                        : normalPrice;
                 } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
-                    newSalePrice = priceData.discount3Price;
+                    currentSalePrice = priceData.discount3Price !== null && priceData.discount3Price !== undefined 
+                        ? priceData.discount3Price 
+                        : normalPrice;
                 } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
-                    newSalePrice = priceData.discount4Price;
+                    currentSalePrice = priceData.discount4Price !== null && priceData.discount4Price !== undefined 
+                        ? priceData.discount4Price 
+                        : normalPrice;
                 }
                 
-                if (newSalePrice !== null && newSalePrice !== undefined) {
+                // 如果当前价格不是正常价格，说明已改过价
+                if (currentSalePrice !== normalPrice) {
                     priceStatus = 'updated';
+                    newSalePrice = currentSalePrice;
                 }
             }
             
@@ -1768,7 +1780,8 @@ async function getNeedUpdateGoodsList() {
                 channel: item.channel || '',
                 settleType: item.channel || '',
                 sale_price: item.sale_price || 0,
-                currentSalePrice: currentSalePrice,
+                currentSalePrice: currentSalePrice,  // ✅ 根据状态匹配的价格
+                normalPrice: normalPrice,            // ✅ 保存正常价格供弹窗显示
                 online_cost: item.online_cost || 0,
                 tax_rate: item.tax_rate || '',
                 warn_num: item.warn_num || 0,
@@ -1784,7 +1797,8 @@ async function getNeedUpdateGoodsList() {
                 batchRemain: check.earliest.batchRemain || 0,
                 recordDate: check.earliest.recordDate || null,
                 newSalePrice: newSalePrice,
-                priceStatus: priceStatus
+                priceStatus: priceStatus,
+                bzStatus: bzStatus
             });
         }
     }
@@ -2677,8 +2691,8 @@ function openPriceModal(id) {
     }
     
     const statusText = item.earliestBatch?.bzStatusText || '未知';
-    const normalPrice = item.sale_price || 0;                    // 正常销售价（商品信息表）
-    const currentPrice = item.currentSalePrice || normalPrice;   // 当前销售价（已匹配状态）
+    const normalPrice = item.normalPrice || item.sale_price || 0;       // 正常销售价
+    const currentPrice = item.currentSalePrice || normalPrice;           // 当前状态销售价
     
     const modal = document.createElement('div');
     modal.id = 'priceModal';
