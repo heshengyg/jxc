@@ -2901,7 +2901,78 @@ function clearPriceTempStateLocal(id) {
     }
 }
 
-// ========== 暴露函数到全局 ==========
+// ============================================================
+// 暴露所有核心函数到全局（确保 HTML onclick 能调用）
+// ============================================================
+
+// 商品信息相关
+window.switchGoodsSubTab = switchGoodsSubTab;
+window.loadGoods = loadGoods;
+window.filterGoods = filterGoods;
+window.renderGoods = renderGoods;
+window.renderPagination = renderPagination;
+window.goToPage = goToPage;
+window.prevPage = prevPage;
+window.nextPage = nextPage;
+window.changePageSize = changePageSize;
+window.deleteGoods = deleteGoods;
+window.batchDelete = batchDelete;
+window.openEditForm = openEditForm;
+window.openAddForm = openAddForm;
+window.closeForm = closeForm;
+window.toggleSelectAll = toggleSelectAll;
+window.resetGoodsSearch = resetGoodsSearch;
+window.onGoodsFilterInput = onGoodsFilterInput;
+window.exportExcel = exportExcel;
+window.downloadTemplate = downloadTemplate;
+window.importGoodsExcel = importGoodsExcel;
+window.refreshGoods = refreshGoods;
+window.clearSort = clearSort;
+
+// 供应商管理相关
+window.loadSettleList = loadSettleList;
+window.renderSettleList = renderSettleList;
+window.renderSettlePagination = renderSettlePagination;
+window.settleGoToPage = settleGoToPage;
+window.settlePrevPage = settlePrevPage;
+window.settleNextPage = settleNextPage;
+window.changeSettlePageSize = changeSettlePageSize;
+window.filterSettleList = filterSettleList;
+window.resetSettleSearch = resetSettleSearch;
+window.showSettleSupplierList = showSettleSupplierList;
+window.filterSettleSupplierList = filterSettleSupplierList;
+window.onSettleFilterInput = onSettleFilterInput;
+window.openSettleForm = openSettleForm;
+window.openSettleEditForm = openSettleEditForm;
+window.closeSettleModal = closeSettleModal;
+window.submitSettleForm = submitSettleForm;
+window.deleteSettleType = deleteSettleType;
+window.downloadSettleTemplate = downloadSettleTemplate;
+window.importSettleExcel = importSettleExcel;
+window.exportSettleExcel = exportSettleExcel;
+window.refreshSettleList = refreshSettleList;
+window.resetSettleSearchOld = resetSettleSearchOld;
+
+// 改日改价相关
+window.loadDateChangeTab = loadDateChangeTab;
+window.renderDateChangeList = renderDateChangeList;
+window.renderDateChangePagination = renderDateChangePagination;
+window.dateChangeGoToPage = dateChangeGoToPage;
+window.dateChangePrevPage = dateChangePrevPage;
+window.dateChangeNextPage = dateChangeNextPage;
+window.changeDateChangePageSize = changeDateChangePageSize;
+window.refreshDateChangeList = refreshDateChangeList;
+window.clearDateChangeSort = clearDateChangeSort;
+window.dateChangeSortTable = dateChangeSortTable;
+window.exportDateChangeExcel = exportDateChangeExcel;
+window.filterDateChangeList = filterDateChangeList;
+window.resetDateChangeFilter = resetDateChangeFilter;
+window.showDateChangeFilterList = showDateChangeFilterList;
+window.onDateChangeFilterInput = onDateChangeFilterInput;
+window.batchUpdateGoodsDate = batchUpdateGoodsDate;
+window.copyDateText = copyDateText;
+
+// 改价弹窗相关（已有，但确保完整）
 window.openPriceModal = openPriceModal;
 window.closePriceModal = closePriceModal;
 window.confirmPriceChange = confirmPriceChange;
@@ -2912,11 +2983,7 @@ window.savePriceTempState = savePriceTempState;
 window.loadPriceTempState = loadPriceTempState;
 window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
-window.exportDateChangeExcel = exportDateChangeExcel;
-window.filterDateChangeList = filterDateChangeList;
-window.resetDateChangeFilter = resetDateChangeFilter;
-window.showDateChangeFilterList = showDateChangeFilterList;
-window.onDateChangeFilterInput = onDateChangeFilterInput;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
 
+console.log('✅ 所有 goods.js 函数已暴露到 window');
 console.log('goods.js 加载完成');
