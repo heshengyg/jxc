@@ -2677,8 +2677,8 @@ function openPriceModal(id) {
     }
     
     const statusText = item.earliestBatch?.bzStatusText || '未知';
-    const normalPrice = item.sale_price || 0;           // 正常销售价（商品信息表）
-    const currentPrice = item.currentSalePrice || 0;    // 当前销售价（可能已被改过）
+    const normalPrice = item.sale_price || 0;                    // 正常销售价（商品信息表）
+    const currentPrice = item.currentSalePrice || normalPrice;   // 当前销售价（已匹配状态）
     
     const modal = document.createElement('div');
     modal.id = 'priceModal';
@@ -2689,35 +2689,40 @@ function openPriceModal(id) {
     `;
     
     modal.innerHTML = `
-        <div style="background:#fff; border-radius:8px; padding:30px; width:420px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <div style="background:#fff; border-radius:8px; padding:30px; width:440px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
             <h3 style="margin-top:0; margin-bottom:20px; color:#333;">修改销售价</h3>
-            <div style="margin-bottom:10px;">
-                <label style="font-weight:bold; display:block; margin-bottom:4px;">商品</label>
-                <span style="font-size:14px;">${item.name} (${item.spec || '-'})</span>
+            
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:14px;">商品</label>
+                <span style="font-size:15px;">${item.name} (${item.spec || '-'})</span>
             </div>
-            <div style="margin-bottom:10px; display:flex; gap:20px; flex-wrap:wrap;">
+            
+            <div style="display:flex; gap:40px; margin-bottom:16px; flex-wrap:wrap;">
                 <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:4px;">保质期状态</label>
-                    <span style="font-size:14px; padding:2px 12px; border-radius:3px; ${statusText === '过期' ? 'background:#ff4444;color:#fff;' : statusText === '临期' ? 'background:#ffdddd;' : statusText === '正常' ? 'background:#d4edda;' : 'background:#bbdefb;'}">${statusText}</span>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:13px;">保质期状态</label>
+                    <span style="font-size:15px; padding:4px 16px; border-radius:4px; display:inline-block; ${statusText === '过期' ? 'background:#ff4444;color:#fff;' : statusText === '临期' ? 'background:#ffdddd;' : statusText === '正常' ? 'background:#d4edda;' : 'background:#bbdefb;'}">${statusText}</span>
                 </div>
                 <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:4px;">正常销售价</label>
-                    <span style="font-size:16px; color:#333; font-weight:bold;">${formatMoney(normalPrice)}</span>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:13px;">正常销售价</label>
+                    <span style="font-size:18px; color:#333; font-weight:bold;">${formatMoney(normalPrice)}</span>
                 </div>
             </div>
-            <div style="margin-bottom:20px; padding:10px 0; border-top:1px solid #eee; border-bottom:1px solid #eee;">
-                <label style="font-weight:bold; display:block; margin-bottom:4px;">当前销售价（${statusText}状态）</label>
-                <span style="font-size:22px; color:#ff6b6b; font-weight:bold;">${formatMoney(currentPrice)}</span>
+            
+            <div style="margin-bottom:20px; padding:14px 16px; background:#f8f9fa; border-radius:6px; border-left:4px solid #ff6b6b;">
+                <label style="font-weight:bold; display:block; margin-bottom:2px; font-size:13px;">当前销售价（${statusText}状态）</label>
+                <span style="font-size:24px; color:#ff6b6b; font-weight:bold;">${formatMoney(currentPrice)}</span>
             </div>
+            
             <div style="margin-bottom:20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:4px;">新销售价</label>
+                <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:14px;">新销售价</label>
                 <input type="number" id="priceModalInput" step="0.01" min="0" 
-                    style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:16px;"
+                    style="width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:4px; font-size:18px; box-sizing:border-box;"
                     placeholder="请输入新销售价">
             </div>
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
-                <button onclick="closePriceModal()" style="padding:8px 20px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer;">取消</button>
-                <button onclick="confirmPriceChange(${id})" style="padding:8px 20px; border:none; border-radius:4px; background:#007bff; color:#fff; cursor:pointer;">确认改价</button>
+            
+            <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:10px; border-top:1px solid #eee;">
+                <button onclick="closePriceModal()" style="padding:8px 24px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:14px;">取消</button>
+                <button onclick="confirmPriceChange(${id})" style="padding:8px 24px; border:none; border-radius:4px; background:#007bff; color:#fff; cursor:pointer; font-size:14px;">确认改价</button>
             </div>
         </div>
     `;
