@@ -203,16 +203,41 @@ function selectOutGoods(goods){
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
-    // ========== 改动点：直接从商品基础库读取最新销售单价 ==========
+    // ========== ✅ 修改：根据保质期状态匹配销售价 ==========
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
-    let salePrice = baseGoods ? Number(baseGoods.sale_price) : 0;
-    document.getElementById('outSalePrice').value = formatMoney(salePrice);
+    if (baseGoods) {
+        // 获取该商品对应的入库批次，找最早批次
+        const batches = allStockIn.filter(item => 
+            item.supplier === sup && 
+            item.goodsName === goods.name
+        );
+        // 如果有入库批次，取第一个批次计算状态
+        if (batches.length > 0) {
+            // 按录入日期排序取最早批次
+            batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+            const earliest = batches[0];
+            const bzStatus = calcBzStatus(
+                earliest.produce_date,
+                earliest.expire_date,
+                baseGoods.shelf_life_num,
+                baseGoods.shelf_life_unit
+            );
+            (async function() {
+                let price = await getSalePriceByBzStatus(baseGoods.id, bzStatus, baseGoods.sale_price);
+                document.getElementById('outSalePrice').value = formatMoney(price);
+            })();
+        } else {
+            // 没有入库批次，显示正常价
+            document.getElementById('outSalePrice').value = formatMoney(baseGoods.sale_price);
+        }
+    } else {
+        document.getElementById('outSalePrice').value = '￥0.00';
+    }
 
     // 自动带出总库存（原逻辑不变）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
-
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
