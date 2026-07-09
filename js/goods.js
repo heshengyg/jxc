@@ -2677,6 +2677,8 @@ function openPriceModal(id) {
     }
     
     const statusText = item.earliestBatch?.bzStatusText || '未知';
+    const normalPrice = item.sale_price || 0;           // 正常销售价（商品信息表）
+    const currentPrice = item.currentSalePrice || 0;    // 当前销售价（可能已被改过）
     
     const modal = document.createElement('div');
     modal.id = 'priceModal';
@@ -2693,15 +2695,19 @@ function openPriceModal(id) {
                 <label style="font-weight:bold; display:block; margin-bottom:4px;">商品</label>
                 <span style="font-size:14px;">${item.name} (${item.spec || '-'})</span>
             </div>
-            <div style="margin-bottom:10px; display:flex; gap:20px;">
+            <div style="margin-bottom:10px; display:flex; gap:20px; flex-wrap:wrap;">
                 <div>
                     <label style="font-weight:bold; display:block; margin-bottom:4px;">保质期状态</label>
                     <span style="font-size:14px; padding:2px 12px; border-radius:3px; ${statusText === '过期' ? 'background:#ff4444;color:#fff;' : statusText === '临期' ? 'background:#ffdddd;' : statusText === '正常' ? 'background:#d4edda;' : 'background:#bbdefb;'}">${statusText}</span>
                 </div>
                 <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:4px;">原销售价</label>
-                    <span style="font-size:18px; color:#ff6b6b; font-weight:bold;">${formatMoney(item.currentSalePrice || 0)}</span>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px;">正常销售价</label>
+                    <span style="font-size:16px; color:#333; font-weight:bold;">${formatMoney(normalPrice)}</span>
                 </div>
+            </div>
+            <div style="margin-bottom:20px; padding:10px 0; border-top:1px solid #eee; border-bottom:1px solid #eee;">
+                <label style="font-weight:bold; display:block; margin-bottom:4px;">当前销售价（${statusText}状态）</label>
+                <span style="font-size:22px; color:#ff6b6b; font-weight:bold;">${formatMoney(currentPrice)}</span>
             </div>
             <div style="margin-bottom:20px;">
                 <label style="font-weight:bold; display:block; margin-bottom:4px;">新销售价</label>
@@ -2711,7 +2717,6 @@ function openPriceModal(id) {
             </div>
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button onclick="closePriceModal()" style="padding:8px 20px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer;">取消</button>
-                <button onclick="skipPriceChange(${id})" style="padding:8px 20px; border:none; border-radius:4px; background:#28a745; color:#fff; cursor:pointer;">无需修改</button>
                 <button onclick="confirmPriceChange(${id})" style="padding:8px 20px; border:none; border-radius:4px; background:#007bff; color:#fff; cursor:pointer;">确认改价</button>
             </div>
         </div>
