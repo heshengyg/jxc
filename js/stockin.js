@@ -260,7 +260,6 @@ function selectInGoods(goods){
     document.getElementById('curSelectGoodsId').value = goods.id;
     document.getElementById('inSpec').value = goods.spec || '';
     document.getElementById('inSettleType').value = goods.channel || '';
-    // ✅ 先显示正常价，等用户选日期后再匹配
     document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
     let priceInput = document.getElementById('inPrice');
     if(goods.channel === '线上'){
@@ -269,64 +268,16 @@ function selectInGoods(goods){
     }else{
         priceInput.disabled = false;
     }
-    // ✅ 触发日期变化事件，根据已有日期匹配价格
-    updateInPriceByDate();
 }
 
 // 日期互斥
 function lockExpireDate(){
     let p = document.getElementById('inProduceDate').value;
-    if(p) {
-        document.getElementById('inExpireDate').value = '';
-        updateInPriceByDate(); // ✅ 新增
-    }
+    if(p) document.getElementById('inExpireDate').value = '';
 }
 function lockProduceDate(){
     let e = document.getElementById('inExpireDate').value;
-    if(e) {
-        document.getElementById('inProduceDate').value = '';
-        updateInPriceByDate(); // ✅ 新增
-    }
-}
-
-// ========== 新增：根据日期更新销售价 ==========
-async function updateInPriceByDate() {
-    const goodsId = document.getElementById('curSelectGoodsId').value;
-    const produceDate = document.getElementById('inProduceDate').value;
-    const expireDate = document.getElementById('inExpireDate').value;
-    
-    if (!goodsId) return;
-    
-    // 查找商品信息
-    const goods = allGoods.find(g => g.id == goodsId);
-    if (!goods) return;
-    
-    // 如果有日期，计算状态并匹配价格
-    if (produceDate || expireDate) {
-        const bzStatus = calcBzStatus(
-            produceDate,
-            expireDate,
-            goods.shelf_life_num,
-            goods.shelf_life_unit
-        );
-        const price = await getSalePriceByBzStatus(goodsId, bzStatus, goods.sale_price);
-        document.getElementById('inSalePrice').value = formatMoney(price);
-    } else {
-        // 没有日期，显示正常价
-        document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
-    }
-}
-
-// ========== 新增：绑定日期事件 ==========
-function bindInDateEvents() {
-    const produceInput = document.getElementById('inProduceDate');
-    const expireInput = document.getElementById('inExpireDate');
-    if (produceInput) {
-        produceInput.addEventListener('change', updateInPriceByDate);
-    }
-    if (expireInput) {
-        expireInput.addEventListener('change', updateInPriceByDate);
-    }
+    if(e) document.getElementById('inProduceDate').value = '';
 }
 
 // 打开添加入库弹窗（异步校验）
@@ -373,8 +324,6 @@ async function openStockInForm(id=null){
             }
         },100);
     }
-// ✅ 绑定日期事件
-bindInDateEvents();
     document.getElementById('stockInModal').style.display = 'block';
 }
 function closeStockInForm(){

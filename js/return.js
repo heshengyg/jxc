@@ -841,7 +841,6 @@ function updateReturnBatchList() {
 }
 
 // ========== 切换批次选择 ==========
-// ========== 切换批次选择 ==========
 function toggleReturnBatch(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
@@ -882,26 +881,13 @@ function toggleReturnBatch(index) {
     };
     
     document.getElementById('returnSupplierSearch').value = batch.supplier;
+    
     document.getElementById('returnCurGoodsId').value = inRecord.id;
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
     
-    // 根据保质期状态匹配销售价
     const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
-    if (goodsInfo) {
-        const bzStatus = calcBzStatus(
-            batch.produce_date,
-            batch.expire_date,
-            goodsInfo.shelf_life_num,
-            goodsInfo.shelf_life_unit
-        );
-        (async function() {
-            let price = await getSalePriceByBzStatus(goodsInfo.id, bzStatus, goodsInfo.sale_price);
-            document.getElementById('returnSalePrice').value = formatMoney(price);
-        })();
-    } else {
-        document.getElementById('returnSalePrice').value = '￥0.00';
-    }
+    document.getElementById('returnSalePrice').value = goodsInfo ? formatMoney(goodsInfo.sale_price) : '￥0.00';
     
     const produceDisplay = selectedBatchData.produceDate || '-';
     const expireDisplay = selectedBatchData.expireDate || '-';
@@ -1489,14 +1475,3 @@ document.addEventListener('click', function(e) {
         }
     });
 });
-
-// 全局暴露退货模块所有函数，避免onclick报未定义
-window.toggleReturnBatch = toggleReturnBatch;
-window.refreshReturnGoods = refreshReturnGoods;
-window.openReturnAddForm = openReturnAddForm;
-window.closeReturnForm = closeReturnForm;
-window.submitReturnGoods = submitReturnGoods;
-window.deleteReturnGoods = deleteReturnGoods;
-window.batchDeleteReturnGoods = batchDeleteReturnGoods;
-window.previewReturnPrint = previewReturnPrint;
-window.resetReturnModal = resetReturnModal;
