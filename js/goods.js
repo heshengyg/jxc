@@ -2984,6 +2984,7 @@ window.loadPriceTempState = loadPriceTempState;
 window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
+window.switchGodsSubTab = window.switchGoodsSubTab;
 
 console.log('✅ 所有 goods.js 函数已暴露到 window');
 console.log('goods.js 加载完成');
