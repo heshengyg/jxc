@@ -301,22 +301,31 @@ async function updateInPriceByDate() {
     if (!goods) return;
     
     if (produceDate || expireDate) {
-        // 获取临期天数配置
-        const warnDay = window.settingsData?.warnDay || 15;
+        // 计算保质期天数对应的临期天数
+        let unitCode = "day";
+        if (goods.shelf_life_unit === "年") unitCode = "year";
+        if (goods.shelf_life_unit === "个月") unitCode = "month";
         
-        // 调用旧版 calcBzStatus（返回对象）
-        const result = calcBzStatus(
+        // 获取临期天数
+        const expireResult = calculateExpireDays(goods.shelf_life_num, goods.shelf_life_unit);
+        let warnDay = 0;
+        if (typeof expireResult === 'string' && expireResult.includes('天')) {
+            warnDay = parseInt(expireResult) || 0;
+        } else if (typeof expireResult === 'number') {
+            warnDay = expireResult;
+        } else {
+            warnDay = Number(expireResult) || 0;
+        }
+        
+        // 调用统一的计算函数
+        const bzResult = calcBzStatus(
             produceDate,
             expireDate,
-            goods.shelf_life_num,
-            goods.shelf_life_unit,
+            goods.shelf_life_num || 0,
+            unitCode,
             warnDay
         );
-        
-        // 从 result 中提取状态文本
-        const bzStatus = result.statusText || '正常';
-        console.log('📌 calcBzStatus 返回:', result);
-        console.log('📌 提取的状态:', bzStatus);
+        const bzStatus = bzResult.statusText || '正常';
         
         const price = await getSalePriceByBzStatus(goodsId, bzStatus, goods.sale_price);
         document.getElementById('inSalePrice').value = formatMoney(price);

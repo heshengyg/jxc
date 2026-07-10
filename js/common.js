@@ -919,6 +919,107 @@ function getBzStatusKeyByLabel(label) {
     return label;
 }
 
+/**
+ * 计算保质期天数
+ */
+function getBzTotalDay(val, unit) {
+    if (!val) return 0;
+    switch (unit) {
+        case 'year': return val * 365;
+        case 'month': return val * 30;
+        case 'day':
+        default: return val;
+    }
+}
+
+/**
+ * 统一保质期状态计算（与 stockStock.js 保持一致）
+ * @param {string} sc - 生产日期
+ * @param {string} dq - 到期日期
+ * @param {number} bzVal - 保质期数值
+ * @param {string} bzUnit - 保质期单位 (year/month/day)
+ * @param {number} warnDay - 临期天数
+ * @returns {Object} { statusText: string, countDownText: string }
+ */
+function calcBzStatus(sc, dq, bzVal, bzUnit, warnDay) {
+    const bzq = getBzTotalDay(bzVal, bzUnit);
+    if (bzq <= 0) {
+        return { statusText: '', countDownText: '' };
+    }
+    const lq = warnDay;
+    if (lq <= 0) {
+        return { statusText: '', countDownText: '' };
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let hsdq;
+    if (dq) {
+        hsdq = new Date(dq);
+        hsdq.setHours(0, 0, 0, 0);
+    } else if (sc) {
+        const scDate = new Date(sc);
+        scDate.setHours(0, 0, 0, 0);
+        hsdq = new Date(scDate.getTime() + bzq * 24 * 60 * 60 * 1000);
+    } else {
+        return { statusText: '', countDownText: '' };
+    }
+
+    if (today >= hsdq) {
+        return { statusText: '过期', countDownText: '' };
+    }
+
+    const config = window.settingsData?.discountConfig?.items || [
+        { label: '打7折', multiplier: 2 },
+        { label: '打8折', multiplier: 3 },
+        { label: '打9折', multiplier: 4 }
+    ];
+    const sorted = config.slice().sort((a, b) => a.multiplier - b.multiplier);
+
+    const halfBz = bzq / 2;
+
+    const discountPoints = [];
+    for (let item of sorted) {
+        const days = item.multiplier * lq;
+        if (days > halfBz) break;
+        const date = new Date(hsdq.getTime() - days * 24 * 60 * 60 * 1000);
+        discountPoints.push({
+            label: item.label,
+            date: date,
+            days: days
+        });
+    }
+
+    const lqDate = new Date(hsdq.getTime() - lq * 24 * 60 * 60 * 1000);
+
+    if (today >= lqDate) {
+        const remain = Math.floor((hsdq - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '临期', countDownText: `${remain}` };
+    }
+
+    for (let i = 0; i < discountPoints.length; i++) {
+        const point = discountPoints[i];
+        const upperDate = (i === 0) ? lqDate : discountPoints[i-1].date;
+        if (today >= point.date && today < upperDate) {
+            const remain = Math.floor((upperDate - today) / (1000 * 60 * 60 * 24));
+            return { statusText: point.label, countDownText: `${remain}` };
+        }
+    }
+
+    if (discountPoints.length > 0) {
+        const lastPoint = discountPoints[discountPoints.length - 1];
+        const remain = Math.floor((lastPoint.date - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '正常', countDownText: `${remain}` };
+    } else {
+        const remain = Math.floor((lqDate - today) / (1000 * 60 * 60 * 24));
+        return { statusText: '正常', countDownText: `${remain}` };
+    }
+}
+
+// 暴露到全局
+window.getBzTotalDay = getBzTotalDay;
+window.calcBzStatus = calcBzStatus;
+
 // 暴露到全局
 window.calcBzStatus = calcBzStatus;
 window.getSalePriceByBzStatus = getSalePriceByBzStatus;
