@@ -370,13 +370,19 @@ async function openStockInForm(id=null){
                 document.getElementById('inRecordDate').value = item.record_date;
                 document.getElementById('inProduceDate').value = item.produce_date || '';
                 document.getElementById('inExpireDate').value = item.expire_date || '';
+                
+                // ✅ 关键修改：加载完日期后，调用 updateInPriceByDate 匹配状态价格
+                setTimeout(() => {
+                    updateInPriceByDate();
+                }, 50);
             }
         },100);
     }
-// ✅ 绑定日期事件
-bindInDateEvents();
+    // ✅ 绑定日期事件
+    bindInDateEvents();
     document.getElementById('stockInModal').style.display = 'block';
 }
+
 function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
