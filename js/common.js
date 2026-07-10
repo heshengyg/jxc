@@ -718,12 +718,12 @@ setTimeout(function() {
 // ============================================================
 
 /**
- * 计算保质期状态（新版 - 返回状态字符串）
+ * 计算保质期状态
  * @param {string} produceDate - 生产日期
  * @param {string} expireDate - 到期日期
  * @param {number} shelfLifeNum - 保质期时长
  * @param {string} shelfLifeUnit - 保质期单位（天/个月/年）
- * @returns {string} 保质期状态（正常/过期/discount_1/discount_2/discount_3/discount_4）
+ * @returns {string} 保质期状态（正常/临期/过期/打折状态）
  */
 function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
     // 如果都没有日期，返回'正常'
@@ -749,43 +749,26 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // 计算到期日
-    let expire;
+    // 如果有到期日期
     if (expireDate && expireDate !== '') {
-        expire = new Date(expireDate);
+        const expire = new Date(expireDate);
         expire.setHours(0, 0, 0, 0);
-    } else if (produceDate && produceDate !== '') {
-        const produce = new Date(produceDate);
-        produce.setHours(0, 0, 0, 0);
-        expire = new Date(produce);
-        expire.setDate(expire.getDate() + shelfDays);
-    } else {
+        const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff < 0) return '过期';
+        
+        // 从配置读取打折状态
+        const config = window.settingsData?.discountConfig?.items || [];
+        for (let i = 0; i < config.length; i++) {
+            const item = config[i];
+            const threshold = Math.ceil(shelfDays * item.multiplier);
+            if (daysDiff <= threshold) {
+                return 'discount_' + (i + 1);
+            }
+        }
         return '正常';
     }
     
-    const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
-    
-    // 过期
-    if (daysDiff < 0) {
-        return '过期';
-    }
-    
-    // 从配置读取打折状态
-    const config = window.settingsData?.discountConfig?.items || [];
-    for (let i = 0; i < config.length; i++) {
-        const item = config[i];
-        const threshold = Math.ceil(shelfDays * item.multiplier);
-        if (daysDiff <= threshold) {
-            // 如果是第一个配置且 threshold 接近保质期，认为是"临期"
-            if (i === 0) {
-                return '临期';
-            }
-            return 'discount_' + (i + 1);
-        }
-    }
-    
-    return '正常';
-}    
     // 如果有生产日期（没有到期日期，用生产日期+保质期计算）
     if (produceDate && produceDate !== '') {
         const produce = new Date(produceDate);
@@ -813,9 +796,9 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
 /**
  * 根据商品ID和保质期状态获取销售价
  * 优先级：正常状态→商品信息表 sale_price
- *         其他状态→price_temp_state表对应字段查询，无则返回商品信息表 sale_price
+ *         其他状态→price_temp_state表查询，无则返回商品信息表 sale_price
  * @param {number} goodsId - 商品ID
- * @param {string} bzStatus - 保质期状态 (正常/过期/discount_1/discount_2/discount_3/discount_4)
+ * @param {string} bzStatus - 保质期状态
  * @param {number} defaultPrice - 默认价格（商品信息表的价格）
  * @returns {Promise<number>} 销售价
  */
@@ -831,34 +814,12 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     
     // 状态映射：discount_N → 对应的字段名
     const fieldMap = {
+        '临期': 'expire_price',
         'discount_1': 'discount1_price',
         'discount_2': 'discount2_price',
         'discount_3': 'discount3_price',
         'discount_4': 'discount4_price'
     };
-    
-    // 如果是临期状态（calcBzStatus 不返回临期，但保留兼容）
-    if (bzStatus === '临期') {
-        const fieldName = 'expire_price';
-        try {
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=${fieldName}`,
-                {
-                    headers: {
-                        apikey: SUPABASE_KEY,
-                        Authorization: `Bearer ${SUPABASE_KEY}`
-                    }
-                }
-            );
-            const data = await res.json();
-            if (data && data.length > 0 && data[0][fieldName] !== null && data[0][fieldName] !== undefined) {
-                return Number(data[0][fieldName]);
-            }
-        } catch (e) {
-            console.warn('获取临期价格失败:', e);
-        }
-        return Number(defaultPrice) || 0;
-    }
     
     const fieldName = fieldMap[bzStatus];
     if (!fieldName) {
