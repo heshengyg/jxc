@@ -297,22 +297,30 @@ async function updateInPriceByDate() {
     
     if (!goodsId) return;
     
-    // 查找商品信息
     const goods = allGoods.find(g => g.id == goodsId);
     if (!goods) return;
     
-    // 如果有日期，计算状态并匹配价格
     if (produceDate || expireDate) {
-        const bzStatus = calcBzStatus(
+        // 获取临期天数配置
+        const warnDay = window.settingsData?.warnDay || 15;
+        
+        // 调用旧版 calcBzStatus（返回对象）
+        const result = calcBzStatus(
             produceDate,
             expireDate,
             goods.shelf_life_num,
-            goods.shelf_life_unit
+            goods.shelf_life_unit,
+            warnDay
         );
+        
+        // 从 result 中提取状态文本
+        const bzStatus = result.statusText || '正常';
+        console.log('📌 calcBzStatus 返回:', result);
+        console.log('📌 提取的状态:', bzStatus);
+        
         const price = await getSalePriceByBzStatus(goodsId, bzStatus, goods.sale_price);
         document.getElementById('inSalePrice').value = formatMoney(price);
     } else {
-        // 没有日期，显示正常价
         document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
     }
 }
