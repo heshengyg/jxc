@@ -807,47 +807,45 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     if (bzStatus === '正常') {
         return Number(defaultPrice) || 0;
     }
-    
+
     // 过期状态 → 返回默认价格
     if (bzStatus === '过期') {
         return Number(defaultPrice) || 0;
     }
-    
-    // 状态映射：支持中文标签 和 discount_N 格式
+
+    // ✅ 状态映射：字段名使用正确的名称（有下划线）
     const fieldMap = {
         '临期': 'expire_price',
-        'discount_1': 'discount1_price',
-        'discount_2': 'discount2_price',
-        'discount_3': 'discount3_price',
-        'discount_4': 'discount4_price'
+        'discount_1': 'discount_1_price',   // ✅ 有下划线
+        'discount_2': 'discount_2_price',   // ✅ 有下划线
+        'discount_3': 'discount_3_price',   // ✅ 有下划线
+        'discount_4': 'discount_4_price'    // ✅ 有下划线
     };
-    
-    // ✅ 新增：中文标签 → discount_N 的映射
+
     const labelToKey = {
         '打6.5折': 'discount_1',
         '打7折': 'discount_2',
         '打8折': 'discount_3',
         '打9.5折': 'discount_4'
     };
-    
-    // 如果是中文标签，先转换为 discount_N
+
     let statusKey = bzStatus;
     if (labelToKey[bzStatus]) {
         statusKey = labelToKey[bzStatus];
     }
-    
+
     const fieldName = fieldMap[statusKey];
     if (!fieldName) {
         return Number(defaultPrice) || 0;
     }
-    
+
     try {
         const res = await fetch(
             `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=${fieldName}`,
             {
                 headers: {
                     apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`
+                    Authorization: `Bearer ${SUPABASE_KEY}`  // ✅ 反引号
                 }
             }
         );
@@ -858,9 +856,10 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     } catch (e) {
         console.warn('获取临时价格失败:', e);
     }
-    
+
     return Number(defaultPrice) || 0;
 }
+
 /**
  * 根据入库记录的日期计算保质期状态并匹配价格
  * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
