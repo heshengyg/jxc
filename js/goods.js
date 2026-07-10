@@ -1736,25 +1736,39 @@ async function getNeedUpdateGoodsList() {
         }
         
         // ========== 检查日期是否需要更新 ==========
-        const dateCheck = checkNeedDateUpdate(item);
-        const dateChanged = dateCheck.needUpdate;
-        
-        // ========== 检查价格是否需要更新 ==========
-        const normalPrice = item.sale_price || 0;
-        const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
-            ? Number(item.last_sale_price) 
-            : normalPrice;
-        const priceChanged = (normalPrice !== lastPrice);
-        
-        // ========== 如果日期和价格都没有变化，跳过 ==========
-        if (!dateChanged && !priceChanged) {
-            continue;
-        }
-        
-        // ========== 获取保质期状态 ==========
-        const bzStatus = earliest.bzStatusText || '';
-        
-        // ========== 根据状态获取当前销售价 ==========
+const dateCheck = checkNeedDateUpdate(item);
+const dateChanged = dateCheck.needUpdate;
+
+// ========== 检查价格是否需要更新 ==========
+const normalPrice = item.sale_price || 0;
+const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
+    ? Number(item.last_sale_price) 
+    : normalPrice;
+const priceChanged = (normalPrice !== lastPrice);
+
+// ========== 如果日期和价格都没有变化，跳过 ==========
+if (!dateChanged && !priceChanged) {
+    continue;
+}
+
+// ========== 获取保质期状态 ==========
+const bzStatus = earliest.bzStatusText || '';
+
+// ========== ✅ 新增：计算"需更新日期" ==========
+let needUpdateDate = '';
+let needUpdateDateColor = '';
+let showCopyDateBtn = false;
+
+if (dateChanged) {
+    needUpdateDate = dateCheck.displayValue || dateCheck.dateValue || '日期已变';
+    needUpdateDateColor = '#ff6b6b';
+    showCopyDateBtn = true;
+} else {
+    needUpdateDate = '无需改日';
+    needUpdateDateColor = '#52c41a';
+}
+
+// ========== 根据状态获取当前销售价 ==========
 let currentSalePrice = normalPrice;
 let newSalePrice = null;
 let priceStatus = 'pending';
@@ -1822,8 +1836,8 @@ if (!isDiscountOrExpire) {
 // ========== 判断更新按钮是否可用 ==========
 // 折扣/临期状态 + 没有状态价格 = 不可用
 const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPrice === undefined);
-        
-        result.push({
+
+result.push({
     id: item.id,
     supplier: item.supplier || '',
     name: item.name || '',
@@ -1853,17 +1867,18 @@ const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPr
     bzStatus: bzStatus,
     dateChanged: dateChanged,
     priceChanged: priceChanged,
-    needUpdateDate: needUpdateDate,
-    needUpdateDateColor: needUpdateDateColor,
+    needUpdateDate: needUpdateDate,          // ✅ 现在已定义
+    needUpdateDateColor: needUpdateDateColor, // ✅ 现在已定义
     needUpdatePrice: needUpdatePrice,
     needUpdatePriceColor: needUpdatePriceColor,
     showPriceBtn: showPriceBtn,
     showCopyPriceBtn: showCopyPriceBtn,
-    showCopyDateBtn: showCopyDateBtn,
+    showCopyDateBtn: showCopyDateBtn,        // ✅ 现在已定义
     statusPrice: statusPrice,
     isDiscountOrExpire: isDiscountOrExpire,
     isUpdateDisabled: isUpdateDisabled
 });
+
     }
     
     console.log('需要更新的商品总数:', result.length);
