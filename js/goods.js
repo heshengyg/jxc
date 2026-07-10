@@ -2567,7 +2567,16 @@ function renderDateChangeList() {
         }
         
         // 日期显示：始终显示批次日期
-const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
+let dateStr = '-';
+if (item.dateValue) {
+    dateStr = new Date(item.dateValue).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.dateValue) {
+    dateStr = new Date(item.earliestBatch.dateValue).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+    dateStr = new Date(item.earliestBatch.produce_date).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+    dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
+}
         let dateTypeDisplay = '';
         let dateTypeColor = '';
         if (item.dateType === '生产日期') {
@@ -2610,8 +2619,7 @@ const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T
         
         // ========== 构建操作按钮 ==========
 let actionButtons = '';
-actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
-
+actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
 // 改价按钮：仅折扣/临期状态显示
 if (item.showPriceBtn) {
     actionButtons += `
@@ -2689,7 +2697,7 @@ function exportDateChangeExcel() {
         const recordDateStr = item.earliestBatch?.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
-        
+        const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
         let newPriceDisplay = '';
         if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
             newPriceDisplay = formatMoney(item.newSalePrice);
