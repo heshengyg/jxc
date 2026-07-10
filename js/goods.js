@@ -2686,7 +2686,6 @@ function exportDateChangeExcel() {
     const expData = dateChangeFilteredList.map((item, idx) => {
         const statusText = item.earliestBatch?.bzStatusText || '';
         const countDownText = item.earliestBatch?.countDownText || '';
-        const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
         const recordDateStr = item.earliestBatch?.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
