@@ -2339,20 +2339,22 @@ async function updateSingleGoodsDateWithPrice(id) {
 }
 
 async function batchUpdateGoodsDate() {
+    // ✅ 修改：只包含有 newSalePrice 的商品，排除 skipped 状态
     const canUpdateList = dateChangeFilteredList.filter(item => {
-        return (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
+        return (item.newSalePrice !== null && item.newSalePrice !== undefined);
     });
     
     if (canUpdateList.length === 0) {
-        showMsg('没有可更新的商品，请先设置新价格或标记"无需修改"');
+        showMsg('没有可更新的商品，请先设置新价格');
         return;
     }
     
+    // 提示用户确认时，显示实际要更新的数量
     if (!confirm(`⚠ 确认批量更新 ${canUpdateList.length} 条商品？\n点击后数据将完全消失（不可逆）！`)) return;
     
     let successCount = 0;
     const successIds = [];
-    const priceChangedIds = []; // ✅ 记录价格变动的商品ID
+    const priceChangedIds = [];
     
     for (const item of canUpdateList) {
         try {
@@ -2379,7 +2381,6 @@ async function batchUpdateGoodsDate() {
             if (response.ok) {
                 successCount++;
                 successIds.push(item.id);
-                // ✅ 如果价格发生了变化，标记需要清空状态价格
                 if (item.priceChanged) {
                     priceChangedIds.push(item.id);
                 }
@@ -2389,7 +2390,6 @@ async function batchUpdateGoodsDate() {
         }
     }
     
-    // ✅ 只有价格变动的商品才清空： price_temp_state
     for (const id of priceChangedIds) {
         await clearPriceTempState(id);
         console.log('✅ 价格已变动，清空状态价格:', id);
