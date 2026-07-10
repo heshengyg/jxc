@@ -803,17 +803,17 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
  * @returns {Promise<number>} 销售价
  */
 async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
-    // ✅ 正常状态 → 返回默认价格
+    // 正常状态 → 返回默认价格
     if (bzStatus === '正常') {
         return Number(defaultPrice) || 0;
     }
     
-    // ✅ 过期状态 → 也返回默认价格（不是0）
+    // 过期状态 → 返回默认价格
     if (bzStatus === '过期') {
         return Number(defaultPrice) || 0;
     }
     
-    // 状态映射：状态key → 数据库字段名
+    // 状态映射：支持中文标签 和 discount_N 格式
     const fieldMap = {
         '临期': 'expire_price',
         'discount_1': 'discount1_price',
@@ -822,7 +822,21 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
         'discount_4': 'discount4_price'
     };
     
-    const fieldName = fieldMap[bzStatus];
+    // ✅ 新增：中文标签 → discount_N 的映射
+    const labelToKey = {
+        '打6.5折': 'discount_1',
+        '打7折': 'discount_2',
+        '打8折': 'discount_3',
+        '打9.5折': 'discount_4'
+    };
+    
+    // 如果是中文标签，先转换为 discount_N
+    let statusKey = bzStatus;
+    if (labelToKey[bzStatus]) {
+        statusKey = labelToKey[bzStatus];
+    }
+    
+    const fieldName = fieldMap[statusKey];
     if (!fieldName) {
         return Number(defaultPrice) || 0;
     }
@@ -845,10 +859,8 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
         console.warn('获取临时价格失败:', e);
     }
     
-    // 兜底：返回默认价格
     return Number(defaultPrice) || 0;
 }
-
 /**
  * 根据入库记录的日期计算保质期状态并匹配价格
  * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
