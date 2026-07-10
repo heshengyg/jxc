@@ -2638,16 +2638,6 @@ actionButtons += `
 `;
 
 actionButtons += '</div>';
-                <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
-            `;
-        }
-
-        // 更新按钮：始终可用，不再置灰
-        actionButtons += `
-            <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
-        `;
-
-        actionButtons += '</div>';
         
         const html = `
             <tr>
