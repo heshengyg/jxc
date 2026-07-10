@@ -1731,45 +1731,86 @@ async function getNeedUpdateGoodsList() {
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
         if (check.needUpdate && check.earliest) {
-            const normalPrice = item.sale_price || 0;
+            const normalPrice = item.sale_price || 0;                    // 当前正常销售价
+            const lastPrice = item.last_sale_price || normalPrice;       // 上次正常销售价
             const bzStatus = check.earliest.bzStatusText || '';
             
+            // ========== 判断日期和价格是否变动 ==========
+            const dateChanged = true;  // 能进入这里说明日期已经不同了
+            const priceChanged = (normalPrice !== lastPrice);
+            
             // ========== 根据状态获取当前销售价 ==========
-            let currentSalePrice = normalPrice;  // 默认正常价格
+            let currentSalePrice = normalPrice;
             let newSalePrice = null;
             let priceStatus = 'pending';
+            let statusPrice = null;  // 存储对应状态的价格
             
             const priceData = priceMap[item.id];
             
             if (priceData) {
-                // 根据状态获取对应的价格
                 if (bzStatus === '临期') {
-                    currentSalePrice = priceData.expirePrice !== null && priceData.expirePrice !== undefined 
-                        ? priceData.expirePrice 
-                        : normalPrice;
+                    statusPrice = priceData.expirePrice;
                 } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
-                    currentSalePrice = priceData.discount1Price !== null && priceData.discount1Price !== undefined 
-                        ? priceData.discount1Price 
-                        : normalPrice;
+                    statusPrice = priceData.discount1Price;
                 } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
-                    currentSalePrice = priceData.discount2Price !== null && priceData.discount2Price !== undefined 
-                        ? priceData.discount2Price 
-                        : normalPrice;
+                    statusPrice = priceData.discount2Price;
                 } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
-                    currentSalePrice = priceData.discount3Price !== null && priceData.discount3Price !== undefined 
-                        ? priceData.discount3Price 
-                        : normalPrice;
+                    statusPrice = priceData.discount3Price;
                 } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
-                    currentSalePrice = priceData.discount4Price !== null && priceData.discount4Price !== undefined 
-                        ? priceData.discount4Price 
-                        : normalPrice;
+                    statusPrice = priceData.discount4Price;
                 }
                 
-                // 如果当前价格不是正常价格，说明已改过价
-                if (currentSalePrice !== normalPrice) {
+                // 当前销售价 = 状态价格（如果有）否则用正常价格
+                if (statusPrice !== null && statusPrice !== undefined) {
+                    currentSalePrice = statusPrice;
+                    newSalePrice = statusPrice;
                     priceStatus = 'updated';
-                    newSalePrice = currentSalePrice;
+                } else {
+                    currentSalePrice = normalPrice;
                 }
+            }
+            
+            // ========== 计算"需更新日期" ==========
+            let needUpdateDate = '';
+            if (dateChanged) {
+                needUpdateDate = check.displayValue || check.dateValue || '日期已变';
+            } else {
+                needUpdateDate = '无需改日';
+            }
+            
+            // ========== 判断是否为折扣/临期状态 ==========
+            const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
+            
+            // ========== 计算"需更新销售价" ==========
+            let needUpdatePrice = '';
+            let showPriceBtn = false;       // 是否显示"改价"按钮
+            let showCopyPriceBtn = false;   // 是否显示"复制新价"按钮
+            let showCopyDateBtn = dateChanged; // 是否显示"复制日期"按钮
+            
+            if (!isDiscountOrExpire) {
+                // 正常/过期状态
+                if (priceChanged) {
+                    needUpdatePrice = formatMoney(normalPrice);
+                } else {
+                    needUpdatePrice = '无需改价';
+                }
+                showPriceBtn = false;  // 正常/过期不显示改价按钮
+            } else {
+                // 折扣/临期状态
+                if (statusPrice !== null && statusPrice !== undefined) {
+                    needUpdatePrice = formatMoney(statusPrice);
+                    newSalePrice = statusPrice;
+                    priceStatus = 'updated';
+                    showCopyPriceBtn = true;
+                } else {
+                    needUpdatePrice = '待改价';
+                    showPriceBtn = true;  // 需要改价才显示改价按钮
+                }
+            }
+            
+            // ========== 复制新价按钮：有 newSalePrice 时才显示 ==========
+            if (newSalePrice !== null && newSalePrice !== undefined) {
+                showCopyPriceBtn = true;
             }
             
             result.push({
@@ -1780,8 +1821,9 @@ async function getNeedUpdateGoodsList() {
                 channel: item.channel || '',
                 settleType: item.channel || '',
                 sale_price: item.sale_price || 0,
-                currentSalePrice: currentSalePrice,  // ✅ 根据状态匹配的价格
-                normalPrice: normalPrice,            // ✅ 保存正常价格供弹窗显示
+                currentSalePrice: currentSalePrice,
+                normalPrice: normalPrice,         // 当前正常销售价
+                lastSalePrice: lastPrice,         // 上次正常销售价（原销售价，灰色显示）
                 online_cost: item.online_cost || 0,
                 tax_rate: item.tax_rate || '',
                 warn_num: item.warn_num || 0,
@@ -1798,7 +1840,18 @@ async function getNeedUpdateGoodsList() {
                 recordDate: check.earliest.recordDate || null,
                 newSalePrice: newSalePrice,
                 priceStatus: priceStatus,
-                bzStatus: bzStatus
+                bzStatus: bzStatus,
+                // ========== 新增字段 ==========
+                dateChanged: dateChanged,
+                priceChanged: priceChanged,
+                needUpdateDate: needUpdateDate,
+                needUpdatePrice: needUpdatePrice,
+                showPriceBtn: showPriceBtn,
+                showCopyPriceBtn: showCopyPriceBtn,
+                showCopyDateBtn: showCopyDateBtn,
+                statusPrice: statusPrice,
+                isDiscountOrExpire: isDiscountOrExpire,
+                lastSalePrice: lastPrice
             });
         }
     }
@@ -2508,66 +2561,56 @@ function renderDateChangeList() {
             settleColor = 'style="color:#ff6b6b;font-weight:bold;"';
         }
         
-        const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
         const currentPriceDisplay = formatMoney(item.currentSalePrice || 0);
-        
-        let newPriceDisplay = '';
-        let newPriceBg = '';
-
-        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-            newPriceDisplay = formatMoney(item.newSalePrice);
-            newPriceBg = 'style="background:#e6f7ff;"';
-        } else if (item.priceStatus === 'skipped') {
-            newPriceDisplay = '无需修改';
-            newPriceBg = 'style="background:#d4edda;color:#155724;"';
-        } else if (needPriceChange) {
-            newPriceDisplay = '待改价';
-            newPriceBg = 'style="background:#fff3cd;color:#856404;"';
-        } else {
-            newPriceDisplay = '';
-            newPriceBg = '';
-        }
-        
-        let canUpdate = false;
-        if (needPriceChange) {
-            canUpdate = (item.newSalePrice !== null && item.newSalePrice !== undefined) || item.priceStatus === 'skipped';
-        } else {
-            canUpdate = true;
-        }
-        const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
-        
         const rowNum = start + idx + 1;
         const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
         const recordDateStr = item.earliestBatch && item.earliestBatch.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        let copyDateText = '';
-        if (item.dateType === '生产日期' && item.displayValue) {
-            copyDateText = `（${item.displayValue}生产）`;
-        } else if (item.dateType === '到期日期' && item.displayValue) {
-            copyDateText = `（${item.displayValue}到期）`;
-        }
+        // ========== 原销售价（灰色显示 lastSalePrice） ==========
+        const lastPriceDisplay = formatMoney(item.lastSalePrice || 0);
+        const lastPriceStyle = 'style="color:#999;font-size:13px;"';
         
+        // ========== 需更新销售价 ==========
+        const needUpdatePriceDisplay = item.needUpdatePrice || '';
+        
+        // ========== 需更新日期 ==========
+        const needUpdateDateDisplay = item.needUpdateDate || '';
+        
+        // ========== 构建操作按钮 ==========
         let actionButtons = '';
         actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
 
-        if (needPriceChange) {
+        // 改价按钮：仅折扣/临期状态显示
+        if (item.showPriceBtn) {
             actionButtons += `
                 <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:3px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">改价</button>
             `;
         }
 
-        if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
+        // 复制新价按钮：有 newSalePrice 时才显示
+        if (item.showCopyPriceBtn) {
             actionButtons += `
                 <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:3px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制新价</button>
             `;
         }
 
-        actionButtons += `
-            <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
-        `;
+        // 复制日期按钮：仅日期变动时显示
+        if (item.showCopyDateBtn) {
+            const copyDateText = (item.dateType === '生产日期' && item.displayValue) 
+                ? `（${item.displayValue}生产）` 
+                : (item.dateType === '到期日期' && item.displayValue) 
+                    ? `（${item.displayValue}到期）` 
+                    : '';
+            actionButtons += `
+                <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
+            `;
+        }
 
+        // 更新按钮始终显示
+        const canUpdate = item.newSalePrice !== null && item.newSalePrice !== undefined;
+        const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
         actionButtons += `
             <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
         `;
@@ -2587,9 +2630,9 @@ function renderDateChangeList() {
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
-                <td>${item.displayValue || ''}</td>
-                <td>${currentPriceDisplay}</td>
-                <td ${newPriceBg}>${newPriceDisplay}</td>
+                <td>${needUpdateDateDisplay}</td>
+                <td ${lastPriceStyle}>${lastPriceDisplay}</td>
+                <td>${needUpdatePriceDisplay}</td>
                 <td>${actionButtons}</td>
             </tr>
         `;
@@ -2691,8 +2734,9 @@ function openPriceModal(id) {
     }
     
     const statusText = item.earliestBatch?.bzStatusText || '未知';
-    const normalPrice = item.normalPrice || item.sale_price || 0;       // 正常销售价
-    const currentPrice = item.currentSalePrice || normalPrice;           // 当前状态销售价
+    const normalPrice = item.normalPrice || item.sale_price || 0;       // 当前正常销售价
+    const lastPrice = item.lastSalePrice || normalPrice;                // 上次正常销售价（原销售价）
+    const currentPrice = item.currentSalePrice || normalPrice;          // 当前状态销售价
     
     const modal = document.createElement('div');
     modal.id = 'priceModal';
@@ -2717,8 +2761,12 @@ function openPriceModal(id) {
                     <span style="font-size:15px; padding:4px 16px; border-radius:4px; display:inline-block; ${statusText === '过期' ? 'background:#ff4444;color:#fff;' : statusText === '临期' ? 'background:#ffdddd;' : statusText === '正常' ? 'background:#d4edda;' : 'background:#bbdefb;'}">${statusText}</span>
                 </div>
                 <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:13px;">正常销售价</label>
-                    <span style="font-size:18px; color:#333; font-weight:bold;">${formatMoney(normalPrice)}</span>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:13px; color:#999;">原正常销售价</label>
+                    <span style="font-size:16px; color:#999; font-weight:bold;">${formatMoney(lastPrice)}</span>
+                </div>
+                <div>
+                    <label style="font-weight:bold; display:block; margin-bottom:4px; font-size:13px;">当前正常销售价</label>
+                    <span style="font-size:16px; color:#333; font-weight:bold;">${formatMoney(normalPrice)}</span>
                 </div>
             </div>
             
