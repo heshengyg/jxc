@@ -2309,11 +2309,8 @@ async function updateSingleGoodsDateWithPrice(id) {
         saved_produce_date: earliest.produce_date || null,
         saved_expire_date: earliest.expire_date || null,
         saved_date_updated_at: new Date().toISOString(),
-        // ✅ 清空 last_sale_price
         last_sale_price: null
     };
-    
-    // 如果是折扣/临期状态，不需要传 sale_price，避免覆盖正常销售价
     
     if (!confirm(`确认更新"${item.name}"？\n\n${updateData.saved_produce_date ? '生产日期：' + updateData.saved_produce_date : ''}${updateData.saved_expire_date ? '\n到期日期：' + updateData.saved_expire_date : ''}\n销售价保持不变（sale_price 不会被修改）`)) return;
     
@@ -2327,11 +2324,16 @@ async function updateSingleGoodsDateWithPrice(id) {
         body: JSON.stringify(updateData)
     });
     
-    // 折扣/临期状态：更新后清空 price_temp_state
-    // 正常状态：如果价格变化了，也清空 price_temp_state
-    clearPriceTempState(item.id);
+    // ✅ 关键修改：只有价格发生变化的商品，才清空 price_temp_state
+    // 如果只是更新日期（priceChanged = false），保留状态价格
+    if (item.priceChanged) {
+        clearPriceTempState(item.id);
+        console.log('✅ 价格已变动，清空状态价格');
+    } else {
+        console.log('✅ 仅更新日期，保留状态价格');
+    }
     
-    showMsg(`✅ 更新成功！${!isDiscountOrExpire && item.newSalePrice !== null ? ' 新销售价：' + formatMoney(item.newSalePrice) : ''}`);
+    showMsg(`✅ 更新成功！日期已更新，last_sale_price 已清空`);
     await loadGoods(true);
     loadDateChangeTab();
 }
@@ -2350,6 +2352,7 @@ async function batchUpdateGoodsDate() {
     
     let successCount = 0;
     const successIds = [];
+    const priceChangedIds = []; // ✅ 记录价格变动的商品ID
     
     for (const item of canUpdateList) {
         try {
@@ -2357,13 +2360,12 @@ async function batchUpdateGoodsDate() {
             if (!earliest || earliest.batchRemain <= 0) continue;
             
             const updateData = {
-    saved_produce_date: earliest.produce_date || null,
-    saved_expire_date: earliest.expire_date || null,
-    saved_date_updated_at: new Date().toISOString(),
-    // ✅ 添加：清空 last_sale_price
-    last_sale_price: null
-};
-                        
+                saved_produce_date: earliest.produce_date || null,
+                saved_expire_date: earliest.expire_date || null,
+                saved_date_updated_at: new Date().toISOString(),
+                last_sale_price: null
+            };
+            
             const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
                 headers: {
@@ -2377,17 +2379,23 @@ async function batchUpdateGoodsDate() {
             if (response.ok) {
                 successCount++;
                 successIds.push(item.id);
+                // ✅ 如果价格发生了变化，标记需要清空状态价格
+                if (item.priceChanged) {
+                    priceChangedIds.push(item.id);
+                }
             }
         } catch (e) {
             console.error('更新失败:', item.name, e);
         }
     }
     
-    for (const id of successIds) {
+    // ✅ 只有价格变动的商品才清空 price_temp_state
+    for (const id of priceChangedIds) {
         await clearPriceTempState(id);
+        console.log('✅ 价格已变动，清空状态价格:', id);
     }
     
-    showMsg(`✅ 批量更新完成！成功 ${successCount} 条`);
+    showMsg(`✅ 批量更新完成！成功 ${successCount} 条${priceChangedIds.length > 0 ? '，其中 ' + priceChangedIds.length + ' 条价格已变动并清空状态价格' : ''}`);
     await loadGoods(true);
     loadDateChangeTab();
 }
