@@ -718,12 +718,12 @@ setTimeout(function() {
 // ============================================================
 
 /**
- * 计算保质期状态
+ * 计算保质期状态（新版 - 返回状态字符串）
  * @param {string} produceDate - 生产日期
  * @param {string} expireDate - 到期日期
  * @param {number} shelfLifeNum - 保质期时长
  * @param {string} shelfLifeUnit - 保质期单位（天/个月/年）
- * @returns {string} 保质期状态（正常/临期/过期/打折状态）
+ * @returns {string} 保质期状态（正常/过期/discount_1/discount_2/discount_3/discount_4）
  */
 function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
     // 如果都没有日期，返回'正常'
@@ -749,26 +749,43 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // 如果有到期日期
+    // 计算到期日
+    let expire;
     if (expireDate && expireDate !== '') {
-        const expire = new Date(expireDate);
+        expire = new Date(expireDate);
         expire.setHours(0, 0, 0, 0);
-        const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff < 0) return '过期';
-        
-        // 从配置读取打折状态
-        const config = window.settingsData?.discountConfig?.items || [];
-        for (let i = 0; i < config.length; i++) {
-            const item = config[i];
-            const threshold = Math.ceil(shelfDays * item.multiplier);
-            if (daysDiff <= threshold) {
-                return 'discount_' + (i + 1);
-            }
-        }
+    } else if (produceDate && produceDate !== '') {
+        const produce = new Date(produceDate);
+        produce.setHours(0, 0, 0, 0);
+        expire = new Date(produce);
+        expire.setDate(expire.getDate() + shelfDays);
+    } else {
         return '正常';
     }
     
+    const daysDiff = Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
+    
+    // 过期
+    if (daysDiff < 0) {
+        return '过期';
+    }
+    
+    // 从配置读取打折状态
+    const config = window.settingsData?.discountConfig?.items || [];
+    for (let i = 0; i < config.length; i++) {
+        const item = config[i];
+        const threshold = Math.ceil(shelfDays * item.multiplier);
+        if (daysDiff <= threshold) {
+            // 如果是第一个配置且 threshold 接近保质期，认为是"临期"
+            if (i === 0) {
+                return '临期';
+            }
+            return 'discount_' + (i + 1);
+        }
+    }
+    
+    return '正常';
+}    
     // 如果有生产日期（没有到期日期，用生产日期+保质期计算）
     if (produceDate && produceDate !== '') {
         const produce = new Date(produceDate);
