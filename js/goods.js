@@ -2575,7 +2575,6 @@ const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T
         
         const currentPriceDisplay = formatMoney(item.currentSalePrice || 0);
         const rowNum = start + idx + 1;
-        const dateStr = item.dateValue ? new Date(item.dateValue).toISOString().split('T')[0] : '-';
         const recordDateStr = item.earliestBatch && item.earliestBatch.recordDate 
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
