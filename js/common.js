@@ -796,25 +796,61 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
 /**
  * 根据商品ID和保质期状态获取销售价
  * 优先级：正常状态→商品信息表 sale_price
- *         其他状态→price_temp_state表查询，无则返回商品信息表 sale_price
+ *         其他状态→price_temp_state表对应字段查询，无则返回商品信息表 sale_price
  * @param {number} goodsId - 商品ID
- * @param {string} bzStatus - 保质期状态
+ * @param {string} bzStatus - 保质期状态 (正常/过期/discount_1/discount_2/discount_3/discount_4)
  * @param {number} defaultPrice - 默认价格（商品信息表的价格）
  * @returns {Promise<number>} 销售价
  */
 async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
-    // 正常状态或过期状态直接返回默认价格（过期返回0）
+    // 正常状态返回默认价格
     if (bzStatus === '正常') {
         return Number(defaultPrice) || 0;
     }
+    // 过期状态返回0
     if (bzStatus === '过期') {
         return 0;
     }
     
-    // 其他状态查询 price_temp_state 表
+    // 状态映射：discount_N → 对应的字段名
+    const fieldMap = {
+        'discount_1': 'discount1_price',
+        'discount_2': 'discount2_price',
+        'discount_3': 'discount3_price',
+        'discount_4': 'discount4_price'
+    };
+    
+    // 如果是临期状态（calcBzStatus 不返回临期，但保留兼容）
+    if (bzStatus === '临期') {
+        const fieldName = 'expire_price';
+        try {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=${fieldName}`,
+                {
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${SUPABASE_KEY}`
+                    }
+                }
+            );
+            const data = await res.json();
+            if (data && data.length > 0 && data[0][fieldName] !== null && data[0][fieldName] !== undefined) {
+                return Number(data[0][fieldName]);
+            }
+        } catch (e) {
+            console.warn('获取临期价格失败:', e);
+        }
+        return Number(defaultPrice) || 0;
+    }
+    
+    const fieldName = fieldMap[bzStatus];
+    if (!fieldName) {
+        return Number(defaultPrice) || 0;
+    }
+    
     try {
         const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&bz_status=eq.${bzStatus}&select=sale_price`,
+            `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=${fieldName}`,
             {
                 headers: {
                     apikey: SUPABASE_KEY,
@@ -823,8 +859,8 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
             }
         );
         const data = await res.json();
-        if (data && data.length > 0 && data[0].sale_price !== null) {
-            return Number(data[0].sale_price);
+        if (data && data.length > 0 && data[0][fieldName] !== null && data[0][fieldName] !== undefined) {
+            return Number(data[0][fieldName]);
         }
     } catch (e) {
         console.warn('获取临时价格失败:', e);
@@ -833,7 +869,6 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     // 兜底：返回默认价格
     return Number(defaultPrice) || 0;
 }
-
 /**
  * 根据入库记录的日期计算保质期状态并匹配价格
  * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
