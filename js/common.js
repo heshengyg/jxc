@@ -803,16 +803,17 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
  * @returns {Promise<number>} 销售价
  */
 async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
-    // 正常状态返回默认价格
+    // ✅ 正常状态 → 返回默认价格
     if (bzStatus === '正常') {
         return Number(defaultPrice) || 0;
     }
-    // 过期状态返回0
+    
+    // ✅ 过期状态 → 也返回默认价格（不是0）
     if (bzStatus === '过期') {
-        return 0;
+        return Number(defaultPrice) || 0;
     }
     
-    // 状态映射：discount_N → 对应的字段名
+    // 状态映射：状态key → 数据库字段名
     const fieldMap = {
         '临期': 'expire_price',
         'discount_1': 'discount1_price',
@@ -847,6 +848,7 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     // 兜底：返回默认价格
     return Number(defaultPrice) || 0;
 }
+
 /**
  * 根据入库记录的日期计算保质期状态并匹配价格
  * @param {Object} inRecord - 入库记录对象（包含 goods_id, produce_date, expire_date）
