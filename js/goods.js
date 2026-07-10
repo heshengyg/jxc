@@ -2303,7 +2303,9 @@ async function updateSingleGoodsDateWithPrice(id) {
     const updateData = {
         saved_produce_date: earliest.produce_date || null,
         saved_expire_date: earliest.expire_date || null,
-        saved_date_updated_at: new Date().toISOString()
+        saved_date_updated_at: new Date().toISOString(),
+        // ✅ 添加：清空 last_sale_price，避免更新后仍显示在列表中
+        last_sale_price: null
     };
     
     if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
@@ -2350,10 +2352,12 @@ async function batchUpdateGoodsDate() {
             if (!earliest || earliest.batchRemain <= 0) continue;
             
             const updateData = {
-                saved_produce_date: earliest.produce_date || null,
-                saved_expire_date: earliest.expire_date || null,
-                saved_date_updated_at: new Date().toISOString()
-            };
+    saved_produce_date: earliest.produce_date || null,
+    saved_expire_date: earliest.expire_date || null,
+    saved_date_updated_at: new Date().toISOString(),
+    // ✅ 添加：清空 last_sale_price
+    last_sale_price: null
+};
             
             if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
                 updateData.sale_price = item.newSalePrice;
@@ -2577,18 +2581,36 @@ if (item.dateValue) {
 } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
     dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
 }
-        let dateTypeDisplay = '';
-        let dateTypeColor = '';
-        if (item.dateType === '生产日期') {
-            dateTypeDisplay = '生产';
-            dateTypeColor = '#d4edda';
-        } else if (item.dateType === '到期日期') {
-            dateTypeDisplay = '到期';
-            dateTypeColor = '#f8d7da';
-        } else {
-            dateTypeDisplay = item.dateType || '';
-            dateTypeColor = '#f5f5f5';
-        }
+        // 生产/到期列显示
+let dateTypeDisplay = '';
+let dateTypeColor = '';
+
+// 优先从 item.dateType 获取
+if (item.dateType === '生产日期') {
+    dateTypeDisplay = '生产';
+    dateTypeColor = '#d4edda';
+} else if (item.dateType === '到期日期') {
+    dateTypeDisplay = '到期';
+    dateTypeColor = '#f8d7da';
+} else if (item.earliestBatch && item.earliestBatch.dateType) {
+    // 如果 item.dateType 为空，从 earliestBatch 获取
+    if (item.earliestBatch.dateType === '生产日期') {
+        dateTypeDisplay = '生产';
+        dateTypeColor = '#d4edda';
+    } else if (item.earliestBatch.dateType === '到期日期') {
+        dateTypeDisplay = '到期';
+        dateTypeColor = '#f8d7da';
+    }
+} else {
+    // 从 earliestBatch 的日期字段判断
+    if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+        dateTypeDisplay = '生产';
+        dateTypeColor = '#d4edda';
+    } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+        dateTypeDisplay = '到期';
+        dateTypeColor = '#f8d7da';
+    }
+}
         
         let settleColor = '';
         if (item.settleType === '线上') {
