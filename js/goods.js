@@ -1731,19 +1731,21 @@ async function getNeedUpdateGoodsList() {
     for (const item of allGoods) {
         const check = checkNeedDateUpdate(item);
         if (check.needUpdate && check.earliest) {
-            const normalPrice = item.sale_price || 0;                    // 当前正常销售价
-            const lastPrice = item.last_sale_price || normalPrice;       // 上次正常销售价
+            const normalPrice = item.sale_price || 0;
+            const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
+                ? Number(item.last_sale_price) 
+                : normalPrice;
             const bzStatus = check.earliest.bzStatusText || '';
             
             // ========== 判断日期和价格是否变动 ==========
-            const dateChanged = true;  // 能进入这里说明日期已经不同了
+            const dateChanged = true;
             const priceChanged = (normalPrice !== lastPrice);
             
             // ========== 根据状态获取当前销售价 ==========
             let currentSalePrice = normalPrice;
             let newSalePrice = null;
             let priceStatus = 'pending';
-            let statusPrice = null;  // 存储对应状态的价格
+            let statusPrice = null;
             
             const priceData = priceMap[item.id];
             
@@ -1760,7 +1762,6 @@ async function getNeedUpdateGoodsList() {
                     statusPrice = priceData.discount4Price;
                 }
                 
-                // 当前销售价 = 状态价格（如果有）否则用正常价格
                 if (statusPrice !== null && statusPrice !== undefined) {
                     currentSalePrice = statusPrice;
                     newSalePrice = statusPrice;
@@ -1783,34 +1784,47 @@ async function getNeedUpdateGoodsList() {
             
             // ========== 计算"需更新销售价" ==========
             let needUpdatePrice = '';
-            let showPriceBtn = false;       // 是否显示"改价"按钮
-            let showCopyPriceBtn = false;   // 是否显示"复制新价"按钮
-            let showCopyDateBtn = dateChanged; // 是否显示"复制日期"按钮
+            let needUpdatePriceColor = '';  // 颜色
+            let showPriceBtn = false;
+            let showCopyPriceBtn = false;
+            let showCopyDateBtn = dateChanged;
             
             if (!isDiscountOrExpire) {
                 // 正常/过期状态
                 if (priceChanged) {
                     needUpdatePrice = formatMoney(normalPrice);
+                    needUpdatePriceColor = '#ff6b6b';  // 红色 - 表示价格有变动
                 } else {
                     needUpdatePrice = '无需改价';
+                    needUpdatePriceColor = '#52c41a';  // 绿色 - 表示无需操作
                 }
                 showPriceBtn = false;  // 正常/过期不显示改价按钮
             } else {
-                // 折扣/临期状态
+                // 折扣/临期状态 → 始终显示改价按钮
+                showPriceBtn = true;
                 if (statusPrice !== null && statusPrice !== undefined) {
                     needUpdatePrice = formatMoney(statusPrice);
+                    needUpdatePriceColor = '#ff6b6b';  // 红色 - 有价格需要更新
                     newSalePrice = statusPrice;
                     priceStatus = 'updated';
                     showCopyPriceBtn = true;
                 } else {
                     needUpdatePrice = '待改价';
-                    showPriceBtn = true;  // 需要改价才显示改价按钮
+                    needUpdatePriceColor = '#ff9800';  // 橙色 - 需要改价
                 }
             }
             
             // ========== 复制新价按钮：有 newSalePrice 时才显示 ==========
             if (newSalePrice !== null && newSalePrice !== undefined) {
                 showCopyPriceBtn = true;
+            }
+            
+            // ========== "需更新日期" 颜色 ==========
+            let needUpdateDateColor = '';
+            if (needUpdateDate === '无需改日') {
+                needUpdateDateColor = '#52c41a';  // 绿色
+            } else {
+                needUpdateDateColor = '#ff6b6b';  // 红色 - 需要更新日期
             }
             
             result.push({
@@ -1822,8 +1836,8 @@ async function getNeedUpdateGoodsList() {
                 settleType: item.channel || '',
                 sale_price: item.sale_price || 0,
                 currentSalePrice: currentSalePrice,
-                normalPrice: normalPrice,         // 当前正常销售价
-                lastSalePrice: lastPrice,         // 上次正常销售价（原销售价，灰色显示）
+                normalPrice: normalPrice,
+                lastSalePrice: lastPrice,
                 online_cost: item.online_cost || 0,
                 tax_rate: item.tax_rate || '',
                 warn_num: item.warn_num || 0,
@@ -1841,17 +1855,17 @@ async function getNeedUpdateGoodsList() {
                 newSalePrice: newSalePrice,
                 priceStatus: priceStatus,
                 bzStatus: bzStatus,
-                // ========== 新增字段 ==========
                 dateChanged: dateChanged,
                 priceChanged: priceChanged,
                 needUpdateDate: needUpdateDate,
+                needUpdateDateColor: needUpdateDateColor,
                 needUpdatePrice: needUpdatePrice,
+                needUpdatePriceColor: needUpdatePriceColor,
                 showPriceBtn: showPriceBtn,
                 showCopyPriceBtn: showCopyPriceBtn,
                 showCopyDateBtn: showCopyDateBtn,
                 statusPrice: statusPrice,
-                isDiscountOrExpire: isDiscountOrExpire,
-                lastSalePrice: lastPrice
+                isDiscountOrExpire: isDiscountOrExpire
             });
         }
     }
@@ -2572,47 +2586,65 @@ function renderDateChangeList() {
         const lastPriceDisplay = formatMoney(item.lastSalePrice || 0);
         const lastPriceStyle = 'style="color:#999;font-size:13px;"';
         
-        // ========== 需更新销售价 ==========
-        const needUpdatePriceDisplay = item.needUpdatePrice || '';
-        
-        // ========== 需更新日期 ==========
+        // ========== 需更新日期（带颜色） ==========
         const needUpdateDateDisplay = item.needUpdateDate || '';
+        const needUpdateDateColor = item.needUpdateDateColor || '#333';
+        const needUpdateDateStyle = 'style="color:' + needUpdateDateColor + ';font-weight:bold;"';
+        
+        // ========== 需更新销售价（带颜色） ==========
+        const needUpdatePriceDisplay = item.needUpdatePrice || '';
+        const needUpdatePriceColor = item.needUpdatePriceColor || '#333';
+        const needUpdatePriceStyle = 'style="color:' + needUpdatePriceColor + ';font-weight:bold;"';
         
         // ========== 构建操作按钮 ==========
-        let actionButtons = '';
-        actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
+let actionButtons = '';
+actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">';
 
-        // 改价按钮：仅折扣/临期状态显示
-        if (item.showPriceBtn) {
-            actionButtons += `
-                <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:3px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">改价</button>
-            `;
-        }
+// 改价按钮：仅折扣/临期状态显示
+if (item.showPriceBtn) {
+    actionButtons += `
+        <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:3px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">改价</button>
+    `;
+}
 
-        // 复制新价按钮：有 newSalePrice 时才显示
-        if (item.showCopyPriceBtn) {
-            actionButtons += `
-                <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:3px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制新价</button>
-            `;
-        }
+// 复制新价按钮：有 newSalePrice 时才显示
+if (item.showCopyPriceBtn) {
+    actionButtons += `
+        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:3px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制新价</button>
+    `;
+}
 
-        // 复制日期按钮：仅日期变动时显示
-        if (item.showCopyDateBtn) {
-            const copyDateText = (item.dateType === '生产日期' && item.displayValue) 
-                ? `（${item.displayValue}生产）` 
-                : (item.dateType === '到期日期' && item.displayValue) 
-                    ? `（${item.displayValue}到期）` 
-                    : '';
-            actionButtons += `
+// 复制日期按钮：仅日期变动时显示
+if (item.showCopyDateBtn) {
+    const copyDateText = (item.dateType === '生产日期' && item.displayValue) 
+        ? `（${item.displayValue}生产）` 
+        : (item.dateType === '到期日期' && item.displayValue) 
+            ? `（${item.displayValue}到期）` 
+            : '';
+    actionButtons += `
+        <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
+    `;
+}
+
+// ========== 更新按钮：判断是否置灰 ==========
+// 置灰条件：折扣/临期状态 + 没有状态价格（显示"待改价"）
+const isUpdateDisabled = item.isDiscountOrExpire && (item.statusPrice === null || item.statusPrice === undefined);
+const updateDisabledStyle = isUpdateDisabled 
+    ? 'disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;"' 
+    : 'style="background:#007bff;color:#fff;"';
+
+actionButtons += `
+    <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabledStyle} style="padding:3px 14px; font-size:12px; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
+`;
+
+actionButtons += '</div>';
                 <button class="btn btn-success" onclick="copyDateText('${copyDateText.replace(/'/g, "\\'")}', this)" style="padding:3px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">复制日期</button>
             `;
         }
 
-        // 更新按钮始终显示
-        const canUpdate = item.newSalePrice !== null && item.newSalePrice !== undefined;
-        const updateDisabled = canUpdate ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
+        // 更新按钮：始终可用，不再置灰
         actionButtons += `
-            <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabled} style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
+            <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:3px 14px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;">更新</button>
         `;
 
         actionButtons += '</div>';
@@ -2630,9 +2662,9 @@ function renderDateChangeList() {
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
                 <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
-                <td>${needUpdateDateDisplay}</td>
+                <td ${needUpdateDateStyle}>${needUpdateDateDisplay}</td>
                 <td ${lastPriceStyle}>${lastPriceDisplay}</td>
-                <td>${needUpdatePriceDisplay}</td>
+                <td ${needUpdatePriceStyle}>${needUpdatePriceDisplay}</td>
                 <td>${actionButtons}</td>
             </tr>
         `;
