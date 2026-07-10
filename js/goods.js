@@ -1791,6 +1791,7 @@ if (priceData) {
     
     if (statusPrice !== null && statusPrice !== undefined) {
         currentSalePrice = statusPrice;
+        // ✅ 关键修改：newSalePrice 只用于显示和复制，不用于更新 goods.sale_price
         newSalePrice = statusPrice;
         priceStatus = 'updated';
     }
@@ -1806,25 +1807,28 @@ let showPriceBtn = false;
 let showCopyPriceBtn = false;
 
 if (!isDiscountOrExpire) {
-    // 正常/过期状态
+    // 正常/过期状态：价格变化时更新 goods.sale_price
     if (priceChanged) {
         needUpdatePrice = formatMoney(normalPrice);
         needUpdatePriceColor = '#ff6b6b';
+        // ✅ 正常状态：newSalePrice = normalPrice，用于更新 goods.sale_price
         newSalePrice = normalPrice;
         showCopyPriceBtn = true;
     } else {
         needUpdatePrice = '无需改价';
         needUpdatePriceColor = '#52c41a';
+        // ✅ 正常状态没有价格变化时，newSalePrice 为 null
+        newSalePrice = null;
     }
     showPriceBtn = false;
 } else {
-    // 折扣/临期状态 → 始终显示改价按钮
+    // 折扣/临期状态：价格存储在 price_temp_state，不修改 goods.sale_price
     showPriceBtn = true;
     if (statusPrice !== null && statusPrice !== undefined) {
         needUpdatePrice = formatMoney(statusPrice);
         needUpdatePriceColor = '#ff6b6b';
-        newSalePrice = statusPrice;
-        priceStatus = 'updated';
+        // ✅ 折扣/临期状态：newSalePrice 只用于显示"复制新价"，不更新 goods.sale_price
+        // 注意：这里 newSalePrice 保持 statusPrice 用于复制，但更新时不会写入 sale_price
         showCopyPriceBtn = true;
     } else {
         needUpdatePrice = '待改价';
@@ -2287,9 +2291,10 @@ async function updateSingleGoodsDateWithPrice(id) {
     if (!item) return;
     
     const statusText = item.earliestBatch?.bzStatusText || '';
-    const needPriceChange = (item.settleType === '线下' && statusText !== '正常' && statusText !== '过期');
+    const isDiscountOrExpire = (statusText !== '正常' && statusText !== '过期');
     
-    if (needPriceChange && item.newSalePrice === null && item.priceStatus !== 'skipped') {
+    // 折扣/临期状态，如果没有状态价格且不是跳过状态，阻止更新
+    if (isDiscountOrExpire && item.newSalePrice === null && item.priceStatus !== 'skipped') {
         showMsg('请先设置新销售价或点击"无需修改"');
         return;
     }
@@ -2304,15 +2309,13 @@ async function updateSingleGoodsDateWithPrice(id) {
         saved_produce_date: earliest.produce_date || null,
         saved_expire_date: earliest.expire_date || null,
         saved_date_updated_at: new Date().toISOString(),
-        // ✅ 添加：清空 last_sale_price，避免更新后仍显示在列表中
+        // ✅ 清空 last_sale_price
         last_sale_price: null
     };
     
-    if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-        updateData.sale_price = item.newSalePrice;
-    }
+    // 如果是折扣/临期状态，不需要传 sale_price，避免覆盖正常销售价
     
-    if (!confirm(`确认更新"${item.name}"？\n\n${updateData.saved_produce_date ? '生产日期：' + updateData.saved_produce_date : ''}${updateData.saved_expire_date ? '\n到期日期：' + updateData.saved_expire_date : ''}\n${item.newSalePrice !== null ? '销售价：' + formatMoney(item.newSalePrice) : '销售价保持不变'}`)) return;
+    if (!confirm(`确认更新"${item.name}"？\n\n${updateData.saved_produce_date ? '生产日期：' + updateData.saved_produce_date : ''}${updateData.saved_expire_date ? '\n到期日期：' + updateData.saved_expire_date : ''}\n销售价保持不变（sale_price 不会被修改）`)) return;
     
     await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
         method: 'PATCH',
@@ -2324,9 +2327,11 @@ async function updateSingleGoodsDateWithPrice(id) {
         body: JSON.stringify(updateData)
     });
     
+    // 折扣/临期状态：更新后清空 price_temp_state
+    // 正常状态：如果价格变化了，也清空 price_temp_state
     clearPriceTempState(item.id);
     
-    showMsg(`✅ 更新成功！${item.newSalePrice !== null ? ' 新销售价：' + formatMoney(item.newSalePrice) : ''}`);
+    showMsg(`✅ 更新成功！${!isDiscountOrExpire && item.newSalePrice !== null ? ' 新销售价：' + formatMoney(item.newSalePrice) : ''}`);
     await loadGoods(true);
     loadDateChangeTab();
 }
@@ -2358,11 +2363,7 @@ async function batchUpdateGoodsDate() {
     // ✅ 添加：清空 last_sale_price
     last_sale_price: null
 };
-            
-            if (item.newSalePrice !== null && item.newSalePrice !== undefined) {
-                updateData.sale_price = item.newSalePrice;
-            }
-            
+                        
             const response = await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
                 headers: {
