@@ -2339,17 +2339,16 @@ async function updateSingleGoodsDateWithPrice(id) {
 }
 
 async function batchUpdateGoodsDate() {
-    // ✅ 修改：只包含有 newSalePrice 的商品，排除 skipped 状态
+    // ✅ 修改：统计更新按钮未置灰的行（即 isUpdateDisabled === false）
     const canUpdateList = dateChangeFilteredList.filter(item => {
-        return (item.newSalePrice !== null && item.newSalePrice !== undefined);
+        return item.isUpdateDisabled === false;
     });
     
     if (canUpdateList.length === 0) {
-        showMsg('没有可更新的商品，请先设置新价格');
+        showMsg('没有可更新的商品');
         return;
     }
     
-    // 提示用户确认时，显示实际要更新的数量
     if (!confirm(`⚠ 确认批量更新 ${canUpdateList.length} 条商品？\n点击后数据将完全消失（不可逆）！`)) return;
     
     let successCount = 0;
