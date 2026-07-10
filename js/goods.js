@@ -2389,7 +2389,7 @@ async function batchUpdateGoodsDate() {
         }
     }
     
-    // ✅ 只有价格变动的商品才清空 price_temp_state
+    // ✅ 只有价格变动的商品才清空： price_temp_state
     for (const id of priceChangedIds) {
         await clearPriceTempState(id);
         console.log('✅ 价格已变动，清空状态价格:', id);
