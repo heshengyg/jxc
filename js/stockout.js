@@ -206,19 +206,20 @@ async function selectOutGoods(goods){
     document.getElementById('outCurGoodsId').value = goods.id;
 
     const allStockBatch = allStockIn.filter(row => row.supplier === sup && row.goodsName === goods.name);
-    allStock.sort((a,b)=>Number(a.id)-Number(b.id));
+    // 修复：排序数组变量改为allStockBatch
+    allStockBatch.sort((a,b)=>Number(a.id)-Number(b.id));
     const earliestIn = allStockBatch[0];
     const baseGoods = allGoods.find(g => g.id === goods.id);
     let showSalePrice = Number(baseGoods?.sale_price || 0);
 
     if(baseGoods && earliestIn){
         const bzStatus = calcBzStatus(
-            earliest.produce_date,
-            earliest.expire_date,
+            earliestIn.produce_date,
+            earliestIn.expire_date,
             baseGoods.shelf_life_num,
             baseGoods.shelf_life_unit
         );
-        // 修正状态映射，和common统一
+        // 状态和price_temp_state字段映射
         const fieldMap = {
             "正常":"sale_price",
             "过期":"expire_price",
@@ -247,7 +248,6 @@ async function selectOutGoods(goods){
     const totalStock = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = totalStock;
 }
-
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
@@ -312,19 +312,20 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // FIFO拆分消耗明细（原有库存扣减逻辑不动）
+    // FIFO拆分明细（common库存逻辑不动）
     const outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    console.log('FIFO拆分明细', outDetail);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // ===================== 修复变量作用域：提前定义allUsedInIds =====================
+    // 提取所有入库ID，排序取最早批次
     const allUsedInRecordIds = Array.from(new Set(outDetail.map(item => item.inRecordId)));
-    allUsedInRecordIds.sort((a,b) => Number(a) - Number(b));
+    allUsedInRecordIds.sort((a,b)=>Number(a)-Number(b));
     const firstInId = allUsedInRecordIds[0];
     const firstInRecord = allStockIn.find(r => r.id === firstInId);
     const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
-    let globalSalePrice = 0;
+    let globalSalePrice = Number(goodsInfo?.sale_price || 0);
 
-    // 读取price_temp_state对应最早批次保质期售价
+    // 读取最早批次对应折扣售价（修复变量名globalSalePrice）
     if(goodsInfo && firstInRecord){
         const bzStatus = calcBzStatus(
             firstInRecord.produce_date,
@@ -332,25 +333,33 @@ async function submitStockOut(){
             goodsInfo.shelf_life_num,
             goodsInfo.shelf_life_unit
         );
-        const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsInfo.id}`,{
-            headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
-        });
-        const priceList = await priceRes.json();
-        const priceRule = priceList[0];
-        if(priceRule){
-            switch(bzStatus){
-                case 'normal': globalSalePrice = Number(priceRule.sale_price) || 0; break;
-                case 'half1': globalSalePrice = Number(priceRule.discount_1_price) || 0; break;
-                case 'half2': globalSalePrice = Number(priceRule.discount_2_price) || 0; break;
-                case 'near': globalSalePrice = Number(priceRule.discount_3_price) || 0; break;
-                case 'veryNear': globalSalePrice = Number(priceRule.discount_4_price) || 0; break;
-                case 'expire': globalSalePrice = Number(priceRule.expire_price) || 0; break;
-                default: globalSalePrice = Number(priceRule.sale_price) || 0;
+        const fieldMap = {
+            "正常":"sale_price",
+            "过期":"expire_price",
+            "discount_1":"discount_1_price",
+            "discount_2":"discount_2_price",
+            "discount_3":"discount_3_price",
+            "discount_4":"discount_4_price"
+        };
+        const targetField = fieldMap[bzStatus] || "sale_price";
+        try{
+            const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsInfo.id}`,{
+                headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+            });
+            const priceList = await priceRes.json();
+            if(priceList && priceList.length > 0){
+                const priceRule = priceList[0];
+                if(priceRule[targetField] != null){
+                    // 修复：原错误globalSale → globalSalePrice
+                    globalSalePrice = Number(priceRule[targetField]);
+                }
             }
+        }catch(err){
+            console.warn('读取折扣价失败，使用商品原价',err);
         }
     }
 
-    // 按入库ID分组，一个批次一条出库记录
+    // 按入库ID分组，一个批次对应一条出库记录
     const batchGroup = {};
     for(const item of outDetail){
         const rid = item.inRecordId;
@@ -362,13 +371,15 @@ async function submitStockOut(){
         batchGroup[rid].details.push(item);
     }
     const batchArr = Object.values(batchGroup);
+    console.log('拆分出库批次数', batchArr.length, batchArr);
+    if(batchArr.length === 0) return showMsg('出库明细拆分失败');
 
-    // 串行逐条插入，保证N批次=N条出库记录
+    // 串行逐条提交，保证每个批次都生成独立出库记录
     let allSuccess = true;
-    for(let i=0; i < batchArr.length; i++){
+    for(let i = 0; i < batchArr.length; i++){
         const batch = batchArr[i];
         const sourceIn = batch.sourceIn;
-        // 单条出库自有入库单价
+        // 每条出库使用自身入库批次单价
         let singleOutPrice = 0;
         if(settleType === '线上'){
             singleOutPrice = Number(goodsInfo?.online_cost || 0);
@@ -377,15 +388,16 @@ async function submitStockOut(){
         }
         const outAmount = Number((singleOutPrice * batch.totalUse).toFixed(2));
         const saleAmount = Number((globalSalePrice * batch.totalUse).toFixed(2));
-
         const postData = {
             supplier,goodsName,spec,settleType,
-            outPrice:singleOutPrice,
-            salePrice:globalSalePrice, // 统一最早批次折扣售价
-            outNum:batch.totalUse,
-            outAmount,saleAmount,recordDate,
-            inRecordId:batch.rid,
-            outDetail:JSON.stringify(batch.details)
+            outPrice: singleOutPrice,
+            salePrice: globalSalePrice,
+            outNum: batch.totalUse,
+            outAmount,
+            saleAmount,
+            recordDate,
+            inRecordId: batch.rid,
+            outDetail: JSON.stringify(batch.details)
         };
         try{
             const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
@@ -396,21 +408,31 @@ async function submitStockOut(){
                     'Content-Type':'application/json',
                     'Prefer':'return=representation'
                 },
-                body:JSON.stringify(postData)
+                body: JSON.stringify(postData)
             });
-            if(!res.ok) allSuccess = false;
-        }catch(err){
-            console.error('单条出库失败',err);
+            if(!res.ok){
+                const err = await res.json();
+                console.error(`第${i+1}条出库插入失败`,err);
+                allSuccess = false;
+            }else{
+                console.log(`第${i+1}条出库保存成功`);
+            }
+        }catch(e){
+            console.error(`第${i+1}请求异常`,e);
             allSuccess = false;
         }
     }
 
-    if(allSuccess) showMsg('出库提交成功');
-    else showMsg('部分批次出库提交失败，请查看控制台日志');
+    if(allSuccess){
+        showMsg('出库提交成功');
+    }else{
+        showMsg('部分批次出库提交失败，请打开控制台查看日志');
+    }
     closeStockOutForm();
     loadStockOut();
     loadStockIn();
 }
+
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
