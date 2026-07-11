@@ -254,26 +254,8 @@ function selectOutGoods(goods){
         window._outSelectedSalePrice = 0;
     }
 
-    // ✅ 使用 allStockIn 直接计算总库存
-    let total = 0;
-    const inRecords = allStockIn.filter(item => 
-        item.supplier === sup && 
-        item.goodsName === goods.name
-    );
-    inRecords.forEach(item => {
-        total += Number(item.in_num);
-    });
-    // 减去已出库数量
-    const outRecords = allStockOut.filter(item => 
-        item.supplier === sup && 
-        item.goodsName === goods.name
-    );
-    outRecords.forEach(item => {
-        total -= Number(item.outNum);
-    });
-    total = Math.max(0, total);
-    
-    document.getElementById('totalStockNum').value = total;
+    const total = getTotalStockNum(sup, goods.name);
+document.getElementById('totalStockNum').value = total;
 }
 
 // 出库数量实时库存校验
@@ -345,23 +327,7 @@ async function submitStockOut(){
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // ✅ 直接计算总库存
-    let totalStock = 0;
-    const inRecords = allStockIn.filter(item => 
-        item.supplier === supplier && 
-        item.goodsName === goodsName
-    );
-    inRecords.forEach(item => {
-        totalStock += Number(item.in_num);
-    });
-    const outRecords = allStockOut.filter(item => 
-        item.supplier === supplier && 
-        item.goodsName === goodsName
-    );
-    outRecords.forEach(item => {
-        totalStock -= Number(item.outNum);
-    });
-    totalStock = Math.max(0, totalStock);
+    const totalStock = getTotalStockNum(supplier, goodsName);
     
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
