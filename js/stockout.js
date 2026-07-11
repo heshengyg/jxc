@@ -213,7 +213,7 @@ function selectOutGoods(goods){
             batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
             const earliest = batches[0];
             
-            // ✅ 计算 warnDay（临期天数）
+            // ✅ 计算 warnDay
             const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
             let warnDay = 0;
             if (typeof expireResult === 'string' && expireResult.includes('天')) {
@@ -230,14 +230,12 @@ function selectOutGoods(goods){
                 earliest.expire_date,
                 baseGoods.shelf_life_num,
                 baseGoods.shelf_life_unit,
-                warnDay
+                warnDay   // ← 加上这个
             );
-            
             (async function() {
                 let price = await getSalePriceByBzStatus(baseGoods.id, bzStatus, baseGoods.sale_price);
                 document.getElementById('outSalePrice').value = formatMoney(price);
-                // ✅ 保存到全局变量，提交时使用
-                window._outSelectedSalePrice = price;
+                window._outSelectedSalePrice = price;  // ✅ 保存到全局
             })();
         } else {
             document.getElementById('outSalePrice').value = formatMoney(baseGoods.sale_price);
@@ -251,6 +249,7 @@ function selectOutGoods(goods){
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
+
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
@@ -357,7 +356,11 @@ async function submitStockOut(){
     let groupList = Object.values(groupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
 
-    
+    // ✅ 如果界面读取失败，用保存的价格
+    if (!salePrice || salePrice === 0) {
+        salePrice = window._outSelectedSalePrice || 0;
+    }
+
     // ========== 循环分组，逐条生成并提交出库记录 ==========
     let submitSuccess = true;
     for(let group of groupList){
