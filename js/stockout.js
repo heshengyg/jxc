@@ -203,19 +203,24 @@ function selectOutGoods(goods){
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
+    // ✅ 调试：查看 getStockBatchList 是否能获取批次
+    const testBatches = getStockBatchList(sup, goods.name);
+    console.log('🔍 getStockBatchList 返回:', testBatches);
+
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
-        // 获取该商品对应的入库批次，找最早批次（按record_date排序）
+        // 直接从 allStockIn 获取批次
         const batches = allStockIn.filter(item => 
             item.supplier === sup && 
             item.goodsName === goods.name
         );
+        console.log('📦 allStockIn 中的批次:', batches);
+        
         if (batches.length > 0) {
-            // 按录入日期排序取最早批次
             batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
             const earliest = batches[0];
             
-            // 计算 warnDay（临期天数）
+            // 计算 warnDay
             const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
             let warnDay = 0;
             if (typeof expireResult === 'string' && expireResult.includes('天')) {
@@ -226,23 +231,21 @@ function selectOutGoods(goods){
                 warnDay = Number(expireResult) || 0;
             }
             
-            // ✅ 传入 warnDay（第5个参数）
-            const bzStatus = calcBzStatus(
+            const bzResult = calcBzStatus(
                 earliest.produce_date || '',
                 earliest.expire_date || '',
                 baseGoods.shelf_life_num || 0,
                 baseGoods.shelf_life_unit || '天',
                 warnDay
             );
+            const bzStatus = bzResult.statusText || '正常';
             
             (async function() {
                 let price = await getSalePriceByBzStatus(baseGoods.id, bzStatus, baseGoods.sale_price);
                 document.getElementById('outSalePrice').value = formatMoney(price);
-                // ✅ 保存到全局变量，提交时使用
                 window._outSelectedSalePrice = price;
             })();
         } else {
-            // 没有入库批次，显示正常价
             document.getElementById('outSalePrice').value = formatMoney(baseGoods.sale_price);
             window._outSelectedSalePrice = baseGoods.sale_price;
         }
@@ -251,8 +254,25 @@ function selectOutGoods(goods){
         window._outSelectedSalePrice = 0;
     }
 
-    // 自动带出总库存（原逻辑不变）
-    let total = getTotalStockNum(sup, goods.name);
+    // ✅ 使用 allStockIn 直接计算总库存
+    let total = 0;
+    const inRecords = allStockIn.filter(item => 
+        item.supplier === sup && 
+        item.goodsName === goods.name
+    );
+    inRecords.forEach(item => {
+        total += Number(item.in_num);
+    });
+    // 减去已出库数量
+    const outRecords = allStockOut.filter(item => 
+        item.supplier === sup && 
+        item.goodsName === goods.name
+    );
+    outRecords.forEach(item => {
+        total -= Number(item.outNum);
+    });
+    total = Math.max(0, total);
+    
     document.getElementById('totalStockNum').value = total;
 }
 // 出库数量实时库存校验
@@ -264,8 +284,17 @@ function checkStockNum(){
     }
 }
 
-// 打开新增出库弹窗（已移除编辑逻辑，仅保留新增）
-function openStockOutForm(){
+// 打开新增出库弹窗
+async function openStockOutForm(){
+    // ✅ 确保入库数据已加载
+    if (!allStockIn || allStockIn.length === 0) {
+        await loadStockIn();
+    }
+    // ✅ 确保出库数据已加载
+    if (!allStockOut || allStockOut.length === 0) {
+        await loadStockOut();
+    }
+    
     document.getElementById('outEditId').value = '';
     document.getElementById('stockOutFormTitle').innerText = '添加出库单据';
 
@@ -280,17 +309,16 @@ function openStockOutForm(){
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
 
-    // 关闭下拉列表
     const supBox = document.getElementById('outSupListBox');
     if (supBox) supBox.style.display = 'none';
     const goodsBox = document.getElementById('outGoodsListBox');
     if (goodsBox) goodsBox.style.display = 'none';
     
-    // 清空商品列表缓存
     outCurrGoodsList = [];
 
     document.getElementById('stockOutModal').style.display = 'block';
 }
+
 function closeStockOutForm(){
     // 关闭时隐藏下拉
     const supBox = document.getElementById('outSupListBox');
@@ -310,23 +338,63 @@ async function submitStockOut(){
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
 
-    // 基础校验
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // 库存校验
-    let totalStock = getTotalStockNum(supplier, goodsName);
+    // ✅ 直接计算总库存
+    let totalStock = 0;
+    const inRecords = allStockIn.filter(item => 
+        item.supplier === supplier && 
+        item.goodsName === goodsName
+    );
+    inRecords.forEach(item => {
+        totalStock += Number(item.in_num);
+    });
+    const outRecords = allStockOut.filter(item => 
+        item.supplier === supplier && 
+        item.goodsName === goodsName
+    );
+    outRecords.forEach(item => {
+        totalStock -= Number(item.outNum);
+    });
+    totalStock = Math.max(0, totalStock);
+    
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细
-    let outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    // ✅ 使用 allStockIn 直接计算 FIFO
+    let remainOut = outNum;
+    let outDetail = [];
+    
+    // 按录入日期排序
+    const sortedIn = [...inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    
+    for (let inItem of sortedIn) {
+        if (remainOut <= 0) break;
+        // 计算该入库记录剩余库存
+        let usedOut = 0;
+        outRecords.forEach(out => {
+            if (out.inRecordId === inItem.id) {
+                usedOut += Number(out.outNum);
+            }
+        });
+        let inRemain = Math.max(0, Number(inItem.in_num) - usedOut);
+        if (inRemain <= 0) continue;
+        
+        let useNum = Math.min(inRemain, remainOut);
+        outDetail.push({
+            inRecordId: inItem.id,
+            useNum: useNum
+        });
+        remainOut -= useNum;
+    }
+    
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // ========== 按入库记录ID分组（不同入库=不同出库单价，自动拆分） ==========
+    // ========== 按入库记录ID分组 ==========
     let groupMap = {};
     for(let d of outDetail){
         let inRecordId = d.inRecordId;
@@ -357,19 +425,11 @@ async function submitStockOut(){
     let groupList = Object.values(groupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
 
-    // ✅ 删除覆盖 salePrice 的代码
-    // ❌ 不要重新从商品信息获取 salePrice
-    // let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
-    // if(baseGoods){
-    //     salePrice = Number(baseGoods.sale_price) || 0;
-    // }
-
-    // ✅ 如果界面读取失败，使用保存的全局变量
     if (!salePrice || salePrice === 0) {
         salePrice = window._outSelectedSalePrice || 0;
     }
 
-    // ========== 循环分组，逐条生成并提交出库记录 ==========
+    // ========== 循环分组提交 ==========
     let submitSuccess = true;
     for(let group of groupList){
         let singleOutNum = group.totalUseNum;
@@ -423,9 +483,12 @@ async function submitStockOut(){
         showMsg('部分出库记录提交异常，请检查数据');
     }
     closeStockOutForm();
-    loadStockOut();
-    loadStockIn();
+    await loadStockOut();
+    await loadStockIn();
+    // ✅ 刷新库存缓存
+    refreshAllStockCache(allStockIn, allStockOut);
 }
+
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
