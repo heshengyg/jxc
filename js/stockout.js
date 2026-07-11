@@ -331,38 +331,39 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
     // 【核心修复】直接调用common内置FIFO，删除手写报错循环
-    const outDetail = calcFIFOOut(supplier, goodsName, outNum);
-    if(outDetail.length === 0) return showMsg('无可用库存批次');
-    // 按入库ID分组生成多张出库单
-    let groupMap = {};
-    for(let d of outDetail){
-        let inRecordId = d.inRecordId;
-        let useNum = d.useNum;
-        let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
-        if(!inItem) continue;
-        let outPrice = 0;
-        let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-        if(settleType === '线上'){
-            outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
-        }else{
-            outPrice = Number(inItem.in_price) || 0;
-        }
-        if(!groupMap[inRecordId]){
-            groupMap[inRecordId] = {
-                inRecordId: inRecordId,
-                outPrice: outPrice,
-                totalUseNum: 0,
-                details: []
-            };
-        }
-        groupMap[inRecordId].totalUseNum += useNum;
-        groupMap[inRecordId].details.push(d);
+const outDetail = calcFIFOOut(supplier, goodsName, outNum);
+if(outDetail.length === 0) return showMsg('无可用库存批次');
+// 按入库ID分组生成多张出库单（改用Map，杜绝数字ID转字符串合并）
+const groupMap = new Map();
+for(let d of outDetail){
+    let inRecordId = d.inRecordId;
+    let useNum = d.useNum;
+    let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
+    if(!inItem) continue;
+    let outPrice = 0;
+    let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+    if(settleType === '线上'){
+        outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
+    }else{
+        outPrice = Number(inItem.in_price) || 0;
     }
-    let groupList = Object.values(groupMap);
-    if(groupList.length === 0) return showMsg('拆分出库数据失败');
-    if (!salePrice || salePrice === 0) {
-        salePrice = window._outSelectedSalePrice || 0;
+    if(!groupMap.has(inRecordId)){
+        groupMap.set(inRecordId, {
+            inRecordId: inRecordId,
+            outPrice: outPrice,
+            totalUseNum: 0,
+            details: []
+        });
     }
+    const targetGroup = groupMap.get(inRecordId);
+    targetGroup.totalUseNum += useNum;
+    targetGroup.details.push(d);
+}
+let groupList = Array.from(groupMap.values());
+if(groupList.length === 0) return showMsg('拆分出库数据失败');
+if (!salePrice || salePrice === 0) {
+    salePrice = window._outSelectedSalePrice || 0;
+}
     // 循环提交每一张出库单
     let submitSuccess = true;
     for(let group of groupList){
