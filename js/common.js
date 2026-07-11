@@ -565,13 +565,7 @@ function getStockBatchList(supplier, goodsName) {
     // 2. 按批次合并
     let batchMap = {};
     inList.forEach(inItem => {
-       let batchKey = String(inItem.supplier) + "_"
-+ String(inItem.goodsName) + "_"
-+ String(inItem.spec) + "_"
-+ String(inItem.in_price) + "_"
-+ String(inItem.produce_date) + "_"
-+ String(inItem.expire_date ?? "") + "_"
-+ String(inItem.id);
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
             batchMap[batchKey] = {
@@ -581,7 +575,6 @@ function getStockBatchList(supplier, goodsName) {
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
-                in_price: inItem.in_price,
                 inRecords: [],
                 totalInNum: 0,
                 batchRemain: 0
