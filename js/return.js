@@ -841,7 +841,6 @@ function updateReturnBatchList() {
 }
 
 // ========== 切换批次选择 ==========
-// ========== 切换批次选择 ==========
 function toggleReturnBatch(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
@@ -886,21 +885,46 @@ function toggleReturnBatch(index) {
     document.getElementById('returnSpec').value = batch.spec || '';
     document.getElementById('returnSettleType').value = batch.settleType || '';
     
-    // 根据保质期状态匹配销售价
+    // ========== 根据保质期状态匹配销售价（修正版） ==========
     const goodsInfo = allGoods.find(g => g.supplier === batch.supplier && g.name === batch.goodsName);
     if (goodsInfo) {
-        const bzStatus = calcBzStatus(
-            batch.produce_date,
-            batch.expire_date,
-            goodsInfo.shelf_life_num,
-            goodsInfo.shelf_life_unit
+        // 计算保质期天数对应的临期天数
+        let unitCode = "day";
+        if (goodsInfo.shelf_life_unit === "年") unitCode = "year";
+        if (goodsInfo.shelf_life_unit === "个月") unitCode = "month";
+        
+        // 获取临期天数
+        const expireResult = calculateExpireDays(goodsInfo.shelf_life_num, goodsInfo.shelf_life_unit);
+        let warnDay = 0;
+        if (typeof expireResult === 'string' && expireResult.includes('天')) {
+            warnDay = parseInt(expireResult) || 0;
+        } else if (typeof expireResult === 'number') {
+            warnDay = expireResult;
+        } else {
+            warnDay = Number(expireResult) || 0;
+        }
+        
+        // 调用统一的计算函数（传入5个参数）
+        const bzResult = calcBzStatus(
+            batch.produce_date || '',
+            batch.expire_date || '',
+            goodsInfo.shelf_life_num || 0,
+            unitCode,
+            warnDay
         );
+        const bzStatus = bzResult.statusText || '正常';
+        
+        // 获取对应的状态价格
         (async function() {
             let price = await getSalePriceByBzStatus(goodsInfo.id, bzStatus, goodsInfo.sale_price);
+            // ✅ 保存当前状态价格到退货记录（避免受批次状态变化影响）
             document.getElementById('returnSalePrice').value = formatMoney(price);
+            // 保存到全局变量，提交时使用
+            window._returnSelectedPrice = price;
         })();
     } else {
         document.getElementById('returnSalePrice').value = '￥0.00';
+        window._returnSelectedPrice = 0;
     }
     
     const produceDisplay = selectedBatchData.produceDate || '-';
@@ -974,7 +998,7 @@ async function submitReturnGoods() {
     const goodsId = document.getElementById('returnCurGoodsId').value;
     const spec = document.getElementById('returnSpec').value;
     const settleType = document.getElementById('returnSettleType').value;
-    const salePrice = parseFloat(document.getElementById('returnSalePrice').value.replace('￥', ''));
+    const salePrice = window._returnSelectedPrice || parseFloat(document.getElementById('returnSalePrice').value.replace('￥', ''));
     const inPrice = selectedBatchData ? selectedBatchData.inPrice : 0;
     const returnNum = +document.getElementById('returnNum').value || 0;
     const recordDate = document.getElementById('returnRecordDate').value;
