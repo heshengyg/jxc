@@ -321,55 +321,25 @@ async function submitStockOut(){
     let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
-
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
-
+    // 统一调用公共库存函数，自动扣出库+退货
     const totalStock = getTotalStockNum(supplier, goodsName);
-    
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
-
-    // ✅ 使用 allStockIn 直接计算 FIFO
-    let remainOut = outNum;
-    let outDetail = [];
-    
-    // 按录入日期排序
-    const sortedIn = [...inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-    
-    for (let inItem of sortedIn) {
-        if (remainOut <= 0) break;
-        // 计算该入库记录剩余库存
-        let usedOut = 0;
-        outRecords.forEach(out => {
-            if (out.inRecordId === inItem.id) {
-                usedOut += Number(out.outNum);
-            }
-        });
-        let inRemain = Math.max(0, Number(inItem.in_num) - usedOut);
-        if (inRemain <= 0) continue;
-        
-        let useNum = Math.min(inRemain, remainOut);
-        outDetail.push({
-            inRecordId: inItem.id,
-            useNum: useNum
-        });
-        remainOut -= useNum;
-    }
-    
+    // 【核心修复】直接调用common内置FIFO，删除手写报错循环
+    const outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
-
-    // ========== 按入库记录ID分组 ==========
+    // 按入库ID分组生成多张出库单
     let groupMap = {};
     for(let d of outDetail){
         let inRecordId = d.inRecordId;
         let useNum = d.useNum;
         let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
         if(!inItem) continue;
-
         let outPrice = 0;
         let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
         if(settleType === '线上'){
@@ -377,7 +347,6 @@ async function submitStockOut(){
         }else{
             outPrice = Number(inItem.in_price) || 0;
         }
-
         if(!groupMap[inRecordId]){
             groupMap[inRecordId] = {
                 inRecordId: inRecordId,
@@ -389,25 +358,20 @@ async function submitStockOut(){
         groupMap[inRecordId].totalUseNum += useNum;
         groupMap[inRecordId].details.push(d);
     }
-
     let groupList = Object.values(groupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
-
     if (!salePrice || salePrice === 0) {
         salePrice = window._outSelectedSalePrice || 0;
     }
-
-    // ========== 循环分组提交 ==========
+    // 循环提交每一张出库单
     let submitSuccess = true;
     for(let group of groupList){
         let singleOutNum = group.totalUseNum;
         let singleOutPrice = group.outPrice;
         let linkInId = group.inRecordId;
         let detailStr = JSON.stringify(group.details);
-
         let outAmount = Number((singleOutPrice * singleOutNum).toFixed(2));
         let saleAmount = Number((salePrice * singleOutNum).toFixed(2));
-
         let postData = {
             supplier: supplier,
             goodsName: goodsName,
@@ -422,7 +386,6 @@ async function submitStockOut(){
             inRecordId: linkInId,
             outDetail: detailStr
         };
-
         try {
             let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
                 method:'POST',
@@ -444,7 +407,6 @@ async function submitStockOut(){
             submitSuccess = false;
         }
     }
-
     if(submitSuccess){
         showMsg('出库提交成功');
     }else{
@@ -453,9 +415,9 @@ async function submitStockOut(){
     closeStockOutForm();
     await loadStockOut();
     await loadStockIn();
-    // ✅ 刷新库存缓存
     refreshAllStockCache(allStockIn, allStockOut);
 }
+
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
