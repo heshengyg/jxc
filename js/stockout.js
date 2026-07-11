@@ -203,53 +203,41 @@ function selectOutGoods(goods){
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
+    // ========== ✅ 修改：根据保质期状态匹配销售价 ==========
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
+        // 获取该商品对应的入库批次，找最早批次
         const batches = allStockIn.filter(item => 
             item.supplier === sup && 
             item.goodsName === goods.name
         );
+        // 如果有入库批次，取第一个批次计算状态
         if (batches.length > 0) {
+            // 按录入日期排序取最早批次
             batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
             const earliest = batches[0];
-            
-            // ✅ 计算 warnDay
-            const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
-            let warnDay = 0;
-            if (typeof expireResult === 'string' && expireResult.includes('天')) {
-                warnDay = parseInt(expireResult) || 0;
-            } else if (typeof expireResult === 'number') {
-                warnDay = expireResult;
-            } else {
-                warnDay = Number(expireResult) || 0;
-            }
-            
-            // ✅ 传入 warnDay（第5个参数）
             const bzStatus = calcBzStatus(
                 earliest.produce_date,
                 earliest.expire_date,
                 baseGoods.shelf_life_num,
-                baseGoods.shelf_life_unit,
-                warnDay   // ← 加上这个
+                baseGoods.shelf_life_unit
             );
             (async function() {
                 let price = await getSalePriceByBzStatus(baseGoods.id, bzStatus, baseGoods.sale_price);
                 document.getElementById('outSalePrice').value = formatMoney(price);
-                window._outSelectedSalePrice = price;  // ✅ 保存到全局
             })();
         } else {
+            // 没有入库批次，显示正常价
             document.getElementById('outSalePrice').value = formatMoney(baseGoods.sale_price);
-            window._outSelectedSalePrice = baseGoods.sale_price;
         }
     } else {
         document.getElementById('outSalePrice').value = '￥0.00';
-        window._outSelectedSalePrice = 0;
     }
 
+    // 自动带出总库存（原逻辑不变）
     let total = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = total;
 }
-
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
@@ -356,9 +344,10 @@ async function submitStockOut(){
     let groupList = Object.values(groupMap);
     if(groupList.length === 0) return showMsg('拆分出库数据失败');
 
-    // ✅ 如果界面读取失败，用保存的价格
-    if (!salePrice || salePrice === 0) {
-        salePrice = window._outSelectedSalePrice || 0;
+    // 统一取商品最新销售单价（沿用原有逻辑）
+    let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+    if(baseGoods){
+        salePrice = Number(baseGoods.sale_price) || 0;
     }
 
     // ========== 循环分组，逐条生成并提交出库记录 ==========
