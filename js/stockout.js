@@ -1,3 +1,86 @@
+// ========== 出库模块独立的批次计算函数 ==========
+function outGetStockBatchList(supplier, goodsName) {
+    // ✅ 直接使用全局变量
+    const stockInData = window.allStockIn || allStockIn || [];
+    const stockOutData = window.allStockOut || allStockOut || [];
+    
+    console.log('📦 outGetStockBatchList - allStockIn 长度:', stockInData.length);
+    
+    let inList = stockInData.filter(item => 
+        item.supplier === supplier && item.goodsName === goodsName
+    );
+    
+    console.log('📦 outGetStockBatchList - inList 长度:', inList.length);
+    if (inList.length === 0) return [];
+    
+    let batchMap = {};
+    inList.forEach(inItem => {
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec || ''}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
+        
+        if (!batchMap[batchKey]) {
+            batchMap[batchKey] = {
+                supplier: inItem.supplier,
+                goodsName: inItem.goodsName,
+                spec: inItem.spec || '',
+                settleType: inItem.settleType,
+                produce_date: inItem.produce_date,
+                expire_date: inItem.expire_date,
+                inRecords: [],
+                totalInNum: 0,
+                batchRemain: 0
+            };
+        }
+        batchMap[batchKey].inRecords.push(inItem);
+        batchMap[batchKey].totalInNum += Number(inItem.in_num);
+    });
+    
+    Object.values(batchMap).forEach(batch => {
+        let outTotal = 0;
+        stockOutData.forEach(out => {
+            if (out.supplier === supplier && out.goodsName === goodsName) {
+                if (out.inRecordId) {
+                    let isInBatch = batch.inRecords.some(inItem => inItem.id === out.inRecordId);
+                    if (isInBatch) {
+                        outTotal += Number(out.outNum);
+                    }
+                }
+            }
+        });
+        batch.batchRemain = Math.max(0, batch.totalInNum - outTotal);
+    });
+    
+    return Object.values(batchMap).filter(b => b.batchRemain > 0);
+}
+
+function outCalcFIFO(supplier, goodsName, outNum) {
+    let batchList = outGetStockBatchList(supplier, goodsName);
+    console.log('📦 outCalcFIFO - 批次列表:', batchList.map(b => ({id: b.inRecords[0]?.id, remain: b.batchRemain})));
+    
+    let remainOut = outNum;
+    let outDetail = [];
+    
+    for(let batch of batchList){
+        if(remainOut <= 0) break;
+        let sortedInRecords = [...batch.inRecords].sort((a, b) => a.id - b.id);
+        for(let inItem of sortedInRecords){
+            if(remainOut <= 0) break;
+            let outTotalForIn = (window.allStockOut || allStockOut || [])
+                .filter(out => out.inRecordId === inItem.id)
+                .reduce((sum, out) => sum + Number(out.outNum), 0);
+            let inRemain = Math.max(0, Number(inItem.in_num) - outTotalForIn);
+            if(inRemain <= 0) continue;
+            let useForThisIn = Math.min(inRemain, remainOut);
+            outDetail.push({
+                inRecordId: inItem.id,
+                useNum: useForThisIn
+            });
+            remainOut -= useForThisIn;
+        }
+    }
+    console.log('📦 outCalcFIFO - 出库明细:', outDetail);
+    return outDetail;
+}
+
 // ===================== 出库模块 - 纯业务函数 =====================
 let outCurrSupplierList = [];
 let outCurrGoodsList = [];
@@ -205,12 +288,11 @@ function selectOutGoods(goods){
 
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
-        const batches = allStockIn.filter(item => 
-            item.supplier === sup && 
-            item.goodsName === goods.name
-        );
+        // ✅ 使用 outGetStockBatchList
+        const batches = outGetStockBatchList(sup, goods.name);
         if (batches.length > 0) {
-            batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+            // 按生产日期排序取最早批次
+            batches.sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
             const earliest = batches[0];
             
             const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
@@ -246,10 +328,11 @@ function selectOutGoods(goods){
         window._outSelectedSalePrice = 0;
     }
 
-    // ✅ 使用 getTotalStockNum 计算总库存（自动扣减出库和退货）
-    let total = getTotalStockNum(sup, goods.name);
+    // ✅ 使用 outGetStockBatchList 计算总库存
+    let total = outGetStockBatchList(sup, goods.name).reduce((sum, b) => sum + b.batchRemain, 0);
     document.getElementById('totalStockNum').value = total;
 }
+
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
@@ -318,14 +401,14 @@ async function submitStockOut(){
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
 
-    // ✅ 使用 getTotalStockNum 计算总库存
-    let totalStock = getTotalStockNum(supplier, goodsName);
+    // ✅ 使用 outGetStockBatchList 计算总库存
+    let totalStock = outGetStockBatchList(supplier, goodsName).reduce((sum, b) => sum + b.batchRemain, 0);
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 先进先出计算扣减明细
-    let outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    // ✅ 使用 outCalcFIFO
+    let outDetail = outCalcFIFO(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
     // ========== 按入库记录ID分组 ==========
@@ -366,7 +449,7 @@ async function submitStockOut(){
     // ========== 循环分组提交 ==========
     let submitSuccess = true;
     for(let group of groupList){
-        let singleOutNum = group.totalUseNum;  // ✅ 实际扣减数量，不是入库总数
+        let singleOutNum = group.totalUseNum;
         let singleOutPrice = group.outPrice;
         let linkInId = group.inRecordId;
         let detailStr = JSON.stringify(group.details);
@@ -381,7 +464,7 @@ async function submitStockOut(){
             settleType: settleType,
             outPrice: singleOutPrice,
             salePrice: salePrice,
-            outNum: singleOutNum,  // ✅ 实际扣减数量
+            outNum: singleOutNum,
             outAmount: outAmount,
             saleAmount: saleAmount,
             recordDate: recordDate,
@@ -421,7 +504,6 @@ async function submitStockOut(){
     await loadStockIn();
     refreshAllStockCache(allStockIn, allStockOut);
 }
-
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
