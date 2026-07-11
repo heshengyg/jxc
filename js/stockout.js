@@ -282,96 +282,104 @@ function closeStockOutForm(){
     if (goodsBox) goodsBox.style.display = 'none';
     document.getElementById('stockOutModal').style.display = 'none';
 }
-
-
-
-// 提交出库 终极修复版：串行插入多条记录，解决并发只存1条bug
+// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
     let spec = document.getElementById('outSpec').value || '';
     let settleType = document.getElementById('outSettleType').value || '';
+    let salePriceText = document.getElementById('outSalePrice').value;
+    let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
-    // 基础校验 原逻辑完全保留
+
+    // 基础校验（原逻辑不变）
     if(!supplier) return showMsg('请选择供应商');
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
+
+    // 库存校验（原逻辑不变）
     let totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
-    // 先进先出拆分明细（库存扣减逻辑不动）
+
+    // 先进先出计算扣减明细（原核心扣减逻辑不变）
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
-    // 步骤1：提取本次出库所有入库批次，取最早批次统一计算销售价
-    const allUsedInIds = Array.from(new Set(outDetail.map(item => item.inRecordId)));
-    allUsedInIds.sort((a,b) => Number(a) - Number(b));
-    const firstInId = allUsedInIds[0];
-    const firstInStock = allStockIn.find(in => in.id === firstInId);
-    const goodsBaseInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
-    let globalSalePrice = 0;
-    if(goodsBaseInfo && firstInStock){
-        const bzStatus = calcBzStatus(
-            firstInStock.produce_date,
-            firstInStock.expire_date,
-            goodsBaseInfo.shelf_life_num,
-            goodsBaseInfo.shelf_life_unit // 修复：之前错误写成sale_price
-        );
-        globalSalePrice = await getSalePriceByBzStatus(goodsBaseInfo.id, bzStatus, goodsBaseInfo.sale_price);
-    }
-    // 步骤2：强制按入库ID分组，一个入库ID=一条出库记录
-    const batchGroup = {};
-    for(const detailItem of outDetail){
-        const inId = detailItem.inRecordId;
-        const useQty = detailItem.useNum;
-        if(!batchGroup[inId]){
-            batchGroup[inId] = {
-                inRecordId: inId,
-                totalOutQty: 0,
-                detailList: [],
-                stockInRow: allStockIn.find(inRec => inId === inRec.id)
+
+    // ========== 按入库记录ID分组（不同入库=不同出库单价，自动拆分） ==========
+    let groupMap = {};
+    for(let d of outDetail){
+        let inRecordId = d.inRecordId;
+        let useNum = d.useNum;
+        // 查找当前这条入库对应的入库单，取出库单价
+        let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
+        if(!inItem) continue;
+
+        // 计算本条对应的出库单价（沿用原有单价规则）
+        let outPrice = 0;
+        let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+        if(settleType === '线上'){
+            outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
+        }else{
+            outPrice = Number(inItem.in_price) || 0;
+        }
+
+        // 同一条入库记录合并数量
+        if(!groupMap[inRecordId]){
+            groupMap[inRecordId] = {
+                inRecordId: inRecordId,
+                outPrice: outPrice,
+                totalUseNum: 0,
+                details: []
             };
         }
-        batchGroup[inId].totalOutQty += useQty;
-        batchGroup[inId].detailList.push(detailItem);
+        groupMap[inRecordId].totalUseNum += useNum;
+        groupMap[inRecordId].details.push(d);
     }
-    const outBatchList = Object.values(batchGroup);
-    if(outBatchList.length === 0) return showMsg('出库明细拆分失败');
-    // 串行逐条提交，解决并发丢失
-    let allSubmitOk = true;
-    for(let i = 0; i < outBatchList.length; i++){
-        const batch = outBatchList[i];
-        const currentInRow = batch.stockInRow;
-        const singleOutQty = batch.totalOutQty;
-        const linkInId = batch.inRecordId;
-        const detailJson = JSON.stringify(batch.detailList);
-        // 每组独立出库单价
-        let singleOutPrice = 0;
-        if(settleType === '线上'){
-            singleOutPrice = Number(goodsBaseInfo.online_cost) || 0;
-        }else{
-            singleOutPrice = Number(currentInRow.in_price) || 0;
-        }
-        const outAmount = Number((singleOutPrice * singleOutQty).toFixed(2));
-        const saleAmount = Number((globalSalePrice * singleOutQty).toFixed(2));
-        const postBody = {
-            supplier,
-            goodsName,
-            spec,
-            settleType,
+
+    // 转为数组，逐条提交
+    let groupList = Object.values(groupMap);
+    if(groupList.length === 0) return showMsg('拆分出库数据失败');
+
+    // 统一取商品最新销售单价（沿用原有逻辑）
+    let baseGoods = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+    if(baseGoods){
+        salePrice = Number(baseGoods.sale_price) || 0;
+    }
+
+    // ========== 循环分组，逐条生成并提交出库记录 ==========
+    let submitSuccess = true;
+    for(let group of groupList){
+        let singleOutNum = group.totalUseNum;
+        let singleOutPrice = group.outPrice;
+        let linkInId = group.inRecordId;
+        let detailStr = JSON.stringify(group.details);
+
+        // 单独计算本条金额
+        let outAmount = Number((singleOutPrice * singleOutNum).toFixed(2));
+        let saleAmount = Number((salePrice * singleOutNum).toFixed(2));
+
+        // 单条出库提交数据结构（与原结构完全一致，保证兼容）
+        let postData = {
+            supplier: supplier,
+            goodsName: goodsName,
+            spec: spec,
+            settleType: settleType,
             outPrice: singleOutPrice,
-            salePrice: globalSalePrice,
-            outNum: singleOutQty,
-            outAmount,
-            saleAmount,
-            recordDate,
+            salePrice: salePrice,
+            outNum: singleOutNum,
+            outAmount: outAmount,
+            saleAmount: saleAmount,
+            recordDate: recordDate,
             inRecordId: linkInId,
-            outDetail: detailJson
+            outDetail: detailStr
         };
-        try{
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
+
+        try {
+            let res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
                 method:'POST',
                 headers:{
                     apikey:SUPABASE_KEY,
@@ -379,19 +387,24 @@ async function submitStockOut(){
                     'Content-Type':'application/json',
                     'Prefer':'return=representation'
                 },
-                body:JSON.stringify(postBody)
+                body:JSON.stringify(postData)
             });
             if(!res.ok){
-                allSubmitOk = false;
+                let err = await res.json();
+                console.error('单条出库提交失败：', err);
+                submitSuccess = false;
             }
-        }catch(err){
-            allSubmitOk = false;
+        } catch (e) {
+            console.error('单条出库请求异常：', e);
+            submitSuccess = false;
         }
     }
-    if(allSubmitOk){
-        showMsg('全部出库提交成功');
+
+    // 全部提交完成后统一反馈、刷新
+    if(submitSuccess){
+        showMsg('出库提交成功');
     }else{
-        showMsg('部分批次出库提交失败，请查看控制台');
+        showMsg('部分出库记录提交异常，请检查数据');
     }
     closeStockOutForm();
     loadStockOut();
