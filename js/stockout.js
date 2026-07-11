@@ -1,18 +1,17 @@
 // ========== 出库模块独立的批次计算函数 ==========
 function outGetStockBatchList(supplier, goodsName) {
-    // ✅ 直接使用全局变量
     const stockInData = window.allStockIn || allStockIn || [];
     const stockOutData = window.allStockOut || allStockOut || [];
     
     console.log('📦 outGetStockBatchList - allStockIn 长度:', stockInData.length);
     
+    // ✅ 去掉 {}，直接返回表达式结果
     let inList = stockInData.filter(item => 
         item.supplier === supplier && item.goodsName === goodsName
     );
     
     console.log('📦 outGetStockBatchList - inList 长度:', inList.length);
-    if (inList.length === 0) return [];
-    
+    if (inList.length === 0) return [];    
     let batchMap = {};
     inList.forEach(inItem => {
         let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec || ''}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
@@ -281,15 +280,18 @@ function renderOutGoodsList(list){
 
 // 选择商品，自动带出字段 + 加载总库存（仅修改这一处）
 function selectOutGoods(goods){
-    let sup = document.getElementById('outSupSearchInput').value;
+    let sup = document.getElementById('outSupSearchInput').value.trim();
     document.getElementById('outGoodsSearchInput').value = goods.name;
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
-        // ✅ 使用 outGetStockBatchList
-        const batches = outGetStockBatchList(sup, goods.name);
+        // ✅ 去掉 {}，直接返回表达式结果
+        const batches = allStockIn.filter(item => 
+            item.supplier === sup && 
+            item.goodsName === goods.name
+        );
         if (batches.length > 0) {
             // 按生产日期排序取最早批次
             batches.sort((a, b) => new Date(a.produce_date || 0) - new Date(b.produce_date || 0));
