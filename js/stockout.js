@@ -282,7 +282,10 @@ function closeStockOutForm(){
     if (goodsBox) goodsBox.style.display = 'none';
     document.getElementById('stockOutModal').style.display = 'none';
 }
-// 提交出库 修复版：多批次强制多条出库记录，各批次自有出库单价，统一最早批次销售价
+
+
+
+// ========== 修复版出库提交逻辑（多批次多条记录、无缺失依赖） ==========
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -306,15 +309,12 @@ async function submitStockOut(){
     let outDetail = calcFIFOOut(supplier, goodsName, outNum);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // ========= 步骤1：提取本次出库所有入库批次，取最早批次统一计算销售价 =========
-    // 去重所有参与出库的入库ID
+    // 步骤1：提取本次出库所有入库批次，取最早批次统一计算销售价
     const allUsedInIds = Array.from(new Set(outDetail.map(item => item.inRecordId)));
-    // 按入库ID升序，最小=最早入库批次
     allUsedInIds.sort((a,b) => Number(a) - Number(b));
     const firstInId = allUsedInIds[0];
     const firstInStock = allStockIn.find(in => in.id === firstInId);
     const goodsBaseInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
-    // 全局统一销售价（所有出库记录共用这个售价）
     let globalSalePrice = 0;
     if(goodsBaseInfo && firstInStock){
         const bzStatus = calcBzStatus(
@@ -326,53 +326,48 @@ async function submitStockOut(){
         globalSalePrice = await getSalePriceByBzStatus(goodsBaseInfo.id, bzStatus, goodsBaseInfo.sale_price);
     }
 
-    // ========= 步骤2：强制按入库ID分组，一个入库批次=独立一条出库记录 =========
+    // 步骤2：强制按入库ID分组，一个入库批次=独立一条出库记录
     const batchGroup = {};
     for(const detailItem of outDetail){
         const inId = detailItem.inRecordId;
         const useQty = detailItem.useNum;
-        // 不存在该批次则初始化分组
         if(!batchGroup[inId]){
             batchGroup[inId] = {
                 inRecordId: inId,
                 totalOutQty: 0,
                 detailList: [],
-                stockInRow: allStockIn.find(inRec => inRec.id === inId) // 缓存当前入库行，取自有单价
+                stockInRow: allStockIn.find(inRec => inRec.id === inId)
             };
         }
         batchGroup[inId].totalOutQty += useQty;
         batchGroup[inId].detailList.push(detailItem);
     }
-    // 转为数组，每组独立出库
     const outBatchList = Object.values(batchGroup);
     if(outBatchList.length === 0) return showMsg('出库明细拆分失败');
 
-    // ========= 步骤3：循环每一个批次分组，逐条生成出库记录 =========
+    // 步骤3：循环每一个批次分组，逐条生成出库记录
     let allSubmitOk = true;
     for(const batch of outBatchList){
         const currentInRow = batch.stockInRow;
         const singleOutQty = batch.totalOutQty;
         const linkInId = batch.inRecordId;
         const detailJson = JSON.stringify(batch.detailList);
-        // 【关键修复】每组独立计算出库单价，不共用全局变量
+        // 每组独立计算出库单价
         let singleOutPrice = 0;
         if(settleType === '线上'){
             singleOutPrice = Number(goodsBaseInfo.online_cost) || 0;
         }else{
-            // 线下取当前批次自己的入库单价（各批次互不干扰）
             singleOutPrice = Number(currentInRow.in_price) || 0;
         }
-        // 金额计算
         const outAmount = Number((singleOutPrice * singleOutQty).toFixed(2));
         const saleAmount = Number((globalSalePrice * singleOutQty).toFixed(2));
-        // 单条出库提交数据
         const postBody = {
             supplier: supplier,
             goodsName: goodsName,
             spec: spec,
             settleType: settleType,
-            outPrice: singleOutPrice, // 当前批次自有入库单价
-            salePrice: globalSalePrice, // 统一最早批次销售价
+            outPrice: singleOutPrice,
+            salePrice: globalSalePrice,
             outNum: singleOutQty,
             outAmount: outAmount,
             saleAmount: saleAmount,
@@ -380,7 +375,6 @@ async function submitStockOut(){
             inRecordId: linkInId,
             outDetail: detailJson
         };
-        // 单条提交请求
         try{
             const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
                 method:'POST',
@@ -403,7 +397,6 @@ async function submitStockOut(){
         }
     }
 
-    // 提交完成统一回调刷新
     if(allSubmitOk){
         showMsg('全部出库提交成功');
     }else{
