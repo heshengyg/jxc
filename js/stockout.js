@@ -333,24 +333,25 @@ async function submitStockOut(){
         });
     });
     const batchGroupMap = {};
-    for(const item of outDetail){
-        const rid = item.inRecordId;
-        const mapItem = inIdMap.get(rid);
-        if(!mapItem) continue;
-        const key = mapItem.batchKey;
-        const inRec = mapItem.sourceInRec;
-        if(!batchGroupMap[key]){
-            batchGroupMap[key] = {
-                batchKey: key,
-                sourceInRec: inRec,
-                totalOutQty: 0,
-                detailList: []
-            };
-        }
-        batchGroupMap[key].totalOutQty += item.useNum;
-        batchGroupMap[key].detailList.push(item);
+for(const item of outDetail){
+    const rid = item.inRecordId;
+    const mapItem = inIdMap.get(rid);
+    if(!mapItem) continue;
+    const key = mapItem.batchKey;
+    const inRec = mapItem.sourceInRec;
+    if(!batchGroupMap[key]){
+        batchGroupMap[key] = {
+            batchKey: key,
+            sourceInRec: inRec,
+            totalOutQty: 0,
+            detailList: []
+        };
     }
-    const targetOutBatchList = Object.values(batchGroupMap);
+    batchGroupMap[key].totalOutQty += item.useNum;
+    batchGroupMap[key].detailList.push(item);
+}
+const targetOutBatchList = Object.values(batchGroupMap);
+
     if(targetOutBatchList.length === 0) return showMsg('出库明细拆分失败');
     // 计算全局销售价（修复商品取值、状态读取）
     const earliestWholeBatch = allBatchList[0];
