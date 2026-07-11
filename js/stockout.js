@@ -205,57 +205,60 @@ async function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outCurGoodsId').value = goods.id;
 
-    // 获取该商品所有业务批次（系统原生分组+按生产日期升序，0下标=最早批次）
     const allBatchList = getStockBatchList(sup, goods.name);
     if(allBatchList.length === 0){
-        document.getElementById('outSalePrice').value = "¥0.00";
+        const basePrice = Number(goods.sale_price || 0);
+        document.getElementById('outSalePrice').value = formatMoney(basePrice);
         document.getElementById('totalStockNum').value = 0;
         return;
     }
-    // 最早生产日期业务批次
     const earliestBatch = allBatchList[0];
-    const baseGoods = allGoods.find(g => g.id === goods.id);
-    let showSalePrice = 0;
+// 修复：从商品数组匹配当前选中商品，不再直接赋值全商品数组
+const baseGoods = allGoods.find(g => g.id === goods.id) || {};
+// 默认兜底商品原价
+let finalSalePrice = Number(baseGoods.sale_price || 0);
 
-    // 兼容到期日期为空场景，无到期日直接判定为“正常”
-    let statusKey = "正常";
-    if(earliestBatch.produce_date && earliestBatch.expire_date){
-        statusKey = calcBzStatus(
-            earliestBatch.produce_date,
-            earliestBatch.expire_date,
-            baseGoods.shelf_life_num,
-            baseGoods.shelf_life_unit
-        );
-    }
-    // 严格对齐price_temp_state字段映射
-    const statusToField = {
-        "正常": "sale_price",
-        "过期": "expire_price",
-        "discount_1": "discount_1_price",
-        "discount_2": "discount_2_price",
-        "discount_3": "discount_3_price",
-        "discount_4": "discount_4_price"
+// 获取状态文本
+const bzResult = calcBzStatus(
+    earliestBatch.produce_date,
+    earliestBatch.expire_date,
+    baseGoods.shelf_life_num,
+    baseGoods.shelf_life_unit
+);
+const statusText = bzResult.statusText;
+console.log("弹窗保质期状态：", statusText);
+
+    // 正确档位映射
+    const statusToFieldMap = {
+        "打6.5折": "discount_1_price",
+        "打7折": "discount_2_price",
+        "打8折": "discount_3_price",
+        "打9.5折": "discount_4_price",
+        "临期": "expire_price"
     };
-    const targetField = statusToField[statusKey];
-    try{
-        // 读取该商品对应档位售价
-        const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${baseGoods.id}`,{
-            headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
-        });
-        const priceData = await priceRes.json();
-        if(Array.isArray(priceData) && priceData.length > 0){
-            const priceRow = priceData[0];
-            const rawNum = Number(priceRow[targetField]);
-            if(!isNaN(rawNum) && rawNum > 0){
-                showSalePrice = rawNum;
+
+    // 仅折扣/临期才查价格表
+    if(statusToFieldMap.hasOwnProperty(statusText)){
+        const targetField = statusToField[statusText];
+        try{
+            const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${baseGoods.id}`,{
+                headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+            });
+            const priceData = await priceRes.json();
+            if(Array.isArray(priceData) && priceData.length > 0){
+                const row = priceData[0];
+                const discountNum = Number(row[targetField]);
+                // 折扣价格有效才覆盖，否则保留商品原价
+                if(!isNaN(discountNum) && discountNum > 0){
+                    finalSalePrice = discountNum;
+                }
             }
+        }catch(err){
+            console.error("价格读取异常，使用商品原价", err);
         }
-    }catch(err){
-        console.error("读取折扣售价失败", err);
     }
-    // 回填格式化售价
-    document.getElementById('outSalePrice').value = formatMoney(showSalePrice);
-    // 总库存
+    // 正常、过期直接使用finalSalePrice（商品原价）
+    document.getElementById('outSalePrice').value = formatMoney(finalSalePrice);
     const totalStock = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = totalStock;
 }
@@ -367,38 +370,45 @@ async function submitStockOut(){
 
     // 3、全局统一销售价（取全商品最早生产日期批次计算）
     const earliestWholeBatch = allBatchList[0];
-    const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
-    let globalSalePrice = 0;
-    let saleStatus = "正常";
-    if(earliestWholeBatch.produce_date && earliestWholeBatch.expire_date){
-        saleStatus = calcBzStatus(
-            earliestWholeBatch.produce_date,
-            earliestWholeBatch.expire_date,
-            goodsInfo.shelf_life_num,
-            goodsInfo.shelf_life_unit
-        );
-    }
-    const statusFieldMap = {
-        "正常": "sale_price",
-        "过期": "expire_price",
-        "discount_1": "discount_1_price",
-        "discount_2": "discount_2_price",
-        "discount_3": "discount_3_price",
-        "discount_4": "discount_4_price"
-    };
-    const targetSaleField = statusFieldMap[saleStatus];
+const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
+let globalSalePrice = Number(goodsInfo.sale_price || 0);
+
+const bzResult = calcBzStatus(
+    earliestWholeBatch.produce_date,
+    earliestWholeBatch.expire_date,
+    goodsInfo.shelf_life_num,
+    goodsInfo.shelf_life_unit
+);
+const statusText = bzResult.statusText;
+console.log("出库保质期状态：", statusText);
+
+const statusToFieldMap = {
+    "打6.5折": "discount_1_price",
+    "打7折": "discount_2_price",
+    "打8折": "discount_3_price",
+    "打9.5折": "discount_4_price",
+    "临期": "expire_price"
+};
+
+if(statusToFieldMap.hasOwnProperty(statusText)){
+    const targetField = statusToField[statusText];
     try{
         const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsInfo.id}`,{
             headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
         });
         const priceRows = await priceRes.json();
         if(priceRows.length > 0){
-            const priceCfg = priceRows[0];
-            const num = Number(priceCfg[targetSaleField]);
-            if(!isNaN(num) && num > 0) globalSalePrice = num;
+            const cfg = priceRows[0];
+            const discountNum = Number(cfg[targetField]);
+            if(!isNaN(discountNum) && discountNum > 0){
+                globalSalePrice = discountNum;
+            }
         }
     }catch(err){
-        console.error("全局售价读取失败", err);
+        console.error("出库价格读取失败，使用商品原价", err);
+    }
+}
+console.log("最终入库销售价：", globalSalePrice);
     }
 
     // 4、严格串行逐条提交，一条完成再下一条，杜绝并发丢失单据
