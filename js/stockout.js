@@ -205,45 +205,49 @@ async function selectOutGoods(goods){
     document.getElementById('outSettleType').value = goods.settleType || '';
     document.getElementById('outCurGoodsId').value = goods.id;
 
-    // 1. 获取当前商品所有入库批次，按ID升序拿到最早批次
     const allStockBatch = allStockIn.filter(row => row.supplier === sup && row.goodsName === goods.name);
-    allStockBatch.sort((a,b) => Number(a.id) - Number(b.id));
+    allStock.sort((a,b)=>Number(a.id)-Number(b.id));
     const earliestIn = allStockBatch[0];
     const baseGoods = allGoods.find(g => g.id === goods.id);
-    let showSalePrice = 0;
+    let showSalePrice = Number(baseGoods?.sale_price || 0);
 
     if(baseGoods && earliestIn){
-        // 2. 计算保质期状态
         const bzStatus = calcBzStatus(
-            earliestIn.produce_date,
-            earliestIn.expire_date,
+            earliest.produce_date,
+            earliest.expire_date,
             baseGoods.shelf_life_num,
             baseGoods.shelf_life_unit
         );
-        // 3. 从price_temp_state读取对应档位价格
-        const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${baseGoods.id}`,{
-            headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
-        });
-        const priceList = await priceRes.json();
-        const priceRule = priceList[0];
-        if(priceRule){
-            switch(bzStatus){
-                case 'normal': showSalePrice = Number(priceRule.sale_price) || 0; break;
-                case 'half1': showSalePrice = Number(priceRule.discount_1_price) || 0; break;
-                case 'half2': showSalePrice = Number(priceRule.discount_2_price) || 0; break;
-                case 'near': showSalePrice = Number(priceRule.discount_3_price) || 0; break;
-                case 'veryNear': showSalePrice = Number(priceRule.discount_4_price) || 0; break;
-                case 'expire': showSalePrice = Number(priceRule.expire_price) || 0; break;
-                default: showSalePrice = Number(priceRule.sale_price) || 0;
+        // 修正状态映射，和common统一
+        const fieldMap = {
+            "正常":"sale_price",
+            "过期":"expire_price",
+            "discount_1":"discount_1_price",
+            "discount_2":"discount_2_price",
+            "discount_3":"discount_3_price",
+            "discount_4":"discount_4_price"
+        };
+        const targetField = fieldMap[bzStatus] || "sale_price";
+        try{
+            const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${baseGoods.id}`,{
+                headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+            });
+            const priceList = await priceRes.json();
+            if(priceList && priceList.length > 0){
+                const priceRule = priceList[0];
+                if(priceRule[targetField] !== null && priceRule[targetField] !== undefined){
+                    showSalePrice = Number(priceRule[targetField]);
+                }
             }
+        }catch(e){
+            console.log('价格读取失败，使用原价',e);
         }
     }
-    // 回填弹窗销售单价
-    document.getElementById('outSalePrice').value = '¥' + Number(showSalePrice).toFixed(2);
-    // 回填总库存
+    document.getElementById('outSalePrice').value = formatMoney(showSalePrice);
     const totalStock = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = totalStock;
 }
+
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
