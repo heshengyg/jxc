@@ -565,13 +565,14 @@ function getStockBatchList(supplier, goodsName) {
     // 2. 按批次合并
     let batchMap = {};
     inList.forEach(inItem => {
-        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
+        let spec = inItem.spec || '';
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
             batchMap[batchKey] = {
                 supplier: inItem.supplier,
                 goodsName: inItem.goodsName,
-                spec: inItem.spec,
+                spec: spec,
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
@@ -671,20 +672,20 @@ function getTotalStockNum(supplier, goodsName) {
  */
 function calcFIFOOut(supplier, goodsName, outNum) {
     let batchList = getStockBatchList(supplier, goodsName);
+    console.log('批次列表:', batchList.map(b => ({id: b.inRecords[0]?.id, remain: b.batchRemain})));
+    
     let remainOut = outNum;
     let outDetail = [];
 
     for(let batch of batchList){
         if(remainOut <= 0) break;
-        // 当前批次可扣减数量
+        console.log(`处理批次，剩余需出库: ${remainOut}`);
+        
         let useFromBatch = Math.min(batch.batchRemain, remainOut);
-        // 批次内按入库记录ID排序（先进先出）
         let sortedInRecords = [...batch.inRecords].sort((a, b) => a.id - b.id);
 
-        // 分配扣减到批次内的入库记录
         for(let inItem of sortedInRecords){
             if(remainOut <= 0) break;
-            // 计算该入库记录的剩余库存
             let outTotalForIn = allStockOut
                 .filter(out => out.inRecordId === inItem.id)
                 .reduce((sum, out) => sum + Number(out.outNum), 0);
@@ -699,9 +700,9 @@ function calcFIFOOut(supplier, goodsName, outNum) {
             remainOut -= useForThisIn;
         }
     }
+    console.log('出库明细:', outDetail);
     return outDetail;
 }
-
 // 确保点击外部关闭下拉
 setTimeout(function() {
     document.addEventListener('click', function(e) {
