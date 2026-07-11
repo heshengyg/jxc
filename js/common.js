@@ -585,12 +585,11 @@ function getStockBatchList(supplier, goodsName) {
         batchMap[batchKey].totalInNum += Number(inItem.in_num);
     });
 
-    // 3. ✅ 统计每个批次已出库总量 + 已退货总量
+    // 3. 统计每个批次已出库总量 + 已退货总量
     Object.values(batchMap).forEach(batch => {
         let outTotal = 0;
         let returnTotal = 0;
         
-        // 统计出库
         allStockOut.forEach(out => {
             if (out.supplier === supplier && out.goodsName === goodsName) {
                 if (out.outDetail) {
@@ -618,7 +617,7 @@ function getStockBatchList(supplier, goodsName) {
             }
         });
         
-        // ✅ 新增：统计退货
+        // 统计退货
         if (allReturnGoods && allReturnGoods.length > 0) {
             allReturnGoods.forEach(returnItem => {
                 if (returnItem.supplier === supplier && returnItem.goods_name === goodsName) {
@@ -636,7 +635,7 @@ function getStockBatchList(supplier, goodsName) {
     // 4. 过滤库存为0的批次
     let batchList = Object.values(batchMap).filter(b => b.batchRemain > 0);
 
-    // 排序
+    // 5. 排序
     batchList.sort((a, b) => {
         if (a.produce_date && b.produce_date) {
             let pdDiff = new Date(a.produce_date) - new Date(b.produce_date);
