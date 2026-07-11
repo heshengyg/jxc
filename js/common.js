@@ -565,14 +565,14 @@ function getStockBatchList(supplier, goodsName) {
     // 2. 按批次合并
     let batchMap = {};
     inList.forEach(inItem => {
-        let spec = inItem.spec || '';
-        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${spec}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
+        // ✅ 关键修复：批次key必须包含生产日期和到期日期
+        let batchKey = `${inItem.supplier}_${inItem.goodsName}_${inItem.spec || ''}_${inItem.in_price || 0}_${inItem.produce_date || ''}_${inItem.expire_date || ''}`;
         
         if (!batchMap[batchKey]) {
             batchMap[batchKey] = {
                 supplier: inItem.supplier,
                 goodsName: inItem.goodsName,
-                spec: spec,
+                spec: inItem.spec || '',
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
@@ -617,7 +617,6 @@ function getStockBatchList(supplier, goodsName) {
             }
         });
         
-        // 统计退货
         if (allReturnGoods && allReturnGoods.length > 0) {
             allReturnGoods.forEach(returnItem => {
                 if (returnItem.supplier === supplier && returnItem.goods_name === goodsName) {
@@ -656,7 +655,6 @@ function getStockBatchList(supplier, goodsName) {
 
     return batchList;
 }
-
 /**
  * 获取商品总可用库存
  */
