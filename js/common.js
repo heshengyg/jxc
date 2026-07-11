@@ -568,9 +568,10 @@ function getStockBatchList(supplier, goodsName) {
        let batchKey = String(inItem.supplier) + "_"
 + String(inItem.goodsName) + "_"
 + String(inItem.spec) + "_"
-+ String(inItem.in_price ?? 0) + "_"
-+ String(inItem.produce_date ?? "") + "_"
-+ String(inItem.expire_date ?? "");
++ String(inItem.in_price) + "_"
++ String(inItem.produce_date) + "_"
++ String(inItem.expire_date ?? "") + "_"
++ String(inItem.id);
         
         if (!batchMap[batchKey]) {
             batchMap[batchKey] = {
