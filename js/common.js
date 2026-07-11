@@ -581,6 +581,7 @@ function getStockBatchList(supplier, goodsName) {
                 settleType: inItem.settleType,
                 produce_date: inItem.produce_date,
                 expire_date: inItem.expire_date,
+                in_price: inItem.in_price,
                 inRecords: [],
                 totalInNum: 0,
                 batchRemain: 0
