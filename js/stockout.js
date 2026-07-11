@@ -209,15 +209,13 @@ async function selectOutGoods(goods){
     allStockBatch.sort((a,b)=>Number(a.id)-Number(b.id));
     const earliestIn = allStockBatch[0];
     const baseGoods = allGoods.find(g => g.id === goods.id);
-    // 默认先用商品原价兜底
+    // 强制兜底商品原价
     let showSalePrice = Number(baseGoods?.sale_price || 0);
 
     if(baseGoods && earliestIn){
-        // 兜底：到期日期为空直接强制正常状态
-        let bzStatus;
-        if (!earliestIn.expire_date || earliestIn.expire_date === null || earliestIn.expire_date === '') {
-            bzStatus = "正常";
-        } else {
+        let bzStatus = "正常";
+        // 到期日为空直接走正常价，不进入计算避免报错
+        if(earliestIn.produce_date && earliestIn.expire_date){
             bzStatus = calcBzStatus(
                 earliestIn.produce_date,
                 earliestIn.expire_date,
@@ -241,9 +239,9 @@ async function selectOutGoods(goods){
             const priceList = await priceRes.json();
             if(priceList && priceList.length > 0){
                 const priceRule = priceList[0];
-                // 字段无值则 fallback 原价
                 const tempP = Number(priceRule[targetField]);
-                if (!isNaN(tempP) && tempP > 0) {
+                // 读取失败/空值 自动回退商品原价
+                if(!isNaN(tempP) && tempP > 0){
                     showSalePrice = tempP;
                 }
             }
@@ -255,7 +253,6 @@ async function selectOutGoods(goods){
     const totalStock = getTotalStockNum(sup, goods.name);
     document.getElementById('totalStockNum').value = totalStock;
 }
-
 // 出库数量实时库存校验
 function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
@@ -320,26 +317,24 @@ async function submitStockOut(){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
 
-    // 调用common全局FIFO函数
+    // FIFO拆分
     const outDetail = calcFIFOOut(supplier, goodsName, outNum);
-    console.log("====FIFO明细打印====", outDetail);
+    console.log("【FIFO明细】", outDetail);
     if(outDetail.length === 0) return showMsg('无可用库存批次');
 
-    // 提取所有入库ID，去重排序
+    // 提取所有入库id
     const allUsedInRecordIds = Array.from(new Set(outDetail.map(item => item.inRecordId)));
     allUsedInRecordIds.sort((a,b)=>Number(a)-Number(b));
-    console.log("所有参与出库入库ID：", allUsedInRecordIds);
+    console.log("所有参与出库入库ID数组：", allUsedInRecordIds, "长度：", allUsedInRecordIds.length);
     const firstInId = allUsedInRecordIds[0];
     const firstInRecord = allStockIn.find(r => r.id === firstInId);
     const goodsInfo = allGoods.find(g => g.supplier === supplier && g.name === goodsName);
     let globalSalePrice = Number(goodsInfo?.sale_price || 0);
 
-    // 价格读取 增加到期日为空兜底
+    // 价格计算兜底空日期
     if(goodsInfo && firstInRecord){
-        let bzStatus;
-        if (!firstInRecord.expire_date || firstInRecord.expire_date === null || firstInRecord.expire_date === '') {
-            bzStatus = "正常";
-        } else {
+        let bzStatus = "正常";
+        if(firstInRecord.produce_date && firstInRecord.expire_date){
             bzStatus = calcBzStatus(
                 firstInRecord.produce_date,
                 firstInRecord.expire_date,
@@ -364,7 +359,7 @@ async function submitStockOut(){
             if(priceList && priceList.length > 0){
                 const priceRule = priceList[0];
                 const tempP = Number(priceRule[targetField]);
-                if (!isNaN(tempP) && tempP > 0) {
+                if(!isNaN(tempP) && tempP > 0){
                     globalSalePrice = tempP;
                 }
             }
@@ -373,7 +368,7 @@ async function submitStockOut(){
         }
     }
 
-    // 按入库ID分组，一批一条出库
+    // 按入库ID分组
     const batchGroup = {};
     for(const item of outDetail){
         const rid = item.inRecordId;
@@ -385,14 +380,15 @@ async function submitStockOut(){
         batchGroup[rid].details.push(item);
     }
     const batchArr = Object.values(batchGroup);
-    console.log("拆分出库批次数量：", batchArr.length, batchArr);
+    console.log("最终要生成出库条数：", batchArr.length, batchArr);
     if(batchArr.length === 0) return showMsg('出库明细拆分失败');
 
-    // 串行逐条提交，杜绝并发丢失单据
+    // 关键：串行循环，等待一条插入完成再执行下一条，禁止并发
     let allSuccess = true;
     for(let i = 0; i < batchArr.length; i++){
         const batch = batchArr[i];
         const sourceIn = batch.sourceIn;
+        // 每条独立出库单价
         let singleOutPrice = 0;
         if(settleType === '线上'){
             singleOutPrice = Number(goodsInfo?.online_cost || 0);
@@ -413,6 +409,7 @@ async function submitStockOut(){
             outDetail: JSON.stringify(batch.details)
         };
         try{
+            console.log(`正在插入第${i+1}条出库单据`, postData);
             const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`,{
                 method:'POST',
                 headers:{
@@ -425,10 +422,10 @@ async function submitStockOut(){
             });
             if(!res.ok){
                 const err = await res.json();
-                console.error(`第${i+1}条出库失败`,err);
+                console.error(`第${i+1}条插入失败`,err);
                 allSuccess = false;
             }else{
-                console.log(`第${i+1}条出库保存成功`);
+                console.log(`第${i+1}条插入成功`);
             }
         }catch(e){
             console.error(`第${i+1}请求异常`,e);
