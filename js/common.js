@@ -666,40 +666,41 @@ function getTotalStockNum(supplier, goodsName) {
 }
 
 /**
- * 执行出库扣减（按合并批次先进先出）
- * 扣减规则：先扣减最早批次，批次库存用完再扣下一批次
+ * 执行出库扣减（按合并批次先进先出，同批次内按入库录入时间FIFO）
+ * 规则：
+ * 1. 不同批次 → 分开生成出库单
+ * 2. 同一批次多条入库，按入库记录录入时间先后扣减，汇总为一条出库单
  */
 function calcFIFOOut(supplier, goodsName, outTotalNum) {
-    // 获取所有有效批次
+    // 获取所有有效批次（按生产/到期FIFO排序）
     const batchList = getStockBatchList(supplier, goodsName);
     let outDetail = [];
     let remainOut = outTotalNum;
 
-    // 改用索引循环，保证所有批次依次遍历，不会中途跳出
+    // 遍历每一个业务批次
     for (let i = 0; i < batchList.length && remainOut > 0; i++) {
         const batch = batchList[i];
-        // 批次内入库单按录入时间升序（先进先出）
+        // 同批次内入库单：按record_date录入时间升序（入库先进先出）
         const sortedInRecords = [...batch.inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-        
+
         for (const inItem of sortedInRecords) {
             if (remainOut <= 0) break;
-            // 计算该入库单已出库总量
+            // 统计该入库单已出库总量
             const usedQty = allStockOut
                 .filter(item => item.inRecordId === inItem.id)
-                .reduce((sum, cur) => sum + Number(cur.outNum), 0);
-            // 该入库单真实剩余库存
+                .reduce((sum, out) => sum + Number(out.outNum), 0);
+            // 当前入库单真实剩余库存
             const realRemain = Math.max(0, Number(inItem.in_num) - usedQty);
             if (realRemain <= 0) continue;
 
-            // 严格限制本次出库不能超过当前入库剩余
             const takeQty = Math.min(realRemain, remainOut);
-            // 先拿到当前批次的唯一标识
-const batchKey = `${batch.supplier}_${batch.goodsName}_${batch.spec}_${batch.in_price || 0}_${batch.produce_date || ''}_${batch.expire_date || ''}`;
-outDetail.push({
-    batchKey: batchKey, // 新增批次分组标识
-    inRecordId: inItem.id,
-    useNum: useForThisIn
-});
+            // 生成分批次唯一标识，用于后续按批次合并出库单
+            const batchKey = `${batch.supplier}_${batch.goodsName}_${batch.spec}_${batch.in_price || 0}_${batch.produce_date || ''}_${batch.expire_date || ''}`;
+            outDetail.push({
+                batchKey: batchKey,
+                inRecordId: inItem.id,
+                useNum: takeQty // 修正变量名，不再使用未定义useForThisIn
+            });
             remainOut -= takeQty;
         }
     }
