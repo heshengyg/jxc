@@ -333,11 +333,12 @@ async function submitStockOut(){
     // 【核心修复】直接调用common内置FIFO，删除手写报错循环
 const outDetail = calcFIFOOut(supplier, goodsName, outNum);
 if(outDetail.length === 0) return showMsg('无可用库存批次');
-// 按入库ID分组生成多张出库单（改用Map，杜绝数字ID转字符串合并）
+// 按批次唯一key分组（同批次多条入库合并一组，不同批次分开）
 const groupMap = new Map();
 for(let d of outDetail){
-    let inRecordId = d.inRecordId;
-    let useNum = d.useNum;
+    const batchKey = d.batchKey;
+    const inRecordId = d.inRecordId;
+    const useNum = d.useNum;
     let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
     if(!inItem) continue;
     let outPrice = 0;
@@ -347,15 +348,17 @@ for(let d of outDetail){
     }else{
         outPrice = Number(inItem.in_price) || 0;
     }
-    if(!groupMap.has(inRecordId)){
-        groupMap.set(inRecordId, {
-            inRecordId: inRecordId,
+    // 以batchKey作为分组键，同批次全部汇总到一组
+    if(!groupMap.has(batchKey)){
+        groupMap.set(batchKey, {
+            batchKey: batchKey,
             outPrice: outPrice,
             totalUseNum: 0,
+            // 存储该批次下所有入库明细，用于outDetail字段存入数据库
             details: []
         });
     }
-    const targetGroup = groupMap.get(inRecordId);
+    const targetGroup = groupMap.get(batchKey);
     targetGroup.totalUseNum += useNum;
     targetGroup.details.push(d);
 }
@@ -369,7 +372,7 @@ if (!salePrice || salePrice === 0) {
     for(let group of groupList){
         let singleOutNum = group.totalUseNum;
         let singleOutPrice = group.outPrice;
-        let linkInId = group.inRecordId;
+        let linkInId = group.details[0].inRecordId;
         let detailStr = JSON.stringify(group.details);
         let outAmount = Number((singleOutPrice * singleOutNum).toFixed(2));
         let saleAmount = Number((salePrice * singleOutNum).toFixed(2));

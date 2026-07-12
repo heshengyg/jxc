@@ -693,10 +693,13 @@ function calcFIFOOut(supplier, goodsName, outTotalNum) {
 
             // 严格限制本次出库不能超过当前入库剩余
             const takeQty = Math.min(realRemain, remainOut);
-            outDetail.push({
-                inRecordId: inItem.id,
-                useNum: takeQty
-            });
+            // 先拿到当前批次的唯一标识
+const batchKey = `${batch.supplier}_${batch.goodsName}_${batch.spec}_${batch.in_price || 0}_${batch.produce_date || ''}_${batch.expire_date || ''}`;
+outDetail.push({
+    batchKey: batchKey, // 新增批次分组标识
+    inRecordId: inItem.id,
+    useNum: useForThisIn
+});
             remainOut -= takeQty;
         }
     }
