@@ -209,16 +209,11 @@ function selectOutGoods(goods){
 
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
-        // 直接从 allStockIn 获取批次
-        const batches = allStockIn.filter(item => 
-            item.supplier === sup && 
-            item.goodsName === goods.name
-        );
-        console.log('📦 allStockIn 中的批次:', batches);
-        
-        if (batches.length > 0) {
-            batches.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-            const earliest = batches[0];
+        // 替换：只拿库存>0、已按生产日期FIFO排序的业务批次
+const validBatchList = getStockBatchList(sup, goods.name);
+if (validBatchList.length > 0) {
+    const firstValidBatch = validBatchList[0];
+    const earliest = firstValidBatch.inRecords[0];
             
             // 计算 warnDay
             const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
