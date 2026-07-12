@@ -675,7 +675,10 @@ function calcFIFOOut(supplier, goodsName, outNum) {
     let outDetail = [];
 
     for(let batch of batchList){
-        if(remainOut <= 0) break;
+        // 新增调试日志
+    console.log('=====进入批次=====', batch.inRecords[0].id, '批次剩余', batch.batchRemain, '当前待出库', remainOut);
+    if(remainOut <= 0) break;
+
         // 当前批次可扣减数量
         let useFromBatch = Math.min(batch.batchRemain, remainOut);
         // 批次内按入库记录ID排序（先进先出）
