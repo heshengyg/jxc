@@ -1034,3 +1034,79 @@ window.getSalePriceByBzStatus = getSalePriceByBzStatus;
 window.calcPriceByInRecord = calcPriceByInRecord;
 window.getBzStatusLabel = getBzStatusLabel;
 window.getBzStatusKeyByLabel = getBzStatusKeyByLabel;
+
+// 汉字首字母映射表
+const CHAR_PINYIN_MAP = {
+    a:"吖嗄锕",b:"八巴拔白百柏摆拜稗斑班搬板半瓣般办绊邦帮榜包薄雹保堡饱宝抱报暴杯碑悲北贝备背倍被奔本笨崩绷甭泵蹦迸逼鼻比鄙笔彼碧蔽毕毙毖币庇痹闭敝弊必辟壁臂避陛鞭边编贬扁便变卞辨辩遍标膘表鳖憋别瘪彬斌滨宾冰柄丙炳病并玻菠播拨钵波博勃搏铂箔伯帛舶脖膊薄泊卜哺补捕",
+    c:"擦猜裁材才财睬踩采彩蔡餐参蚕残惭惨灿苍舱仓藏操糙槽曹草厕策侧册层蹭插叉茬茶查碴察差豺搀掺蝉馋谗铲产阐昌长常偿肠场敞畅倡超钞朝嘲潮巢吵车扯撤掣彻澈郴臣辰尘晨忱沉陈趁衬撑成呈诚城乘惩程澄橙逞骋秤吃痴持匙池迟弛驰耻齿侈尺赤翅斥充冲虫崇抽酬畴稠愁筹仇绸瞅丑初出橱厨躇锄雏除楚础储矗搐触处揣川穿椽传疮窗床闯吹炊垂锤春椿醇纯词瓷慈刺次聪葱囱促醋簇粗崔催摧萃粹淬村存寸",
+    d:"搭达答瘩打大呆歹傣戴带殆代贷待丹单耽胆旦氮但惮淡当刀导岛到道德登等迪敌笛狄涤翟嫡抵地第典电吊丁丢东冬动斗毒杜端短段断堆兑顿多",
+    e:"蛾鹅俄厄扼遏鄂恩儿耳二",
+    f:"发番方房飞分丰风佛否夫敷福府浮父甫付复傅富",
+    g:"该盖干甘钢高告戈歌格根工公功古瓜关广归桂郭国",
+    h:"海寒行好合河红胡花华化怀黄回活火",
+    j:"机基吉急几计家坚简见江交角节金近经九居举决军",
+    k:"开刊康考科可空口宽困",
+    l:"来兰劳乐雷冷离里立利连良两量林临龙路绿落",
+    m:"马买满毛美门米面民明母木目",
+    n:"拿难内能年鸟牛农女",
+    o:"噢哦欧",
+    p:"盘旁跑朋皮平坡普",
+    q:"七其奇千前强桥青秋求区全群",
+    r:"人日如软",
+    s:"三散桑色森山商上少设生师十时实史市手书水顺丝四松苏所",
+    t:"台太谈汤天田条通同头土团推托",
+    w:"外完万为王望微文无五物",
+    x:"西希细下先相小心新行熊修需学雪",
+    y:"牙言羊扬养药业一以意因英永有鱼元原远月云",
+    z:"在咱早则展张长找真正之中周主专转庄子字总"
+};
+/**
+ * 获取单个汉字首字母，非汉字原样返回
+ * @param {string} c 单个字符
+ * @returns {string} 大写首字母/原字符
+ */
+function getSingleCharFirstLetter(c) {
+    if (!/[\u4e00-\u9fa5]/.test(c)) return c;
+    for (let letter in CHAR_PINYIN_MAP) {
+        if (CHAR_PINYIN_MAP[letter].includes(c)) return letter.toUpperCase();
+    }
+    return c;
+}
+/**
+ * 生成文本检索对象：原文小写 + 全部首拼小写
+ * @param {string} text 原始文本（商品名/供应商）
+ * @returns {{raw:string, shortPinyin:string}}
+ */
+function getSearchPinyin(text) {
+    if (!text || typeof text !== 'string') return { raw: '', shortPinyin: '' };
+    const raw = text.trim().toLowerCase();
+    let shortPinyin = '';
+    for (let char of text) {
+        shortPinyin += getSingleCharFirstLetter(char);
+    }
+    return {
+        raw: raw,
+        shortPinyin: shortPinyin.toLowerCase()
+    };
+}
+// 暴露全局，goods.js可直接调用
+window.getSearchPinyin = getSearchPinyin;
+window.getSingleCharFirstLetter = getSingleCharFirstLetter;
+
+## 关键说明
+1. 新增位置：common.js 最末尾，所有库存/保质期函数下方、window全局暴露代码上方；
+2. 全局函数 `getSearchPinyin("正大鸡蛋")` 返回 `{raw:"正大鸡蛋", shortPinyin:"zdjd"}`；
+3. 所有下拉/表格搜索统一调用该函数，无需重复写拼音逻辑。
+
+---
+
+# 二、商品管理三大子版块逐个改造（goods.js）
+商品3个子模块：商品信息、供应商结算类型、后台改日期，全部下拉/表格搜索统一改造模糊首拼检索。
+
+## 子版块1：商品信息（核心搜索：供应商下拉、商品名下拉、顶部表格筛选）
+### 1. 改造1：弹窗新增供应商下拉过滤函数 `filterAddSupplierList`
+原代码：
+```js
+function filterAddSupplierList() {
+    showAddSupplierList();
+}
