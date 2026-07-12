@@ -672,37 +672,29 @@ function getTotalStockNum(supplier, goodsName) {
  * 2. 同一批次多条入库，按入库记录录入时间先后扣减，汇总为一条出库单
  */
 function calcFIFOOut(supplier, goodsName, outTotalNum) {
-    // 获取所有有效批次（按生产/到期FIFO排序）
+    // 获取合并后的批次列表（已按生产日期FIFO排序）
     const batchList = getStockBatchList(supplier, goodsName);
     let outDetail = [];
     let remainOut = outTotalNum;
 
-    // 遍历每一个业务批次
-    for (let i = 0; i < batchList.length && remainOut > 0; i++) {
-        const batch = batchList[i];
-        // 同批次内入库单：按record_date录入时间升序（入库先进先出）
-        const sortedInRecords = [...batch.inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    for (const batch of batchList) {
+        if (remainOut <= 0) break;
+        const batchStock = batch.batchRemain;
+        if (batchStock <= 0) continue;
 
-        for (const inItem of sortedInRecords) {
-            if (remainOut <= 0) break;
-            // 统计该入库单已出库总量
-            const usedQty = allStockOut
-                .filter(item => item.inRecordId === inItem.id)
-                .reduce((sum, out) => sum + Number(out.outNum), 0);
-            // 当前入库单真实剩余库存
-            const realRemain = Math.max(0, Number(inItem.in_num) - usedQty);
-            if (realRemain <= 0) continue;
-
-            const takeQty = Math.min(realRemain, remainOut);
-            // 生成分批次唯一标识，用于后续按批次合并出库单
-            const batchKey = `${batch.supplier}_${batch.goodsName}_${batch.spec}_${batch.in_price || 0}_${batch.produce_date || ''}_${batch.expire_date || ''}`;
-            outDetail.push({
-                batchKey: batchKey,
-                inRecordId: inItem.id,
-                useNum: takeQty // 修正变量名，不再使用未定义useForThisIn
-            });
-            remainOut -= takeQty;
-        }
+        // 当前批次最多可出库数量
+        const takeQty = Math.min(batchStock, remainOut);
+        // 取该批次任意一条入库ID关联出库
+        const linkInId = batch.inRecords[0].id;
+        // 生成批次唯一标识，用于分组合并出库单
+        const batchKey = `${batch.supplier}_${batch.goodsName}_${batch.spec}_${batch.in_price || 0}_${batch.produce_date || ''}_${batch.expire_date || ''}`;
+        
+        outDetail.push({
+            batchKey: batchKey,
+            inRecordId: linkInId,
+            useNum: takeQty
+        });
+        remainOut -= takeQty;
     }
     return outDetail;
 }
