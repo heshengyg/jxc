@@ -670,36 +670,39 @@ function getTotalStockNum(supplier, goodsName) {
  * 扣减规则：先扣减最早批次，批次库存用完再扣下一批次
  */
 function calcFIFOOut(supplier, goodsName, outTotalNum) {
+    // 获取所有有效批次
     const batchList = getStockBatchList(supplier, goodsName);
     let outDetail = [];
     let remainOut = outTotalNum;
-    let batchIndex = 0;
 
-    // 改用索引循环，稳定遍历所有批次，不会中途中断
-    while (remainOut > 0 && batchIndex < batchList.length) {
-        const batch = batchList[batchIndex];
+    // 改用索引循环，保证所有批次依次遍历，不会中途跳出
+    for (let i = 0; i < batchList.length && remainOut > 0; i++) {
+        const batch = batchList[i];
+        // 批次内入库单按录入时间升序（先进先出）
         const sortedInRecords = [...batch.inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
         
         for (const inItem of sortedInRecords) {
             if (remainOut <= 0) break;
-            // 计算当前入库单剩余库存
-            const usedNum = allStockOut
-                .filter(o => o.inRecordId === inItem.id)
-                .reduce((sum, o) => sum + Number(o.outNum), 0);
-            const inRemain = Math.max(0, Number(inItem.in_num) - usedNum);
-            if (inRemain <= 0) continue;
-            // 限制本次最多取当前入库剩余量
-            const takeNum = Math.min(inRemain, remainOut);
+            // 计算该入库单已出库总量
+            const usedQty = allStockOut
+                .filter(item => item.inRecordId === inItem.id)
+                .reduce((sum, cur) => sum + Number(cur.outNum), 0);
+            // 该入库单真实剩余库存
+            const realRemain = Math.max(0, Number(inItem.in_num) - usedQty);
+            if (realRemain <= 0) continue;
+
+            // 严格限制本次出库不能超过当前入库剩余
+            const takeQty = Math.min(realRemain, remainOut);
             outDetail.push({
                 inRecordId: inItem.id,
-                useNum: takeNum
+                useNum: takeQty
             });
-            remainOut -= takeNum;
+            remainOut -= takeQty;
         }
-        batchIndex++;
     }
     return outDetail;
 }
+
 // 确保点击外部关闭下拉
 setTimeout(function() {
     document.addEventListener('click', function(e) {
