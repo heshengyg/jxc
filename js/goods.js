@@ -133,10 +133,7 @@ function showSettleSupplierList() {
 
 function filterSettleSupplierList() {
     const kw = document.getElementById('settleSupplierSearchInput').value.toLowerCase();
-    const filtered = settleSupplierList.filter(s => {
-    const info = getSearchPinyin(s);
-    return info.raw.includes(kw) || info.shortPinyin.includes(kw);
-});
+    const filtered = settleSupplierList.filter(s => s.toLowerCase().includes(kw));
     renderSettleSupplierList(filtered);
     document.getElementById('settleSupplierListBox').style.display = 'block';
 }
@@ -724,40 +721,9 @@ function showAddSupplierList() {
 }
 
 function filterAddSupplierList() {
-    const searchInput = document.getElementById('addSupplierSearch');
-    const keyword = searchInput.value.trim().toLowerCase();
-    // 过滤带首拼匹配
-    let suppliers = settleData.map(s => s.supplier).sort();
-    suppliers = suppliers.filter(name => {
-        const searchInfo = getSearchPinyin(name);
-        return searchInfo.raw.includes(keyword) || searchInfo.shortPinyin.includes(keyword);
-    });
-    const box = document.getElementById('addSupplierListBox');
-    box.innerHTML = '';
-    if (suppliers.length === 0) {
-        box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配供应商</div>';
-        box.style.display = 'block';
-        return;
-    }
-    suppliers.forEach(sup => {
-        let div = document.createElement('div');
-        div.textContent = sup;
-        div.style.padding = '6px 10px';
-        div.style.cursor = 'pointer';
-        div.style.borderBottom = '1px solid #eee';
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        div.onclick = function() {
-            searchInput.value = sup;
-            document.getElementById('addSupplierListBox').style.display = 'none';
-            onSupplierChange();
-            var evt = new Event('change', { bubbles: true });
-            searchInput.dispatchEvent(evt);
-        };
-        box.appendChild(div);
-    });
-    box.style.display = 'block';
+    showAddSupplierList();
 }
+
 // 点击空白关闭下拉
 document.addEventListener('click', function(e) {
     if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
@@ -973,10 +939,7 @@ function renderGoodsFilterList(type, keyword = '') {
     if (!box) return;
     let data = goodsFilterData[type] || [];
     if (keyword) {
-        data = data.filter(item => {
-    const searchInfo = getSearchPinyin(item);
-    return searchInfo.raw.includes(keyword) || searchInfo.shortPinyin.includes(keyword);
-});
+        data = data.filter(item => item.toLowerCase().includes(keyword));
     }
     box.innerHTML = '';
     if (data.length === 0) {
@@ -2133,10 +2096,7 @@ function renderDateChangeFilterList(type, keyword = '') {
     
     if (keyword) {
         const kwLow = keyword.toLowerCase();
-        data = data.filter(item => {
-    const info = getSearchPinyin(item);
-    return info.raw.includes(kwLow) || info.shortPinyin.includes(kwLow);
-});
+        data = data.filter(item => item.toLowerCase().includes(kwLow));
     }
     
     box.innerHTML = '';
@@ -2210,16 +2170,8 @@ function filterDateChangeList() {
         dateChangeFilteredList = dateChangeData.filter(item => {
             let match = true;
             const itemBzStatus = item.earliestBatch?.bzStatusText || '';
-            if (supplier) {
-    const sInfo = getSearchPinyin(item.supplier || '');
-    const kw = supplier.toLowerCase();
-    if (!sInfo.raw.includes(kw) && !sInfo.shortPinyin.includes(kw)) match = false;
-}
-if (goodsName) {
-    const gInfo = getSearchPinyin(item.name || '');
-    const kw = goodsName.toLowerCase();
-    if (!gInfo.raw.includes(kw) && !gInfo.shortPinyin.includes(kw)) match = false;
-}
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
             if (spec && !(item.spec || '').toLowerCase().includes(spec.toLowerCase())) match = false;
             if (settleType && !(item.settleType || '').toLowerCase().includes(settleType.toLowerCase())) match = false;
             if (bzStatus && !itemBzStatus.toLowerCase().includes(bzStatus.toLowerCase())) match = false;
