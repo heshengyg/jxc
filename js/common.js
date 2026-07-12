@@ -669,42 +669,37 @@ function getTotalStockNum(supplier, goodsName) {
  * 执行出库扣减（按合并批次先进先出）
  * 扣减规则：先扣减最早批次，批次库存用完再扣下一批次
  */
-function calcFIFOOut(supplier, goodsName, outNum) {
-    let batchList = getStockBatchList(supplier, goodsName);
-    let remainOut = outNum;
+function calcFIFOOut(supplier, goodsName, outTotalNum) {
+    const batchList = getStockBatchList(supplier, goodsName);
     let outDetail = [];
+    let remainOut = outTotalNum;
+    let batchIndex = 0;
 
-    for(let batch of batchList){
-        // 新增调试日志
-    console.log('=====进入批次=====', batch.inRecords[0].id, '批次剩余', batch.batchRemain, '当前待出库', remainOut);
-    if(remainOut <= 0) break;
-
-        // 当前批次可扣减数量
-        let useFromBatch = Math.min(batch.batchRemain, remainOut);
-        // 批次内按入库记录ID排序（先进先出）
-        let sortedInRecords = [...batch.inRecords].sort((a, b) => a.id - b.id);
-
-        // 分配扣减到批次内的入库记录
-        for(let inItem of sortedInRecords){
-            if(remainOut <= 0) break;
-            // 计算该入库记录的剩余库存
-            let outTotalForIn = allStockOut
-                .filter(out => out.inRecordId === inItem.id)
-                .reduce((sum, out) => sum + Number(out.outNum), 0);
-            let inRemain = Math.max(0, Number(inItem.in_num) - outTotalForIn);
-            if(inRemain <= 0) continue;
-
-            let useForThisIn = Math.min(inRemain, remainOut);
+    // 改用索引循环，稳定遍历所有批次，不会中途中断
+    while (remainOut > 0 && batchIndex < batchList.length) {
+        const batch = batchList[batchIndex];
+        const sortedInRecords = [...batch.inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+        
+        for (const inItem of sortedInRecords) {
+            if (remainOut <= 0) break;
+            // 计算当前入库单剩余库存
+            const usedNum = allStockOut
+                .filter(o => o.inRecordId === inItem.id)
+                .reduce((sum, o) => sum + Number(o.outNum), 0);
+            const inRemain = Math.max(0, Number(inItem.in_num) - usedNum);
+            if (inRemain <= 0) continue;
+            // 限制本次最多取当前入库剩余量
+            const takeNum = Math.min(inRemain, remainOut);
             outDetail.push({
                 inRecordId: inItem.id,
-                useNum: useForThisIn
+                useNum: takeNum
             });
-            remainOut -= useForThisIn;
+            remainOut -= takeNum;
         }
+        batchIndex++;
     }
     return outDetail;
 }
-
 // 确保点击外部关闭下拉
 setTimeout(function() {
     document.addEventListener('click', function(e) {
