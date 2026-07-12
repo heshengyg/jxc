@@ -299,6 +299,11 @@ async function openStockOutForm(){
 }
 
 function closeStockOutForm(){
+    // 新增：关闭出库弹窗时，同步关闭全局提示msg弹窗
+    const msgModal = document.getElementById('msgModal');
+    if(msgModal){
+        msgModal.style.display = 'none';
+    }
     // 关闭时隐藏下拉
     const supBox = document.getElementById('outSupListBox');
     if (supBox) supBox.style.display = 'none';
