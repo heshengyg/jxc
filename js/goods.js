@@ -584,12 +584,11 @@ function clearSort() {
     loadGoods();
 }
 
-async function loadGoods(force, keepPage = false) {
+async function loadGoods(force) {
     if (force) {
         isLoadingGoods = false;
         isGoodsLoaded = false;
         allGoods = [];
-        // 移除这里 currentPage = 1; 核心跳转元凶
     } else {
         if (isLoadingGoods) return;
     }
@@ -607,7 +606,7 @@ async function loadGoods(force, keepPage = false) {
         await filterGoodsWaitCache();
         const totalCountEl = document.getElementById('totalCount');
         if (totalCountEl) totalCountEl.textContent = allGoods.length;
-        renderPagination(); // 分页会自动适配现有currentPage
+        renderPagination();
         renderGoods();
         loadSettleListSilently();
     } catch (e) {
@@ -1229,7 +1228,7 @@ async function submitForm() {
             showMsg('新增成功');
         }
         closeForm();
-        await loadGoods(true, true);
+        await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
         }
@@ -1255,7 +1254,7 @@ async function deleteGoods(id) {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         showMsg('删除成功');
-        await loadGoods(true, true);
+        await loadGoods(true);
         if (typeof loadAllGoods === 'function') {
             await loadAllGoods();
         }
@@ -1312,7 +1311,7 @@ async function batchDelete() {
         });
     }
     showMsg('批量删除成功');
-    await loadGoods(true, true);
+    await loadGoods(true);
     if (typeof loadAllGoods === 'function') {
         await loadAllGoods();
     }
@@ -1460,7 +1459,7 @@ function importGoodsExcel() {
             showMsg(msg);
 
             fileInput.value = '';
-            await loadGoods(true, false);
+            await loadGoods(true);
             if (typeof loadAllGoods === 'function') {
                 await loadAllGoods();
             }
@@ -2335,7 +2334,7 @@ async function updateSingleGoodsDateWithPrice(id) {
     }
     
     showMsg(`✅ 更新成功！日期已更新，last_sale_price 已清空`);
-    await loadGoods(true, true);
+    await loadGoods(true);
     loadDateChangeTab();
 }
 
@@ -2396,7 +2395,7 @@ async function batchUpdateGoodsDate() {
     }
     
     showMsg(`✅ 批量更新完成！成功 ${successCount} 条${priceChangedIds.length > 0 ? '，其中 ' + priceChangedIds.length + ' 条价格已变动并清空状态价格' : ''}`);
-    await loadGoods(true, false);
+    await loadGoods(true);
     loadDateChangeTab();
 }
 
