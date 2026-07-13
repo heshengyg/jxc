@@ -2218,8 +2218,10 @@ function updateDateChangeButton() {
     const btn = document.getElementById('batchUpdateDateBtn');
     if (!btn) return;
     const count = Array.isArray(dateChangeData) ? dateChangeData.length : 0;
+    const hasPerm = canOperateDateUpdate();
+    const canClick = count > 0 && hasPerm;
     
-    if (count > 0) {
+    if (canClick) {
         btn.style.background = '#ff4d4f';
         btn.style.color = '#ffffff';
         btn.style.fontWeight = 'bold';
@@ -2231,11 +2233,10 @@ function updateDateChangeButton() {
         btn.style.color = '#999999';
         btn.style.fontWeight = 'normal';
         btn.style.cursor = 'not-allowed';
-        btn.textContent = '需更新 (0)';
+        btn.textContent = `需更新 (${count})${!hasPerm ? '（无权限）' : ''}`;
         btn.disabled = true;
     }
 }
-
 function copyDateText(text, btnElement) {
     if (!text) {
         showMsg('没有可复制的内容');
@@ -2287,6 +2288,11 @@ function fallbackCopy(text, btnElement) {
 }
 
 async function updateSingleGoodsDateWithPrice(id) {
+// 权限拦截
+    if (!canOperateDateUpdate()) {
+        showMsg('当前角色无更新商品日期权限（仅管理员、APP部可操作）');
+        return;
+    }
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) return;
     
@@ -2339,6 +2345,11 @@ async function updateSingleGoodsDateWithPrice(id) {
 }
 
 async function batchUpdateGoodsDate() {
+// 权限拦截
+    if (!canOperateDateUpdate()) {
+        showMsg('当前角色无批量更新权限（仅管理员、APP部可操作）');
+        return;
+    }
     // ✅ 修改：统计更新按钮未置灰的行（即 isUpdateDisabled === false）
     const canUpdateList = dateChangeFilteredList.filter(item => {
         return item.isUpdateDisabled === false;
@@ -2650,21 +2661,23 @@ if (item.dateType === '生产日期') {
         // ========== 构建操作按钮 ==========
 let actionButtons = '';
 actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
-// 改价按钮：仅折扣/临期状态显示
+// 改价按钮：仅折扣/临期状态显示 + 角色权限校验
 if (item.showPriceBtn) {
+    const priceBtnDisabled = !canOperatePriceEdit();
+    const priceBtnStyle = priceBtnDisabled
+        ? 'disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px; font-size:12px; border:none; border-radius:3px; white-space:nowrap; height:28px; line-height:20px;"'
+        : 'style="padding:4px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;"';
     actionButtons += `
-        <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">改价</button>
+        <button class="btn btn-warning" onclick="openPriceModal(${item.id})" ${priceBtnStyle}>改价</button>
     `;
 }
-
-// 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示
+// 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
 if (item.showCopyPriceBtn && item.priceChanged) {
     actionButtons += `
         <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制新价</button>
     `;
 }
-
-// 复制日期按钮：仅日期变动时显示
+// 复制日期按钮：仅日期变动时显示（无权限限制）
 if (item.showCopyDateBtn) {
     const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
         ? `（${item.displayValue}生产）` 
@@ -2675,18 +2688,16 @@ if (item.showCopyDateBtn) {
         <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制日期</button>
     `;
 }
-
-// 更新按钮
-const updateDisabledStyle = item.isUpdateDisabled 
+// 更新按钮：原有业务禁用 + 角色权限双重判断
+const dateUpdatePerm = canOperateDateUpdate();
+const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
+const updateDisabledStyle = updateBtnRealDisabled
     ? 'disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;"' 
     : 'style="padding:4px 10px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;"';
-
 actionButtons += `
     <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabledStyle}>更新</button>
 `;
-
-actionButtons += '</div>';
-        
+actionButtons += '</div>';        
         const html = `
             <tr>
                 <td>${rowNum}</td>
@@ -2796,6 +2807,11 @@ document.addEventListener('click', function(e) {
 // ============================================================
 
 function openPriceModal(id) {
+// 权限拦截
+    if (!canOperatePriceEdit()) {
+        showMsg('当前角色无改价权限（仅管理员、商品部可操作）');
+        return;
+    }
     const item = dateChangeFilteredList.find(d => d.id === id);
     if (!item) {
         showMsg('找不到该商品');

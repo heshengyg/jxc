@@ -297,6 +297,37 @@ function isCurrentUserAdmin() {
     return currentRole && currentRole.name === '管理员';
 }
 
+// 改日改价-更新按钮权限：管理员 / APP部
+function canOperateDateUpdate() {
+    if (!currentUserId) return false;
+    var user = permissionData.users.find(u => u.id === currentUserId);
+    if (!user) return false;
+    var role = permissionData.roles.find(r => r.id === user.roleId);
+    if (!role) return false;
+    return role.name === '管理员' || role.name === 'APP部';
+}
+// 改日改价-改价按钮权限：管理员 / 商品部
+function canOperatePriceEdit() {
+    if (!currentUserId) return false;
+    var user = permissionData.users.find(u => u.id === currentUserId);
+    if (!user) return false;
+    var role = permissionData.roles.find(r => r.id === user.roleId);
+    if (!role) return false;
+    return role.name === '管理员' || role.name === '商品部';
+}
+// 获取当前用户角色名称（备用）
+function getCurrentUserRoleName() {
+    if (!currentUserId) return '';
+    var user = permissionData.users.find(u => u.id === currentUserId);
+    if (!user) return '';
+    var role = permissionData.roles.find(r => r.id === user.roleId);
+    return role?.name || '';
+}
+// 暴露到window供goods.js调用
+window.canOperateDateUpdate = canOperateDateUpdate;
+window.canOperatePriceEdit = canOperatePriceEdit;
+window.getCurrentUserRoleName = getCurrentUserRoleName;
+
 // ===== 权限检查函数 =====
 function getUserPermissions(userId) {
     // 先尝试通过 ID 查找
