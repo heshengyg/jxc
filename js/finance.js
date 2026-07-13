@@ -2101,7 +2101,6 @@ function searchMonthInvoiceBalance() {
     const searchKey = document.getElementById('monthBalanceSupplierSearchInput').value.trim().toLowerCase();
     
     if (!month) {
-        // 如果没有选择月份，清空表格并提示
         const tbody = document.getElementById('monthBalanceList');
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">请选择统计月份</td></tr>';
         renderFinancePagination('monthInvoiceBalance');
@@ -2109,22 +2108,41 @@ function searchMonthInvoiceBalance() {
     }
     
     const supplierMap = {};
+    
+    // ===== 1. 统计该月入库金额（线下） =====
     const monthStock = allStockInList.filter(i => {
         return i.settleType === '线下' && i.record_date && i.record_date.substring(0, 7) === month;
     });
     monthStock.forEach(item => {
         const total = Number(item.in_price) * Number(item.in_num);
-        if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
+        if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, returnTotal: 0, backTotal: 0 };
         supplierMap[item.supplier].inTotal += total;
     });
+    
+    // ===== 2. ✅ 新增：统计该月退货金额（退货冲减应付款） =====
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        const monthReturn = allReturnGoods.filter(i => {
+            return i.settle_type === '线下' && i.record_date && i.record_date.substring(0, 7) === month;
+        });
+        monthReturn.forEach(item => {
+            const total = Number(item.in_price) * Number(item.return_num);
+            if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, returnTotal: 0, backTotal: 0 };
+            supplierMap[item.supplier].returnTotal += total;
+        });
+    }
+    
+    // ===== 3. 统计该月发票返回金额 =====
     const monthBack = allInvoiceBackList.filter(b => b.return_date && b.return_date.substring(0, 7) === month);
     monthBack.forEach(item => {
-        if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, backTotal: 0 };
+        if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, returnTotal: 0, backTotal: 0 };
         supplierMap[item.supplier].backTotal += Number(item.invoice_amount);
     });
+    
+    // ===== 4. 计算发票结余 = 发票返回 - 入库 + 退货 =====
     let list = [];
     for (const s in supplierMap) {
-        const balance = supplierMap[s].backTotal - supplierMap[s].inTotal;
+        const data = supplierMap[s];
+        const balance = data.backTotal - data.inTotal + data.returnTotal;
         list.push({ supplier: s, month, balance });
     }
     
@@ -2132,6 +2150,9 @@ function searchMonthInvoiceBalance() {
     if (searchKey) {
         list = list.filter(row => row.supplier.toLowerCase().includes(searchKey));
     }
+
+    // ===== 5. 按供应商名称排序 =====
+    list.sort((a, b) => a.supplier.localeCompare(b.supplier));
 
     const cfg = financePageConfig.monthInvoiceBalance;
     cfg.total = list.length;
@@ -2156,6 +2177,7 @@ function searchMonthInvoiceBalance() {
     });
     renderFinancePagination('monthInvoiceBalance');
 }
+
 // ===================== ⑦入库对账 =====================
 // 入库对账下拉缓存变量
 let checkInSupplierList = [];
@@ -2409,7 +2431,7 @@ function searchStockInCheck() {
         });
     });
 
-    // 按日期排序
+    // 按日期排序（正序，用于核销计算）
     allRecords.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
     // ===== 4. 按供应商分组分别计算 =====
@@ -2530,7 +2552,10 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 6. 分组汇总 =====
+    // ===== 6. 按录入日期倒序排列（最新在前） =====
+    processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
+
+    // ===== 7. 分组汇总 =====
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2568,9 +2593,11 @@ function searchStockInCheck() {
             }
         });
         processedList = Object.values(groupMap);
+        // 分组后再次按日期倒序排列
+        processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
 
-    // ===== 7. 汇总行 =====
+    // ===== 8. 汇总行 =====
     let summary = {
         in_num: 0,
         totalAmount: 0,
@@ -2586,7 +2613,7 @@ function searchStockInCheck() {
         summary.remainAmount = row.remainAmount;
     });
 
-    // ===== 8. 更新总条数提示 =====
+    // ===== 9. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = allStockInList.length;
@@ -2594,7 +2621,7 @@ function searchStockInCheck() {
         totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${processedList.length} 条`;
     }
 
-    // ===== 9. 分页渲染 =====
+    // ===== 10. 分页渲染 =====
     const cfg = financePageConfig.stockInCheck;
     cfg.total = processedList.length;
     const start = (cfg.current - 1) * cfg.pageSize;
@@ -2674,7 +2701,6 @@ function searchStockInCheck() {
     
     renderFinancePagination('stockInCheck');
 }
-
 // 移除之前重复定义的函数，使用上面的新版本
 // 注意：之前已经定义了 showCheckInSupplierList、filterCheckInSupplierList、renderCheckInSupplierList
 // 以及 showCheckInGoodsList、filterCheckInGoodsList、renderCheckInGoodsList
@@ -3343,6 +3369,9 @@ function searchStockOutCheck() {
             recordDate: recordDate
         };
     });
+    
+    // ===== 按录入日期倒序排列（最新在前） =====
+    processedList.sort((a, b) => (b.recordDate || '').localeCompare(a.recordDate || ''));
       
     if (groupSupplier || groupGoods) {
         const groupMap = {};
@@ -3381,6 +3410,8 @@ function searchStockOutCheck() {
             }
         });
         processedList = Object.values(groupMap);
+        // 分组后再次按日期倒序排列
+        processedList.sort((a, b) => (b.recordDate || '').localeCompare(a.recordDate || ''));
     }
     
     let summary = {
@@ -3461,7 +3492,6 @@ function searchStockOutCheck() {
     
     renderFinancePagination('stockOutCheck');
 }
-
 // 移除之前重复定义的函数 showCheckOutSupplierList、filterCheckOutSupplierList、renderCheckOutSupplierList
 // 以及 showCheckOutGoodsList、filterCheckOutGoodsList、renderCheckOutGoodsList
 // 使用上面的新版本覆盖
