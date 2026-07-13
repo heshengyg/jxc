@@ -1947,7 +1947,7 @@ function renderPaymentBoard() {
         supplierGroup[item.supplier].totalIn += total;
     });
     
-    // ✅ 新增：退货总额
+    // 退货总额
     if (allReturnGoods && allReturnGoods.length > 0) {
         allReturnGoods.filter(i => i.settle_type === '线下').forEach(item => {
             const total = Number(item.in_price) * Number(item.return_num);
@@ -1966,7 +1966,14 @@ function renderPaymentBoard() {
         const netIn = data.totalIn - data.totalReturn; // 净入库 = 入库 - 退货
         const payable = netIn - data.totalPay;
         const invBalance = data.totalBack - netIn;
-        return { supplier, payable, invBalance, totalIn: data.totalIn, totalReturn: data.totalReturn, totalPay: data.totalPay, totalBack: data.totalBack };
+        return { 
+            supplier, 
+            netIn: netIn,          // 总货款（净入库）
+            totalPay: data.totalPay, 
+            totalBack: data.totalBack,
+            payable, 
+            invBalance 
+        };
     });
 
     const cfg = financePageConfig.paymentBoard;
@@ -1976,22 +1983,30 @@ function renderPaymentBoard() {
 
     const tbody = document.getElementById('paymentBoardList');
     tbody.innerHTML = '';
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        renderFinancePagination('paymentBoard');
+        return;
+    }
+    
     pageData.forEach((row, idx) => {
         const color = row.invBalance < 0 ? 'color:red;' : '';
+        const payableColor = row.payable < 0 ? 'color:red;' : '';
         tbody.innerHTML += `
         <tr>
             <td>${start + idx + 1}</td>
             <td>${row.supplier}</td>
-            <td>${row.totalIn.toFixed(2)}</td>
-            <td>${row.totalReturn.toFixed(2)}</td>
+            <td>${row.netIn.toFixed(2)}</td>
             <td>${row.totalPay.toFixed(2)}</td>
             <td>${row.totalBack.toFixed(2)}</td>
-            <td>${row.payable.toFixed(2)}</td>
+            <td style="${payableColor}">${row.payable.toFixed(2)}</td>
             <td style="${color}">${row.invBalance.toFixed(2)}</td>
         </tr>`;
     });
     renderFinancePagination('paymentBoard');
 }
+
 // ===================== ⑥发票月结余 =====================
 // 发票月结余下拉缓存变量
 let monthBalanceSupplierList = [];
@@ -2331,15 +2346,10 @@ function searchStockInCheck() {
     if (allReturnGoods && allReturnGoods.length > 0) {
         returnList = allReturnGoods.filter(item => {
             let match = true;
-            // 结算方式过滤
             if (settle && item.settle_type !== settle) match = false;
-            // 月份过滤（使用退货记录的 record_date）
             if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
-            // 供应商模糊匹配
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            // 商品名模糊匹配
             if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            // 税率过滤
             if (taxRate !== '') {
                 const goods = allGoodsList.find(g => 
                     g.name === item.goods_name && 
@@ -2353,116 +2363,178 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 3. 将退货记录转换为入库记录格式（数量为负数） =====
-    const returnAsInRecords = returnList.map(item => {
-        // 查找对应的商品信息获取税率
-        const goods = allGoodsList.find(g => 
-            g.name === item.goods_name && 
-            g.supplier === item.supplier && 
-            g.spec === item.spec
-        );
-        
-        return {
-            id: -item.id, // 负数ID区分退货记录
+    // ===== 3. 合并入库和退货数据，按日期排序 =====
+    let allRecords = [];
+
+    // 入库记录
+    inList.forEach(item => {
+        allRecords.push({
+            id: item.id,
+            supplier: item.supplier,
+            goodsName: item.goodsName,
+            spec: item.spec || '',
+            settleType: item.settleType,
+            in_price: item.in_price || 0,
+            in_num: item.in_num || 0,
+            record_date: item.record_date || '',
+            produce_date: item.produce_date || '',
+            expire_date: item.expire_date || '',
+            invoice_status: item.invoice_status || '',
+            invoice_no: item.invoice_no || '',
+            type: 'in',
+            amount: Number(item.in_price) * Number(item.in_num)
+        });
+    });
+
+    // 退货记录
+    returnList.forEach(item => {
+        const amount = Number(item.in_price) * Number(item.return_num);
+        allRecords.push({
+            id: -item.id,
             supplier: item.supplier,
             goodsName: item.goods_name,
             spec: item.spec || '',
             settleType: item.settle_type || '',
-            sale_price: item.sale_price || 0,
             in_price: item.in_price || 0,
             in_num: -item.return_num, // 负数数量
             record_date: item.record_date || '',
             produce_date: '',
             expire_date: '',
-            invoice_status: '', // 退货没有发票状态
+            invoice_status: '退货',
             invoice_no: '',
-            _isReturn: true, // 标记为退货记录
+            type: 'return',
+            amount: -amount, // 负数金额（冲减）
+            _isReturn: true,
             _returnReason: item.return_reason || ''
-        };
+        });
     });
 
-    // ===== 4. 合并入库和退货数据 =====
-    let list = [...inList, ...returnAsInRecords];
-    
-    // 按录入日期排序
-    list.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
+    // 按日期排序
+    allRecords.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-    // ===== 5. 处理数据（原有逻辑，增加退货标记） =====
-    let processedList = list.map(row => {
-        const isReturn = row._isReturn || false;
-        const goods = allGoodsList.find(g => 
-            g.name === row.goodsName && 
-            g.supplier === row.supplier && 
-            g.spec === row.spec
-        );
-        
-        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-        const channel = row.settleType || (goods ? goods.channel : '');
-        const inPrice = Number(row.in_price) || 0;
-        const qty = Number(row.in_num) || 0;
-        const totalAmount = inPrice * qty;
-        
-        let noTaxTotal = 0;
-        let taxTotal = 0;
-        let isPay = '';
-        let remainAmount = '';
-        let taxRateDisplay = '';
-        let inPriceDisplay = '';
-        const recordDate = row.record_date || '';
-        
-        if (channel === '线上') {
-            taxRateDisplay = '';
-            inPriceDisplay = formatMoney(inPrice);
-            noTaxTotal = 0;
-            taxTotal = 0;
-            isPay = '';
-            remainAmount = '';
-        } else {
-            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
-            inPriceDisplay = formatMoney(inPrice);
-            
-            const taxDecimal = taxRateVal / 100;
-            if (taxDecimal > 0) {
-                const noTaxPrice = inPrice / (1 + taxDecimal);
-                noTaxTotal = noTaxPrice * qty;
-                taxTotal = totalAmount - noTaxTotal;
-            } else {
-                noTaxTotal = totalAmount;
-                taxTotal = 0;
-            }
-            
-            // 退货不计算是否付清和发票结余（只对入库有效）
-            if (!isReturn) {
-                const supplierPay = allPayList
-                    .filter(p => p.supplier === row.supplier)
-                    .reduce((sum, p) => sum + Number(p.payment_amount), 0);
-                isPay = supplierPay >= (totalAmount > 0 ? totalAmount : 0) ? '已付清' : '未付清';
-                
-                const backTotal = allInvoiceBackList
-                    .filter(b => b.supplier === row.supplier)
-                    .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
-                remainAmount = backTotal - totalAmount;
-            } else {
-                isPay = '退货';
-                remainAmount = 0;
-            }
+    // ===== 4. 按供应商分组分别计算 =====
+    const supplierGroups = {};
+    allRecords.forEach(record => {
+        if (!supplierGroups[record.supplier]) {
+            supplierGroups[record.supplier] = [];
         }
-        
-        return {
-            ...row,
-            _isReturn: isReturn,
-            channel: channel,
-            tax_rate_display: taxRateDisplay,
-            in_price_display: inPriceDisplay,
-            in_num: qty,
-            totalAmount: totalAmount,
-            noTaxTotal: noTaxTotal,
-            taxTotal: taxTotal,
-            isPay: isPay,
-            remainAmount: remainAmount,
-            record_date: recordDate
-        };
+        supplierGroups[record.supplier].push(record);
     });
+
+    // ===== 5. 处理每个供应商的数据 =====
+    let processedList = [];
+
+    for (const sup of Object.keys(supplierGroups)) {
+        const records = supplierGroups[sup];
+        
+        // 获取该供应商的总付款
+        const totalPay = allPayList
+            .filter(p => p.supplier === sup)
+            .reduce((sum, p) => sum + Number(p.payment_amount), 0);
+        
+        // 获取该供应商的总发票返回
+        const totalInvoiceBack = allInvoiceBackList
+            .filter(b => b.supplier === sup)
+            .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
+
+        // ===== 先录先核：发票结余 =====
+        let remainingInvoice = totalInvoiceBack;
+        // ===== 先录先核：付款核销 =====
+        let remainingPay = totalPay;
+
+        records.forEach(record => {
+            const isReturn = record.type === 'return';
+            const amount = Math.abs(record.amount);
+            const isNegative = record.amount < 0; // 退货为负
+
+            // 获取商品信息计算税率
+            const goods = allGoodsList.find(g => 
+                g.name === record.goodsName && 
+                g.supplier === record.supplier && 
+                g.spec === record.spec
+            );
+            
+            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+            const channel = record.settleType || (goods ? goods.channel : '');
+            const inPrice = Number(record.in_price) || 0;
+            const qty = Number(record.in_num) || 0;
+            const totalAmount = inPrice * qty;
+            
+            let noTaxTotal = 0;
+            let taxTotal = 0;
+            let taxRateDisplay = '';
+            let inPriceDisplay = '';
+            
+            if (channel === '线上') {
+                taxRateDisplay = '';
+                inPriceDisplay = formatMoney(inPrice);
+                noTaxTotal = 0;
+                taxTotal = 0;
+            } else {
+                taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+                inPriceDisplay = formatMoney(inPrice);
+                
+                const taxDecimal = taxRateVal / 100;
+                if (taxDecimal > 0) {
+                    const noTaxPrice = inPrice / (1 + taxDecimal);
+                    noTaxTotal = noTaxPrice * qty;
+                    taxTotal = totalAmount - noTaxTotal;
+                } else {
+                    noTaxTotal = totalAmount;
+                    taxTotal = 0;
+                }
+            }
+
+            // ===== 计算发票结余（先录先核） =====
+            let remainAmount = 0;
+            if (isReturn) {
+                // 退货：剩余发票金额增加（冲减应付款）
+                remainingInvoice += amount;
+                remainAmount = remainingInvoice;
+            } else {
+                // 入库：剩余发票金额减少
+                remainingInvoice -= amount;
+                remainAmount = remainingInvoice;
+            }
+
+            // ===== 计算是否付清（先录先核） =====
+            let isPay = '';
+            if (isReturn) {
+                // 退货：增加可用付款
+                remainingPay += amount;
+                isPay = '退货';
+            } else {
+                // 入库：用剩余付款核销
+                if (remainingPay >= amount) {
+                    isPay = '已付清';
+                    remainingPay -= amount;
+                } else {
+                    isPay = '未付清';
+                    // 注意：剩余付款不足以核销当前入库，后面的入库也无法核销了
+                    // 但为了正确显示后面的入库状态，需要将剩余付款置为0
+                    // 但后续入库如果遇到退货会增加可用付款，所以不能简单置0
+                    // 这里保持remainingPay不变，但已经是0了
+                    remainingPay = 0;
+                }
+            }
+
+            // 构建处理后的记录
+            processedList.push({
+                ...record,
+                _isReturn: isReturn,
+                channel: channel,
+                tax_rate_display: taxRateDisplay,
+                in_price_display: inPriceDisplay,
+                in_num: qty,
+                totalAmount: totalAmount,
+                noTaxTotal: noTaxTotal,
+                taxTotal: taxTotal,
+                isPay: isPay,
+                remainAmount: remainAmount,
+                record_date: record.record_date
+            });
+        });
+    }
 
     // ===== 6. 分组汇总 =====
     if (groupSupplier || groupGoods) {
@@ -2485,16 +2557,16 @@ function searchStockInCheck() {
                     remainAmount: 0,
                     record_date: row.record_date || '',
                     count: 0,
-                    _isReturn: row._isReturn || false,
-                    _returnReason: row._returnReason || ''
+                    _isReturn: row._isReturn || false
                 };
             }
             const g = groupMap[key];
             g.in_num += Number(row.in_num);
-            g.totalAmount += row.totalAmount;
-            g.noTaxTotal += row.noTaxTotal;
-            g.taxTotal += row.taxTotal;
-            g.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
+            g.totalAmount += Number(row.totalAmount);
+            g.noTaxTotal += Number(row.noTaxTotal);
+            g.taxTotal += Number(row.taxTotal);
+            // 汇总的发票结余：取最后一条记录的 remainAmount（即最终结余）
+            g.remainAmount = row.remainAmount;
             g.count++;
             if (g.count === 1) {
                 g.in_price_display = row.in_price_display;
@@ -2505,7 +2577,7 @@ function searchStockInCheck() {
         processedList = Object.values(groupMap);
     }
 
-    // ===== 7. 汇总 =====
+    // ===== 7. 汇总行 =====
     let summary = {
         in_num: 0,
         totalAmount: 0,
@@ -2518,10 +2590,8 @@ function searchStockInCheck() {
         summary.totalAmount += Number(row.totalAmount);
         summary.noTaxTotal += Number(row.noTaxTotal);
         summary.taxTotal += Number(row.taxTotal);
-        const remainVal = typeof row.remainAmount === 'number' ? row.remainAmount : Number(row.remainAmount);
-        if (!isNaN(remainVal)) {
-            summary.remainAmount += remainVal;
-        }
+        // 汇总的发票结余取最后一条
+        summary.remainAmount = row.remainAmount;
     });
 
     // ===== 8. 更新总条数提示 =====
@@ -2550,7 +2620,7 @@ function searchStockInCheck() {
     pageData.forEach((row, index) => {
         let invoiceClass = '';
         if (row._isReturn) {
-            invoiceClass = 'bg-return-invoice'; // 退货特殊样式
+            invoiceClass = 'bg-return-invoice';
         } else if (row.invoice_status === '已开票') {
             invoiceClass = 'bg-green-invoice';
         } else if (row.invoice_status === '未开票') {
@@ -2571,17 +2641,17 @@ function searchStockInCheck() {
             remainColor = 'style="color:red;"';
         }
         
-        // 如果是退货记录，数量显示为红色负数
         let qtyDisplay = row.in_num;
         let qtyColor = row._isReturn ? 'style="color:red;font-weight:bold;"' : '';
         
         const seq = start + index + 1;
-        const isReturnLabel = row._isReturn ? '（退货）' : '';
+        // ✅ 移除供应商后面的（退货）标签
+        // const isReturnLabel = row._isReturn ? '（退货）' : '';
         
         tbody.innerHTML += `
         <tr>
             <td>${seq}</td>
-            <td>${row.supplier}${isReturnLabel}</td>
+            <td>${row.supplier}</td>
             <td>${row.goodsName}</td>
             <td>${row.spec || ''}</td>
             <td>${row.tax_rate_display}</td>
@@ -2747,7 +2817,7 @@ function exportStockInCheckExcel() {
         });
     }
 
-    // ===== 2. 获取退货数据（转换为负的入库记录） =====
+    // ===== 2. 获取退货数据 =====
     let returnList = [];
     if (allReturnGoods && allReturnGoods.length > 0) {
         returnList = allReturnGoods.filter(item => {
@@ -2769,117 +2839,155 @@ function exportStockInCheckExcel() {
         });
     }
 
-    // ===== 3. 将退货记录转换为入库记录格式（数量为负数） =====
-    const returnAsInRecords = returnList.map(item => {
-        const goods = allGoodsList.find(g => 
-            g.name === item.goods_name && 
-            g.supplier === item.supplier && 
-            g.spec === item.spec
-        );
-        
-        return {
+    // ===== 3. 合并入库和退货数据，按日期排序 =====
+    let allRecords = [];
+
+    inList.forEach(item => {
+        allRecords.push({
+            id: item.id,
+            supplier: item.supplier,
+            goodsName: item.goodsName,
+            spec: item.spec || '',
+            settleType: item.settleType,
+            in_price: item.in_price || 0,
+            in_num: item.in_num || 0,
+            record_date: item.record_date || '',
+            invoice_status: item.invoice_status || '',
+            type: 'in',
+            amount: Number(item.in_price) * Number(item.in_num)
+        });
+    });
+
+    returnList.forEach(item => {
+        const amount = Number(item.in_price) * Number(item.return_num);
+        allRecords.push({
             id: -item.id,
             supplier: item.supplier,
             goodsName: item.goods_name,
             spec: item.spec || '',
             settleType: item.settle_type || '',
-            sale_price: item.sale_price || 0,
             in_price: item.in_price || 0,
-            in_num: -item.return_num, // 负数数量
+            in_num: -item.return_num,
             record_date: item.record_date || '',
-            produce_date: '',
-            expire_date: '',
-            invoice_status: '',
-            invoice_no: '',
-            _isReturn: true,
-            _returnReason: item.return_reason || ''
-        };
+            invoice_status: '退货',
+            type: 'return',
+            amount: -amount,
+            _isReturn: true
+        });
     });
 
-    // ===== 4. 合并入库和退货数据 =====
-    let list = [...inList, ...returnAsInRecords];
-    list.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
+    allRecords.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-    // ===== 5. 处理数据 =====
-    let processedList = list.map(row => {
-        const isReturn = row._isReturn || false;
-        const goods = allGoodsList.find(g => 
-            g.name === row.goodsName && 
-            g.supplier === row.supplier && 
-            g.spec === row.spec
-        );
-        
-        const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-        const channel = row.settleType || (goods ? goods.channel : '');
-        const inPrice = Number(row.in_price) || 0;
-        const qty = Number(row.in_num) || 0;
-        const totalAmount = inPrice * qty;
-        
-        let noTaxTotal = 0;
-        let taxTotal = 0;
-        let isPay = '';
-        let remainAmount = '';
-        let taxRateDisplay = '';
-        let inPriceDisplay = '';
-        const recordDate = row.record_date || '';
-        
-        if (channel === '线上') {
-            taxRateDisplay = '';
-            inPriceDisplay = formatMoney(inPrice);
-            noTaxTotal = 0;
-            taxTotal = 0;
-            isPay = '';
-            remainAmount = '';
-        } else {
-            taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
-            inPriceDisplay = formatMoney(inPrice);
-            
-            const taxDecimal = taxRateVal / 100;
-            if (taxDecimal > 0) {
-                const noTaxPrice = inPrice / (1 + taxDecimal);
-                noTaxTotal = noTaxPrice * qty;
-                taxTotal = totalAmount - noTaxTotal;
-            } else {
-                noTaxTotal = totalAmount;
-                taxTotal = 0;
-            }
-            
-            if (!isReturn) {
-                const supplierPay = allPayList
-                    .filter(p => p.supplier === row.supplier)
-                    .reduce((sum, p) => sum + Number(p.payment_amount), 0);
-                isPay = supplierPay >= (totalAmount > 0 ? totalAmount : 0) ? '已付清' : '未付清';
-                
-                const backTotal = allInvoiceBackList
-                    .filter(b => b.supplier === row.supplier)
-                    .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
-                remainAmount = backTotal - totalAmount;
-            } else {
-                isPay = '退货';
-                remainAmount = 0;
-            }
+    // ===== 4. 按供应商分组处理 =====
+    const supplierGroups = {};
+    allRecords.forEach(record => {
+        if (!supplierGroups[record.supplier]) {
+            supplierGroups[record.supplier] = [];
         }
-        
-        return {
-            supplier: row.supplier,
-            goodsName: row.goodsName,
-            spec: row.spec || '',
-            tax_rate_display: taxRateDisplay,
-            invoice_status: row.invoice_status || (isReturn ? '退货' : ''),
-            in_price_display: inPriceDisplay,
-            in_num: qty,
-            isPay: isPay,
-            totalAmount: totalAmount,
-            noTaxTotal: noTaxTotal,
-            taxTotal: taxTotal,
-            remainAmount: remainAmount,
-            record_date: recordDate,
-            _isReturn: isReturn,
-            _returnReason: row._returnReason || ''
-        };
+        supplierGroups[record.supplier].push(record);
     });
 
-    // ===== 6. 分组汇总 =====
+    let processedList = [];
+
+    for (const sup of Object.keys(supplierGroups)) {
+        const records = supplierGroups[sup];
+        
+        const totalPay = allPayList
+            .filter(p => p.supplier === sup)
+            .reduce((sum, p) => sum + Number(p.payment_amount), 0);
+        
+        const totalInvoiceBack = allInvoiceBackList
+            .filter(b => b.supplier === sup)
+            .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
+
+        let remainingInvoice = totalInvoiceBack;
+        let remainingPay = totalPay;
+
+        records.forEach(record => {
+            const isReturn = record.type === 'return';
+            const amount = Math.abs(record.amount);
+            const isNegative = record.amount < 0;
+
+            const goods = allGoodsList.find(g => 
+                g.name === record.goodsName && 
+                g.supplier === record.supplier && 
+                g.spec === record.spec
+            );
+            
+            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+            const channel = record.settleType || (goods ? goods.channel : '');
+            const inPrice = Number(record.in_price) || 0;
+            const qty = Number(record.in_num) || 0;
+            const totalAmount = inPrice * qty;
+            
+            let noTaxTotal = 0;
+            let taxTotal = 0;
+            let taxRateDisplay = '';
+            let inPriceDisplay = '';
+            
+            if (channel === '线上') {
+                taxRateDisplay = '';
+                inPriceDisplay = formatMoney(inPrice);
+                noTaxTotal = 0;
+                taxTotal = 0;
+            } else {
+                taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+                inPriceDisplay = formatMoney(inPrice);
+                
+                const taxDecimal = taxRateVal / 100;
+                if (taxDecimal > 0) {
+                    const noTaxPrice = inPrice / (1 + taxDecimal);
+                    noTaxTotal = noTaxPrice * qty;
+                    taxTotal = totalAmount - noTaxTotal;
+                } else {
+                    noTaxTotal = totalAmount;
+                    taxTotal = 0;
+                }
+            }
+
+            let remainAmount = 0;
+            if (isReturn) {
+                remainingInvoice += amount;
+                remainAmount = remainingInvoice;
+            } else {
+                remainingInvoice -= amount;
+                remainAmount = remainingInvoice;
+            }
+
+            let isPay = '';
+            if (isReturn) {
+                remainingPay += amount;
+                isPay = '退货';
+            } else {
+                if (remainingPay >= amount) {
+                    isPay = '已付清';
+                    remainingPay -= amount;
+                } else {
+                    isPay = '未付清';
+                    remainingPay = 0;
+                }
+            }
+
+            processedList.push({
+                supplier: record.supplier,
+                goodsName: record.goodsName,
+                spec: record.spec || '',
+                tax_rate_display: taxRateDisplay,
+                invoice_status: record.invoice_status || (isReturn ? '退货' : ''),
+                in_price_display: inPriceDisplay,
+                in_num: qty,
+                isPay: isPay,
+                totalAmount: totalAmount,
+                noTaxTotal: noTaxTotal,
+                taxTotal: taxTotal,
+                remainAmount: remainAmount,
+                record_date: record.record_date,
+                _isReturn: isReturn
+            });
+        });
+    }
+
+    // ===== 5. 分组汇总 =====
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2905,10 +3013,10 @@ function exportStockInCheckExcel() {
             }
             const g = groupMap[key];
             g.in_num += Number(row.in_num);
-            g.totalAmount += row.totalAmount;
-            g.noTaxTotal += row.noTaxTotal;
-            g.taxTotal += row.taxTotal;
-            g.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
+            g.totalAmount += Number(row.totalAmount);
+            g.noTaxTotal += Number(row.noTaxTotal);
+            g.taxTotal += Number(row.taxTotal);
+            g.remainAmount = row.remainAmount;
             g.count++;
             if (g.count === 1) {
                 g.in_price_display = row.in_price_display;
@@ -2919,7 +3027,7 @@ function exportStockInCheckExcel() {
         processedList = Object.values(groupMap);
     }
 
-    // ===== 7. 汇总 =====
+    // ===== 6. 汇总 =====
     let summary = {
         in_num: 0,
         totalAmount: 0,
@@ -2932,10 +3040,10 @@ function exportStockInCheckExcel() {
         summary.totalAmount += Number(row.totalAmount);
         summary.noTaxTotal += Number(row.noTaxTotal);
         summary.taxTotal += Number(row.taxTotal);
-        summary.remainAmount += isNaN(row.remainAmount) ? 0 : row.remainAmount;
+        summary.remainAmount = row.remainAmount;
     });
 
-    // ===== 8. 构建导出数据 =====
+    // ===== 7. 构建导出数据 =====
     const header = ["序号", "供应商", "商品名称", "规格", "税率", "发票状态", "入库单价", "入库数量", "是否付清", "含税入库金额", "不含税金额", "税额", "发票结余", "录入日期", "备注"];
     const expData = processedList.map((row, idx) => {
         const note = row._isReturn ? '退货' : '';
@@ -2947,7 +3055,7 @@ function exportStockInCheckExcel() {
             row.tax_rate_display,
             row.invoice_status || '',
             row.in_price_display,
-            row.in_num, // 退货为负数
+            row.in_num,
             row.isPay,
             formatMoney(row.totalAmount),
             formatMoney(row.noTaxTotal),
@@ -2958,7 +3066,6 @@ function exportStockInCheckExcel() {
         ];
     });
 
-    // 汇总行
     expData.push([
         "汇总", "", "", "", "", "",
         "",
@@ -2971,13 +3078,11 @@ function exportStockInCheckExcel() {
         ""
     ]);
 
-    // ===== 9. 下载Excel =====
     const ws = XLSX.utils.aoa_to_sheet([header, ...expData]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "入库对账表");
     XLSX.writeFile(wb, `入库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
-
 // ===================== ⑧出库对账 =====================
 // 出库对账下拉缓存变量
 let checkOutSupplierList = [];
