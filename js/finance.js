@@ -2341,7 +2341,7 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 2. 获取退货数据（转换为负的入库记录） =====
+    // ===== 2. 获取退货数据 =====
     let returnList = [];
     if (allReturnGoods && allReturnGoods.length > 0) {
         returnList = allReturnGoods.filter(item => {
@@ -2396,14 +2396,14 @@ function searchStockInCheck() {
             spec: item.spec || '',
             settleType: item.settle_type || '',
             in_price: item.in_price || 0,
-            in_num: -item.return_num, // 负数数量
+            in_num: -item.return_num,
             record_date: item.record_date || '',
             produce_date: '',
             expire_date: '',
             invoice_status: '退货',
             invoice_no: '',
             type: 'return',
-            amount: -amount, // 负数金额（冲减）
+            amount: -amount,
             _isReturn: true,
             _returnReason: item.return_reason || ''
         });
@@ -2437,15 +2437,14 @@ function searchStockInCheck() {
             .filter(b => b.supplier === sup)
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
-        // ===== 先录先核：发票结余 =====
+        // ===== 先录先核：发票结余（滚动计算） =====
         let remainingInvoice = totalInvoiceBack;
-        // ===== 先录先核：付款核销 =====
+        // ===== 先录先核：付款结余（滚动计算） =====
         let remainingPay = totalPay;
 
         records.forEach(record => {
             const isReturn = record.type === 'return';
             const amount = Math.abs(record.amount);
-            const isNegative = record.amount < 0; // 退货为负
 
             // 获取商品信息计算税率
             const goods = allGoodsList.find(g => 
@@ -2485,37 +2484,31 @@ function searchStockInCheck() {
                 }
             }
 
-            // ===== 计算发票结余（先录先核） =====
+            // ===== 计算发票结余（滚动计算） =====
             let remainAmount = 0;
+            let invoiceStatus = '';
             if (isReturn) {
-                // 退货：剩余发票金额增加（冲减应付款）
+                // 退货：加回退货金额，不消耗发票
                 remainingInvoice += amount;
                 remainAmount = remainingInvoice;
+                invoiceStatus = '退货';
             } else {
-                // 入库：剩余发票金额减少
+                // 入库：减去入库金额
                 remainingInvoice -= amount;
                 remainAmount = remainingInvoice;
+                invoiceStatus = remainingInvoice >= 0 ? '已开票' : '未开票';
             }
 
-            // ===== 计算是否付清（先录先核） =====
+            // ===== 计算付款结余（滚动计算） =====
             let isPay = '';
             if (isReturn) {
-                // 退货：增加可用付款
+                // 退货：加回退货金额，不消耗付款
                 remainingPay += amount;
                 isPay = '退货';
             } else {
-                // 入库：用剩余付款核销
-                if (remainingPay >= amount) {
-                    isPay = '已付清';
-                    remainingPay -= amount;
-                } else {
-                    isPay = '未付清';
-                    // 注意：剩余付款不足以核销当前入库，后面的入库也无法核销了
-                    // 但为了正确显示后面的入库状态，需要将剩余付款置为0
-                    // 但后续入库如果遇到退货会增加可用付款，所以不能简单置0
-                    // 这里保持remainingPay不变，但已经是0了
-                    remainingPay = 0;
-                }
+                // 入库：减去入库金额
+                remainingPay -= amount;
+                isPay = remainingPay >= 0 ? '已付清' : '未付清';
             }
 
             // 构建处理后的记录
@@ -2531,6 +2524,7 @@ function searchStockInCheck() {
                 taxTotal: taxTotal,
                 isPay: isPay,
                 remainAmount: remainAmount,
+                invoice_status: invoiceStatus,
                 record_date: record.record_date
             });
         });
@@ -2565,7 +2559,6 @@ function searchStockInCheck() {
             g.totalAmount += Number(row.totalAmount);
             g.noTaxTotal += Number(row.noTaxTotal);
             g.taxTotal += Number(row.taxTotal);
-            // 汇总的发票结余：取最后一条记录的 remainAmount（即最终结余）
             g.remainAmount = row.remainAmount;
             g.count++;
             if (g.count === 1) {
@@ -2590,7 +2583,6 @@ function searchStockInCheck() {
         summary.totalAmount += Number(row.totalAmount);
         summary.noTaxTotal += Number(row.noTaxTotal);
         summary.taxTotal += Number(row.taxTotal);
-        // 汇总的发票结余取最后一条
         summary.remainAmount = row.remainAmount;
     });
 
@@ -2645,8 +2637,6 @@ function searchStockInCheck() {
         let qtyColor = row._isReturn ? 'style="color:red;font-weight:bold;"' : '';
         
         const seq = start + index + 1;
-        // ✅ 移除供应商后面的（退货）标签
-        // const isReturnLabel = row._isReturn ? '（退货）' : '';
         
         tbody.innerHTML += `
         <tr>
@@ -2900,13 +2890,14 @@ function exportStockInCheckExcel() {
             .filter(b => b.supplier === sup)
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
+        // ===== 发票结余（滚动计算） =====
         let remainingInvoice = totalInvoiceBack;
+        // ===== 付款结余（滚动计算） =====
         let remainingPay = totalPay;
 
         records.forEach(record => {
             const isReturn = record.type === 'return';
             const amount = Math.abs(record.amount);
-            const isNegative = record.amount < 0;
 
             const goods = allGoodsList.find(g => 
                 g.name === record.goodsName && 
@@ -2945,27 +2936,27 @@ function exportStockInCheckExcel() {
                 }
             }
 
+            // ===== 发票结余（滚动计算） =====
             let remainAmount = 0;
+            let invoiceStatus = '';
             if (isReturn) {
                 remainingInvoice += amount;
                 remainAmount = remainingInvoice;
+                invoiceStatus = '退货';
             } else {
                 remainingInvoice -= amount;
                 remainAmount = remainingInvoice;
+                invoiceStatus = remainingInvoice >= 0 ? '已开票' : '未开票';
             }
 
+            // ===== 付款结余（滚动计算） =====
             let isPay = '';
             if (isReturn) {
                 remainingPay += amount;
                 isPay = '退货';
             } else {
-                if (remainingPay >= amount) {
-                    isPay = '已付清';
-                    remainingPay -= amount;
-                } else {
-                    isPay = '未付清';
-                    remainingPay = 0;
-                }
+                remainingPay -= amount;
+                isPay = remainingPay >= 0 ? '已付清' : '未付清';
             }
 
             processedList.push({
@@ -2973,7 +2964,7 @@ function exportStockInCheckExcel() {
                 goodsName: record.goodsName,
                 spec: record.spec || '',
                 tax_rate_display: taxRateDisplay,
-                invoice_status: record.invoice_status || (isReturn ? '退货' : ''),
+                invoice_status: invoiceStatus,
                 in_price_display: inPriceDisplay,
                 in_num: qty,
                 isPay: isPay,
@@ -3083,6 +3074,7 @@ function exportStockInCheckExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "入库对账表");
     XLSX.writeFile(wb, `入库对账表_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+
 // ===================== ⑧出库对账 =====================
 // 出库对账下拉缓存变量
 let checkOutSupplierList = [];
