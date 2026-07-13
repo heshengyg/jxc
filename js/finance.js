@@ -1362,7 +1362,7 @@ function openPayEdit(id) {
     modal.style.zIndex = '9999';
 }
 
-// ========== 更新应付账款显示 ==========
+// ========== 更新应付账款显示（包含退货） ==========
 function updatePayPayableDisplay(supplier) {
     const displayEl = document.getElementById('payPayableDisplay');
     if (!displayEl) return;
@@ -1373,23 +1373,33 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     
+    // 计算入库总额（线下）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
+    // ✅ 新增：计算退货总额（退货减少应付账款）
+    let totalReturn = 0;
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+            totalReturn += Number(item.in_price) * Number(item.return_num);
+        });
+    }
+    
+    // 计算已付款
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
     });
     
-    const payable = totalIn - totalPay;
+    // 应付账款 = 入库总额 - 退货总额 - 已付款
+    const payable = totalIn - totalReturn - totalPay;
     
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
-
-// ========== 更新发票结余显示 ==========
+// ========== 更新发票结余显示（包含退货） ==========
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (!displayEl) return;
@@ -1400,17 +1410,28 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
     
+    // 计算入库总额（线下）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
+    // ✅ 新增：计算退货总额（退货减少应开票金额）
+    let totalReturn = 0;
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+            totalReturn += Number(item.in_price) * Number(item.return_num);
+        });
+    }
+    
+    // 计算已返回发票金额
     let totalBack = 0;
     allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
         totalBack += Number(b.invoice_amount);
     });
     
-    const balance = totalBack - totalIn;
+    // 发票结余 = 发票返回总额 - 入库总额 + 退货总额
+    const balance = totalBack - totalIn + totalReturn;
     
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
@@ -1450,7 +1471,6 @@ async function savePayRecord() {
     closePayModal();
     currentPayEditId = null;
 }
-
 // 删除付款记录
 async function deletePayRecord(id) {
     // ===== 检查是否管理员 =====
@@ -1727,16 +1747,14 @@ async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
 async function recalculateInvoiceStatus(supplier) {
     if (!supplier) return;
 
-    const supplierInvoices = allInvoiceBackList
-        .filter(inv => inv.supplier === supplier)
-        .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
+    const headers = {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+    };
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-    });
-    const latestStockIn = await res.json();
-
-    const inRecords = latestStockIn
+    // 1. 获取该供应商所有线下入库记录（按日期正序）
+    const inRecords = allStockInList
         .filter(item => 
             item.supplier === supplier && 
             item.settleType === '线下'
@@ -1747,12 +1765,20 @@ async function recalculateInvoiceStatus(supplier) {
         return;
     }
 
-    const headers = {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
-    };
+    // 2. 获取该供应商所有退货记录
+    let returnRecords = [];
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        returnRecords = allReturnGoods
+            .filter(item => item.supplier === supplier)
+            .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    }
 
+    // 3. 获取该供应商所有发票返回记录
+    const supplierInvoices = allInvoiceBackList
+        .filter(inv => inv.supplier === supplier)
+        .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
+
+    // 4. 先将所有入库记录重置为"未开票"
     for (let record of inRecords) {
         await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
             method: 'PATCH',
@@ -1765,34 +1791,82 @@ async function recalculateInvoiceStatus(supplier) {
     }
 
     if (supplierInvoices.length === 0) {
-        allStockInList = latestStockIn;
+        // 没有发票返回记录，所有入库保持"未开票"
         return;
     }
 
+    // 5. 构建核销队列：入库为正，退货为负
+    let queue = [];
+    
+    // 入库记录（正数）
+    inRecords.forEach(record => {
+        const amount = Number(record.in_price) * Number(record.in_num);
+        queue.push({
+            type: 'in',
+            id: record.id,
+            amount: amount,
+            date: record.record_date,
+            record: record
+        });
+    });
+    
+    // 退货记录（负数）
+    returnRecords.forEach(record => {
+        const amount = Number(record.in_price) * Number(record.return_num);
+        queue.push({
+            type: 'return',
+            id: record.id,
+            amount: -amount, // 负数
+            date: record.record_date,
+            record: record
+        });
+    });
+
+    // 按日期排序
+    queue.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // 6. 逐张发票核销
     let remainingInRecords = [...inRecords];
+    let processedReturnIds = new Set();
 
     for (let invoice of supplierInvoices) {
         const invoiceAmount = Number(invoice.invoice_amount) || 0;
         if (invoiceAmount <= 0) continue;
 
         let remainingAmount = invoiceAmount;
-        const updatedIds = [];
+        const updatedInIds = [];
+        const matchedReturnIds = [];
 
-        for (let record of remainingInRecords) {
+        // 遍历队列（已排序）
+        for (let item of queue) {
             if (remainingAmount <= 0) break;
-
-            const recordTotal = Number(record.in_price) * Number(record.in_num);
-            
-            if (remainingAmount >= recordTotal) {
-                remainingAmount -= recordTotal;
-                updatedIds.push({ id: record.id, status: '已开票' });
-            } else {
-                updatedIds.push({ id: record.id, status: '未开票' });
-                remainingAmount = 0;
+            if (item.amount > 0) {
+                // 入库记录
+                const record = item.record;
+                if (remainingAmount >= item.amount) {
+                    remainingAmount -= item.amount;
+                    updatedInIds.push({ id: record.id, status: '已开票' });
+                } else {
+                    // 部分核销，这条入库记录标记为"未开票"
+                    updatedInIds.push({ id: record.id, status: '未开票' });
+                    remainingAmount = 0;
+                }
+            } else if (item.amount < 0) {
+                // 退货记录（冲减核销金额）
+                const absReturn = Math.abs(item.amount);
+                // 退货冲减当前剩余待核销金额
+                const usedAmount = Math.min(remainingAmount, absReturn);
+                remainingAmount -= usedAmount;
+                matchedReturnIds.push(item.id);
+                // 退货记录已被处理
+                if (usedAmount >= absReturn) {
+                    processedReturnIds.add(item.id);
+                }
             }
         }
 
-        for (let item of updatedIds) {
+        // 更新入库记录的发票状态
+        for (let item of updatedInIds) {
             await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
                 method: 'PATCH',
                 headers: headers,
@@ -1807,9 +1881,21 @@ async function recalculateInvoiceStatus(supplier) {
         }
     }
 
-    allStockInList = latestStockIn;
-}
+    // 7. 更新所有未核销的入库记录为"未开票"
+    for (let record of remainingInRecords) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify({
+                invoice_status: '未开票',
+                invoice_no: null
+            })
+        });
+    }
 
+    // 重新加载最新数据
+    await loadAllStockIn();
+}
 // 删除发票返回记录
 async function deleteInvoiceBackRecord(id) {
     // ===== 检查是否管理员 =====
@@ -1852,22 +1938,35 @@ function initPaymentBoardPage() {
 function renderPaymentBoard() {
     const supplierGroup = {};
     offlineSupplierList.forEach(s => {
-        supplierGroup[s] = { totalIn: 0, totalPay: 0, totalBack: 0 };
+        supplierGroup[s] = { totalIn: 0, totalReturn: 0, totalPay: 0, totalBack: 0 };
     });
+    
+    // 入库总额
     allStockInList.filter(i => i.settleType === '线下').forEach(item => {
         const total = Number(item.in_price) * Number(item.in_num);
         supplierGroup[item.supplier].totalIn += total;
     });
+    
+    // ✅ 新增：退货总额
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        allReturnGoods.filter(i => i.settle_type === '线下').forEach(item => {
+            const total = Number(item.in_price) * Number(item.return_num);
+            supplierGroup[item.supplier].totalReturn += total;
+        });
+    }
+    
     allPayList.forEach(p => {
         supplierGroup[p.supplier].totalPay += Number(p.payment_amount);
     });
     allInvoiceBackList.forEach(b => {
         supplierGroup[b.supplier].totalBack += Number(b.invoice_amount);
     });
+    
     let list = Object.entries(supplierGroup).map(([supplier, data]) => {
-        const payable = data.totalIn - data.totalPay;
-        const invBalance = data.totalBack - data.totalIn;
-        return { supplier, payable, invBalance, totalIn: data.totalIn, totalPay: data.totalPay, totalBack: data.totalBack };
+        const netIn = data.totalIn - data.totalReturn; // 净入库 = 入库 - 退货
+        const payable = netIn - data.totalPay;
+        const invBalance = data.totalBack - netIn;
+        return { supplier, payable, invBalance, totalIn: data.totalIn, totalReturn: data.totalReturn, totalPay: data.totalPay, totalBack: data.totalBack };
     });
 
     const cfg = financePageConfig.paymentBoard;
@@ -1884,6 +1983,7 @@ function renderPaymentBoard() {
             <td>${start + idx + 1}</td>
             <td>${row.supplier}</td>
             <td>${row.totalIn.toFixed(2)}</td>
+            <td>${row.totalReturn.toFixed(2)}</td>
             <td>${row.totalPay.toFixed(2)}</td>
             <td>${row.totalBack.toFixed(2)}</td>
             <td>${row.payable.toFixed(2)}</td>
@@ -1892,7 +1992,6 @@ function renderPaymentBoard() {
     });
     renderFinancePagination('paymentBoard');
 }
-
 // ===================== ⑥发票月结余 =====================
 // 发票月结余下拉缓存变量
 let monthBalanceSupplierList = [];
