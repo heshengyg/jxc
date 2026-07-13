@@ -554,3 +554,8 @@ tbody tr:hover { background-color: #e6f7ef; }
     border: 1px solid #ddd;
     border-radius: 4px;
 }
+/* 退货记录样式 */
+.bg-return-invoice {
+    background-color: #fce4ec !important;
+    color: #c62828 !important;
+}
