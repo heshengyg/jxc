@@ -2515,8 +2515,10 @@ function updateDateChangeSortIcon() {
 }
 
 function renderDateChangeList() {
-    if(dateChangeSortField) {
-        dateChangeFilteredList.sort((a, b) => {
+    // 排序规则：如果用户点击了表头排序，则优先使用表头排序；无表头排序时默认「待改价」置顶
+    dateChangeFilteredList.sort((a, b) => {
+        // 1. 优先判断是否有手动点击的排序列
+        if(dateChangeSortField) {
             let valA = a[dateChangeSortField];
             let valB = b[dateChangeSortField];
             if (['recordDate','dateValue'].includes(dateChangeSortField)) {
@@ -2529,19 +2531,27 @@ function renderDateChangeList() {
             }
             if (typeof valA === 'string') valA = valA.trim();
             if (typeof valB === 'string') valB = valB.trim();
-
             if (valA > valB) return dateChangeSortAsc ? 1 : -1;
             if (valA < valB) return dateChangeSortAsc ? -1 : 1;
             return 0;
-        });
-    }
+        }
+
+        // 2. 无表头排序时，默认规则：待改价 置顶
+        const aIsNeedPrice = a.needUpdatePrice === '待改价';
+        const bIsNeedPrice = b.needUpdatePrice === '待改价';
+        if(aIsNeedPrice && !bIsNeedPrice) return -1;
+        if(!aIsNeedPrice && bIsNeedPrice) return 1;
+        // 同为待改价 / 同为无需改价，保持原有加载顺序不变
+        return 0;
+    });
 
     const tb = document.getElementById('dateChangeList');
     if (!tb) {
         console.warn('dateChangeList元素不存在');
         return;
     }
-    
+    // 后面原有代码完全不动
+}    
     console.log('渲染日期更换列表，数据量:', dateChangeFilteredList.length);
     
     tb.innerHTML = '';
