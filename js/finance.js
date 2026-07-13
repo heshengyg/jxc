@@ -2210,24 +2210,55 @@ function searchStockInCheck() {
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
 
     let list = [...allStockInList];    
+
+// ==========【新增：同步拉取退货数据合并冲减，原有筛选不动】=========
+// 临时获取退货单据
+let returnRes = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+});
+let returnRaw = await returnRes.json();
+// 退货筛选：复用页面相同筛选条件
+let returnList = returnRaw.filter(item => {
+    if (month && (!item.record_date || item.record_date.substring(0,7) !== month)) return false;
+    if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) return false;
+    if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) return false;
+    return true;
+});
+// 退货转为负数量、负金额，结构对齐入库
+let returnFormat = returnList.map(item => {
+    return {
+        supplier: item.supplier,
+        goodsName: item.goods_name,
+        spec: item.spec || '',
+        settleType: item.settle_type || '',
+        record_date: item.record_date,
+        in_price: Number(item.in_price || 0),
+        in_num: -Number(item.return_num || 0), // 退货数量负数
+        tax_rate: null,
+        invoice_status: '退货冲抵'
+    }
+});
+// 入库数组 + 格式化退货数组合并
+list = [...list, ...returnFormat];
+// ==================================================================
   
-    if (settle) list = list.filter(i => i.settleType === settle);
-    if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
-    if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
-    // 模糊匹配供应商
-    if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
-    // 模糊匹配商品名
-    if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
-    if (taxRate !== '') {
-        list = list.filter(i => {
-            const goods = allGoodsList.find(g => 
-                g.name === i.goodsName && 
-                g.supplier === i.supplier && 
-                g.spec === i.spec
-            );
-            const rate = goods ? String(goods.tax_rate || '') : '';
-            return rate === taxRate;
-        });
+if (settle) list = list.filter(i => i.settleType === settle);
+if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
+if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+// 模糊匹配供应商
+if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+// 模糊匹配商品名
+if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+if (taxRate !== '') {
+    list = list.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const rate = goods ? String(goods.tax_rate || '') : '';
+        return rate === taxRate;
+    });
     }      
     let processedList = list.map(row => {
         const goods = allGoodsList.find(g => 
@@ -2540,23 +2571,50 @@ function exportStockInCheckExcel() {
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
     
-    let list = [...allStockInList];
-    
-    if (settle) list = list.filter(i => i.settleType === settle);
-    if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
-    if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
-    if (supplier) list = list.filter(i => i.supplier === supplier);
-    if (goodsName) list = list.filter(i => i.goodsName === goodsName);
-    if (taxRate !== '') {
-        list = list.filter(i => {
-            const goods = allGoodsList.find(g => 
-                g.name === i.goodsName && 
-                g.supplier === i.supplier && 
-                g.spec === i.spec
-            );
-            const rate = goods ? String(goods.tax_rate || '') : '';
-            return rate === taxRate;
-        });
+    let list = [...allStockInList];    
+
+// ==========【导出同步拉取退货数据合并，筛选和列表保持一致】=========
+let returnRes = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+});
+let returnRaw = await returnRes.json();
+let returnList = returnRaw.filter(item => {
+    if (month && (!item.record_date || item.record_date.substring(0,7) !== month)) return false;
+    if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) return false;
+    if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) return false;
+    return true;
+});
+let returnFormat = returnList.map(item => {
+    return {
+        supplier: item.supplier,
+        goodsName: item.goods_name,
+        spec: item.spec || '',
+        settleType: item.settle_type || '',
+        record_date: item.record_date,
+        in_price: Number(item.in_price || 0),
+        in_num: -Number(item.return_num || 0),
+        tax_rate: null,
+        invoice_status: '退货冲抵'
+    }
+});
+list = [...list, ...returnFormat];
+// ==================================================================
+
+if (settle) list = list.filter(i => i.settleType === settle);
+if (invStatus) list = list.filter(i => i.invoice_status === invStatus);
+if (month) list = list.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+if (taxRate !== '') {
+    list = list.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const rate = goods ? String(goods.tax_rate || '') : '';
+        return rate === taxRate;
+    });
     }
     
     let processedList = list.map(row => {
