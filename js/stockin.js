@@ -437,7 +437,12 @@ async function submitStockIn(){
     let spec = document.getElementById('inSpec').value;
     let settleType = document.getElementById('inSettleType').value;
     let salePriceText = document.getElementById('inSalePrice').value;
-    let salePrice = parseFloat(salePriceText.replace('￥',''));
+    // ✅ 修复：如果 salePriceText 为空或无效，设置 salePrice 为 0
+    let salePrice = 0;
+    if (salePriceText && salePriceText.trim() !== '') {
+        const cleaned = salePriceText.replace('￥', '').trim();
+        salePrice = parseFloat(cleaned) || 0;
+    }
     let inNum = document.getElementById('inNum').value;
     let inPrice = document.getElementById('inPrice').value;
     let recordDate = document.getElementById('inRecordDate').value;
@@ -453,12 +458,12 @@ async function submitStockIn(){
             return showMsg('线下商品必须填写入库单价');
         }
     }
-if(settleType === '线上'){
-    // 只有【新增单据】才拦截手动填写单价；编辑单据直接跳过校验
-    if(!editId && inPrice !== '' && +inPrice > 0){
-        return showMsg('线上商品不允许填写入库单价');
+    if(settleType === '线上'){
+        // 只有【新增单据】才拦截手动填写单价；编辑单据直接跳过校验
+        if(!editId && inPrice !== '' && +inPrice > 0){
+            return showMsg('线上商品不允许填写入库单价');
+        }
     }
-}
     if (produceDate && expireDate) {
         return showMsg('生产日期和到期日期不能同时填写');
     }
@@ -479,7 +484,7 @@ if(settleType === '线上'){
         goodsName: goodsName,
         spec: spec || null,
         settleType: settleType,
-        sale_price: salePrice,
+        sale_price: salePrice,  // ✅ 现在 salePrice 不会是 NaN
         in_price: finalInPrice,
         in_num: +inNum,
         record_date: recordDate,
@@ -514,20 +519,21 @@ if(settleType === '线上'){
         }
 
         // 兼容 201/200 成功状态，不再单纯依赖 res.ok
- if (res.status >= 200 && res.status < 300) {
-    // 忽略空响应解析报错
-    try { await res.json(); } catch {}
-    showMsg(editId ? '编辑成功' : '入库成功');
-    closeStockInForm();
-    await loadStockIn(); // 加 await 等待数据加载完成
-    return;
-}
+        if (res.status >= 200 && res.status < 300) {
+            // 忽略空响应解析报错
+            try { await res.json(); } catch {}
+            showMsg(editId ? '编辑成功' : '入库成功');
+            closeStockInForm();
+            await loadStockIn();
+            return;
+        }
         // 非成功状态才抛出异常
         throw new Error('请求失败');
     } catch (e) {
         showMsg('入库提交失败');
     }
 }
+
 // 下载导入模板
 function downloadStockInTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
