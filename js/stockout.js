@@ -197,25 +197,20 @@ function renderOutGoodsList(list){
 }
 
 // 选择商品，自动带出字段 + 加载总库存（仅修改这一处）
+// 选择商品，自动带出字段 + 加载总库存
 function selectOutGoods(goods){
     let sup = document.getElementById('outSupSearchInput').value;
     document.getElementById('outGoodsSearchInput').value = goods.name;
     document.getElementById('outSpec').value = goods.spec || '';
     document.getElementById('outSettleType').value = goods.settleType || '';
 
-    // ✅ 调试：查看 getStockBatchList 是否能获取批次
-    const testBatches = getStockBatchList(sup, goods.name);
-    console.log('🔍 getStockBatchList 返回:', testBatches);
-
     let baseGoods = allGoods.find(g => g.supplier === sup && g.name === goods.name);
     if (baseGoods) {
-        // 替换：只拿库存>0、已按生产日期FIFO排序的业务批次
-const validBatchList = getStockBatchList(sup, goods.name);
-if (validBatchList.length > 0) {
-    const firstValidBatch = validBatchList[0];
-    const earliest = firstValidBatch.inRecords[0];
+        const validBatchList = getStockBatchList(sup, goods.name);
+        if (validBatchList.length > 0) {
+            const firstValidBatch = validBatchList[0];
+            const earliest = firstValidBatch.inRecords[0];
             
-            // 计算 warnDay
             const expireResult = calculateExpireDays(baseGoods.shelf_life_num, baseGoods.shelf_life_unit);
             let warnDay = 0;
             if (typeof expireResult === 'string' && expireResult.includes('天')) {
@@ -235,22 +230,46 @@ if (validBatchList.length > 0) {
             );
             const bzStatus = bzResult.statusText || '正常';
             
+            // ✅ 保存保质期状态到全局变量
+            window._outSelectedBzStatus = bzStatus;
+            
             (async function() {
                 let price = await getSalePriceByBzStatus(baseGoods.id, bzStatus, baseGoods.sale_price);
-                document.getElementById('outSalePrice').value = formatMoney(price);
-                window._outSelectedSalePrice = price;
+                // ✅ 如果价格为 null，显示为空
+                if (price === null || price === undefined) {
+                    document.getElementById('outSalePrice').value = '';
+                    window._outSelectedSalePrice = null;
+                    // 设置提示样式
+                    const priceInput = document.getElementById('outSalePrice');
+                    priceInput.placeholder = '价格未录入';
+                    priceInput.style.color = '#ff6b6b';
+                } else {
+                    document.getElementById('outSalePrice').value = formatMoney(price);
+                    window._outSelectedSalePrice = price;
+                    const priceInput = document.getElementById('outSalePrice');
+                    priceInput.placeholder = '';
+                    priceInput.style.color = '';
+                }
             })();
         } else {
             document.getElementById('outSalePrice').value = formatMoney(baseGoods.sale_price);
             window._outSelectedSalePrice = baseGoods.sale_price;
+            window._outSelectedBzStatus = '正常';
+            const priceInput = document.getElementById('outSalePrice');
+            priceInput.placeholder = '';
+            priceInput.style.color = '';
         }
     } else {
-        document.getElementById('outSalePrice').value = '￥0.00';
-        window._outSelectedSalePrice = 0;
+        document.getElementById('outSalePrice').value = '';
+        window._outSelectedSalePrice = null;
+        window._outSelectedBzStatus = '正常';
+        const priceInput = document.getElementById('outSalePrice');
+        priceInput.placeholder = '价格未录入';
+        priceInput.style.color = '#ff6b6b';
     }
 
     const total = getTotalStockNum(sup, goods.name);
-document.getElementById('totalStockNum').value = total;
+    document.getElementById('totalStockNum').value = total;
 }
 
 // 出库数量实时库存校验
@@ -287,6 +306,15 @@ async function openStockOutForm(){
     document.getElementById('totalStockNum').value = '0';
     document.getElementById('outNum').value = '';
     document.getElementById('outRecordDate').value = new Date().toISOString().split('T')[0];
+    
+    // ✅ 重置销售价输入框样式
+    const priceInput = document.getElementById('outSalePrice');
+    priceInput.placeholder = '';
+    priceInput.style.color = '';
+
+    // ✅ 重置全局变量
+    window._outSelectedSalePrice = null;
+    window._outSelectedBzStatus = '';
 
     const supBox = document.getElementById('outSupListBox');
     if (supBox) supBox.style.display = 'none';
@@ -312,6 +340,7 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 // 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
+// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -325,48 +354,100 @@ async function submitStockOut(){
     if(!goodsName) return showMsg('请选择商品');
     if(outNum < 1) return showMsg('出库数量必须大于0');
     if(!recordDate) return showMsg('请选择录入日期');
+    
+    // ============================================================
+    // ✅ 出库强制校验：检查销售单价是否为空（折扣/临期状态必须录入价格）
+    // ============================================================
+    const bzStatus = window._outSelectedBzStatus || '';
+    const priceInput = document.getElementById('outSalePrice');
+    const priceValue = priceInput.value || '';
+    
+    // 检查输入框是否为空或无效
+    const isPriceEmpty = !priceValue || 
+                         priceValue === '' || 
+                         priceValue === '￥0.00' || 
+                         priceValue === '￥' ||
+                         priceValue === '￥0' ||
+                         priceValue.trim() === '' ||
+                         priceValue === '价格未录入';
+    
+    // 判断是否为折扣或临期状态
+    const isDiscountOrExpire = (bzStatus === '临期' || bzStatus.startsWith('discount_'));
+    
+    // 如果是折扣或临期状态，且价格为空，阻止提交并弹窗提示
+    if (isDiscountOrExpire && isPriceEmpty) {
+        let statusDisplay = bzStatus;
+        if (bzStatus.startsWith('discount_')) {
+            const match = bzStatus.match(/discount_(\d+)/);
+            if (match) {
+                const config = window.settingsData?.discountConfig?.items || [];
+                const idx = parseInt(match[1]) - 1;
+                if (config[idx] && config[idx].label) {
+                    statusDisplay = config[idx].label;
+                }
+            }
+        }
+        return showMsg(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
+    }
+    
+    // 双重保险：如果 salePrice 为 0 且是折扣/临期状态，也拦截
+    if ((!salePrice || salePrice === 0) && isDiscountOrExpire) {
+        let statusDisplay = bzStatus;
+        if (bzStatus.startsWith('discount_')) {
+            const match = bzStatus.match(/discount_(\d+)/);
+            if (match) {
+                const config = window.settingsData?.discountConfig?.items || [];
+                const idx = parseInt(match[1]) - 1;
+                if (config[idx] && config[idx].label) {
+                    statusDisplay = config[idx].label;
+                }
+            }
+        }
+        return showMsg(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
+    }
+    // ============================================================
+
     // 统一调用公共库存函数，自动扣出库+退货
     const totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
         return showMsg(`库存不足！当前可用库存：${totalStock}`);
     }
     // 【核心修复】直接调用common内置FIFO，删除手写报错循环
-const outDetail = calcFIFOOut(supplier, goodsName, outNum);
-if(outDetail.length === 0) return showMsg('无可用库存批次');
-// 按批次唯一key分组（同批次多条入库合并一组，不同批次分开）
-const groupMap = new Map();
-for(let d of outDetail){
-    const batchKey = d.batchKey;
-    const inRecordId = d.inRecordId;
-    const useNum = d.useNum;
-    let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
-    if(!inItem) continue;
-    let outPrice = 0;
-    let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
-    if(settleType === '线上'){
-        outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
-    }else{
-        outPrice = Number(inItem.in_price) || 0;
+    const outDetail = calcFIFOOut(supplier, goodsName, outNum);
+    if(outDetail.length === 0) return showMsg('无可用库存批次');
+    // 按批次唯一key分组（同批次多条入库合并一组，不同批次分开）
+    const groupMap = new Map();
+    for(let d of outDetail){
+        const batchKey = d.batchKey;
+        const inRecordId = d.inRecordId;
+        const useNum = d.useNum;
+        let inItem = allStockIn.find(inRec => inRec.id === inRecordId);
+        if(!inItem) continue;
+        let outPrice = 0;
+        let goodsItem = allGoods.find(g => g.name === goodsName && g.supplier === supplier);
+        if(settleType === '线上'){
+            outPrice = goodsItem ? Number(goodsItem.online_cost) : 0;
+        }else{
+            outPrice = Number(inItem.in_price) || 0;
+        }
+        // 以batchKey作为分组键，同批次全部汇总到一组
+        if(!groupMap.has(batchKey)){
+            groupMap.set(batchKey, {
+                batchKey: batchKey,
+                outPrice: outPrice,
+                totalUseNum: 0,
+                details: []
+            });
+        }
+        const targetGroup = groupMap.get(batchKey);
+        targetGroup.totalUseNum += useNum;
+        targetGroup.details.push(d);
     }
-    // 以batchKey作为分组键，同批次全部汇总到一组
-    if(!groupMap.has(batchKey)){
-        groupMap.set(batchKey, {
-            batchKey: batchKey,
-            outPrice: outPrice,
-            totalUseNum: 0,
-            // 存储该批次下所有入库明细，用于outDetail字段存入数据库
-            details: []
-        });
+    let groupList = Array.from(groupMap.values());
+    if(groupList.length === 0) return showMsg('拆分出库数据失败');
+    if (!salePrice || salePrice === 0) {
+        salePrice = window._outSelectedSalePrice || 0;
     }
-    const targetGroup = groupMap.get(batchKey);
-    targetGroup.totalUseNum += useNum;
-    targetGroup.details.push(d);
-}
-let groupList = Array.from(groupMap.values());
-if(groupList.length === 0) return showMsg('拆分出库数据失败');
-if (!salePrice || salePrice === 0) {
-    salePrice = window._outSelectedSalePrice || 0;
-}
     // 循环提交每一张出库单
     let submitSuccess = true;
     for(let group of groupList){

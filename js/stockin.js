@@ -260,8 +260,11 @@ function selectInGoods(goods){
     document.getElementById('curSelectGoodsId').value = goods.id;
     document.getElementById('inSpec').value = goods.spec || '';
     document.getElementById('inSettleType').value = goods.channel || '';
-    // ✅ 先显示正常价，等用户选日期后再匹配
+    // ✅ 先显示正常价，等用户选日期后再匹配（不强制显示价格）
     document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
+    const salePriceInput = document.getElementById('inSalePrice');
+    salePriceInput.placeholder = '';
+    salePriceInput.style.color = '';
     let priceInput = document.getElementById('inPrice');
     if(goods.channel === '线上'){
         priceInput.disabled = true;
@@ -272,7 +275,6 @@ function selectInGoods(goods){
     // ✅ 触发日期变化事件，根据已有日期匹配价格
     updateInPriceByDate();
 }
-
 // 日期互斥
 function lockExpireDate(){
     let p = document.getElementById('inProduceDate').value;
@@ -289,6 +291,7 @@ function lockProduceDate(){
     }
 }
 
+// ========== 新增：根据日期更新销售价 ==========
 // ========== 新增：根据日期更新销售价 ==========
 async function updateInPriceByDate() {
     const goodsId = document.getElementById('curSelectGoodsId').value;
@@ -327,10 +330,27 @@ async function updateInPriceByDate() {
         );
         const bzStatus = bzResult.statusText || '正常';
         
+        // ✅ 入库时：获取价格，如果为 null 则显示为空（不阻止入库）
         const price = await getSalePriceByBzStatus(goodsId, bzStatus, goods.sale_price);
-        document.getElementById('inSalePrice').value = formatMoney(price);
+        if (price === null || price === undefined) {
+            // 价格未录入，显示为空
+            document.getElementById('inSalePrice').value = '';
+            // 可以添加一个视觉提示，但不阻止操作
+            const salePriceInput = document.getElementById('inSalePrice');
+            salePriceInput.placeholder = '价格未录入';
+            salePriceInput.style.color = '#ff6b6b';
+        } else {
+            document.getElementById('inSalePrice').value = formatMoney(price);
+            const salePriceInput = document.getElementById('inSalePrice');
+            salePriceInput.placeholder = '';
+            salePriceInput.style.color = '';
+        }
     } else {
+        // 没有日期，显示正常的 sale_price
         document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
+        const salePriceInput = document.getElementById('inSalePrice');
+        salePriceInput.placeholder = '';
+        salePriceInput.style.color = '';
     }
 }
 
@@ -361,6 +381,10 @@ async function openStockInForm(id=null){
     document.getElementById('inRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('inProduceDate').value = '';
     document.getElementById('inExpireDate').value = '';
+    // 重置销售价输入框样式
+    const salePriceInput = document.getElementById('inSalePrice');
+    salePriceInput.placeholder = '';
+    salePriceInput.style.color = '';
     // 强制关闭下拉列表
     document.getElementById('supListBox').style.display = 'none';
     document.getElementById('goodsListBox').style.display = 'none';

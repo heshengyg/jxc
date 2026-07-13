@@ -793,11 +793,12 @@ function calcBzStatus(produceDate, expireDate, shelfLifeNum, shelfLifeUnit) {
 /**
  * 根据商品ID和保质期状态获取销售价
  * 优先级：正常状态→商品信息表 sale_price
- *         其他状态→price_temp_state表查询，无则返回商品信息表 sale_price
+ *         过期状态→商品信息表 sale_price
+ *         折扣/临期状态→price_temp_state表查询，有则返回，无则返回 null
  * @param {number} goodsId - 商品ID
  * @param {string} bzStatus - 保质期状态
  * @param {number} defaultPrice - 默认价格（商品信息表的价格）
- * @returns {Promise<number>} 销售价
+ * @returns {Promise<number|null>} 销售价，如果未找到则返回 null
  */
 async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     // 正常状态 → 返回默认价格
@@ -813,10 +814,10 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
     // ✅ 状态映射：字段名使用正确的名称（有下划线）
     const fieldMap = {
         '临期': 'expire_price',
-        'discount_1': 'discount_1_price',   // ✅ 有下划线
-        'discount_2': 'discount_2_price',   // ✅ 有下划线
-        'discount_3': 'discount_3_price',   // ✅ 有下划线
-        'discount_4': 'discount_4_price'    // ✅ 有下划线
+        'discount_1': 'discount_1_price',
+        'discount_2': 'discount_2_price',
+        'discount_3': 'discount_3_price',
+        'discount_4': 'discount_4_price'
     };
 
     const labelToKey = {
@@ -833,7 +834,8 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
 
     const fieldName = fieldMap[statusKey];
     if (!fieldName) {
-        return Number(defaultPrice) || 0;
+        // 未知状态，返回 null（不再降级）
+        return null;
     }
 
     try {
@@ -842,7 +844,7 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
             {
                 headers: {
                     apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`  // ✅ 反引号
+                    Authorization: `Bearer ${SUPABASE_KEY}`
                 }
             }
         );
@@ -850,11 +852,13 @@ async function getSalePriceByBzStatus(goodsId, bzStatus, defaultPrice) {
         if (data && data.length > 0 && data[0][fieldName] !== null && data[0][fieldName] !== undefined) {
             return Number(data[0][fieldName]);
         }
+        // 数据库中该字段为 null 或不存在 → 返回 null
+        return null;
     } catch (e) {
         console.warn('获取临时价格失败:', e);
+        // 查询失败也返回 null
+        return null;
     }
-
-    return Number(defaultPrice) || 0;
 }
 
 /**
