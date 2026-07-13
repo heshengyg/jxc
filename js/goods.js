@@ -10,6 +10,31 @@ let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // ========== 权限辅助函数 ==========
 function isFinanceOrAdmin() {
+// 改日改-更新按钮权限：管理员、APP部
+function canOperateDateUpdate() {
+    if (typeof currentUserId === 'undefined' || !currentUserId) return false;
+    if (typeof permissionData === 'undefined') return false;
+    const user = permissionData.users.find(u => u.id === currentUserId);
+    if (!user) return false;
+    const role = permissionData.roles.find(r => r.id === user.roleId);
+    if (!role) return false;
+    return role.name === '管理员' || role.name === 'APP部';
+}
+// 改价按钮权限：管理员、商品部
+function canOperatePriceEdit() {
+    if (typeof currentUserId === 'undefined' || !currentUserId) return false;
+    if (typeof permissionData === 'undefined') return false;
+    const user = permissionData.users.find(u => u.id === currentUserId);
+    if (!user) return false;
+    const role = permissionData.roles.find(r => r.id === user.roleId);
+    if (!role) return false;
+    return role.name === '管理员' || role.name === '商品部';
+}
+// 挂载全局
+window.canOperateDateUpdate = canOperateDateUpdate;
+window.canOperatePriceEdit = canOperateDateUpdate;
+
+
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
     var user = permissionData.users.find(u => u.id === currentUserId);
@@ -2535,7 +2560,6 @@ function renderDateChangeList() {
             if (valA < valB) return dateChangeSortAsc ? -1 : 1;
             return 0;
         }
-
         // 2. 无表头排序时，默认规则：待改价 置顶
         const aIsNeedPrice = a.needUpdatePrice === '待改价';
         const bIsNeedPrice = b.needUpdatePrice === '待改价';
@@ -2544,14 +2568,12 @@ function renderDateChangeList() {
         // 同为待改价 / 同为无需改价，保持原有加载顺序不变
         return 0;
     });
-
     const tb = document.getElementById('dateChangeList');
     if (!tb) {
         console.warn('dateChangeList元素不存在');
         return;
     }
-    // 后面原有代码完全不动
-}    
+    
     console.log('渲染日期更换列表，数据量:', dateChangeFilteredList.length);
     
     tb.innerHTML = '';
@@ -2613,7 +2635,6 @@ if (item.dateValue) {
         // 生产/到期列显示
 let dateTypeDisplay = '';
 let dateTypeColor = '';
-
 // 优先从 item.dateType 获取
 if (item.dateType === '生产日期') {
     dateTypeDisplay = '生产';
@@ -2730,7 +2751,6 @@ actionButtons += '</div>';
         tb.innerHTML += html;
     });
 }
-
 function exportDateChangeExcel() {
     if (dateChangeFilteredList.length === 0) {
         showMsg('暂无数据可导出');
