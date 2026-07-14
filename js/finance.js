@@ -37,6 +37,13 @@ let currTaxRateOptionList = [
     {val:'13',text:'13%'}
 ];
 
+// ✅ 添加缓存变量
+let stockInCheckCache = {
+    displayData: [],
+    filterKey: '',
+    total: 0
+};
+
 // 财务全局分页公共变量（9个页面独立分页参数，互不干扰）
 const financePageConfig = {
     taxRate: { pageSize: 10, current: 1, total: 0 },
@@ -2332,8 +2339,7 @@ function resetStockInCheck() {
 }
 
 function searchStockInCheck() {
-    // 不重置分页，由调用方决定
-    
+    // 获取当前筛选条件
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
     const month = document.getElementById('checkInMonth').value;
@@ -2343,6 +2349,17 @@ function searchStockInCheck() {
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
 
+    // 生成筛选条件指纹
+    const filterKey = `${settle}|${invStatus}|${month}|${supplier}|${goodsName}|${taxRate}|${groupSupplier}|${groupGoods}`;
+    
+    // ✅ 如果筛选条件没变且有缓存数据，直接使用缓存（分页切换时不需要重新计算）
+    if (stockInCheckCache.filterKey === filterKey && stockInCheckCache.displayData.length > 0) {
+        renderStockInCheckWithCache(stockInCheckCache.displayData);
+        return;
+    }
+
+    // ===== 以下为原有业务逻辑（不变） =====
+    
     // ===== 1. 获取入库数据 =====
     let inList = [...allStockInList];
     
@@ -2634,7 +2651,12 @@ function searchStockInCheck() {
         totalSummary.remainAmount += s.remainAmount;
     }
 
-    // ===== 8. 更新总条数提示 =====
+    // ===== 8. 更新缓存 =====
+    stockInCheckCache.displayData = displayData;
+    stockInCheckCache.filterKey = filterKey;
+    stockInCheckCache.total = displayData.length;
+
+    // ===== 9. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = allStockInList.length;
@@ -2642,7 +2664,12 @@ function searchStockInCheck() {
         totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${displayData.length} 条`;
     }
 
-    // ===== 9. 分页渲染（关键修复） =====
+    // ===== 10. 渲染 =====
+    renderStockInCheckWithData(displayData, supplierSummaryMap, totalSummary);
+}
+
+// ===== 新增：独立渲染函数（放在 searchStockInCheck 后面） =====
+function renderStockInCheckWithData(displayData, supplierSummaryMap, totalSummary) {
     const cfg = financePageConfig.stockInCheck;
     cfg.total = displayData.length;
     const start = (cfg.current - 1) * cfg.pageSize;
@@ -2706,36 +2733,40 @@ function searchStockInCheck() {
     });
 
     // 各供应商汇总行
-    for (const sup of Object.keys(supplierSummaryMap)) {
-        const s = supplierSummaryMap[sup];
-        const remainColor = s.remainAmount < 0 ? 'style="color:red;"' : '';
-        tbody.innerHTML += `
-        <tr style="background:#f0f4f8;font-weight:bold;">
-            <td colspan="7" style="text-align:right;">${sup} 汇总：</td>
-            <td>${s.in_num}</td>
-            <td></td>
-            <td>${formatMoney(s.totalAmount)}</td>
-            <td>${formatMoney(s.noTaxTotal)}</td>
-            <td>${formatMoney(s.taxTotal)}</td>
-            <td ${remainColor}>${formatMoney(s.remainAmount)}</td>
-            <td></td>
-        </tr>`;
+    if (supplierSummaryMap) {
+        for (const sup of Object.keys(supplierSummaryMap)) {
+            const s = supplierSummaryMap[sup];
+            const remainColor = s.remainAmount < 0 ? 'style="color:red;"' : '';
+            tbody.innerHTML += `
+            <tr style="background:#f0f4f8;font-weight:bold;">
+                <td colspan="7" style="text-align:right;">${sup} 汇总：</td>
+                <td>${s.in_num}</td>
+                <td></td>
+                <td>${formatMoney(s.totalAmount)}</td>
+                <td>${formatMoney(s.noTaxTotal)}</td>
+                <td>${formatMoney(s.taxTotal)}</td>
+                <td ${remainColor}>${formatMoney(s.remainAmount)}</td>
+                <td></td>
+            </tr>`;
+        }
     }
 
     // 总汇总行
-    const totalQtyColor = totalSummary.in_num < 0 ? 'style="color:red;font-weight:bold;"' : '';
-    const totalRemainColor = totalSummary.remainAmount < 0 ? 'style="color:red;"' : '';
-    tbody.innerHTML += `
-    <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
-        <td colspan="7" style="text-align:right;">总汇总：</td>
-        <td ${totalQtyColor}>${totalSummary.in_num}</td>
-        <td></td>
-        <td>${formatMoney(totalSummary.totalAmount)}</td>
-        <td>${formatMoney(totalSummary.noTaxTotal)}</td>
-        <td>${formatMoney(totalSummary.taxTotal)}</td>
-        <td ${totalRemainColor}>${formatMoney(totalSummary.remainAmount)}</td>
-        <td></td>
-    </tr>`;
+    if (totalSummary) {
+        const totalQtyColor = totalSummary.in_num < 0 ? 'style="color:red;font-weight:bold;"' : '';
+        const totalRemainColor = totalSummary.remainAmount < 0 ? 'style="color:red;"' : '';
+        tbody.innerHTML += `
+        <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
+            <td colspan="7" style="text-align:right;">总汇总：</td>
+            <td ${totalQtyColor}>${totalSummary.in_num}</td>
+            <td></td>
+            <td>${formatMoney(totalSummary.totalAmount)}</td>
+            <td>${formatMoney(totalSummary.noTaxTotal)}</td>
+            <td>${formatMoney(totalSummary.taxTotal)}</td>
+            <td ${totalRemainColor}>${formatMoney(totalSummary.remainAmount)}</td>
+            <td></td>
+        </tr>`;
+    }
     
     renderFinancePagination('stockInCheck');
 }
