@@ -196,14 +196,15 @@ function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].current = 1;
     if(pageKey === 'stockInPrint'){
         searchPrintStockIn(true);
-    }else if(pageKey === 'stockInCheck'){
+    } else if(pageKey === 'stockInCheck'){
         // 切换条数，重置页码，重新全量筛选渲染
         searchStockInCheck(true);
+    } else if(pageKey === 'stockOutCheck'){
+        searchStockOutCheck(true);
     }else{
         initCurrentSubPage();
     }
 }
-
 // 跳转指定页
 function financeGoToPage(pageKey, targetPage) {
     const cfg = financePageConfig[pageKey];
@@ -215,6 +216,9 @@ function financeGoToPage(pageKey, targetPage) {
     } else if(pageKey === 'stockInCheck'){
         // 入库对账：仅切换页码，不重置筛选，重新渲染表格
         searchStockInCheck(false);
+    } else if(pageKey === 'stockOutCheck'){
+        // 出库对账翻页：保留当前页码，不重置到第一页
+        searchStockOutCheck(false);
     }else{
         initCurrentSubPage();
     }
@@ -3192,6 +3196,7 @@ function initStockOutCheckPage() {
     if (tbody) tbody.innerHTML = '';
     
     renderFinancePagination('stockOutCheck');
+    searchStockOutCheck(true);
 }
 
 function initCheckOutMonthSelect(selId) {
@@ -3240,7 +3245,7 @@ function renderCheckOutSupplierList(list) {
             document.getElementById('checkOutSupplierSearchInput').value = s;
             document.getElementById('checkOutSupplierListBox').style.display = 'none';
             // 输入即搜索
-            searchStockOutCheck();
+            searchStockOutCheck(true);
         };
         box.appendChild(div);
     });
@@ -3276,7 +3281,7 @@ function renderCheckOutGoodsList(list) {
             document.getElementById('checkOutGoodsSearchInput').value = s;
             document.getElementById('checkOutGoodsListBox').style.display = 'none';
             // 输入即搜索
-            searchStockOutCheck();
+            searchStockOutCheck(true);
         };
         box.appendChild(div);
     });
@@ -3290,7 +3295,7 @@ function onCheckOutFilterInput() {
     }
     // 防抖处理，300ms后执行搜索
     checkOutSearchTimer = setTimeout(() => {
-        searchStockOutCheck();
+        searchStockOutCheck(true);
         // 显示下拉列表
         const supplierInput = document.getElementById('checkOutSupplierSearchInput');
         const goodsInput = document.getElementById('checkOutGoodsSearchInput');
@@ -3322,10 +3327,13 @@ function resetStockOutCheck() {
     document.getElementById('checkOutGoodsListBox').style.display = 'none';
     // 重置分页到第一页
     financePageConfig.stockOutCheck.current = 1;
-    searchStockOutCheck();
+    searchStockOutCheck(true);
 }
 
-function searchStockOutCheck() {
+function searchStockOutCheck(resetPage = true) {
+if(resetPage){
+    financePageConfig.stockOutCheck.current = 1;
+}
     const settle = document.getElementById('checkOutSettle').value;
     const month = document.getElementById('checkOutMonth').value;
     const supplier = document.getElementById('checkOutSupplierSearchInput').value.trim();
@@ -3557,7 +3565,7 @@ function searchStockOutCheck() {
 // 使用上面的新版本覆盖
 
 function exportStockOutCheckExcel() {
-    searchStockOutCheck();
+    searchStockOutCheck(true);
     
     const settle = document.getElementById('checkOutSettle').value;
     const month = document.getElementById('checkOutMonth').value;
