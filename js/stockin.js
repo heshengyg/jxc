@@ -562,21 +562,19 @@ function exportStockInExcel(){
             return;
         }
 
-        let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期","发票状态","发票号码"];
-        let expData = validData.map(item=>[
-            item.supplier||"",
-            item.goodsName||"",
-            item.spec||"",
-            item.settleType||"",
-            item.sale_price||0,
-            item.in_price||0,
-            item.in_num||0,
-            item.record_date||"",
-            item.produce_date||"",
-            item.expire_date||"",
-            item.invoice_status||"",
-            item.invoice_no||""
-        ]);
+        let header = ["供应商","商品名称","规格","结算方式","销售单价","入库单价","入库数量","录入日期","生产日期","到期日期"];
+let expData = validData.map(item=>[
+    item.supplier||"",
+    item.goodsName||"",
+    item.spec||"-",
+    item.settleType||"",
+    item.sale_price||0,
+    item.in_price||0,
+    item.in_num,
+    item.record_date||"",
+    item.produce_date||"",
+    item.expire_date||""
+]);
         
         console.log('📝 开始生成 Excel 工作簿');
         let ws = XLSX.utils.aoa_to_sheet([header,...expData]);
@@ -749,75 +747,60 @@ if (pageData.length > 0) {
     let fullHtml = '';
     
     for (let idx = 0; idx < pageData.length; idx++) {
-        try {
-            const item = pageData[idx];
-            const cacheKey = `${item.supplier}|${item.goodsName}`;
-            const cache = stockDataCache ? stockDataCache.get(cacheKey) : null;
-            
-            let batchRemain = 0;
-            let totalStock = 0;
-            if (cache && cache.batchList && cache.batchList.length > 0) {
-                const batchList = cache.batchList;
-                const batch = batchList.find(b => {
-                    if (!b || !b.inRecords) return false;
-                    return b.inRecords.some(inItem => inItem.id === item.id);
-                });
-                batchRemain = batch ? batch.batchRemain : 0;
-                totalStock = cache.totalStock || 0;
-            }
-
-            let amount = formatMoney((item.in_price || 0) * item.in_num);
-            let isUsed = idUsedMap[item.id] || false;
-            let btnHtml = '';
-            
-            if(isUsed){
-                btnHtml = `
-                    <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-                    <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
-                `;
-            }else{
-                btnHtml = `
-                    <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-                `;
-            }
-            
-            let invoiceText = item.invoice_status || '';
-            let invoiceClass = '';
-            if (invoiceText === '未开票') {
-                invoiceClass = 'bg-yellow-invoice';
-            } else if (invoiceText === '已开票') {
-                invoiceClass = 'bg-green-invoice';
-            }
-            
-            fullHtml += `
-                <tr>
-                    <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
-                    <td>${start + idx + 1}</td>
-                    <td>${item.supplier || ''}</td>
-                    <td>${item.goodsName || ''}</td>
-                    <td>${item.spec || '-'}</td>
-                    <td>${item.settleType || ''}</td>
-                    <td>${formatMoney(item.in_price)}</td>
-                    <td>${item.in_num}</td>
-                    <td>${amount}</td>
-                    <td>${batchRemain}</td>
-                    <td>${totalStock}</td>
-                    <td class="${invoiceClass}">${invoiceText}</td>
-                    <td>${item.invoice_no || ''}</td>
-                    <td>${item.produce_date || ''}</td>
-                    <td>${item.expire_date || ''}</td>
-                    <td>${item.record_date || ''}</td>
-                    <td>${btnHtml}</td>
-                </tr>
-            `;
-        } catch (e) {
-            console.error('渲染第', idx + 1, '行时出错:', e, pageData[idx]);
-            // 继续渲染下一行
-            continue;
+    try{
+        const item = pageData[idx];
+        const cacheKey = `${item.supplier}|${item.goodsName}`;
+        const cache = stockDataCache ? stockDataCache.get(cacheKey) : null;
+        
+        let batchRemain = 0;
+        let totalStock = 0;
+        if (cache && cache.batchList && cache.batchList.length > 0) {
+            const batch = cache.batchList.find(b => {
+                if (!b || !b.inRecords) return false;
+                return b.inRecords.some(inItem => inItem.id === item.id);
+            });
+            batchRemain = batch ? batch.batchRemain : 0;
+            totalStock = cache.totalStock || 0;
         }
+        let amount = formatMoney((item.in_price || 0) * item.in_num);
+        let isUsed = idUsedMap[item.id] || false;
+        let btnHtml = '';
+        
+        if(isUsed){
+            btnHtml = `
+                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+            `;
+        }else{
+            btnHtml = `
+                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+            `;
+        }
+        // 已删除发票状态、发票号码相关变量，不再渲染两列
+        fullHtml += `
+            <tr>
+                <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.goodsName || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.settleType || ''}</td>
+                <td>${formatMoney(item.in_price)}</td>
+                <td>${item.in_num}</td>
+                <td>${amount}</td>
+                <td>${batchRemain}</td>
+                <td>${totalStock}</td>
+                <td>${item.produce_date || ''}</td>
+                <td>${item.expire_date || ''}</td>
+                <td>${item.record_date || ''}</td>
+                <td>${btnHtml}</td>
+            </tr>
+        `;
+    }catch(err){
+        console.error('单行入库渲染失败', item, err);
+        fullHtml += `<tr><td colspan="15" style="color:red;">第${start+idx+1}行数据渲染异常</td></tr>`;
     }
-    tb.innerHTML = fullHtml;
 }
 
 // 分页渲染
