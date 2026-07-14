@@ -1425,9 +1425,13 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
 
-    // 兜底：如果全局退货变量不存在，直接赋值空数组，不发起异步请求（删除await，解决卡死）
-    if (!window.allReturnGoods) {
-        window.allReturnGoods = [];
+    // 修正变量名：window.allStockOut，不是allReturnGoods
+    let totalReturn = 0;
+    // 兜底判断，防止接口加载失败为空
+    if (window.allStockOut && window.allStockOut.length > 0) {
+        window.allStockOut.filter(r => r.supplier === supplier).forEach(item => {
+            totalReturn += Number(item.in_price) * Number(item.return_num);
+        });
     }
     
     let totalIn = 0;
@@ -1435,14 +1439,7 @@ function updatePayPayableDisplay(supplier) {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    let totalReturn = 0;
-    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
-        window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
-            totalReturn += Number(item.in_price) * Number(item.return_num);
-        });
-    }
-    
-    // 净入库=总入库-退货（正确扣减退货，解决差额）
+    // 净入库=总入库-退货（现在能正常扣减退货）
     const netIn = totalIn - totalReturn;
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
@@ -1450,13 +1447,11 @@ function updatePayPayableDisplay(supplier) {
     });
     
     const payable = netIn - totalPay;
-    
     _payableCache.set(supplier, payable);
     
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 清除缓存函数
 function clearPayableCache(supplier) {
     if (supplier) {
@@ -1475,24 +1470,21 @@ function updateInvoiceBackBalance(supplier) {
     if (!supplier) {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
+        return;
     }
 
-    // 兜底：全局退货变量不存在则置空数组，移除await语法错误代码
-    if (!window.allReturnGoods) {
-        window.allReturnGoods = [];
+    // 修正全局变量名 window.allStockOut
+    let totalReturn = 0;
+    if (window.allStockOut && window.allStockOut.length > 0) {
+        window.allStockOut.filter(r => r.supplier === supplier).forEach(item => {
+            totalReturn += Number(item.in_price) * Number(item.return_num);
+        });
     }
     
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
-    
-    let totalReturn = 0;
-    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
-        window.allReturnGoods.filter(r => r.supplier).forEach(item => {
-            totalReturn += Number(item.in_price) * Number(item.return_num);
-        });
-    }
     
     const netIn = totalIn - totalReturn;
     
@@ -1502,12 +1494,12 @@ function updateInvoiceBackBalance(supplier) {
     });
     
     const balance = totalBack - netIn;
-    
     _invoiceBalanceCache.set(supplier, balance);
     
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
 }
+
 // ✅ 清除缓存函数
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
