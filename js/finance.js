@@ -197,14 +197,16 @@ function changeFinancePageSize(pageKey, size) {
     if(pageKey === 'stockInPrint'){
         searchPrintStockIn(true);
     } else if(pageKey === 'stockInCheck'){
-        // 切换条数，重置页码，重新全量筛选渲染
         searchStockInCheck(true);
     } else if(pageKey === 'stockOutCheck'){
         searchStockOutCheck(true);
+    } else if(pageKey === 'monthInvoiceBalance'){
+        searchMonthInvoiceBalance(true);
     }else{
         initCurrentSubPage();
     }
 }
+
 // 跳转指定页
 function financeGoToPage(pageKey, targetPage) {
     const cfg = financePageConfig[pageKey];
@@ -214,16 +216,15 @@ function financeGoToPage(pageKey, targetPage) {
     if(pageKey === 'stockInPrint'){
         searchPrintStockIn(false);
     } else if(pageKey === 'stockInCheck'){
-        // 入库对账：仅切换页码，不重置筛选，重新渲染表格
         searchStockInCheck(false);
     } else if(pageKey === 'stockOutCheck'){
-        // 出库对账翻页：保留当前页码，不重置到第一页
         searchStockOutCheck(false);
+    } else if(pageKey === 'monthInvoiceBalance'){
+        searchMonthInvoiceBalance(false);
     }else{
         initCurrentSubPage();
     }
 }
-
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
     await Promise.all([
@@ -2048,6 +2049,7 @@ function initMonthBalancePage() {
     const tbody = document.getElementById('monthBalanceList');
     tbody.innerHTML = '';
     renderFinancePagination('monthInvoiceBalance');
+    searchMonthInvoiceBalance(true);
 }
 
 // ========== 发票月结余 - 供应商搜索下拉 ==========
@@ -2080,7 +2082,7 @@ function renderMonthBalanceSupplierList(list) {
             document.getElementById('monthBalanceSupplierSearchInput').value = s;
             document.getElementById('monthBalanceSupplierListBox').style.display = 'none';
             // 输入即搜索
-            searchMonthInvoiceBalance();
+            searchMonthInvoiceBalance(true);
         };
         box.appendChild(div);
     });
@@ -2094,7 +2096,7 @@ function onMonthBalanceFilterInput() {
     }
     // 防抖处理，300ms后执行搜索
     monthBalanceSearchTimer = setTimeout(() => {
-        searchMonthInvoiceBalance();
+        searchMonthInvoiceBalance(true);
         // 显示下拉列表
         const input = document.getElementById('monthBalanceSupplierSearchInput');
         if (document.activeElement === input) {
@@ -2111,10 +2113,13 @@ function resetMonthBalanceSearch() {
     document.getElementById('monthBalanceSupplierSearchInput').value = '';
     document.getElementById('monthBalanceSupplierListBox').style.display = 'none';
     // 不重置月份选择，只重置供应商搜索
-    searchMonthInvoiceBalance();
+    searchMonthInvoiceBalance(true);
 }
 
-function searchMonthInvoiceBalance() {
+function searchMonthInvoiceBalance(resetPage = true) {
+if(resetPage){
+    financePageConfig.monthInvoiceBalance.current = 1;
+}
     financePageConfig.monthInvoiceBalance.current = 1;
     const month = document.getElementById('monthBalanceSelect').value;
     const searchKey = document.getElementById('monthBalanceSupplierSearchInput').value.trim().toLowerCase();
