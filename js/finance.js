@@ -2388,7 +2388,6 @@ function searchStockInCheck() {
     // ===== 3. 合并入库和退货数据 =====
     let allRecords = [];
 
-    // 入库记录
     inList.forEach(item => {
         allRecords.push({
             id: item.id,
@@ -2408,7 +2407,6 @@ function searchStockInCheck() {
         });
     });
 
-    // 退货记录
     returnList.forEach(item => {
         const amount = Number(item.in_price) * Number(item.return_num);
         allRecords.push({
@@ -2431,7 +2429,7 @@ function searchStockInCheck() {
         });
     });
 
-    // ===== 关键：按供应商分组，各自按日期正序核销 =====
+    // ===== 按供应商分组，各自按日期正序核销 =====
     const supplierGroups = {};
     allRecords.forEach(record => {
         if (!supplierGroups[record.supplier]) {
@@ -2550,15 +2548,19 @@ function searchStockInCheck() {
         supplierFinalRemain[sup] = remainingInvoice;
     }
 
-    // ===== 5. 按日期倒序排列（用于显示） =====
+    // ===== 5. 保存原始数据长度（用于分页） =====
+    const originalDataLength = calculatedData.length;
+    console.log('原始数据长度:', originalDataLength);
+
+    // ===== 6. 按日期倒序排列（用于显示） =====
     let displayData = [...calculatedData];
     displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
 
-    // ===== 6. 应用分组汇总 =====
+    // ===== 7. 应用分组汇总（如果勾选了） =====
     if (groupSupplier || groupGoods) {
         const groupMap = {};
-        // 从正序数据中获取每组最后一条的 remainAmount
         const groupFinalRemain = {};
+        // 从正序数据中获取每组最后一条的 remainAmount
         calculatedData.forEach(row => {
             const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
             groupFinalRemain[key] = row.remainAmount;
@@ -2601,7 +2603,7 @@ function searchStockInCheck() {
         displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
 
-    // ===== 7. 计算汇总 =====
+    // ===== 8. 计算汇总 =====
     const supplierSummaryMap = {};
     displayData.forEach(row => {
         if (!supplierSummaryMap[row.supplier]) {
@@ -2637,7 +2639,7 @@ function searchStockInCheck() {
         totalSummary.remainAmount += s.remainAmount;
     }
 
-    // ===== 8. 更新总条数提示 =====
+    // ===== 9. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = allStockInList.length;
@@ -2645,11 +2647,15 @@ function searchStockInCheck() {
         totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${displayData.length} 条`;
     }
 
-    // ===== 9. 分页渲染（关键修复） =====
+    // ===== 10. 分页渲染（关键修复） =====
     const cfg = financePageConfig.stockInCheck;
-    cfg.total = displayData.length;  // ✅ 确保 total 正确
+    // ✅ 关键修复：使用 displayData.length 作为总记录数
+    cfg.total = displayData.length;
+    console.log('分页总记录数:', cfg.total, '当前页:', cfg.current, '每页:', cfg.pageSize);
+    
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = displayData.slice(start, start + cfg.pageSize);
+    console.log('当前页数据量:', pageData.length, '起始索引:', start);
 
     const tbody = document.getElementById('stockInCheckList');
     tbody.innerHTML = '';
@@ -2741,7 +2747,6 @@ function searchStockInCheck() {
         <td></td>
     </tr>`;
     
-    // ✅ 确保分页渲染正确
     renderFinancePagination('stockInCheck');
 }
 
