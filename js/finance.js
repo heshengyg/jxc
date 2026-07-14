@@ -249,10 +249,10 @@ async function initFinanceBaseData() {
         loadAllGoods(),
         loadAllStockIn(),
         loadAllPayment(),
-        loadAllInvoiceBack()
+        loadAllInvoiceBack(),
+        loadAllStockOut() // 新增，页面进入自动加载退货全局变量
     ]);
 }
-
 // 加载线下去重供应商
 async function loadOfflineSupplier() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/goods?select=supplier&channel=eq.线下`, {
@@ -1425,8 +1425,15 @@ function updatePayPayableDisplay(supplier) {
         displayEl.style.color = '#999';
         return;
     }
+
+    // 修复：如果退货全局变量不存在，立即加载退货数据，保证退货参与计算
+    if (!window.allReturnGoods) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        window.allReturnGoods = await res.json();
+    }
     
-    // ✅ 正确逻辑：净入库 = 入库总额 - 退货总额
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
@@ -1439,15 +1446,14 @@ function updatePayPayableDisplay(supplier) {
         });
     }
     
-    // 净入库 = 入库总额 - 退货总额
+    // 净入库=总入库-退货（现在退货一定有值）
     const netIn = totalIn - totalReturn;
-    
+
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
     });
     
-    // 应付账款 = 净入库 - 已付款
     const payable = netIn - totalPay;
     
     _payableCache.set(supplier, payable);
@@ -1455,7 +1461,6 @@ function updatePayPayableDisplay(supplier) {
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 清除缓存函数
 function clearPayableCache(supplier) {
     if (supplier) {
@@ -1477,8 +1482,15 @@ function updateInvoiceBackBalance(supplier) {
         displayEl.style.color = '#999';
         return;
     }
+
+    // 修复：缺失退货全局变量则自动拉取，确保退货金额扣减生效
+    if (!window.allReturnGoods) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        window.allReturnGoods = await res.json();
+    }
     
-    // ✅ 正确逻辑：净入库 = 入库总额 - 退货总额
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
@@ -1491,7 +1503,6 @@ function updateInvoiceBackBalance(supplier) {
         });
     }
     
-    // 净入库 = 入库总额 - 退货总额
     const netIn = totalIn - totalReturn;
     
     let totalBack = 0;
@@ -1499,7 +1510,6 @@ function updateInvoiceBackBalance(supplier) {
         totalBack += Number(b.invoice_amount);
     });
     
-    // 发票结余 = 发票返回总额 - 净入库
     const balance = totalBack - netIn;
     
     _invoiceBalanceCache.set(supplier, balance);
