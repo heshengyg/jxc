@@ -1239,19 +1239,20 @@ async function initPayRecordPage() {
             payModal.style.display = 'none';
         }
         
-        if (offlineSupplierList.length === 0) {
-            await loadOfflineSupplier();
-        }
+        // ✅ 强制重新加载最新数据（确保 allStockInList 和 allPayList 是最新的）
+        await loadOfflineSupplier();
+        await loadAllStockIn();
+        await loadAllPayment();
+        
         financePageConfig.payRecord.current = 1;
         initPaySupplierSelect();
         
-        // 初始化搜索下拉数据
         paySupplierList = [...offlineSupplierList];
-        
-        // 重置搜索框
         document.getElementById('paySupplierSearchInput').value = '';
         document.getElementById('paySupplierListBox').style.display = 'none';
         
+        // 清除缓存，强制重新计算
+        clearPayableCache();
         refreshPayRecordList(true);
     } catch(e) {
         console.error('initPayRecordPage 执行失败:', e);
@@ -1585,21 +1586,21 @@ async function initInvoiceBackPage() {
             invoiceBackModal.style.display = 'none';
         }
         
-        if (offlineSupplierList.length === 0) {
-            await loadOfflineSupplier();
-        }
+        // ✅ 强制重新加载最新数据
+        await loadOfflineSupplier();
+        await loadAllStockIn();
+        await loadAllInvoiceBack();
+        
         financePageConfig.invoiceBack.current = 1;
         initInvoiceBackSupplierSelect();
         
-        // 初始化搜索下拉数据
         invoiceBackSupplierList = [...offlineSupplierList];
-        
-        // 重置搜索框
         document.getElementById('invoiceBackSupplierSearchInput').value = '';
         document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
         
+        // 清除缓存，强制重新计算
+        clearInvoiceBalanceCache();
         refreshInvoiceBackList(true);
-
     } catch(e) {
         console.error('initInvoiceBackPage 执行失败:', e);
     }
