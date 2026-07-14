@@ -1424,12 +1424,11 @@ function updatePayPayableDisplay(supplier) {
         displayEl.style.color = '#999';
         return;
     }
-
-    // 1、修正全局变量 window.allStockOut，兜底为空数组防止undefined
+    // 修复变量名：统一window.allStockOut，兜底空数组
     const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
-        // 2、每一项字段强制兜底null/空转0，杜绝NaN源头
+        // 全部字段兜底null/undefined转0，杜绝NaN
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
         totalReturn += price * num;
@@ -1450,8 +1449,7 @@ function updatePayPayableDisplay(supplier) {
     
     const payable = netIn - totalPay;
     _payableCache.set(supplier, payable);
-    
-    // 兜底：如果是NaN直接显示0.00
+    // NaN兜底
     const showVal = Number.isNaN(payable) ? 0 : payable;
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
@@ -1477,12 +1475,10 @@ function updateInvoiceBackBalance(supplier) {
         displayEl.style.color = '#999';
         return;
     }
-
-    // 修正全局变量 + 兜底空数组
+    // 修复变量 window.allStockOut
     const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
-        // 字段强制兜底，消除NaN
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
         totalReturn += price * num;
@@ -1504,13 +1500,10 @@ function updateInvoiceBackBalance(supplier) {
     
     const balance = totalBack - netIn;
     _invoiceBalanceCache.set(supplier, balance);
-    
-    // NaN兜底显示0
     const showVal = Number.isNaN(balance) ? 0 : balance;
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 清除缓存函数
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
@@ -1864,13 +1857,16 @@ async function recalculateInvoiceStatus(supplier) {
         });
 
     // 1.2 退货总额（退货 = 增加发票结余）
-    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
-        window.allReturnGoods
-            .filter(item => item.supplier === supplier)
-            .forEach(item => {
-                totalReturn += Number(item.in_price) * Number(item.return_num);
-            });
-    }
+    // 修正全局变量 window.allStockOut
+if (window.allStockOut && window.allStockOut.length > 0) {
+    window.allStockOut
+        .filter(item => item.supplier === supplier)
+        .forEach(item => {
+            const price = Number(item.in_price ?? 0);
+            const num = Number(item.return_num ?? 0);
+            totalReturn += price * num;
+        });
+}
 
     // 1.3 发票返回总额
     allInvoiceBackList
@@ -2014,7 +2010,7 @@ function renderPaymentBoard() {
     });
     
     // 退货总额
-    if (allReturnGoods && allReturnGoods.length > 0) {
+   if (window.allStockOut && window.allStockOut.length > 0) {
         allReturnGoods.filter(i => i.settle_type === '线下').forEach(item => {
             const total = Number(item.in_price) * Number(item.return_num);
             supplierGroup[item.supplier].totalReturn += total;
