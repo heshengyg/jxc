@@ -196,10 +196,14 @@ function changeFinancePageSize(pageKey, size) {
     financePageConfig[pageKey].current = 1;
     if(pageKey === 'stockInPrint'){
         searchPrintStockIn(true);
+    }else if(pageKey === 'stockInCheck'){
+        // 切换条数，重置页码，重新全量筛选渲染
+        searchStockInCheck(true);
     }else{
         initCurrentSubPage();
     }
 }
+
 // 跳转指定页
 function financeGoToPage(pageKey, targetPage) {
     const cfg = financePageConfig[pageKey];
@@ -208,10 +212,14 @@ function financeGoToPage(pageKey, targetPage) {
     cfg.current = targetPage;
     if(pageKey === 'stockInPrint'){
         searchPrintStockIn(false);
+    } else if(pageKey === 'stockInCheck'){
+        // 入库对账：仅切换页码，不重置筛选，重新渲染表格
+        searchStockInCheck(false);
     }else{
         initCurrentSubPage();
     }
 }
+
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
     await Promise.all([
@@ -2214,6 +2222,7 @@ function initStockInCheckPage() {
     if (tbody) tbody.innerHTML = '';
     
     renderFinancePagination('stockInCheck');
+    searchStockInCheck(true);
 }
 
 function initCheckMonthSelect(selId) {
@@ -2252,7 +2261,7 @@ function renderCheckInSupplierList(list) {
             document.getElementById('checkInSupplierSearchInput').value = s;
             document.getElementById('checkInSupplierListBox').style.display = 'none';
             // 输入即搜索
-            searchStockInCheck();
+            searchStockInCheck(true);
         };
         box.appendChild(div);
     });
@@ -2288,7 +2297,7 @@ function renderCheckInGoodsList(list) {
             document.getElementById('checkInGoodsSearchInput').value = s;
             document.getElementById('checkInGoodsListBox').style.display = 'none';
             // 输入即搜索
-            searchStockInCheck();
+            searchStockInCheck(true);
         };
         box.appendChild(div);
     });
@@ -2302,7 +2311,7 @@ function onCheckInFilterInput() {
     }
     // 防抖处理，300ms后执行搜索
     checkInSearchTimer = setTimeout(() => {
-        searchStockInCheck();
+        searchStockInCheck(true);
         // 显示下拉列表
         const supplierInput = document.getElementById('checkInSupplierSearchInput');
         const goodsInput = document.getElementById('checkInGoodsSearchInput');
@@ -2335,10 +2344,15 @@ function resetStockInCheck() {
     document.getElementById('checkInGoodsListBox').style.display = 'none';
     // 重置分页到第一页
     financePageConfig.stockInCheck.current = 1;
-    searchStockInCheck();
+    searchStockInCheck(true);
 }
 
-function searchStockInCheck() {
+function searchStockInCheck(resetPage = true) {
+// ========== 新增两行开始 ==========
+    if(resetPage){
+        financePageConfig.stockInCheck.current = 1;
+    }
+    // ========== 新增两行结束 ==========
     // 不重置分页，由调用方决定
     
     const settle = document.getElementById('checkInSettle').value;
@@ -2763,7 +2777,7 @@ function resetStockInCheck() {
     document.getElementById('checkInGoodsGroup').checked = false;
     document.getElementById('checkInSupplierListBox').style.display = 'none';
     document.getElementById('checkInGoodsListBox').style.display = 'none';
-    searchStockInCheck();
+    searchStockInCheck(true);
 }
 // ===================== 入库对账 - 供应商搜索下拉 =====================
 function showCheckInSupplierList() {
