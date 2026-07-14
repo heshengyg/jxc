@@ -2414,19 +2414,24 @@ function searchStockInCheck(resetPage = true) {
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
 
-    // ===== 1. 获取入库数据 =====
-    let inList = [...allStockInList];
-    
-    // ✅ 性能优化核心：如果用户没有选择"发票状态"筛选，默认只处理"未开票"的记录
-    // 已开票的记录已经核销完成，不需要重复参与计算
-    if (!invStatus) {
-        // 默认只显示未开票的记录（大幅减少数据量）
-        inList = inList.filter(i => 
-            i.invoice_status === '未开票' || 
-            !i.invoice_status || 
-            i.invoice_status === ''
-        );
-    }
+   // ===== 1. 获取入库数据 =====
+let inList = [...allStockInList];
+
+// ✅ 修正：入库对账表显示所有记录，由用户选择筛选条件
+// 不要默认过滤掉已开票的记录
+if (invStatus === '已开票') {
+    inList = inList.filter(i => i.invoice_status === '已开票');
+} else if (invStatus === '未开票') {
+    inList = inList.filter(i => 
+        i.invoice_status === '未开票' || 
+        !i.invoice_status || 
+        i.invoice_status === ''
+    );
+} else if (invStatus === '退货') {
+    // 选择"退货"时，不显示任何入库记录（退货由returnList单独处理）
+    inList = [];
+}
+// ✅ invStatus 为空（全部）时，不过滤，显示所有入库记录
     
     if (settle) inList = inList.filter(i => i.settleType === settle);
     if (invStatus) inList = inList.filter(i => i.invoice_status === invStatus);
@@ -2446,26 +2451,35 @@ function searchStockInCheck(resetPage = true) {
     }
 
     // ===== 2. 获取退货数据 =====
-    let returnList = [];
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        returnList = allReturnGoods.filter(item => {
-            let match = true;
-            if (settle && item.settle_type !== settle) match = false;
-            if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (taxRate !== '') {
-                const goods = allGoodsList.find(g => 
-                    g.name === item.goods_name && 
-                    g.supplier === item.supplier && 
-                    g.spec === item.spec
-                );
-                const rate = goods ? String(goods.tax_rate || '') : '';
-                if (rate !== taxRate) match = false;
-            }
-            return match;
-        });
-    }
+let returnList = [];
+if (allReturnGoods && allReturnGoods.length > 0) {
+    returnList = allReturnGoods.filter(item => {
+        let match = true;
+        if (settle && item.settle_type !== settle) match = false;
+        if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goods_name && 
+                g.supplier === item.supplier && 
+                g.spec === item.spec
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            if (rate !== taxRate) match = false;
+        }
+        // ✅ 新增：发票状态筛选
+        if (invStatus === '退货') {
+            // 选择"退货"时，显示所有退货记录
+            // 匹配通过
+        } else if (invStatus && invStatus !== '' && invStatus !== '退货') {
+            // 选择了"已开票"或"未开票"时，不显示退货记录
+            match = false;
+        }
+        // invStatus 为空（全部）时，显示所有退货记录
+        return match;
+    });
+}
 
     // ===== 3. 合并入库和退货数据 =====
     let allRecords = [];
@@ -2936,8 +2950,18 @@ function exportStockInCheckExcel() {
     // ===== 1. 获取入库数据 =====
     let inList = [...allStockInList];
     
-    if (settle) inList = inList.filter(i => i.settleType === settle);
-    if (invStatus) inList = inList.filter(i => i.invoice_status === invStatus);
+    // ✅ 修正发票状态筛选
+if (invStatus === '已开票') {
+    inList = inList.filter(i => i.invoice_status === '已开票');
+} else if (invStatus === '未开票') {
+    inList = inList.filter(i => 
+        i.invoice_status === '未开票' || 
+        !i.invoice_status || 
+        i.invoice_status === ''
+    );
+} else if (invStatus === '退货') {
+    inList = [];
+}
     if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
     if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
     if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
@@ -2954,26 +2978,32 @@ function exportStockInCheckExcel() {
     }
 
     // ===== 2. 获取退货数据 =====
-    let returnList = [];
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        returnList = allReturnGoods.filter(item => {
-            let match = true;
-            if (settle && item.settle_type !== settle) match = false;
-            if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (taxRate !== '') {
-                const goods = allGoodsList.find(g => 
-                    g.name === item.goods_name && 
-                    g.supplier === item.supplier && 
-                    g.spec === item.spec
-                );
-                const rate = goods ? String(goods.tax_rate || '') : '';
-                if (rate !== taxRate) match = false;
-            }
-            return match;
-        });
-    }
+let returnList = [];
+if (allReturnGoods && allReturnGoods.length > 0) {
+    returnList = allReturnGoods.filter(item => {
+        let match = true;
+        if (settle && item.settle_type !== settle) match = false;
+        if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goods_name && 
+                g.supplier === item.supplier && 
+                g.spec === item.spec
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            if (rate !== taxRate) match = false;
+        }
+        // ✅ 新增：发票状态筛选
+        if (invStatus === '退货') {
+            // 显示所有退货
+        } else if (invStatus && invStatus !== '' && invStatus !== '退货') {
+            match = false;
+        }
+        return match;
+    });
+}
 
     // ===== 3. 合并入库和退货数据，按日期排序 =====
     let allRecords = [];
