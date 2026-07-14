@@ -2385,7 +2385,7 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 3. 合并入库和退货数据，按日期排序 =====
+    // ===== 3. 合并入库和退货数据，按日期排序（正序，用于核销计算） =====
     let allRecords = [];
 
     // 入库记录
@@ -2431,7 +2431,7 @@ function searchStockInCheck() {
         });
     });
 
-    // 按日期排序（正序，用于核销计算）
+    // ===== 按日期正序排序（用于核销计算） =====
     allRecords.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
     // ===== 4. 按供应商分组分别计算 =====
@@ -2443,7 +2443,7 @@ function searchStockInCheck() {
         supplierGroups[record.supplier].push(record);
     });
 
-    // ===== 5. 处理每个供应商的数据 =====
+    // ===== 5. 处理每个供应商的数据（核销计算，按正序） =====
     let processedList = [];
 
     for (const sup of Object.keys(supplierGroups)) {
@@ -2459,9 +2459,9 @@ function searchStockInCheck() {
             .filter(b => b.supplier === sup)
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
-        // ===== 先录先核：发票结余（滚动计算） =====
+        // ===== 先录先核：发票结余（滚动计算，正序） =====
         let remainingInvoice = totalInvoiceBack;
-        // ===== 先录先核：付款结余（滚动计算） =====
+        // ===== 先录先核：付款结余（滚动计算，正序） =====
         let remainingPay = totalPay;
 
         records.forEach(record => {
@@ -2506,7 +2506,7 @@ function searchStockInCheck() {
                 }
             }
 
-            // ===== 计算发票结余（滚动计算） =====
+            // ===== 计算发票结余（滚动计算，正序） =====
             let remainAmount = 0;
             let invoiceStatus = '';
             if (isReturn) {
@@ -2521,7 +2521,7 @@ function searchStockInCheck() {
                 invoiceStatus = remainingInvoice >= 0 ? '已开票' : '未开票';
             }
 
-            // ===== 计算付款结余（滚动计算） =====
+            // ===== 计算付款结余（滚动计算，正序） =====
             let isPay = '';
             if (isReturn) {
                 // 退货：加回退货金额，不消耗付款
@@ -2533,7 +2533,7 @@ function searchStockInCheck() {
                 isPay = remainingPay >= 0 ? '已付清' : '未付清';
             }
 
-            // 构建处理后的记录
+            // 构建处理后的记录（按正序计算的结果）
             processedList.push({
                 ...record,
                 _isReturn: isReturn,
@@ -2552,10 +2552,10 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 6. 按录入日期倒序排列（最新在前） =====
+    // ===== 6. 按录入日期倒序排列（最新在前，用于显示） =====
     processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
 
-    // ===== 7. 分组汇总 =====
+    // ===== 7. 分组汇总（显示用） =====
     if (groupSupplier || groupGoods) {
         const groupMap = {};
         processedList.forEach(row => {
@@ -2597,21 +2597,49 @@ function searchStockInCheck() {
         processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
 
-    // ===== 8. 汇总行 =====
-    let summary = {
+    // ===== 8. 汇总行（按供应商分别汇总） =====
+    // 按供应商分组汇总
+    const supplierSummaryMap = {};
+    processedList.forEach(row => {
+        if (!supplierSummaryMap[row.supplier]) {
+            supplierSummaryMap[row.supplier] = {
+                in_num: 0,
+                totalAmount: 0,
+                noTaxTotal: 0,
+                taxTotal: 0,
+                remainAmount: 0
+            };
+        }
+        const s = supplierSummaryMap[row.supplier];
+        s.in_num += Number(row.in_num);
+        s.totalAmount += Number(row.totalAmount);
+        s.noTaxTotal += Number(row.noTaxTotal);
+        s.taxTotal += Number(row.taxTotal);
+        // 汇总的发票结余取该供应商最后一条记录的 remainAmount（正序核销的最终结果）
+        s.remainAmount = row.remainAmount;
+    });
+
+    // 如果有多个供应商，显示各自的汇总行
+    let summaryRows = [];
+    let totalSummary = {
         in_num: 0,
         totalAmount: 0,
         noTaxTotal: 0,
         taxTotal: 0,
         remainAmount: 0
     };
-    processedList.forEach(row => {
-        summary.in_num += Number(row.in_num);
-        summary.totalAmount += Number(row.totalAmount);
-        summary.noTaxTotal += Number(row.noTaxTotal);
-        summary.taxTotal += Number(row.taxTotal);
-        summary.remainAmount = row.remainAmount;
-    });
+    for (const sup of Object.keys(supplierSummaryMap)) {
+        const s = supplierSummaryMap[sup];
+        totalSummary.in_num += s.in_num;
+        totalSummary.totalAmount += s.totalAmount;
+        totalSummary.noTaxTotal += s.noTaxTotal;
+        totalSummary.taxTotal += s.taxTotal;
+        totalSummary.remainAmount += s.remainAmount;
+        summaryRows.push({
+            supplier: sup,
+            ...s
+        });
+    }
 
     // ===== 9. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
@@ -2684,23 +2712,40 @@ function searchStockInCheck() {
         </tr>`;
     });
 
-    // 汇总行
-    const summaryQtyColor = summary.in_num < 0 ? 'style="color:red;font-weight:bold;"' : '';
-    const remainColor = summary.remainAmount < 0 ? 'style="color:red;"' : '';
+    // 各供应商汇总行
+    summaryRows.forEach(s => {
+        const remainColor = s.remainAmount < 0 ? 'style="color:red;"' : '';
+        tbody.innerHTML += `
+        <tr style="background:#f0f4f8;font-weight:bold;">
+            <td colspan="7" style="text-align:right;">${s.supplier} 汇总：</td>
+            <td>${s.in_num}</td>
+            <td></td>
+            <td>${formatMoney(s.totalAmount)}</td>
+            <td>${formatMoney(s.noTaxTotal)}</td>
+            <td>${formatMoney(s.taxTotal)}</td>
+            <td ${remainColor}>${formatMoney(s.remainAmount)}</td>
+            <td></td>
+        </tr>`;
+    });
+
+    // 总汇总行
+    const totalQtyColor = totalSummary.in_num < 0 ? 'style="color:red;font-weight:bold;"' : '';
+    const totalRemainColor = totalSummary.remainAmount < 0 ? 'style="color:red;"' : '';
     tbody.innerHTML += `
-    <tr style="background:#f0f4f8;font-weight:bold;">
-        <td colspan="7" style="text-align:right;">汇总：</td>
-        <td ${summaryQtyColor}>${summary.in_num}</td>
+    <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
+        <td colspan="7" style="text-align:right;">总汇总：</td>
+        <td ${totalQtyColor}>${totalSummary.in_num}</td>
         <td></td>
-        <td>${formatMoney(summary.totalAmount)}</td>
-        <td>${formatMoney(summary.noTaxTotal)}</td>
-        <td>${formatMoney(summary.taxTotal)}</td>
-        <td ${remainColor}>${formatMoney(summary.remainAmount)}</td>
+        <td>${formatMoney(totalSummary.totalAmount)}</td>
+        <td>${formatMoney(totalSummary.noTaxTotal)}</td>
+        <td>${formatMoney(totalSummary.taxTotal)}</td>
+        <td ${totalRemainColor}>${formatMoney(totalSummary.remainAmount)}</td>
         <td></td>
     </tr>`;
     
     renderFinancePagination('stockInCheck');
 }
+
 // 移除之前重复定义的函数，使用上面的新版本
 // 注意：之前已经定义了 showCheckInSupplierList、filterCheckInSupplierList、renderCheckInSupplierList
 // 以及 showCheckInGoodsList、filterCheckInGoodsList、renderCheckInGoodsList
