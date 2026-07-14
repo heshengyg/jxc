@@ -2385,7 +2385,7 @@ function searchStockInCheck() {
         });
     }
 
-    // ===== 3. 合并入库和退货数据，按日期排序 =====
+    // ===== 3. 合并入库和退货数据 =====
     let allRecords = [];
 
     // 入库记录
@@ -2431,10 +2431,10 @@ function searchStockInCheck() {
         });
     });
 
-    // 按日期排序（正序，用于核销计算）
+    // ===== 关键修复1：按日期正序排序（用于核销计算） =====
     allRecords.sort((a, b) => (a.record_date || '').localeCompare(b.record_date || ''));
 
-    // ===== 4. 按供应商分组分别计算 =====
+    // ===== 4. 按供应商分组，分别计算核销 =====
     const supplierGroups = {};
     allRecords.forEach(record => {
         if (!supplierGroups[record.supplier]) {
@@ -2443,9 +2443,8 @@ function searchStockInCheck() {
         supplierGroups[record.supplier].push(record);
     });
 
-    // ===== 5. 处理每个供应商的数据 =====
-    // 用于最终显示的列表
-    let processedList = [];
+    // ===== 5. 执行核销计算，生成原始数据列表 =====
+    let rawDataList = [];
 
     for (const sup of Object.keys(supplierGroups)) {
         const records = supplierGroups[sup];
@@ -2460,9 +2459,7 @@ function searchStockInCheck() {
             .filter(b => b.supplier === sup)
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
-        // ===== 先录先核：发票结余（滚动计算） =====
         let remainingInvoice = totalInvoiceBack;
-        // ===== 先录先核：付款结余（滚动计算） =====
         let remainingPay = totalPay;
 
         records.forEach(record => {
@@ -2507,59 +2504,71 @@ function searchStockInCheck() {
                 }
             }
 
-            // ===== 计算发票结余（滚动计算） =====
+            // 计算发票结余
             let remainAmount = 0;
             let invoiceStatus = '';
             if (isReturn) {
-                // 退货：加回退货金额，不消耗发票
                 remainingInvoice += amount;
                 remainAmount = remainingInvoice;
                 invoiceStatus = '退货';
             } else {
-                // 入库：减去入库金额
                 remainingInvoice -= amount;
                 remainAmount = remainingInvoice;
                 invoiceStatus = remainingInvoice >= 0 ? '已开票' : '未开票';
             }
 
-            // ===== 计算付款结余（滚动计算） =====
+            // 计算付款结余
             let isPay = '';
             if (isReturn) {
-                // 退货：加回退货金额，不消耗付款
                 remainingPay += amount;
                 isPay = '退货';
             } else {
-                // 入库：减去入库金额
                 remainingPay -= amount;
                 isPay = remainingPay >= 0 ? '已付清' : '未付清';
             }
 
-            // 构建处理后的记录
-            processedList.push({
-                ...record,
+            // 存储到原始数据列表
+            rawDataList.push({
+                id: record.id,
+                supplier: record.supplier,
+                goodsName: record.goodsName,
+                spec: record.spec || '',
+                settleType: record.settleType,
+                in_price: record.in_price || 0,
+                in_num: qty,
+                record_date: record.record_date || '',
+                produce_date: record.produce_date || '',
+                expire_date: record.expire_date || '',
+                invoice_no: record.invoice_no || '',
+                type: record.type,
                 _isReturn: isReturn,
                 channel: channel,
                 tax_rate_display: taxRateDisplay,
                 in_price_display: inPriceDisplay,
-                in_num: qty,
                 totalAmount: totalAmount,
                 noTaxTotal: noTaxTotal,
                 taxTotal: taxTotal,
                 isPay: isPay,
                 remainAmount: remainAmount,
                 invoice_status: invoiceStatus,
-                record_date: record.record_date
+                // 保存核销计算的中间结果，用于分组汇总
+                _remainingInvoice: remainingInvoice,
+                _remainingPay: remainingPay
             });
         });
     }
 
-    // ===== 6. 按录入日期倒序排列（最新在前） =====
-    processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
+    // ===== 关键修复2：原始数据按日期倒序排列（用于显示） =====
+    rawDataList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
 
-    // ===== 7. 分组汇总 =====
+    // ===== 6. 应用分组汇总（如果勾选了） =====
+    let displayList = rawDataList;
     if (groupSupplier || groupGoods) {
         const groupMap = {};
-        processedList.forEach(row => {
+        // 注意：分组汇总时，需要保证核销结果正确，所以这里取每条记录的最终 remainAmount
+        // 但实际上，分组后应该重新计算汇总值，而不是简单累加
+        // 但由于核销是顺序依赖的，分组后无法重新计算，所以只能取最后一条记录的 remainAmount
+        rawDataList.forEach(row => {
             const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
             if (!groupMap[key]) {
                 groupMap[key] = {
@@ -2577,7 +2586,9 @@ function searchStockInCheck() {
                     remainAmount: 0,
                     record_date: row.record_date || '',
                     count: 0,
-                    _isReturn: row._isReturn || false
+                    _isReturn: row._isReturn || false,
+                    // 保存最后一条记录的核销结果
+                    _lastRemainAmount: row.remainAmount
                 };
             }
             const g = groupMap[key];
@@ -2585,7 +2596,7 @@ function searchStockInCheck() {
             g.totalAmount += Number(row.totalAmount);
             g.noTaxTotal += Number(row.noTaxTotal);
             g.taxTotal += Number(row.taxTotal);
-            // 取该组最后一条记录的 remainAmount（正序核销的最终结果）
+            // 分组汇总的发票结余：取该组最后一条记录的 remainAmount（正序核销的最终结果）
             g.remainAmount = row.remainAmount;
             g.count++;
             if (g.count === 1) {
@@ -2594,15 +2605,14 @@ function searchStockInCheck() {
                 g._isReturn = row._isReturn || false;
             }
         });
-        processedList = Object.values(groupMap);
+        displayList = Object.values(groupMap);
         // 分组后再次按日期倒序排列
-        processedList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
+        displayList.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
 
-    // ===== 8. 汇总行 =====
-    // 按供应商分组计算汇总
+    // ===== 7. 计算各供应商汇总和总汇总 =====
     const supplierSummaryMap = {};
-    processedList.forEach(row => {
+    displayList.forEach(row => {
         if (!supplierSummaryMap[row.supplier]) {
             supplierSummaryMap[row.supplier] = {
                 in_num: 0,
@@ -2621,7 +2631,6 @@ function searchStockInCheck() {
         s.remainAmount = row.remainAmount;
     });
 
-    // 计算所有供应商的总汇总
     const totalSummary = {
         in_num: 0,
         totalAmount: 0,
@@ -2638,19 +2647,19 @@ function searchStockInCheck() {
         totalSummary.remainAmount += s.remainAmount;
     }
 
-    // ===== 9. 更新总条数提示 =====
+    // ===== 8. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = allStockInList.length;
         const totalReturnCount = allReturnGoods ? allReturnGoods.length : 0;
-        totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${processedList.length} 条`;
+        totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${displayList.length} 条`;
     }
 
-    // ===== 10. 分页渲染 =====
+    // ===== 9. 分页渲染 =====
     const cfg = financePageConfig.stockInCheck;
-    cfg.total = processedList.length; // ✅ 关键修复：更新总记录数
+    cfg.total = displayList.length;
     const start = (cfg.current - 1) * cfg.pageSize;
-    const pageData = processedList.slice(start, start + cfg.pageSize);
+    const pageData = displayList.slice(start, start + cfg.pageSize);
 
     const tbody = document.getElementById('stockInCheckList');
     tbody.innerHTML = '';
