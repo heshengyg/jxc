@@ -5,9 +5,10 @@ let allStockOutReadyPromise;
  * 读取供应商发票结余缓存，过滤已结清单据，不遍历全表
  */
 function getSupplierInvoiceStatus(supplier) {
-    // 优先读取缓存，杜绝全表循环
-    if (supplierBalanceCache[supplier] !== undefined) {
-        const balance = supplierBalanceCache[supplier];
+    // 读取window全局缓存，解决跨文件未定义报错
+    const cache = window.supplierBalanceCache || {};
+    if (cache[supplier] !== undefined) {
+        const balance = cache[supplier];
         return balance >= 0 ? "已开票" : "未开票";
     }
     // 缓存缺失：只统计未开票入库，过滤已结清减少计算量
@@ -20,16 +21,19 @@ function getSupplierInvoiceStatus(supplier) {
     unClosedList.forEach(item => totalIn += Number(item.in_price) * Number(item.in_num));
     let totalReturn = 0;
     if (allReturnGoods && allReturnGoods.length > 0) {
-        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+        allReturnGoods.filter(r => r.supplier).forEach(item => {
             totalReturn += Number(item.in_price) * Number(item.return_num);
         });
     }
     let totalInvoice = 0;
-    allInvoiceBack.filter(b => b.supplier === supplier).forEach(item => {
-        totalInvoice += Number(item.invoice_amount);
-    });
+    if(allInvoiceBackList){
+        allInvoiceBackList.filter(b => b.supplier === supplier).forEach(item => {
+            totalInvoice += Number(item.invoice_amount);
+        });
+    }
     const remainBalance = totalInvoice - totalIn + totalReturn;
-    supplierBalanceCache[supplier] = remainBalance;
+    // 写入window全局缓存
+    window.supplierBalanceCache[supplier] = remainBalance;
     return remainBalance >= 0 ? "已开票" : "未开票";
 }
 
@@ -779,76 +783,70 @@ if (pageData.length > 0) {
     let fullHtml = '';
     
     for (let idx = 0; idx < pageData.length; idx++) {
-        try {
-            const item = pageData[idx];
-            const cacheKey = `${item.supplier}|${item.goodsName}`;
-            const cache = stockDataCache ? stockDataCache.get(cacheKey) : null;
-            
-            let batchRemain = 0;
-            let totalStock = 0;
-            if (cache && cache.batchList && cache.batchList.length > 0) {
-                const batchList = cache.batchList;
-                const batch = batchList.find(b => {
-                    if (!b || !b.inRecords) return false;
-                    return b.inRecords.some(inItem => inItem.id === item.id);
-                });
-                batchRemain = batch ? batch.batchRemain : 0;
-                totalStock = cache.totalStock || 0;
-            }
-
-            let amount = formatMoney((item.in_price || 0) * item.in_num);
-            let isUsed = idUsedMap[item.id] || false;
-            let btnHtml = '';
-            
-            if(isUsed){
-                btnHtml = `
-                    <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
-                    <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
-                `;
-            }else{
-                btnHtml = `
-                    <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
-                `;
-            }
-            
-            // 读取缓存动态计算，不再读取单据静态字段
-const invoiceText = getSupplierInvoiceStatus(item.supplier);
-let invoiceClass = '';
-if (invoiceText === '未开票') {
-    invoiceClass = 'bg-yellow-invoice';
-} else if (invoiceText === '已开票') {
-    invoiceClass = 'bg-green-invoice';
-}
-            
-            fullHtml += `
-                <tr>
-                    <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
-                    <td>${start + idx + 1}</td>
-                    <td>${item.supplier || ''}</td>
-                    <td>${item.goodsName || ''}</td>
-                    <td>${item.spec || '-'}</td>
-                    <td>${item.settleType || ''}</td>
-                    <td>${formatMoney(item.in_price)}</td>
-                    <td>${item.in_num}</td>
-                    <td>${amount}</td>
-                    <td>${batchRemain}</td>
-                    <td>${totalStock}</td>
-                    <td class="${invoiceClass}">${invoiceText}</td>
-                    <td>${item.invoice_no || ''}</td>
-                    <td>${item.produce_date || ''}</td>
-                    <td>${item.expire_date || ''}</td>
-                    <td>${item.record_date || ''}</td>
-                    <td>${btnHtml}</td>
-                </tr>
-            `;
-        } catch (e) {
-            console.error('渲染第', idx + 1, '行时出错:', e, pageData[idx]);
-            // 继续渲染下一行
-            continue;
+    try { // 新增捕获异常
+        const item = pageData[idx];
+        const cacheKey = `${item.supplier}|${item.goodsName}`;
+        const cache = stockDataCache ? stockDataCache.get(cacheKey) : null;
+        
+        let batchRemain = 0;
+        let totalStock = 0;
+        if (cache && cache.batchList && cache.batchList.length > 0) {
+            const batch = cache.batchList.find(b => {
+                if (!b || !b.inRecords) return false;
+                return b.inRecords.some(inItem => inItem.id === item.id);
+            });
+            batchRemain = batch ? batch.batchRemain : 0;
+            totalStock = cache.totalStock || 0;
         }
+        let amount = formatMoney((item.in_price || 0) * item.in_num);
+        let isUsed = idUsedMap[item.id] || false;
+        let btnHtml = '';
+        
+        if(isUsed){
+            btnHtml = `
+                <button class="btn btn-primary" disabled style="opacity:0.5">编辑</button>
+                <button class="btn btn-danger" disabled style="opacity:0.5">删除</button>
+            `;
+        }else{
+            btnHtml = `
+                <button class="btn btn-primary" onclick="openStockInForm(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteStockIn(${item.id})">删除</button>
+            `;
+        }
+        
+        const invoiceText = getSupplierInvoiceStatus(item.supplier);
+        let invoiceClass = '';
+        if (invoiceText === '未开票') {
+            invoiceClass = 'bg-yellow-invoice';
+        } else if (invoiceText === '已开票') {
+            invoiceClass = 'bg-green-invoice';
+        }
+                
+        fullHtml += `
+            <tr>
+                <td><input type="checkbox" class="in-item-checkbox" value="${item.id}" ${isUsed ? 'disabled' : ''}></td>
+                <td>${start + idx + 1}</td>
+                <td>${item.supplier || ''}</td>
+                <td>${item.goodsName || ''}</td>
+                <td>${item.spec || '-'}</td>
+                <td>${item.settleType || ''}</td>
+                <td>${formatMoney(item.in_price)}</td>
+                <td>${item.in_num}</td>
+                <td>${amount}</td>
+                <td>${batchRemain}</td>
+                <td>${totalStock}</td>
+                <td class="${invoiceClass}">${invoiceText}</td>
+                <td>${item.invoice_no || ''}</td>
+                <td>${item.produce_date || ''}</td>
+                <td>${item.expire_date || ''}</td>
+                <td>${item.record_date || ''}</td>
+                <td>${btnHtml}</td>
+            </tr>
+        `;
+    } catch(err) {
+        console.error('单行入库渲染失败', item, err);
+        fullHtml += `<tr><td colspan="17" style="color:red;">第${start+idx+1}行数据渲染异常</td></tr>`;
     }
-    tb.innerHTML = fullHtml;
 }
 
 // 分页渲染

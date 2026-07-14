@@ -37,14 +37,16 @@ let currTaxRateOptionList = [
     {val:'13',text:'13%'}
 ];
 
+// ========== 修改为挂载window，跨文件可访问 ==========
+window.supplierBalanceCache = {};
+const supplierBalanceCache = window.supplierBalanceCache;
+
 // ✅ 添加缓存变量
 let stockInCheckCache = {
     displayData: [],
     filterKey: '',
     total: 0
 };
-// ========== 新增这一行，仅此一处 ==========
-let supplierBalanceCache = {}; // key:供应商名称 value:发票结余
 
 // 财务全局分页公共变量（9个页面独立分页参数，互不干扰）
 const financePageConfig = {
@@ -83,8 +85,8 @@ switchTab = async function (tabName) {
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
     try {
-        // ========== 新增，切换页面清空结余缓存 ==========
-        supplierBalanceCache = {};
+        // 替换为window全局清空，避免局部变量引用错乱
+        window.supplierBalanceCache = {};
         currFinanceSub = tabKey;
         // 切换子版块时强制关闭所有弹窗
         const modals = ['payModal', 'invoiceBackModal', 'taxModal'];        modals.forEach(id => {
@@ -1775,9 +1777,8 @@ async function saveInvoiceBackRecord() {
         refreshInvoiceBackList(true);
 
         // ========== 新增增量缓存 ==========
-if(supplierBalanceCache[supplier] !== undefined){
-    supplierBalanceCache[supplier] += Number(invoiceAmount);
-}
+if(window.supplierBalanceCache[supplier] !== undefined){
+    window.supplierBalanceCache[supplier] -= recordToDelete.invoice_amount;
         if (typeof window.loadStockIn === 'function') {
             await window.loadStockIn();
         } else if (typeof loadStockIn === 'function') {
@@ -1894,9 +1895,9 @@ async function recalculateInvoiceStatus(supplier) {
     let totalIn = 0, totalReturn = 0, totalInv = 0;
     inRecords.forEach(i => totalIn += i.in_price * i.in_num);
     returnRecords.forEach(r => totalReturn += r.in_price * r.return_num);
-    supplierInvoices.forEach(b => totalInv += b.invoice_amount);
-    supplierBalanceCache[supplier] = totalInv - totalIn + totalReturn;
-
+        supplierInvoices.forEach(b => totalInv += b.invoice_amount);
+    // 改为操作window全局缓存
+    window.supplierBalanceCache[supplier] = totalInv - totalIn + totalReturn;
     await loadAllStockIn();
 }
 
@@ -1924,8 +1925,8 @@ async function deleteInvoiceBackRecord(id) {
     await loadAllInvoiceBack();
     await recalculateInvoiceStatus(supplier);
 // ========== 新增扣减缓存 ==========
-if(supplierBalanceCache[supplier] !== undefined){
-    supplierBalanceCache[supplier] -= recordToDelete.invoice_amount;
+if(window.supplierBalanceCache[supplier] !== undefined){
+    window.supplierBalanceCache[supplier] += Number(invoiceAmount);
 }
     refreshInvoiceBackList(true);
 
@@ -2515,16 +2516,15 @@ function searchStockInCheck(resetPage = true) {
             }
 
             let remainAmount = 0;
-            let invoiceStatus = '';
-            if (isReturn) {
-                remainingInvoice += amount;
-                remainAmount = remainingInvoice;
-                invoiceStatus = '退货';
-            } else {
-                remainingInvoice -= amount;
-                remainAmount = remainingInvoice;
-                invoiceStatus = remainingInvoice >= 0 ? '已开票' : '未开票';
-            }
+let invoiceStatus = '';
+const cache = window.supplierBalanceCache || {};
+if (isReturn) {
+    invoiceStatus = '退货';
+    remainAmount = cache[record.supplier] ?? 0;
+} else {
+    remainAmount = cache[record.supplier] ?? 0;
+    invoiceStatus = remainAmount >= 0 ? '已开票' : '未开票';
+}
 
             let isPay = '';
             if (isReturn) {
