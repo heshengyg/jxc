@@ -1,6 +1,38 @@
 // ===================== 入库模块 - 终极速度优化版（原有所有业务逻辑100%保留） =====================
 // 全局变量：页面初始化时静默预加载出库数据，彻底消除切换页面阻塞
 let allStockOutReadyPromise;
+/**
+ * 读取供应商发票结余缓存，过滤已结清单据，不遍历全表
+ */
+function getSupplierInvoiceStatus(supplier) {
+    // 优先读取缓存，杜绝全表循环
+    if (supplierBalanceCache[supplier] !== undefined) {
+        const balance = supplierBalanceCache[supplier];
+        return balance >= 0 ? "已开票" : "未开票";
+    }
+    // 缓存缺失：只统计未开票入库，过滤已结清减少计算量
+    let totalIn = 0;
+    const unClosedList = allStockIn.filter(i => 
+        i.supplier === supplier && 
+        i.settleType === '线下' &&
+        i.invoice_status !== '已开票'
+    );
+    unClosedList.forEach(item => totalIn += Number(item.in_price) * Number(item.in_num));
+    let totalReturn = 0;
+    if (allReturnGoods && allReturnGoods.length > 0) {
+        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+            totalReturn += Number(item.in_price) * Number(item.return_num);
+        });
+    }
+    let totalInvoice = 0;
+    allInvoiceBack.filter(b => b.supplier === supplier).forEach(item => {
+        totalInvoice += Number(item.invoice_amount);
+    });
+    const remainBalance = totalInvoice - totalIn + totalReturn;
+    supplierBalanceCache[supplier] = remainBalance;
+    return remainBalance >= 0 ? "已开票" : "未开票";
+}
+
 
 // ========== 入库筛选数据 ==========
 let inFilterData = {
@@ -477,21 +509,19 @@ async function submitStockIn(){
     }
 
     // 修正逻辑：线下默认未开票，线上赋值空字符串（表格展示空白）
-    let invoiceStatus = settleType === '线下' ? '未开票' : '';
-
     let postData = {
-        supplier: supplier,
-        goodsName: goodsName,
-        spec: spec || null,
-        settleType: settleType,
-        sale_price: salePrice,  // ✅ 现在 salePrice 不会是 NaN
-        in_price: finalInPrice,
-        in_num: +inNum,
-        record_date: recordDate,
-        produce_date: produceDate || null,
-        expire_date: expireDate || null,
-        invoice_status: invoiceStatus
-    };
+    supplier: supplier,
+    goodsName: goodsName,
+    spec: spec || null,
+    settleType: settleType,
+    sale_price: salePrice,
+    in_price: finalInPrice,
+    in_num: +inNum,
+    record_date: recordDate,
+    produce_date: produceDate || null,
+    expire_date: expire_date || null
+};
+// 编辑分支原有delete postData.invoice_status保留即可
 
     try {
         let res;
@@ -782,13 +812,14 @@ if (pageData.length > 0) {
                 `;
             }
             
-            let invoiceText = item.invoice_status || '';
-            let invoiceClass = '';
-            if (invoiceText === '未开票') {
-                invoiceClass = 'bg-yellow-invoice';
-            } else if (invoiceText === '已开票') {
-                invoiceClass = 'bg-green-invoice';
-            }
+            // 读取缓存动态计算，不再读取单据静态字段
+const invoiceText = getSupplierInvoiceStatus(item.supplier);
+let invoiceClass = '';
+if (invoiceText === '未开票') {
+    invoiceClass = 'bg-yellow-invoice';
+} else if (invoiceText === '已开票') {
+    invoiceClass = 'bg-green-invoice';
+}
             
             fullHtml += `
                 <tr>

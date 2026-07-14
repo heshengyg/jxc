@@ -43,6 +43,8 @@ let stockInCheckCache = {
     filterKey: '',
     total: 0
 };
+// ========== 新增这一行，仅此一处 ==========
+let supplierBalanceCache = {}; // key:供应商名称 value:发票结余
 
 // 财务全局分页公共变量（9个页面独立分页参数，互不干扰）
 const financePageConfig = {
@@ -81,11 +83,11 @@ switchTab = async function (tabName) {
 // 财务子Tab切换
 async function switchFinanceSubTab(tabKey) {
     try {
+        // ========== 新增，切换页面清空结余缓存 ==========
+        supplierBalanceCache = {};
         currFinanceSub = tabKey;
-
         // 切换子版块时强制关闭所有弹窗
-        const modals = ['payModal', 'invoiceBackModal', 'taxModal'];
-        modals.forEach(id => {
+        const modals = ['payModal', 'invoiceBackModal', 'taxModal'];        modals.forEach(id => {
             try {
                 const modal = document.getElementById(id);
                 if (modal) {
@@ -1772,7 +1774,10 @@ async function saveInvoiceBackRecord() {
         await loadAllStockIn();
         refreshInvoiceBackList(true);
 
-        
+        // ========== 新增增量缓存 ==========
+if(supplierBalanceCache[supplier] !== undefined){
+    supplierBalanceCache[supplier] += Number(invoiceAmount);
+}
         if (typeof window.loadStockIn === 'function') {
             await window.loadStockIn();
         } else if (typeof loadStockIn === 'function') {
@@ -1796,156 +1801,105 @@ async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
 
 async function recalculateInvoiceStatus(supplier) {
     if (!supplier) return;
-
     const headers = {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json'
     };
-
-    // 1. 获取该供应商所有线下入库记录（按日期正序）
-    const inRecords = allStockInList
-        .filter(item => 
-            item.supplier === supplier && 
-            item.settleType === '线下'
-        )
-        .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-
+    // 【优化1：过滤已开票单据，不再参与核销，减少循环】
+    const inRecords = allStockInList.filter(i => 
+        i.supplier === supplier && 
+        i.settleType === '线下' &&
+        i.invoice_status !== '已开票'
+    ).sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    // 无未结单据直接缓存置0退出
     if (inRecords.length === 0) {
+        supplierBalanceCache[supplier] = 0;
         return;
     }
-
-    // 2. 获取该供应商所有退货记录
+    // 获取该供应商所有退货记录（退货永久参与冲抵）
     let returnRecords = [];
     if (allReturnGoods && allReturnGoods.length > 0) {
         returnRecords = allReturnGoods
             .filter(item => item.supplier === supplier)
             .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
     }
-
-    // 3. 获取该供应商所有发票返回记录
+    // 获取该供应商所有发票返回记录
     const supplierInvoices = allInvoiceBackList
         .filter(inv => inv.supplier === supplier)
         .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
-
-    // 4. 先将所有入库记录重置为"未开票"
+    // 仅重置未结清入库单据
     for (let record of inRecords) {
         await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
             method: 'PATCH',
-            headers: headers,
+            headers,
             body: JSON.stringify({
                 invoice_status: '未开票',
                 invoice_no: null
             })
         });
     }
-
-    if (supplierInvoices.length === 0) {
-        // 没有发票返回记录，所有入库保持"未开票"
-        return;
-    }
-
-    // 5. 构建核销队列：入库为正，退货为负
+    // 构建核销队列：入库正数、退货负数
     let queue = [];
-    
-    // 入库记录（正数）
     inRecords.forEach(record => {
         const amount = Number(record.in_price) * Number(record.in_num);
-        queue.push({
-            type: 'in',
-            id: record.id,
-            amount: amount,
-            date: record.record_date,
-            record: record
-        });
+        queue.push({ type: 'in', id: record.id, amount, record });
     });
-    
-    // 退货记录（负数）
     returnRecords.forEach(record => {
-        const amount = Number(record.in_price) * Number(record.return_num);
-        queue.push({
-            type: 'return',
-            id: record.id,
-            amount: -amount, // 负数
-            date: record.record_date,
-            record: record
-        });
+        const amount = -(Number(record.in_price) * Number(record.return_num));
+        queue.push({ type: 'return', id: record.id, amount, record });
     });
-
-    // 按日期排序
-    queue.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // 6. 逐张发票核销
-    let remainingInRecords = [...inRecords];
+    queue.sort((a, b) => new Date(a.record_date || a.record_date) - new Date(b.record_date || b.record_date));
+    let remainingInvoice = 0;
+    supplierInvoices.forEach(invoice => {
+        remainingInvoice += Number(invoice.invoice_amount);
+    });
     let processedReturnIds = new Set();
-
+    let remainingInRecords = [...inRecords];
     for (let invoice of supplierInvoices) {
-        const invoiceAmount = Number(invoice.invoice_amount) || 0;
+        const invoiceAmount = Number(invoice.invoice_amount);
         if (invoiceAmount <= 0) continue;
-
         let remainingAmount = invoiceAmount;
         const updatedInIds = [];
-        const matchedReturnIds = [];
-
-        // 遍历队列（已排序）
         for (let item of queue) {
             if (remainingAmount <= 0) break;
             if (item.amount > 0) {
-                // 入库记录
-                const record = item.record;
                 if (remainingAmount >= item.amount) {
                     remainingAmount -= item.amount;
-                    updatedInIds.push({ id: record.id, status: '已开票' });
+                    updatedInIds.push({ id: item.id, status: '已开票' });
+                    remainingInRecords = remainingInRecords.filter(r => r.id !== item.id);
                 } else {
-                    // 部分核销，这条入库记录标记为"未开票"
-                    updatedInIds.push({ id: record.id, status: '未开票' });
+                    updatedInIds.push({ id: item.id, status: '未开票' });
                     remainingAmount = 0;
                 }
             } else if (item.amount < 0) {
-                // 退货记录（冲减核销金额）
                 const absReturn = Math.abs(item.amount);
-                // 退货冲减当前剩余待核销金额
                 const usedAmount = Math.min(remainingAmount, absReturn);
                 remainingAmount -= usedAmount;
-                matchedReturnIds.push(item.id);
-                // 退货记录已被处理
-                if (usedAmount >= absReturn) {
-                    processedReturnIds.add(item.id);
-                }
+                processedReturnIds.add(item.id);
             }
         }
-
-        // 更新入库记录的发票状态
         for (let item of updatedInIds) {
             await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
                 method: 'PATCH',
-                headers: headers,
+                headers,
                 body: JSON.stringify({
                     invoice_status: item.status,
                     invoice_no: invoice.invoice_no || null
                 })
             });
-            if (item.status === '已开票') {
-                remainingInRecords = remainingInRecords.filter(r => r.id !== item.id);
-            }
         }
     }
+    // 【优化2：计算结余存入全局缓存，页面直接读取不用重算】
+    let totalIn = 0, totalReturn = 0, totalInv = 0;
+    inRecords.forEach(i => totalIn += i.in_price * i.in_num);
+    returnRecords.forEach(r => totalReturn += r.in_price * r.return_num);
+    supplierInvoices.forEach(b => totalInv += b.invoice_amount);
+    supplierBalanceCache[supplier] = totalInv - totalIn + totalReturn;
 
-    // 7. 更新所有未核销的入库记录为"未开票"
-    for (let record of remainingInRecords) {
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
-            method: 'PATCH',
-            headers: headers,
-            body: JSON.stringify({
-                invoice_status: '未开票',
-                invoice_no: null
-            })
-        });
-    }
-
-    // 重新加载最新数据
     await loadAllStockIn();
 }
+
 // 删除发票返回记录
 async function deleteInvoiceBackRecord(id) {
     // ===== 检查是否管理员 =====
@@ -1969,6 +1923,10 @@ async function deleteInvoiceBackRecord(id) {
     
     await loadAllInvoiceBack();
     await recalculateInvoiceStatus(supplier);
+// ========== 新增扣减缓存 ==========
+if(supplierBalanceCache[supplier] !== undefined){
+    supplierBalanceCache[supplier] -= recordToDelete.invoice_amount;
+}
     refreshInvoiceBackList(true);
 
     
@@ -2514,9 +2472,6 @@ function searchStockInCheck(resetPage = true) {
         const totalInvoiceBack = allInvoiceBackList
             .filter(b => b.supplier === sup)
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
-
-        let remainingInvoice = totalInvoiceBack;
-        let remainingPay = totalPay;
 
         records.forEach(record => {
             const isReturn = record.type === 'return';
