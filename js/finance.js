@@ -1425,33 +1425,38 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
 
-    // 修正变量名：window.allStockOut，不是allReturnGoods
+    // 1、修正全局变量 window.allStockOut，兜底为空数组防止undefined
+    const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
-    // 兜底判断，防止接口加载失败为空
-    if (window.allStockOut && window.allStockOut.length > 0) {
-        window.allStockOut.filter(r => r.supplier === supplier).forEach(item => {
-            totalReturn += Number(item.in_price) * Number(item.return_num);
-        });
-    }
+    stockOutList.filter(r => r.supplier === supplier).forEach(item => {
+        // 2、每一项字段强制兜底null/空转0，杜绝NaN源头
+        const price = Number(item.in_price ?? 0);
+        const num = Number(item.return_num ?? 0);
+        totalReturn += price * num;
+    });
     
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
-        totalIn += Number(item.in_price) * Number(item.in_num);
+        const p = Number(item.in_price ?? 0);
+        const n = Number(item.in_num ?? 0);
+        totalIn += p * n;
     });
     
-    // 净入库=总入库-退货（现在能正常扣减退货）
     const netIn = totalIn - totalReturn;
     let totalPay = 0;
-    allPayList.filter(p => p.supplier === supplier).forEach(p => {
-        totalPay += Number(p.payment_amount);
+    allPayList.filter(p => p.supplier === supplier).forEach(pay => {
+        totalPay += Number(pay.payment_amount ?? 0);
     });
     
     const payable = netIn - totalPay;
     _payableCache.set(supplier, payable);
     
-    displayEl.textContent = `￥${payable.toFixed(2)}`;
-    displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
+    // 兜底：如果是NaN直接显示0.00
+    const showVal = Number.isNaN(payable) ? 0 : payable;
+    displayEl.textContent = `￥${showVal.toFixed(2)}`;
+    displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
+
 // ✅ 清除缓存函数
 function clearPayableCache(supplier) {
     if (supplier) {
@@ -1473,31 +1478,37 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
 
-    // 修正全局变量名 window.allStockOut
+    // 修正全局变量 + 兜底空数组
+    const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
-    if (window.allStockOut && window.allStockOut.length > 0) {
-        window.allStockOut.filter(r => r.supplier === supplier).forEach(item => {
-            totalReturn += Number(item.in_price) * Number(item.return_num);
-        });
-    }
+    stockOutList.filter(r => r.supplier === supplier).forEach(item => {
+        // 字段强制兜底，消除NaN
+        const price = Number(item.in_price ?? 0);
+        const num = Number(item.return_num ?? 0);
+        totalReturn += price * num;
+    });
     
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
-        totalIn += Number(item.in_price) * Number(item.in_num);
+        const p = Number(item.in_price ?? 0);
+        const n = Number(item.in_num ?? 0);
+        totalIn += p * n;
     });
     
     const netIn = totalIn - totalReturn;
     
     let totalBack = 0;
-    allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
-        totalBack += Number(b.invoice_amount);
+    allInvoiceBackList.filter(b => b.supplier === supplier).forEach(bill => {
+        totalBack += Number(bill.invoice_amount ?? 0);
     });
     
     const balance = totalBack - netIn;
     _invoiceBalanceCache.set(supplier, balance);
     
-    displayEl.textContent = `￥${balance.toFixed(2)}`;
-    displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+    // NaN兜底显示0
+    const showVal = Number.isNaN(balance) ? 0 : balance;
+    displayEl.textContent = `￥${showVal.toFixed(2)}`;
+    displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
 
 // ✅ 清除缓存函数
