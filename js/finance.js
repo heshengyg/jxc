@@ -95,6 +95,9 @@ async function switchFinanceSubTab(tabKey) {
                 console.warn('关闭弹窗失败:', id, e);
             }
         });
+        // 新增两行，切换财务任意子页面自动清空余额缓存
+clearPayableCache();
+clearInvoiceBalanceCache();
 
         // 切换子页面前，清空所有9个财务分页，杜绝分页叠加
         const paginationIds = [
@@ -1424,11 +1427,10 @@ function updatePayPayableDisplay(supplier) {
         displayEl.style.color = '#999';
         return;
     }
-    // 修复变量名：统一window.allStockOut，兜底空数组
+    // 修正为真实全局变量 window.allStockOut，兜底空数组
     const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
-    stockOutList.filter(r => r.supplier === supplier).forEach(item => {
-        // 全部字段兜底null/undefined转0，杜绝NaN
+    stockOut.filter(r => r.supplier === supplier).forEach(item => {
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
         totalReturn += price * num;
@@ -1449,7 +1451,6 @@ function updatePayPayableDisplay(supplier) {
     
     const payable = netIn - totalPay;
     _payableCache.set(supplier, payable);
-    // NaN兜底
     const showVal = Number.isNaN(payable) ? 0 : payable;
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
@@ -1475,7 +1476,7 @@ function updateInvoiceBackBalance(supplier) {
         displayEl.style.color = '#999';
         return;
     }
-    // 修复变量 window.allStockOut
+    // 统一真实退货数组
     const stockOutList = window.allStockOut ?? [];
     let totalReturn = 0;
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
@@ -1504,6 +1505,7 @@ function updateInvoiceBackBalance(supplier) {
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
+
 // ✅ 清除缓存函数
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
@@ -2011,7 +2013,7 @@ function renderPaymentBoard() {
     
     // 退货总额
    if (window.allStockOut && window.allStockOut.length > 0) {
-        allReturnGoods.filter(i => i.settle_type === '线下').forEach(item => {
+    window.allStockOut.filter(i => i.settle_type === '线下').forEach(item => {
             const total = Number(item.in_price) * Number(item.return_num);
             supplierGroup[item.supplier].totalReturn += total;
         });
