@@ -1405,6 +1405,9 @@ function openPayEdit(id) {
 }
 
 // ========== 更新应付账款显示（包含退货） ==========
+// ✅ 新增：缓存变量
+const _payableCache = new Map();
+
 function updatePayPayableDisplay(supplier) {
     const displayEl = document.getElementById('payPayableDisplay');
     if (!displayEl) return;
@@ -1415,33 +1418,53 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     
-    // 计算入库总额（线下）
+    // ✅ 使用缓存
+    const cacheKey = supplier;
+    if (_payableCache.has(cacheKey)) {
+        const payable = _payableCache.get(cacheKey);
+        displayEl.textContent = `￥${payable.toFixed(2)}`;
+        displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
+        return;
+    }
+    
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // ✅ 新增：计算退货总额（退货减少应付账款）
     let totalReturn = 0;
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
+        window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
             totalReturn += Number(item.in_price) * Number(item.return_num);
         });
     }
     
-    // 计算已付款
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
     });
     
-    // 应付账款 = 入库总额 - 退货总额 - 已付款
     const payable = totalIn - totalReturn - totalPay;
+    
+    _payableCache.set(cacheKey, payable);
     
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
+
+// ✅ 新增：清除缓存函数
+function clearPayableCache(supplier) {
+    if (supplier) {
+        _payableCache.delete(supplier);
+    } else {
+        _payableCache.clear();
+    }
+}
+
 // ========== 更新发票结余显示（包含退货） ==========
+// ✅ 新增：缓存变量，避免重复计算
+const _invoiceBalanceCache = new Map();
+
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (!displayEl) return;
@@ -1452,31 +1475,49 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
     
-    // 计算入库总额（线下）
+    // ✅ 使用缓存（数据变化时需清除缓存）
+    const cacheKey = supplier;
+    if (_invoiceBalanceCache.has(cacheKey)) {
+        const balance = _invoiceBalanceCache.get(cacheKey);
+        displayEl.textContent = `￥${balance.toFixed(2)}`;
+        displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+        return;
+    }
+    
+    // 计算发票结余
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // ✅ 新增：计算退货总额（退货减少应开票金额）
     let totalReturn = 0;
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
+        window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
             totalReturn += Number(item.in_price) * Number(item.return_num);
         });
     }
     
-    // 计算已返回发票金额
     let totalBack = 0;
     allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
         totalBack += Number(b.invoice_amount);
     });
     
-    // 发票结余 = 发票返回总额 - 入库总额 + 退货总额
     const balance = totalBack - totalIn + totalReturn;
+    
+    // 存入缓存
+    _invoiceBalanceCache.set(cacheKey, balance);
     
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
+}
+
+// ✅ 新增：清除缓存函数（在数据变更时调用）
+function clearInvoiceBalanceCache(supplier) {
+    if (supplier) {
+        _invoiceBalanceCache.delete(supplier);
+    } else {
+        _invoiceBalanceCache.clear();
+    }
 }
 // ===================== 👆 添加结束 =====================
 
@@ -1508,6 +1549,8 @@ async function savePayRecord() {
         });
     }
     await loadAllPayment();
+    // ✅ 新增：清除缓存
+    clearPayableCache(supplier);
     refreshPayRecordList(true);
     showMsg('付款记录保存成功');
     closePayModal();
@@ -1526,6 +1569,8 @@ async function deletePayRecord(id) {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
     await loadAllPayment();
+     // ✅ 新增：清除缓存
+    if (supplier) clearPayableCache(supplier);
     refreshPayRecordList(true);
     showMsg('删除成功');
 }
@@ -1770,6 +1815,8 @@ async function saveInvoiceBackRecord() {
         await loadAllInvoiceBack();
         await recalculateInvoiceStatus(supplier);
         await loadAllStockIn();
+        // ✅ 新增：清除缓存
+    clearInvoiceBalanceCache(supplier);
         refreshInvoiceBackList(true);
 
         
@@ -1788,12 +1835,10 @@ async function saveInvoiceBackRecord() {
     }
 }
 
-// ===================== 发票核销引擎 =====================
-async function autoWriteOffInvoice(supplier, invoiceAmount, invoiceNo) {
-    if (!supplier || invoiceAmount <= 0) return;
-    await recalculateInvoiceStatus(supplier);
-}
-
+/**
+ * 发票核销引擎 - 优化版（方案一：累计余额法）
+ * 核心优化：只处理"未开票"记录，已开票的不再重复计算
+ */
 async function recalculateInvoiceStatus(supplier) {
     if (!supplier) return;
 
@@ -1803,149 +1848,115 @@ async function recalculateInvoiceStatus(supplier) {
         'Content-Type': 'application/json'
     };
 
-    // 1. 获取该供应商所有线下入库记录（按日期正序）
-    const inRecords = allStockInList
+    // ===== 1. 计算累计发票结余 =====
+    let totalIn = 0;
+    let totalReturn = 0;
+    let totalBack = 0;
+
+    // 1.1 入库总额（只统计线下）
+    allStockInList
+        .filter(item => item.supplier === supplier && item.settleType === '线下')
+        .forEach(item => {
+            totalIn += Number(item.in_price) * Number(item.in_num);
+        });
+
+    // 1.2 退货总额（退货 = 增加发票结余）
+    if (window.allReturnGoods && window.allReturnGoods.length > 0) {
+        window.allReturnGoods
+            .filter(item => item.supplier === supplier)
+            .forEach(item => {
+                totalReturn += Number(item.in_price) * Number(item.return_num);
+            });
+    }
+
+    // 1.3 发票返回总额
+    allInvoiceBackList
+        .filter(item => item.supplier === supplier)
+        .forEach(item => {
+            totalBack += Number(item.invoice_amount);
+        });
+
+    // 累计结余 = 发票返回 - 入库 + 退货
+    let balance = totalBack - totalIn + totalReturn;
+
+    // ===== 2. 只获取"未开票"的入库记录（已开票的跳过） =====
+    const unInvoicedRecords = allStockInList
         .filter(item => 
             item.supplier === supplier && 
-            item.settleType === '线下'
+            item.settleType === '线下' &&
+            (item.invoice_status === '未开票' || !item.invoice_status || item.invoice_status === '')
         )
         .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
 
-    if (inRecords.length === 0) {
+    // 如果余额 <= 0 或没有未开票记录，直接返回（无需更新）
+    if (balance <= 0 || unInvoicedRecords.length === 0) {
+        // 确保所有记录状态正确（余额不足时全部为未开票）
+        for (let record of unInvoicedRecords) {
+            if (record.invoice_status !== '未开票') {
+                await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({
+                        invoice_status: '未开票',
+                        invoice_no: null
+                    })
+                });
+            }
+        }
         return;
     }
 
-    // 2. 获取该供应商所有退货记录
-    let returnRecords = [];
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        returnRecords = allReturnGoods
-            .filter(item => item.supplier === supplier)
-            .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-    }
+    // ===== 3. 获取可用的发票号码（取第一个非空） =====
+    const invoiceNos = allInvoiceBackList
+        .filter(item => item.supplier === supplier && item.invoice_no)
+        .map(item => item.invoice_no)
+        .filter(Boolean);
+    const defaultInvoiceNo = invoiceNos.length > 0 ? invoiceNos[0] : null;
 
-    // 3. 获取该供应商所有发票返回记录
-    const supplierInvoices = allInvoiceBackList
-        .filter(inv => inv.supplier === supplier)
-        .sort((a, b) => new Date(a.return_date) - new Date(b.return_date));
+    // ===== 4. 滚动核销（只处理余额 > 0 的情况） =====
+    let remaining = balance;
+    const toUpdate = [];
 
-    // 4. 先将所有入库记录重置为"未开票"
-    for (let record of inRecords) {
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
-            method: 'PATCH',
-            headers: headers,
-            body: JSON.stringify({
-                invoice_status: '未开票',
-                invoice_no: null
-            })
-        });
-    }
+    for (const record of unInvoicedRecords) {
+        if (remaining <= 0) break;  // ✅ 余额不足，提前退出循环
 
-    if (supplierInvoices.length === 0) {
-        // 没有发票返回记录，所有入库保持"未开票"
-        return;
-    }
-
-    // 5. 构建核销队列：入库为正，退货为负
-    let queue = [];
-    
-    // 入库记录（正数）
-    inRecords.forEach(record => {
         const amount = Number(record.in_price) * Number(record.in_num);
-        queue.push({
-            type: 'in',
-            id: record.id,
-            amount: amount,
-            date: record.record_date,
-            record: record
-        });
-    });
-    
-    // 退货记录（负数）
-    returnRecords.forEach(record => {
-        const amount = Number(record.in_price) * Number(record.return_num);
-        queue.push({
-            type: 'return',
-            id: record.id,
-            amount: -amount, // 负数
-            date: record.record_date,
-            record: record
-        });
-    });
-
-    // 按日期排序
-    queue.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // 6. 逐张发票核销
-    let remainingInRecords = [...inRecords];
-    let processedReturnIds = new Set();
-
-    for (let invoice of supplierInvoices) {
-        const invoiceAmount = Number(invoice.invoice_amount) || 0;
-        if (invoiceAmount <= 0) continue;
-
-        let remainingAmount = invoiceAmount;
-        const updatedInIds = [];
-        const matchedReturnIds = [];
-
-        // 遍历队列（已排序）
-        for (let item of queue) {
-            if (remainingAmount <= 0) break;
-            if (item.amount > 0) {
-                // 入库记录
-                const record = item.record;
-                if (remainingAmount >= item.amount) {
-                    remainingAmount -= item.amount;
-                    updatedInIds.push({ id: record.id, status: '已开票' });
-                } else {
-                    // 部分核销，这条入库记录标记为"未开票"
-                    updatedInIds.push({ id: record.id, status: '未开票' });
-                    remainingAmount = 0;
-                }
-            } else if (item.amount < 0) {
-                // 退货记录（冲减核销金额）
-                const absReturn = Math.abs(item.amount);
-                // 退货冲减当前剩余待核销金额
-                const usedAmount = Math.min(remainingAmount, absReturn);
-                remainingAmount -= usedAmount;
-                matchedReturnIds.push(item.id);
-                // 退货记录已被处理
-                if (usedAmount >= absReturn) {
-                    processedReturnIds.add(item.id);
-                }
-            }
-        }
-
-        // 更新入库记录的发票状态
-        for (let item of updatedInIds) {
-            await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${item.id}`, {
-                method: 'PATCH',
-                headers: headers,
-                body: JSON.stringify({
-                    invoice_status: item.status,
-                    invoice_no: invoice.invoice_no || null
-                })
+        
+        if (remaining >= amount) {
+            // ✅ 全部核销
+            remaining -= amount;
+            toUpdate.push({
+                id: record.id,
+                invoice_status: '已开票',
+                invoice_no: defaultInvoiceNo
             });
-            if (item.status === '已开票') {
-                remainingInRecords = remainingInRecords.filter(r => r.id !== item.id);
-            }
+        } else {
+            // ❌ 余额不够了，这条及后续记录都无法核销
+            // 保持未开票状态，直接退出循环
+            break;
         }
     }
 
-    // 7. 更新所有未核销的入库记录为"未开票"
-    for (let record of remainingInRecords) {
-        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${record.id}`, {
+    // ===== 5. 批量更新数据库 =====
+    for (const update of toUpdate) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${update.id}`, {
             method: 'PATCH',
             headers: headers,
             body: JSON.stringify({
-                invoice_status: '未开票',
-                invoice_no: null
+                invoice_status: update.invoice_status,
+                invoice_no: update.invoice_no
             })
         });
     }
 
-    // 重新加载最新数据
+    // ===== 6. 确保剩余未核销记录为"未开票" =====
+    // 找出已开票但不在 toUpdate 中的记录（理论上不应该存在）
+    // 这个步骤可以省略，因为我们已经只处理未开票的记录
+    
+    // ===== 7. 重新加载最新数据 =====
     await loadAllStockIn();
 }
+
 // 删除发票返回记录
 async function deleteInvoiceBackRecord(id) {
     // ===== 检查是否管理员 =====
@@ -1969,6 +1980,7 @@ async function deleteInvoiceBackRecord(id) {
     
     await loadAllInvoiceBack();
     await recalculateInvoiceStatus(supplier);
+    clearInvoiceBalanceCache(supplier);
     refreshInvoiceBackList(true);
 
     
@@ -2388,12 +2400,10 @@ function resetStockInCheck() {
 }
 
 function searchStockInCheck(resetPage = true) {
-// ========== 新增两行开始 ==========
-    if(resetPage){
+    // ========== 分页重置 ==========
+    if (resetPage) {
         financePageConfig.stockInCheck.current = 1;
     }
-    // ========== 新增两行结束 ==========
-    // 不重置分页，由调用方决定
     
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
@@ -2406,6 +2416,17 @@ function searchStockInCheck(resetPage = true) {
 
     // ===== 1. 获取入库数据 =====
     let inList = [...allStockInList];
+    
+    // ✅ 性能优化核心：如果用户没有选择"发票状态"筛选，默认只处理"未开票"的记录
+    // 已开票的记录已经核销完成，不需要重复参与计算
+    if (!invStatus) {
+        // 默认只显示未开票的记录（大幅减少数据量）
+        inList = inList.filter(i => 
+            i.invoice_status === '未开票' || 
+            !i.invoice_status || 
+            i.invoice_status === ''
+        );
+    }
     
     if (settle) inList = inList.filter(i => i.settleType === settle);
     if (invStatus) inList = inList.filter(i => i.invoice_status === invStatus);
@@ -2800,7 +2821,6 @@ function searchStockInCheck(resetPage = true) {
     
     renderFinancePagination('stockInCheck');
 }
-
 // 移除之前重复定义的函数，使用上面的新版本
 // 注意：之前已经定义了 showCheckInSupplierList、filterCheckInSupplierList、renderCheckInSupplierList
 // 以及 showCheckInGoodsList、filterCheckInGoodsList、renderCheckInGoodsList
