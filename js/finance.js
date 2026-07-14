@@ -1266,11 +1266,13 @@ function initPaySupplierSelect() {
     });
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     
+    // 🔧 绑定 change 事件
     editSel.onchange = function() {
+        // 先清除缓存，强制重新计算
+        clearPayableCache(this.value);
         updatePayPayableDisplay(this.value);
     };
 }
-
 // ========== 付款记录 - 供应商搜索下拉 ==========
 function showPaySupplierList() {
     renderPaySupplierList(paySupplierList);
@@ -1386,6 +1388,11 @@ function openPayAddModal() {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
     }
+    // 🔧 如果当前有选中的供应商，立即更新显示
+    const supplier = document.getElementById('paySupplier').value;
+    if (supplier) {
+        updatePayPayableDisplay(supplier);
+    }
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
@@ -1398,6 +1405,7 @@ function openPayEdit(id) {
     document.getElementById('paySupplier').value = row.supplier;
     document.getElementById('payAmount').value = row.payment_amount;
     document.getElementById('payRemark').value = row.remark || '';
+    // 🔧 强制更新显示
     updatePayPayableDisplay(row.supplier);
     const modal = document.getElementById('payModal');
     modal.style.display = 'flex';
@@ -1418,20 +1426,14 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     
-    // ✅ 使用缓存
-    const cacheKey = supplier;
-    if (_payableCache.has(cacheKey)) {
-        const payable = _payableCache.get(cacheKey);
-        displayEl.textContent = `￥${payable.toFixed(2)}`;
-        displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
-        return;
-    }
-    
+    // 🔧 强制重新计算，不依赖缓存（确保数据准确）
+    // 计算总入库（线下）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
+    // 计算总退货（退货增加应付账款余额，即减少应付）
     let totalReturn = 0;
     if (window.allReturnGoods && window.allReturnGoods.length > 0) {
         window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
@@ -1439,14 +1441,17 @@ function updatePayPayableDisplay(supplier) {
         });
     }
     
+    // 计算总付款
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
     });
     
+    // 应付账款 = 入库总额 - 退货总额 - 已付款
     const payable = totalIn - totalReturn - totalPay;
     
-    _payableCache.set(cacheKey, payable);
+    // 更新缓存
+    _payableCache.set(supplier, payable);
     
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
@@ -1475,21 +1480,14 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
     
-    // ✅ 使用缓存（数据变化时需清除缓存）
-    const cacheKey = supplier;
-    if (_invoiceBalanceCache.has(cacheKey)) {
-        const balance = _invoiceBalanceCache.get(cacheKey);
-        displayEl.textContent = `￥${balance.toFixed(2)}`;
-        displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
-        return;
-    }
-    
-    // 计算发票结余
+    // 🔧 强制重新计算，不依赖缓存（确保数据准确）
+    // 计算总入库（线下）
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
+    // 计算总退货（退货增加发票结余）
     let totalReturn = 0;
     if (window.allReturnGoods && window.allReturnGoods.length > 0) {
         window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
@@ -1497,20 +1495,21 @@ function updateInvoiceBackBalance(supplier) {
         });
     }
     
+    // 计算总发票返回
     let totalBack = 0;
     allInvoiceBackList.filter(b => b.supplier === supplier).forEach(b => {
         totalBack += Number(b.invoice_amount);
     });
     
+    // 发票结余 = 发票返回总额 - 入库总额 + 退货总额
     const balance = totalBack - totalIn + totalReturn;
     
-    // 存入缓存
-    _invoiceBalanceCache.set(cacheKey, balance);
+    // 更新缓存
+    _invoiceBalanceCache.set(supplier, balance);
     
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 新增：清除缓存函数（在数据变更时调用）
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
@@ -1616,7 +1615,10 @@ function initInvoiceBackSupplierSelect() {
     });
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
     
+    // 🔧 绑定 change 事件
     editSel.onchange = function() {
+        // 先清除缓存，强制重新计算
+        clearInvoiceBalanceCache(this.value);
         updateInvoiceBackBalance(this.value);
     };
 }
@@ -1760,13 +1762,12 @@ function openInvoiceBackEdit(id) {
     document.getElementById('invoiceBackAmount').value = row.invoice_amount;
     document.getElementById('invoiceBackNo').value = row.invoice_no || '';
     document.getElementById('invoiceBackRemark').value = row.remark || '';
-    // 🔧 编辑时更新发票结余
+    // 🔧 强制更新显示
     updateInvoiceBackBalance(row.supplier);
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
 }
-
 function closeInvoiceBackModal() {
     document.getElementById('invoiceBackModal').style.display = 'none';
 }
