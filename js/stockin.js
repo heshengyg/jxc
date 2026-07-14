@@ -477,20 +477,17 @@ async function submitStockIn(){
     }
 
     // 修正逻辑：线下默认未开票，线上赋值空字符串（表格展示空白）
-    let invoiceStatus = settleType === '线下' ? '未开票' : '';
-
-    let postData = {
+        let postData = {
         supplier: supplier,
         goodsName: goodsName,
         spec: spec || null,
         settleType: settleType,
-        sale_price: salePrice,  // ✅ 现在 salePrice 不会是 NaN
+        sale_price: salePrice,
         in_price: finalInPrice,
         in_num: +inNum,
         record_date: recordDate,
         produce_date: produceDate || null,
-        expire_date: expireDate || null,
-        invoice_status: invoiceStatus
+        expire_date: expire_date || null
     };
 
     try {
@@ -504,7 +501,6 @@ async function submitStockIn(){
 
         if(editId){
             // 编辑时不修改发票状态，保留自动核销后的结果
-            delete postData.invoice_status;
             res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?id=eq.${editId}`,{
                 method:'PATCH',
                 headers,
