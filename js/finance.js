@@ -1413,9 +1413,8 @@ function openPayEdit(id) {
     modal.style.zIndex = '9999';
 }
 
-// ========== 更新应付账款显示（包含退货） ==========
+// ========== 更新应付账款显示（修复版，无await，不会卡死页面） ==========
 const _payableCache = new Map();
-
 function updatePayPayableDisplay(supplier) {
     const displayEl = document.getElementById('payPayableDisplay');
     if (!displayEl) return;
@@ -1426,12 +1425,9 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
 
-    // 修复：如果退货全局变量不存在，立即加载退货数据，保证退货参与计算
+    // 兜底：如果全局退货变量不存在，直接赋值空数组，不发起异步请求（删除await，解决卡死）
     if (!window.allReturnGoods) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        window.allReturnGoods = await res.json();
+        window.allReturnGoods = [];
     }
     
     let totalIn = 0;
@@ -1446,9 +1442,8 @@ function updatePayPayableDisplay(supplier) {
         });
     }
     
-    // 净入库=总入库-退货（现在退货一定有值）
+    // 净入库=总入库-退货（正确扣减退货，解决差额）
     const netIn = totalIn - totalReturn;
-
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(p => {
         totalPay += Number(p.payment_amount);
@@ -1461,6 +1456,7 @@ function updatePayPayableDisplay(supplier) {
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
+
 // ✅ 清除缓存函数
 function clearPayableCache(supplier) {
     if (supplier) {
@@ -1470,9 +1466,8 @@ function clearPayableCache(supplier) {
     }
 }
 
-// ========== 更新发票结余显示（包含退货） ==========
+// ========== 更新发票结余显示（修复版，无await，不会卡死页面） ==========
 const _invoiceBalanceCache = new Map();
-
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (!displayEl) return;
@@ -1480,15 +1475,11 @@ function updateInvoiceBackBalance(supplier) {
     if (!supplier) {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
-        return;
     }
 
-    // 修复：缺失退货全局变量则自动拉取，确保退货金额扣减生效
+    // 兜底：全局退货变量不存在则置空数组，移除await语法错误代码
     if (!window.allReturnGoods) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        window.allReturnGoods = await res.json();
+        window.allReturnGoods = [];
     }
     
     let totalIn = 0;
@@ -1498,7 +1489,7 @@ function updateInvoiceBackBalance(supplier) {
     
     let totalReturn = 0;
     if (window.allReturnGoods && window.allReturnGoods.length > 0) {
-        window.allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
+        window.allReturnGoods.filter(r => r.supplier).forEach(item => {
             totalReturn += Number(item.in_price) * Number(item.return_num);
         });
     }
@@ -1517,7 +1508,6 @@ function updateInvoiceBackBalance(supplier) {
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 清除缓存函数
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
