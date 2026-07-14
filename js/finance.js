@@ -202,6 +202,14 @@ function changeFinancePageSize(pageKey, size) {
         searchStockOutCheck(true);
     } else if(pageKey === 'monthInvoiceBalance'){
         searchMonthInvoiceBalance(true);
+    } else if(pageKey === 'taxRate'){
+        refreshTaxList(true);
+    } else if(pageKey === 'payRecord'){
+        refreshPayRecordList(true);
+    } else if(pageKey === 'invoiceBack'){
+        refreshInvoiceBackList(true);
+    } else if(pageKey === 'monthBeginStock'){
+        searchMonthBeginStock(true);
     }else{
         initCurrentSubPage();
     }
@@ -221,6 +229,14 @@ function financeGoToPage(pageKey, targetPage) {
         searchStockOutCheck(false);
     } else if(pageKey === 'monthInvoiceBalance'){
         searchMonthInvoiceBalance(false);
+    } else if(pageKey === 'taxRate'){
+        refreshTaxList(false);
+    } else if(pageKey === 'payRecord'){
+        refreshPayRecordList(false);
+    } else if(pageKey === 'invoiceBack'){
+        refreshInvoiceBackList(false);
+    } else if(pageKey === 'monthBeginStock'){
+        searchMonthBeginStock(false);
     }else{
         initCurrentSubPage();
     }
@@ -362,7 +378,7 @@ function initTaxRatePage() {
     document.getElementById('taxSupplierSearch').value = '';
     document.getElementById('taxGoodsSearch').value = '';
     document.getElementById('taxRateSearch').value = '';
-    refreshTaxList();
+    refreshTaxList(true);
 }
 
 function initTaxSupplierFilter() {
@@ -479,7 +495,10 @@ function renderTaxRateList(list){
 }
 
 // 多条件筛选刷新表格
-function refreshTaxList() {
+function refreshTaxList(resetPage = true) {
+if(resetPage){
+    financePageConfig.taxRate.current = 1;
+}
     const selectSupplier = document.getElementById('taxSupplierSearch').value.trim();
     const selectGoodsName = document.getElementById('taxGoodsSearch').value.trim();
     const selectTaxText = document.getElementById('taxRateSearch').value.trim();
@@ -539,7 +558,7 @@ function refreshTaxList() {
 
 // ========== 税率录入实时搜索（输入即搜索） ==========
 function onTaxFilterInput() {
-    refreshTaxList();
+    refreshTaxList(true);
     
     const supplierInput = document.getElementById('taxSupplierSearch');
     const goodsInput = document.getElementById('taxGoodsSearch');
@@ -571,7 +590,7 @@ function resetTaxSearch() {
     document.getElementById('taxSupplierListBox').style.display = 'none';
     document.getElementById('taxGoodsListBox').style.display = 'none';
     document.getElementById('taxRateListBox').style.display = 'none';
-    refreshTaxList();
+    refreshTaxList(true);
 }
 
 function openTaxEdit(id) {
@@ -602,7 +621,7 @@ async function saveTaxData() {
         await loadGoods();
     }
     closeTaxModal();
-    refreshTaxList();
+    refreshTaxList(true);
     showMsg('税率保存成功，商品管理页面数据已同步更新');
 }
 
@@ -1233,7 +1252,7 @@ async function initPayRecordPage() {
         document.getElementById('paySupplierSearchInput').value = '';
         document.getElementById('paySupplierListBox').style.display = 'none';
         
-        refreshPayRecordList();
+        refreshPayRecordList(true);
     } catch(e) {
         console.error('initPayRecordPage 执行失败:', e);
     }
@@ -1282,7 +1301,7 @@ function renderPaySupplierList(list) {
             document.getElementById('paySupplierSearchInput').value = s;
             document.getElementById('paySupplierListBox').style.display = 'none';
             // 输入即搜索
-            refreshPayRecordList();
+            refreshPayRecordList(true);
         };
         box.appendChild(div);
     });
@@ -1296,7 +1315,7 @@ function onPayFilterInput() {
     }
     // 防抖处理，500ms后执行搜索
     paySearchTimer = setTimeout(() => {
-        refreshPayRecordList();
+        refreshPayRecordList(true);
         // 显示下拉列表
         const input = document.getElementById('paySupplierSearchInput');
         if (document.activeElement === input) {
@@ -1312,10 +1331,13 @@ function onPayFilterInput() {
 function resetPaySearch() {
     document.getElementById('paySupplierSearchInput').value = '';
     document.getElementById('paySupplierListBox').style.display = 'none';
-    refreshPayRecordList();
+    refreshPayRecordList(true);
 }
 
-function refreshPayRecordList() {
+function refreshPayRecordList(resetPage = true) {
+if(resetPage){
+    financePageConfig.payRecord.current = 1;
+}
     const filterSupplier = document.getElementById('paySupplierSearchInput').value.trim();
     let list = [...allPayList];
     list.sort((a, b) => b.id - a.id);
@@ -1486,7 +1508,7 @@ async function savePayRecord() {
         });
     }
     await loadAllPayment();
-    refreshPayRecordList();
+    refreshPayRecordList(true);
     showMsg('付款记录保存成功');
     closePayModal();
     currentPayEditId = null;
@@ -1504,7 +1526,7 @@ async function deletePayRecord(id) {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
     await loadAllPayment();
-    refreshPayRecordList();
+    refreshPayRecordList(true);
     showMsg('删除成功');
 }
 
@@ -1534,7 +1556,8 @@ async function initInvoiceBackPage() {
         document.getElementById('invoiceBackSupplierSearchInput').value = '';
         document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
         
-        refreshInvoiceBackList();
+        refreshInvoiceBackList(true);
+
     } catch(e) {
         console.error('initInvoiceBackPage 执行失败:', e);
     }
@@ -1583,7 +1606,8 @@ function renderInvoiceBackSupplierList(list) {
             document.getElementById('invoiceBackSupplierSearchInput').value = s;
             document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
             // 输入即搜索
-            refreshInvoiceBackList();
+            refreshInvoiceBackList(true);
+
         };
         box.appendChild(div);
     });
@@ -1597,7 +1621,8 @@ function onInvoiceBackFilterInput() {
     }
     // 防抖处理，300ms后执行搜索
     invoiceBackSearchTimer = setTimeout(() => {
-        refreshInvoiceBackList();
+        refreshInvoiceBackList(true);
+
         // 显示下拉列表
         const input = document.getElementById('invoiceBackSupplierSearchInput');
         if (document.activeElement === input) {
@@ -1613,10 +1638,14 @@ function onInvoiceBackFilterInput() {
 function resetInvoiceBackSearch() {
     document.getElementById('invoiceBackSupplierSearchInput').value = '';
     document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
-    refreshInvoiceBackList();
+    refreshInvoiceBackList(true);
+
 }
 
-function refreshInvoiceBackList() {
+function refreshInvoiceBackList(resetPage = true) {
+if(resetPage){
+    financePageConfig.invoiceBack.current = 1;
+}
     const filterSupplier = document.getElementById('invoiceBackSupplierSearchInput').value.trim();
     let list = [...allInvoiceBackList];
     list.sort((a, b) => b.id - a.id);
@@ -1741,7 +1770,8 @@ async function saveInvoiceBackRecord() {
         await loadAllInvoiceBack();
         await recalculateInvoiceStatus(supplier);
         await loadAllStockIn();
-        refreshInvoiceBackList();
+        refreshInvoiceBackList(true);
+
         
         if (typeof window.loadStockIn === 'function') {
             await window.loadStockIn();
@@ -1939,7 +1969,8 @@ async function deleteInvoiceBackRecord(id) {
     
     await loadAllInvoiceBack();
     await recalculateInvoiceStatus(supplier);
-    refreshInvoiceBackList();
+    refreshInvoiceBackList(true);
+
     
     if (typeof window.loadStockIn === 'function') {
         await window.loadStockIn();
@@ -3819,7 +3850,7 @@ function renderBeginSupplierList(list) {
             document.getElementById('beginSupplierSearchInput').value = s;
             document.getElementById('beginSupplierListBox').style.display = 'none';
             // 输入即搜索
-            searchMonthBeginStock();
+            searchMonthBeginStock(true);
         };
         box.appendChild(div);
     });
@@ -3855,7 +3886,7 @@ function renderBeginGoodsList(list) {
             document.getElementById('beginGoodsSearchInput').value = s;
             document.getElementById('beginGoodsListBox').style.display = 'none';
             // 输入即搜索
-            searchMonthBeginStock();
+            searchMonthBeginStock(true);
         };
         box.appendChild(div);
     });
@@ -3869,7 +3900,7 @@ function onBeginFilterInput() {
     }
     // 防抖处理，300ms后执行搜索
     beginSearchTimer = setTimeout(() => {
-        searchMonthBeginStock();
+        searchMonthBeginStock(true);
         // 显示下拉列表
         const supplierInput = document.getElementById('beginSupplierSearchInput');
         const goodsInput = document.getElementById('beginGoodsSearchInput');
@@ -3901,10 +3932,13 @@ function resetMonthBeginStock() {
     document.getElementById('beginGoodsListBox').style.display = 'none';
     // 重置分页到第一页
     financePageConfig.monthBeginStock.current = 1;
-    searchMonthBeginStock();
+    searchMonthBeginStock(true);
 }
 
-function searchMonthBeginStock() {
+function searchMonthBeginStock(resetPage = true) {
+if(resetPage){
+    financePageConfig.monthBeginStock.current = 1;
+}
     // 注意：不在这里重置分页，由调用方决定
     // 重置按钮会重置分页，下拉点击和实时搜索保持当前分页
     
@@ -4129,7 +4163,7 @@ function searchMonthBeginStock() {
 }
 
 function exportMonthBeginStockExcel() {
-    searchMonthBeginStock();
+    searchMonthBeginStock(true);
     
     const settle = document.getElementById('beginSettle').value;
     const month = document.getElementById('beginMonth').value;
