@@ -2715,8 +2715,14 @@ if (settle) {
     
     // 应用筛选条件
     if (invStatus) {
-        inList = inList.filter(i => i.invoice_status === invStatus);
-    }
+        // ✅ 发票状态筛选：使用累计结余判断（与显示逻辑保持一致）
+if (invStatus && invStatus !== '全部') {
+    inList = inList.filter(i => {
+        const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
+        const status = cumInvoice >= 0 ? '已开票' : '未开票';
+        return status === invStatus;
+    });
+}
     if (month) {
         inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
     }
@@ -2769,8 +2775,8 @@ if (allReturnGoods && allReturnGoods.length > 0) {
         let match = true;
         // ✅ 结算方式筛选
         if (settle && item.settle_type !== settle) match = false;
-        // ✅ 发票状态筛选：退货记录只有在"全部"时才显示
-        if (invStatus && invStatus !== '') match = false;
+        // ✅ 发票状态筛选：只有选择"全部"时才显示退货
+        if (invStatus && invStatus !== '全部') match = false;
         if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
         if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
         if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
@@ -3180,7 +3186,14 @@ if (settle) {
 }
     
     if (settle) inList = inList.filter(i => i.settleType === settle);
-    if (invStatus) inList = inList.filter(i => i.invoice_status === invStatus);
+    // ✅ 发票状态筛选：使用累计结余判断
+if (invStatus && invStatus !== '全部') {
+    inList = inList.filter(i => {
+        const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
+        const status = cumInvoice >= 0 ? '已开票' : '未开票';
+        return status === invStatus;
+    });
+}
     if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
     if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
     if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
@@ -3202,7 +3215,9 @@ if (allReturnGoods && allReturnGoods.length > 0) {
     returnList = allReturnGoods.filter(item => {
         let match = true;
         // ✅ 结算方式筛选
-if (settle && item.settle_type !== settle) match = false;
+        if (settle && item.settle_type !== settle) match = false;
+        // ✅ 发票状态筛选：只有选择"全部"时才显示退货
+        if (invStatus && invStatus !== '全部') match = false;
         if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
         if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
         if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
