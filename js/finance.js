@@ -1393,8 +1393,8 @@ function openPayAddModal() {
         displayEl.style.color = '#999';
     }
     const supplier = document.getElementById('paySupplier').value;
-    // 新增：打开弹窗先清空当前供应商缓存，强制实时计算
-    if(supplier){
+    // 新增：打开弹窗强制清除该供应商旧缓存，重新实时计算
+    if (supplier) {
         clearPayableCache(supplier);
         updatePayPayableDisplay(supplier);
     }
@@ -1422,38 +1422,37 @@ const _payableCache = new Map();
 function updatePayPayableDisplay(supplier) {
     const displayEl = document.getElementById('payPayableDisplay');
     if (!displayEl) return;
-    
     if (!supplier) {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
         return;
     }
-    const stockOutList = window.allStockOut ?? [];
+    // 兜底，防止接口未加载完成
+    const stockOutList = window.allStockOut || [];
     let totalReturn = 0;
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
         totalReturn += price * num;
     });
-    
+
     let totalIn = 0;
-    allStockInList.filter(i => i.settleType === '线下').forEach(item => {
-        if(item.supplier !== supplier) return;
+    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         const p = Number(item.in_price ?? 0);
         const n = Number(item.in_num ?? 0);
         totalIn += p * n;
     });
-    
+
     const netIn = totalIn - totalReturn;
     let totalPay = 0;
     allPayList.filter(p => p.supplier === supplier).forEach(pay => {
         totalPay += Number(pay.payment_amount ?? 0);
     });
-    
+
     const payable = netIn - totalPay;
-    // 仅写入缓存，不读取缓存作为前置判断
+    // 每次计算覆盖缓存，不依赖缓存读取
     _payableCache.set(supplier, payable);
-    const showVal = Number.isNaN(payable) ? 0 : payable;
+    const showVal = isNaN(payable) ? 0 : payable;
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
@@ -1472,42 +1471,38 @@ const _invoiceBalanceCache = new Map();
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (!displayEl) return;
-    
     if (!supplier) {
         displayEl.textContent = '请选择供应商';
         displayEl.style.color = '#999';
         return;
     }
-    // 正确变量stockOutList
-    const stockOutList = window.allStockOut ?? [];
+    const stockOutList = window.allStockOut || [];
     let totalReturn = 0;
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
         totalReturn += price * num;
     });
-    
+
     let totalIn = 0;
     allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
         const p = Number(item.in_price ?? 0);
         const n = Number(item.in_num ?? 0);
         totalIn += p * n;
     });
-    
+
     const netIn = totalIn - totalReturn;
-    
     let totalBack = 0;
     allInvoiceBackList.filter(b => b.supplier === supplier).forEach(bill => {
         totalBack += Number(bill.invoice_amount ?? 0);
     });
-    
+
     const balance = totalBack - netIn;
     _invoiceBalanceCache.set(supplier, balance);
-    const showVal = Number.isNaN(balance) ? 0 : balance;
+    const showVal = isNaN(balance) ? 0 : balance;
     displayEl.textContent = `￥${showVal.toFixed(2)}`;
     displayEl.style.color = showVal < 0 ? '#ff4d4f' : '#333';
 }
-
 // ✅ 清除缓存函数
 function clearInvoiceBalanceCache(supplier) {
     if (supplier) {
@@ -1743,8 +1738,8 @@ function openInvoiceBackAddModal() {
         displayEl.style.color = '#999';
     }
     const supplier = document.getElementById('invoiceBackSupplier').value;
-    // 打开弹窗清空缓存，强制重算
-    if(supplier){
+    // 打开弹窗先清缓存再计算
+    if (supplier) {
         clearInvoiceBalanceCache(supplier);
         updateInvoiceBackBalance(supplier);
     }
@@ -1752,7 +1747,6 @@ function openInvoiceBackAddModal() {
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
 }
-
 function openInvoiceBackEdit(id) {
     currentInvoiceBackEditId = id;
     const row = allInvoiceBackList.find(i => i.id === id);
@@ -2015,11 +2009,14 @@ function renderPaymentBoard() {
     
     // 退货总额
    if (window.allStockOut && window.allStockOut.length > 0) {
+    // 内层必须带上window.allStockOut，不能省略window.
     window.allStockOut.filter(i => i.settle_type === '线下').forEach(item => {
-            const total = Number(item.in_price) * Number(item.return_num);
-            supplierGroup[item.supplier].totalReturn += total;
-        });
-    }
+        const price = Number(item.in_price ?? 0);
+        const num = Number(item.return_num ?? 0);
+        const total = price * num;
+        supplierGroup[item.supplier].totalReturn += total;
+    });
+}
     
     allPayList.forEach(p => {
         supplierGroup[p.supplier].totalPay += Number(p.payment_amount);
