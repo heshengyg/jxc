@@ -2708,8 +2708,7 @@ if (settle) {
 }
     
     // 应用筛选条件
-    if (invStatus) {
-        // ✅ 发票状态筛选：使用累计结余判断（与显示逻辑保持一致）
+// ✅ 发票状态筛选：使用累计结余判断（与显示逻辑保持一致）
 if (invStatus && invStatus !== '全部') {
     inList = inList.filter(i => {
         const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
@@ -2717,26 +2716,26 @@ if (invStatus && invStatus !== '全部') {
         return status === invStatus;
     });
 }
-    if (month) {
-        inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
-    }
-    if (supplier) {
-        inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
-    }
-    if (goodsName) {
-        inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
-    }
-    if (taxRate !== '') {
-        inList = inList.filter(i => {
-            const goods = allGoodsList.find(g => 
-                g.name === i.goodsName && 
-                g.supplier === i.supplier && 
-                (g.spec || '') === (i.spec || '')
-            );
-            const rate = goods ? String(goods.tax_rate || '') : '';
-            return rate === taxRate;
-        });
-    }
+if (month) {
+    inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+}
+if (supplier) {
+    inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+}
+if (goodsName) {
+    inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+}
+if (taxRate !== '') {
+    inList = inList.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const rate = goods ? String(goods.tax_rate || '') : '';
+        return rate === taxRate;
+    });
+}
     
     // ===== 2. 构建供应商最后累计结余映射（供退货使用） =====
 // 直接继承该供应商全局最后一条入库记录的累计结余即可
@@ -3180,7 +3179,8 @@ if (settle) {
 }
     
     if (settle) inList = inList.filter(i => i.settleType === settle);
-    // ✅ 发票状态筛选：使用累计结余判断
+// 应用筛选条件
+// ✅ 发票状态筛选：使用累计结余判断（与显示逻辑保持一致）
 if (invStatus && invStatus !== '全部') {
     inList = inList.filter(i => {
         const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
@@ -3188,21 +3188,26 @@ if (invStatus && invStatus !== '全部') {
         return status === invStatus;
     });
 }
-    if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
-    if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
-    if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
-    if (taxRate !== '') {
-        inList = inList.filter(i => {
-            const goods = allGoodsList.find(g => 
-                g.name === i.goodsName && 
-                g.supplier === i.supplier && 
-                g.spec === i.spec
-            );
-            const rate = goods ? String(goods.tax_rate || '') : '';
-            return rate === taxRate;
-        });
-    }
-
+if (month) {
+    inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+}
+if (supplier) {
+    inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+}
+if (goodsName) {
+    inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+}
+if (taxRate !== '') {
+    inList = inList.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const rate = goods ? String(goods.tax_rate || '') : '';
+        return rate === taxRate;
+    });
+}
    // ===== 2. 获取退货数据（✅ 所有商品，不区分线上线下） =====
 let returnList = [];
 if (allReturnGoods && allReturnGoods.length > 0) {
