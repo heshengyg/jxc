@@ -4629,3 +4629,4 @@ window.resetTaxSearch = resetTaxSearch;
 window.onTaxFilterInput = onTaxFilterInput;
 window.onPrintFilterInput = onPrintFilterInput;
 window.resetPrintSearch = resetPrintSearch;
+window.refreshTaxList = refreshTaxList;  // ✅ 添加这一行
