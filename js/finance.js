@@ -1,20 +1,13 @@
-// 在文件顶部添加全局变量
-let allReturnGoods = [];
-
 // 加载全部退货记录
 async function loadAllReturnGoods() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`
-            }
-        });
-        allReturnGoods = await res.json();
+        const res = await fetch(...);
+        allReturnGoods = await res.json();  // ✅ 直接赋值，不重新声明
         window.allReturnGoods = allReturnGoods;
-    } catch (e) {
+    } catch(e) {
         console.error('加载退货记录失败:', e);
-        allReturnGoods = [];
+        allReturnGoods = [];  // ✅ 直接赋值
+        window.allReturnGoods = allReturnGoods;
     }
 }
 
