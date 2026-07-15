@@ -2706,10 +2706,10 @@ function searchStockInCheck(resetPage = true) {
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
     
-    // ===== 1. 获取入库数据 =====
-    let inList = allStockInList.filter(i => i.settleType === '线下');
+    // ===== 1. 获取入库数据（✅ 所有商品，不区分线上线下） =====
+    let inList = [...allStockInList];
     
-    // 应用筛选条件到入库数据
+    // 应用筛选条件
     if (invStatus) {
         inList = inList.filter(i => i.invoice_status === invStatus);
     }
@@ -2734,12 +2734,36 @@ function searchStockInCheck(resetPage = true) {
         });
     }
     
-    // ===== 2. 获取退货数据（作为独立行） =====
+    // ===== 2. 构建供应商最后累计结余映射（供退货使用） =====
+// 直接继承该供应商全局最后一条入库记录的累计结余即可
+const supplierLastCumulative = {};
+// 按供应商分组，取日期最新的入库记录的累计结余
+const inBySupplier = {};
+inList.forEach(item => {
+    if (!inBySupplier[item.supplier]) {
+        inBySupplier[item.supplier] = [];
+    }
+    inBySupplier[item.supplier].push(item);
+});
+for (const sup of Object.keys(inBySupplier)) {
+    // 按日期降序排列，取第一条（最新）
+    const records = inBySupplier[sup].sort((a, b) => 
+        new Date(b.record_date) - new Date(a.record_date)
+    );
+    if (records.length > 0) {
+        supplierLastCumulative[sup] = {
+            cumInvoice: Number(records[0].cumulative_invoice_balance) || 0,
+            cumPay: Number(records[0].cumulative_pay_balance) || 0
+        };
+    }
+}
+    
+    // ===== 3. 获取退货数据（✅ 所有商品，不区分线上线下） =====
     let returnList = [];
     if (allReturnGoods && allReturnGoods.length > 0) {
         returnList = allReturnGoods.filter(item => {
             let match = true;
-            if (item.settle_type !== '线下') match = false;
+            // ✅ 移除 settle_type 限制，显示所有退货
             if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
             if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
@@ -2756,7 +2780,7 @@ function searchStockInCheck(resetPage = true) {
         });
     }
     
-    // ===== 3. 构建显示数据（入库 + 退货） =====
+    // ===== 4. 构建显示数据（入库 + 退货） =====
     let allRecords = [];
     
     // 处理入库记录
@@ -2790,7 +2814,7 @@ function searchStockInCheck(resetPage = true) {
             supplier: item.supplier,
             goodsName: item.goodsName,
             spec: item.spec || '',
-            settleType: item.settleType,
+            settleType: item.settleType || '',
             in_price: item.in_price,
             in_num: item.in_num,
             record_date: item.record_date,
@@ -2814,7 +2838,6 @@ function searchStockInCheck(resetPage = true) {
     // 处理退货记录（作为独立行）
     returnList.forEach(item => {
         const returnAmount = Number(item.in_price) * Number(item.return_num);
-        // 获取税率
         const goods = allGoodsList.find(g => 
             g.name === item.goods_name && 
             g.supplier === item.supplier && 
@@ -2832,36 +2855,39 @@ function searchStockInCheck(resetPage = true) {
             taxTotal = 0;
         }
         
+        // ✅ 获取该供应商的累计结余
+        const lastCum = supplierLastCumulative[item.supplier] || { cumInvoice: 0, cumPay: 0 };
+        
         allRecords.push({
-            id: -item.id,  // 负数区分
+            id: -item.id,
             supplier: item.supplier,
             goodsName: item.goods_name,
             spec: item.spec || '',
-            settleType: item.settle_type || '线下',
+            settleType: item.settle_type || '',
             in_price: item.in_price,
-            in_num: -item.return_num,  // ✅ 负数表示退货
+            in_num: -item.return_num,
             record_date: item.record_date,
             produce_date: '',
             expire_date: '',
             invoice_no: '',
             tax_rate_display: taxRateVal > 0 ? taxRateVal + '%' : '0%',
             in_price_display: formatMoney(item.in_price),
-            invoice_status: '退货',  // ✅ 显示"退货"
-            isPay: '退货',           // ✅ 显示"退货"
-            totalAmount: -returnAmount,  // ✅ 负数
-            noTaxTotal: -noTaxTotal,     // ✅ 负数
-            taxTotal: -taxTotal,         // ✅ 负数
-            cumulative_invoice_balance: 0,  // 退货不显示累计结余
-            cumulative_pay_balance: 0,
+            invoice_status: '退货',
+            isPay: '退货',
+            totalAmount: -returnAmount,
+            noTaxTotal: -noTaxTotal,
+            taxTotal: -taxTotal,
+            cumulative_invoice_balance: lastCum.cumInvoice,  // ✅ 继承累计结余
+            cumulative_pay_balance: lastCum.cumPay,          // ✅ 继承累计结余
             _isReturn: true,
             _returnNum: item.return_num
         });
     });
     
-    // 按日期倒序排列
+    // ===== 5. 按日期倒序排列 =====
     allRecords.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     
-    // ===== 4. 分组汇总 =====
+    // ===== 6. 分组汇总 =====
     let displayData = allRecords;
     if (groupSupplier || groupGoods) {
         const groupMap = {};
@@ -2880,11 +2906,12 @@ function searchStockInCheck(resetPage = true) {
                     totalAmount: 0,
                     noTaxTotal: 0,
                     taxTotal: 0,
-                    cumulative_invoice_balance: 0,
-                    cumulative_pay_balance: 0,
+                    cumulative_invoice_balance: row.cumulative_invoice_balance,
+                    cumulative_pay_balance: row.cumulative_pay_balance,
                     record_date: row.record_date || '',
                     count: 0,
-                    _isReturn: row._isReturn || false
+                    _isReturn: row._isReturn || false,
+                    latestDate: row.record_date || ''
                 };
             }
             const g = groupMap[key];
@@ -2892,8 +2919,12 @@ function searchStockInCheck(resetPage = true) {
             g.totalAmount += Number(row.totalAmount);
             g.noTaxTotal += Number(row.noTaxTotal);
             g.taxTotal += Number(row.taxTotal);
-            g.cumulative_invoice_balance = row.cumulative_invoice_balance;
-            g.cumulative_pay_balance = row.cumulative_pay_balance;
+            // ✅ 取最新日期的累计结余（比较日期）
+            if (row.record_date && row.record_date > g.latestDate) {
+                g.latestDate = row.record_date;
+                g.cumulative_invoice_balance = row.cumulative_invoice_balance;
+                g.cumulative_pay_balance = row.cumulative_pay_balance;
+            }
             g.count++;
             if (g.count === 1) {
                 g.record_date = row.record_date;
@@ -2903,25 +2934,30 @@ function searchStockInCheck(resetPage = true) {
         displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
     
-    // ===== 5. 计算汇总（包含退货） =====
+    // ===== 7. 计算汇总 =====
     const summary = {
         in_num: 0,
         totalAmount: 0,
         noTaxTotal: 0,
         taxTotal: 0,
         cumulative_invoice_balance: 0,
-        cumulative_pay_balance: 0
+        cumulative_pay_balance: 0,
+        latestDate: ''
     };
     displayData.forEach(row => {
         summary.in_num += Number(row.in_num);
         summary.totalAmount += Number(row.totalAmount);
         summary.noTaxTotal += Number(row.noTaxTotal);
         summary.taxTotal += Number(row.taxTotal);
-        summary.cumulative_invoice_balance = row.cumulative_invoice_balance;
-        summary.cumulative_pay_balance = row.cumulative_pay_balance;
+        // ✅ 取最新日期的累计结余
+        if (row.record_date && row.record_date > summary.latestDate) {
+            summary.latestDate = row.record_date;
+            summary.cumulative_invoice_balance = row.cumulative_invoice_balance;
+            summary.cumulative_pay_balance = row.cumulative_pay_balance;
+        }
     });
     
-    // ===== 6. 更新总条数提示 =====
+    // ===== 8. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = inList.length;
@@ -2929,7 +2965,7 @@ function searchStockInCheck(resetPage = true) {
         totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${displayData.length} 条`;
     }
     
-    // ===== 7. 分页渲染 =====
+    // ===== 9. 分页渲染 =====
     const cfg = financePageConfig.stockInCheck;
     cfg.total = displayData.length;
     const start = (cfg.current - 1) * cfg.pageSize;
@@ -2971,7 +3007,6 @@ function searchStockInCheck(resetPage = true) {
         }
         
         const seq = start + index + 1;
-        const qtyDisplay = row._isReturn ? row.in_num : row.in_num;
         
         tbody.innerHTML += `
         <tr>
@@ -2982,12 +3017,12 @@ function searchStockInCheck(resetPage = true) {
             <td>${row.tax_rate_display}</td>
             <td class="${invoiceClass}">${row.invoice_status}</td>
             <td>${row.in_price_display}</td>
-            <td ${qtyColor}>${qtyDisplay}</td>
+            <td ${qtyColor}>${row.in_num}</td>
             <td class="${payClass}">${row.isPay}</td>
             <td>${formatMoney(row.totalAmount)}</td>
             <td>${formatMoney(row.noTaxTotal)}</td>
             <td>${formatMoney(row.taxTotal)}</td>
-            <td ${remainColor}>${row._isReturn ? '—' : formatMoney(row.cumulative_invoice_balance)}</td>
+            <td ${remainColor}>${formatMoney(row.cumulative_invoice_balance)}</td>
             <td>${row.record_date}</td>
         </tr>`;
     });
@@ -3141,27 +3176,28 @@ function exportStockInCheckExcel() {
         });
     }
 
-    // ===== 2. 获取退货数据 =====
-    let returnList = [];
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        returnList = allReturnGoods.filter(item => {
-            let match = true;
-            if (settle && item.settle_type !== settle) match = false;
-            if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (taxRate !== '') {
-                const goods = allGoodsList.find(g => 
-                    g.name === item.goods_name && 
-                    g.supplier === item.supplier && 
-                    g.spec === item.spec
-                );
-                const rate = goods ? String(goods.tax_rate || '') : '';
-                if (rate !== taxRate) match = false;
-            }
-            return match;
-        });
-    }
+   // ===== 2. 获取退货数据（✅ 所有商品，不区分线上线下） =====
+let returnList = [];
+if (allReturnGoods && allReturnGoods.length > 0) {
+    returnList = allReturnGoods.filter(item => {
+        let match = true;
+        // ✅ 移除 settle_type 限制，显示所有退货
+        // if (settle && item.settle_type !== settle) match = false;
+        if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goods_name && 
+                g.supplier === item.supplier && 
+                g.spec === item.spec
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            if (rate !== taxRate) match = false;
+        }
+        return match;
+    });
+}
 
     // ===== 3. 合并入库和退货数据，按日期排序 =====
     let allRecords = [];
