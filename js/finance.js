@@ -246,14 +246,14 @@ function financeGoToPage(pageKey, targetPage) {
 }
 // 财务基础数据初始化（全局只加载一次）
 async function initFinanceBaseData() {
-    await Promise.all([
+    await Promise.allSettled([
         loadOfflineSupplier(),
         loadDistinctMonth(),
         loadAllGoods(),
         loadAllStockIn(),
         loadAllPayment(),
         loadAllInvoiceBack(),
-        loadAllStockOut() // 新增，页面进入自动加载退货全局变量
+        loadAllStockOut()
     ]);
 }
 // 加载线下去重供应商
@@ -320,8 +320,6 @@ async function loadAllStockOut() {
     });
     const data = await res.json();
     window.allStockOut = data;
-    // 补回这一行，同步赋值，兼容所有旧循环代码
-    window.allReturnGoods = data;
 }
 // 当前子页面初始化分发
 async function initCurrentSubPage() {
@@ -1395,7 +1393,7 @@ function openPayAddModal() {
         displayEl.style.color = '#999';
     }
     const supplier = document.getElementById('paySupplier').value;
-    // 新增：打开弹窗强制清除该供应商旧缓存，重新实时计算
+    // 新增：打开弹窗强制清空当前供应商缓存，无视旧缓存
     if (supplier) {
         clearPayableCache(supplier);
         updatePayPayableDisplay(supplier);
@@ -1430,8 +1428,9 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     // 兜底，防止接口未加载完成
-    const stockOutList = window.allStockOut || [];
+    
     let totalReturn = 0;
+    const stockOutList = window.allStockOut || [];
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
@@ -1478,8 +1477,9 @@ function updateInvoiceBackBalance(supplier) {
         displayEl.style.color = '#999';
         return;
     }
-    const stockOutList = window.allStockOut || [];
+    
     let totalReturn = 0;
+    const stockOutList = window.allStockOut || [];
     stockOutList.filter(r => r.supplier === supplier).forEach(item => {
         const price = Number(item.in_price ?? 0);
         const num = Number(item.return_num ?? 0);
@@ -1740,7 +1740,7 @@ function openInvoiceBackAddModal() {
         displayEl.style.color = '#999';
     }
     const supplier = document.getElementById('invoiceBackSupplier').value;
-    // 打开弹窗先清缓存再计算
+    // 强制清除缓存，实时重算
     if (supplier) {
         clearInvoiceBalanceCache(supplier);
         updateInvoiceBackBalance(supplier);
@@ -1749,6 +1749,7 @@ function openInvoiceBackAddModal() {
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
 }
+
 function openInvoiceBackEdit(id) {
     currentInvoiceBackEditId = id;
     const row = allInvoiceBackList.find(i => i.id === id);
@@ -2189,16 +2190,17 @@ if(resetPage){
     });
     
     // ===== 2. ✅ 新增：统计该月退货金额（退货冲减应付款） =====
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        const monthReturn = allReturnGoods.filter(i => {
-            return i.settle_type === '线下' && i.record_date && i.record_date.substring(0, 7) === month;
-        });
-        monthReturn.forEach(item => {
-            const total = Number(item.in_price) * Number(item.return_num);
-            if (!supplierMap[item.supplier]) supplierMap[item.supplier] = { inTotal: 0, returnTotal: 0, backTotal: 0 };
-            supplierMap[item.supplier].returnTotal += total;
-        });
-    }
+    if (window.allStockOut && window.allStockOut.length > 0) {
+    const monthReturn = window.allStockOut.filter(i => {
+        return i.settle_type === '线下' && i.record_date && i.record_date.substring(0, 7) === month;
+    });
+    monthReturn.forEach(item => {
+        const price = Number(item.in_price ?? 0);
+        const num = Number(item.return_num ?? 0);
+        const total = price * num;
+        supplierMap[item.supplier].returnTotal += total;
+    });
+}
     
     // ===== 3. 统计该月发票返回金额 =====
     const monthBack = allInvoiceBackList.filter(b => b.return_date && b.return_date.substring(0, 7) === month);
@@ -2454,6 +2456,7 @@ if (invStatus === '已开票') {
 
     // ===== 2. 获取退货数据 =====
 let returnList = [];
+const allReturnGoods = window.allStockOut || [];
 if (allReturnGoods && allReturnGoods.length > 0) {
     returnList = allReturnGoods.filter(item => {
         let match = true;
@@ -2736,7 +2739,7 @@ if (allReturnGoods && allReturnGoods.length > 0) {
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
         const totalInCount = allStockInList.length;
-        const totalReturnCount = allReturnGoods ? allReturnGoods.length : 0;
+       const totalReturnCount = allReturnGoods.length;
         totalTip.innerText = `共 ${totalInCount + totalReturnCount} 条记录（入库 ${totalInCount} 条，退货 ${totalReturnCount} 条），当前搜索结果 ${displayData.length} 条`;
     }
 
@@ -2981,6 +2984,7 @@ if (invStatus === '已开票') {
 
     // ===== 2. 获取退货数据 =====
 let returnList = [];
+const allReturnGoods = window.allStockOut || [];
 if (allReturnGoods && allReturnGoods.length > 0) {
     returnList = allReturnGoods.filter(item => {
         let match = true;
