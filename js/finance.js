@@ -2003,11 +2003,9 @@ async function saveInvoiceBackRecord() {
         
         // ===== 重新加载数据 =====
         await loadAllInvoiceBack();
-        await loadAllStockIn();
-        
         // ===== 关键：重新计算该供应商的累计余额 =====
         await recalculateSupplierCumulativeBalances(supplier);
-        
+        await loadAllStockIn();
         // ===== 刷新所有相关页面 =====
         refreshInvoiceBackList(true);
         if (currFinanceSub === 'stockInCheck') searchStockInCheck(true);
@@ -2048,11 +2046,10 @@ async function deleteInvoiceBackRecord(id) {
         });
         
         await loadAllInvoiceBack();
-        await loadAllStockIn();
         
         // ===== 重新计算该供应商的累计余额 =====
         await recalculateSupplierCumulativeBalances(supplier);
-        
+        await loadAllStockIn();     
         refreshInvoiceBackList(true);
         if (currFinanceSub === 'stockInCheck') searchStockInCheck(true);
         if (currFinanceSub === 'paymentBoard') renderPaymentBoard();
