@@ -2782,120 +2782,118 @@ function searchStockInCheck(resetPage = true) {
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
     });
     
-    // ===== 4. 逐条核销计算 =====
-    let allRecords = [];
+   // ===== 4. 逐条核销计算 =====
+for (const sup of Object.keys(supplierGroups)) {
+    const group = supplierGroups[sup];
+    // 按日期正序排序
+    const inRecords = [...group.inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    const returnRecords = [...group.returnRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
     
-    for (const sup of Object.keys(supplierGroups)) {
-        const group = supplierGroups[sup];
-        const inRecords = group.inRecords.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-        const returnRecords = group.returnRecords.sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-        
-        // 构建队列：入库为正，退货为负
-        const queue = [];
-        inRecords.forEach(record => {
-            const amount = Number(record.in_price) * Number(record.in_num);
-            queue.push({ type: 'in', record: record, amount: amount });
-        });
-        returnRecords.forEach(record => {
-            const amount = Number(record.in_price) * Number(record.return_num);
-            queue.push({ type: 'return', record: record, amount: -amount });
-        });
-        queue.sort((a, b) => new Date(a.record.record_date) - new Date(b.record.record_date));
-        
-        // ✅ 关键：逐条核销
-        let remainingPay = group.totalPay;
-        let remainingInvoice = group.totalInvoice;
-        
-        // 先处理退货（退货会增加结余）
-        for (const item of queue) {
-            if (item.type === 'return') {
-                const absAmount = Math.abs(item.amount);
-                remainingPay += absAmount;
-                remainingInvoice += absAmount;
+    // ✅ 构建合并队列（入库 + 退货），按日期正序
+    const queue = [];
+    inRecords.forEach(record => {
+        const amount = Number(record.in_price) * Number(record.in_num);
+        queue.push({ type: 'in', record: record, amount: amount });
+    });
+    returnRecords.forEach(record => {
+        const amount = Number(record.in_price) * Number(record.return_num);
+        queue.push({ type: 'return', record: record, amount: -amount });
+    });
+    queue.sort((a, b) => new Date(a.record.record_date) - new Date(b.record.record_date));
+    
+    // ✅ 逐条核销（按日期顺序）
+    let remainingPay = group.totalPay;
+    let remainingInvoice = group.totalInvoice;
+    
+    for (const item of queue) {
+        if (item.type === 'in') {
+            const amount = item.amount;
+            const record = item.record;
+            
+            // 记录核销前的结余
+            const beforePayBalance = remainingPay;
+            const beforeInvoiceBalance = remainingInvoice;
+            
+            // 核销付款
+            let payStatus = '';
+            if (remainingPay >= amount) {
+                remainingPay -= amount;
+                payStatus = '已付清';
+            } else {
+                remainingPay = 0;
+                payStatus = '未付清';
             }
-        }
-        
-        // 再处理入库（逐条核销）
-        for (const item of queue) {
-            if (item.type === 'in') {
-                const amount = item.amount;
-                
-                // ✅ 逐条核销付款
-                let payStatus = '';
-                if (remainingPay >= amount) {
-                    remainingPay -= amount;
-                    payStatus = '已付清';
-                } else {
-                    // 部分核销
-                    remainingPay = 0;
-                    payStatus = '未付清';
-                }
-                
-                // ✅ 逐条核销发票
-                let invoiceStatus = '';
-                if (remainingInvoice >= amount) {
-                    remainingInvoice -= amount;
-                    invoiceStatus = '已开票';
-                } else {
-                    remainingInvoice = 0;
-                    invoiceStatus = '未开票';
-                }
-                
-                const record = item.record;
-                const goods = allGoodsList.find(g => 
-                    g.name === record.goodsName && 
-                    g.supplier === record.supplier && 
-                    (g.spec || '') === (record.spec || '')
-                );
-                const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-                const totalAmount = Number(record.in_price) * Number(record.in_num);
-                
-                let noTaxTotal = 0, taxTotal = 0;
-                const taxDecimal = taxRateVal / 100;
-                if (taxDecimal > 0) {
-                    noTaxTotal = totalAmount / (1 + taxDecimal);
-                    taxTotal = totalAmount - noTaxTotal;
-                } else {
-                    noTaxTotal = totalAmount;
-                    taxTotal = 0;
-                }
-                
-                allRecords.push({
-                    id: record.id,
-                    supplier: record.supplier,
-                    goodsName: record.goodsName,
-                    spec: record.spec || '',
-                    settleType: record.settleType || '',
-                    in_price: record.in_price,
-                    in_num: record.in_num,
-                    record_date: record.record_date,
-                    produce_date: record.produce_date || '',
-                    expire_date: record.expire_date || '',
-                    invoice_no: record.invoice_no || '',
-                    tax_rate_display: taxRateVal > 0 ? taxRateVal + '%' : '0%',
-                    in_price_display: formatMoney(record.in_price),
-                    invoice_status: invoiceStatus,
-                    isPay: payStatus,
-                    totalAmount: totalAmount,
-                    noTaxTotal: noTaxTotal,
-                    taxTotal: taxTotal,
-                    cumulative_invoice_balance: remainingInvoice - amount,
-                    cumulative_pay_balance: remainingPay - amount,
-                    _isReturn: false,
-                    _returnNum: 0
-                });
+            
+            // 核销发票
+            let invoiceStatus = '';
+            if (remainingInvoice >= amount) {
+                remainingInvoice -= amount;
+                invoiceStatus = '已开票';
+            } else {
+                remainingInvoice = 0;
+                invoiceStatus = '未开票';
             }
-        }
-        
-        // 处理退货记录（作为独立行）
-        returnRecords.forEach(record => {
-            const returnAmount = Number(record.in_price) * Number(record.return_num);
+            
+            // 获取商品税率
+            const goods = allGoodsList.find(g => 
+                g.name === record.goodsName && 
+                g.supplier === record.supplier && 
+                (g.spec || '') === (record.spec || '')
+            );
+            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+            const totalAmount = Number(record.in_price) * Number(record.in_num);
+            
+            let noTaxTotal = 0, taxTotal = 0;
+            const taxDecimal = taxRateVal / 100;
+            if (taxDecimal > 0) {
+                noTaxTotal = totalAmount / (1 + taxDecimal);
+                taxTotal = totalAmount - noTaxTotal;
+            } else {
+                noTaxTotal = totalAmount;
+                taxTotal = 0;
+            }
+            
+            allRecords.push({
+                id: record.id,
+                supplier: record.supplier,
+                goodsName: record.goodsName,
+                spec: record.spec || '',
+                settleType: record.settleType || '',
+                in_price: record.in_price,
+                in_num: record.in_num,
+                record_date: record.record_date,
+                produce_date: record.produce_date || '',
+                expire_date: record.expire_date || '',
+                invoice_no: record.invoice_no || '',
+                tax_rate_display: taxRateVal > 0 ? taxRateVal + '%' : '0%',
+                in_price_display: formatMoney(record.in_price),
+                invoice_status: invoiceStatus,
+                isPay: payStatus,
+                totalAmount: totalAmount,
+                noTaxTotal: noTaxTotal,
+                taxTotal: taxTotal,
+                // ✅ 核销后的结余
+                cumulative_invoice_balance: beforeInvoiceBalance - amount,
+                cumulative_pay_balance: beforePayBalance - amount,
+                _isReturn: false,
+                _returnNum: 0
+            });
+            
+        } else if (item.type === 'return') {
+            const absAmount = Math.abs(item.amount);
+            const record = item.record;
+            
+            // ✅ 退货增加结余
+            remainingPay += absAmount;
+            remainingInvoice += absAmount;
+            
             const goods = allGoodsList.find(g => 
                 g.name === record.goods_name && 
                 g.supplier === record.supplier && 
                 (g.spec || '') === (record.spec || '')
             );
             const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+            const returnAmount = Number(record.in_price) * Number(record.return_num);
             
             let noTaxTotal = 0, taxTotal = 0;
             const taxDecimal = taxRateVal / 100;
@@ -2907,6 +2905,7 @@ function searchStockInCheck(resetPage = true) {
                 taxTotal = 0;
             }
             
+            // ✅ 退货记录：显示退货后的累计结余
             allRecords.push({
                 id: -record.id,
                 supplier: record.supplier,
@@ -2926,13 +2925,15 @@ function searchStockInCheck(resetPage = true) {
                 totalAmount: -returnAmount,
                 noTaxTotal: -noTaxTotal,
                 taxTotal: -taxTotal,
-                cumulative_invoice_balance: 0,
-                cumulative_pay_balance: 0,
+                // ✅ 退货后的累计结余（即增加退货金额后的结余）
+                cumulative_invoice_balance: remainingInvoice,
+                cumulative_pay_balance: remainingPay,
                 _isReturn: true,
                 _returnNum: record.return_num
             });
-        });
-    }    
+        }
+    }
+}   
     // ===== 5. 按日期倒序排列 =====
     allRecords.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     
