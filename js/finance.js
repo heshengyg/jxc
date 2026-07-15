@@ -2708,6 +2708,10 @@ function searchStockInCheck(resetPage = true) {
     
     // ===== 1. 获取入库数据（✅ 所有商品，不区分线上线下） =====
     let inList = [...allStockInList];
+// ✅ 结算方式筛选
+if (settle) {
+    inList = inList.filter(i => i.settleType === settle);
+}
     
     // 应用筛选条件
     if (invStatus) {
@@ -2758,27 +2762,30 @@ for (const sup of Object.keys(inBySupplier)) {
     }
 }
     
-    // ===== 3. 获取退货数据（✅ 所有商品，不区分线上线下） =====
-    let returnList = [];
-    if (allReturnGoods && allReturnGoods.length > 0) {
-        returnList = allReturnGoods.filter(item => {
-            let match = true;
-            // ✅ 移除 settle_type 限制，显示所有退货
-            if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (taxRate !== '') {
-                const goods = allGoodsList.find(g => 
-                    g.name === item.goods_name && 
-                    g.supplier === item.supplier && 
-                    (g.spec || '') === (item.spec || '')
-                );
-                const rate = goods ? String(goods.tax_rate || '') : '';
-                if (rate !== taxRate) match = false;
-            }
-            return match;
-        });
-    }
+    // ===== 3. 获取退货数据 =====
+let returnList = [];
+if (allReturnGoods && allReturnGoods.length > 0) {
+    returnList = allReturnGoods.filter(item => {
+        let match = true;
+        // ✅ 结算方式筛选
+        if (settle && item.settle_type !== settle) match = false;
+        // ✅ 发票状态筛选：退货记录只有在"全部"时才显示
+        if (invStatus && invStatus !== '') match = false;
+        if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goods_name && 
+                g.supplier === item.supplier && 
+                (g.spec || '') === (item.spec || '')
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            if (rate !== taxRate) match = false;
+        }
+        return match;
+    });
+}
     
     // ===== 4. 构建显示数据（入库 + 退货） =====
     let allRecords = [];
@@ -2786,10 +2793,19 @@ for (const sup of Object.keys(inBySupplier)) {
     // 处理入库记录
     inList.forEach(item => {
         const cumInvoice = Number(item.cumulative_invoice_balance) || 0;
-        const cumPay = Number(item.cumulative_pay_balance) || 0;
-        
-        let invoiceStatus = cumInvoice >= 0 ? '已开票' : '未开票';
-        let payStatus = cumPay >= 0 ? '已付清' : '未付清';
+const cumPay = Number(item.cumulative_pay_balance) || 0;
+
+// ✅ 线上商品不显示发票状态和付款状态
+let invoiceStatus = '';
+let payStatus = '';
+if (item.settleType === '线下') {
+    invoiceStatus = cumInvoice >= 0 ? '已开票' : '未开票';
+    payStatus = cumPay >= 0 ? '已付清' : '未付清';
+} else {
+    // 线上商品显示为 "-"
+    invoiceStatus = '-';
+    payStatus = '-';
+}
         
         const goods = allGoodsList.find(g => 
             g.name === item.goodsName && 
@@ -3158,6 +3174,10 @@ function exportStockInCheckExcel() {
 
     // ===== 1. 获取入库数据 =====
     let inList = [...allStockInList];
+// ✅ 结算方式筛选
+if (settle) {
+    inList = inList.filter(i => i.settleType === settle);
+}
     
     if (settle) inList = inList.filter(i => i.settleType === settle);
     if (invStatus) inList = inList.filter(i => i.invoice_status === invStatus);
@@ -3181,8 +3201,8 @@ let returnList = [];
 if (allReturnGoods && allReturnGoods.length > 0) {
     returnList = allReturnGoods.filter(item => {
         let match = true;
-        // ✅ 移除 settle_type 限制，显示所有退货
-        // if (settle && item.settle_type !== settle) match = false;
+        // ✅ 结算方式筛选
+if (settle && item.settle_type !== settle) match = false;
         if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
         if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
         if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
