@@ -1691,11 +1691,9 @@ async function savePayRecord() {
         
         // ===== 重新加载数据 =====
         await loadAllPayment();
-        await loadAllStockIn();  // 重新加载以获取最新累计字段
-        
         // ===== 关键：重新计算该供应商的累计余额 =====
         await recalculateSupplierCumulativeBalances(supplier);
-        
+        await loadAllStockIn();  // 重新加载以获取最新累计字段        
         // ===== 刷新所有相关页面 =====
         refreshPayRecordList(true);
         
@@ -1745,12 +1743,11 @@ async function deletePayRecord(id) {
             }
         });
         
-        await loadAllPayment();
-        await loadAllStockIn();
-        
+        await loadAllPayment();      
         // ===== 重新计算该供应商的累计余额 =====
         await recalculateSupplierCumulativeBalances(supplier);
-        
+        await loadAllStockIn();
+
         refreshPayRecordList(true);
         if (currFinanceSub === 'stockInCheck') searchStockInCheck(true);
         if (currFinanceSub === 'paymentBoard') renderPaymentBoard();
