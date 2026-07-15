@@ -1,12 +1,17 @@
 // 加载全部退货记录
 async function loadAllReturnGoods() {
     try {
-        const res = await fetch(...);
-        allReturnGoods = await res.json();  // ✅ 直接赋值，不重新声明
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/return_goods`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        allReturnGoods = await res.json();
         window.allReturnGoods = allReturnGoods;
     } catch(e) {
         console.error('加载退货记录失败:', e);
-        allReturnGoods = [];  // ✅ 直接赋值
+        allReturnGoods = [];
         window.allReturnGoods = allReturnGoods;
     }
 }
@@ -417,7 +422,6 @@ function financeGoToPage(pageKey, targetPage) {
     }
 }
 // 财务基础数据初始化（全局只加载一次）
-// 修改原有的 initFinanceBaseData 函数
 async function initFinanceBaseData() {
     await Promise.all([
         loadOfflineSupplier(),
@@ -427,7 +431,7 @@ async function initFinanceBaseData() {
         loadAllPayment(),
         loadAllInvoiceBack(),
         loadAllStockOut(),
-        loadAllReturnGoods()  // 新增：加载退货数据
+        loadAllReturnGoods()  // ✅ 包含 loadAllReturnGoods
     ]);
     
     // ✅ 数据加载完成后，计算所有供应商的累计余额
@@ -537,18 +541,6 @@ async function initCurrentSubPage() {
     }
 }
 
-// 财务基础数据初始化（全局只加载一次）
-async function initFinanceBaseData() {
-    await Promise.all([
-        loadOfflineSupplier(),
-        loadDistinctMonth(),
-        loadAllGoods(),
-        loadAllStockIn(),
-        loadAllPayment(),
-        loadAllInvoiceBack(),
-        loadAllStockOut()
-    ]);
-}
 // ===================== ①税率录入模块：仅线下商品、进入页面自动关闭弹窗、自动加载列表 =====================
 function initTaxRatePage() {
     const taxModal = document.getElementById('taxModal');
@@ -1664,9 +1656,6 @@ function closePayModal() {
     document.getElementById('payModal').style.display = 'none';
 }
 
-function closePayModal() {
-    document.getElementById('payModal').style.display = 'none';
-}
 // 修改 savePayRecord 函数
 async function savePayRecord() {
     const payDate = document.getElementById('payDate').value;
