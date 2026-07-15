@@ -318,9 +318,11 @@ async function loadAllStockOut() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_out`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
-    window.allStockOut = await res.json();
+    const data = await res.json();
+    window.allStockOut = data;
+    // 补回这一行，同步赋值，兼容所有旧循环代码
+    window.allReturnGoods = data;
 }
-
 // 当前子页面初始化分发
 async function initCurrentSubPage() {
     try {
