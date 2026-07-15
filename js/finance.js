@@ -4630,3 +4630,5 @@ window.onTaxFilterInput = onTaxFilterInput;
 window.onPrintFilterInput = onPrintFilterInput;
 window.resetPrintSearch = resetPrintSearch;
 window.refreshTaxList = refreshTaxList;  // ✅ 添加这一行
+// 确保文件完整结束
+console.log('finance.js 加载完成');
