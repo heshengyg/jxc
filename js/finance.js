@@ -35,35 +35,34 @@ function formatMoney(value) {
  */
 async function recalculateSupplierCumulativeBalances(supplier) {
     if (!supplier) return null;
-    
+
     // ===== 1. 获取该供应商的所有入库记录（线下，按日期正序） =====
     const inRecords = allStockInList
         .filter(i => i.supplier === supplier && i.settleType === '线下')
         .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-    
+
     if (inRecords.length === 0) {
         return { payable: 0, invoiceBalance: 0 };
     }
-    
+
     // ===== 2. 获取该供应商的所有退货记录（线下，按日期正序） =====
     const returnRecords = (allReturnGoods || [])
         .filter(r => r.supplier === supplier && r.settle_type === '线下')
         .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
-    
+
     // ===== 3. 获取该供应商的所有付款记录 =====
     const totalPay = allPayList
         .filter(p => p.supplier === supplier)
         .reduce((sum, p) => sum + Number(p.payment_amount), 0);
-    
+
     // ===== 4. 获取该供应商的所有发票返回记录 =====
     const totalInvoice = allInvoiceBackList
         .filter(b => b.supplier === supplier)
         .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
-    
+
     // ===== 5. 构建合并队列（入库 + 退货），按日期排序 =====
-    // 这就是"先录先核销"的核心：所有记录按日期排队
     const queue = [];
-    
+
     inRecords.forEach(record => {
         const amount = Number(record.in_price) * Number(record.in_num);
         queue.push({
@@ -74,7 +73,7 @@ async function recalculateSupplierCumulativeBalances(supplier) {
             record: record
         });
     });
-    
+
     returnRecords.forEach(record => {
         const amount = Number(record.in_price) * Number(record.return_num);
         queue.push({
@@ -85,42 +84,41 @@ async function recalculateSupplierCumulativeBalances(supplier) {
             record: record
         });
     });
-    
+
     // ⚠️ 关键：按日期排序（先录先核销）
     queue.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     // ===== 6. 滚动计算（逐笔核销） =====
-    // 初始值：发票结余 = 发票返回总额，付款结余 = 付款总额
     let cumulativeInvoice = totalInvoice;
     let cumulativePay = totalPay;
-    
+
     const updates = [];
     let totalIn = 0;
     let totalReturn = 0;
-    
+
     for (const item of queue) {
-        if (item.type === 'in') {
-            totalIn += item.amount;
-            // 入库：减少结余（我们欠供应商的钱/发票增加）
-            cumulativeInvoice -= item.amount;
-            cumulativePay -= item.amount;
-            
-            // ✅ 存储该笔入库记录核销后的累计结余
-            updates.push({
-                id: item.id,
-                cumulative_invoice_balance: cumulativeInvoice,
-                cumulative_pay_balance: cumulativePay
-            });
-        } else {
-            // 退货：增加结余（退货冲减应付款）
-            // item.amount 是负数，所以 cumulative - (-amount) = cumulative + amount
-            totalReturn += Math.abs(item.amount);
-            cumulativeInvoice -= item.amount;  // 相当于加上退货金额
-            cumulativePay -= item.amount;      // 相当于加上退货金额
-            // ⚠️ 退货不更新 stock_in 表
-        }
+    if (item.type === 'in') {
+        totalIn += item.amount;
+        // 入库：减少结余（我们欠供应商的钱/发票增加）
+        cumulativeInvoice -= item.amount;
+        cumulativePay -= item.amount;
+
+        // 存储该笔入库记录核销后的累计结余
+        updates.push({
+            id: item.id,
+            cumulative_invoice_balance: cumulativeInvoice,
+            cumulative_pay_balance: cumulativePay
+        });
+    } else {
+        // ✅ 退货：增加结余（退货冲减应付款）
+        // item.amount 是负数，所以 cumulative - (-amount) = cumulative + amount
+        totalReturn += Math.abs(item.amount);
+        cumulativeInvoice -= item.amount;  // 相当于加上退货金额
+        cumulativePay -= item.amount;      // 相当于加上退货金额
+        // ⚠️ 退货不更新 stock_in 表
     }
-    
+}
+
     // ===== 7. 批量更新 stock_in 表 =====
     for (const update of updates) {
         try {
@@ -140,13 +138,11 @@ async function recalculateSupplierCumulativeBalances(supplier) {
             console.error(`更新入库记录 ${update.id} 失败:`, e);
         }
     }
-    
+
     // ===== 8. 返回计算结果 =====
-    // 应付账款 = 入库总额 - 退货总额 - 付款总额
     const payable = totalIn - totalReturn - totalPay;
-    // 发票结余 = 发票返回总额 - 入库总额 + 退货总额
     const invoiceBalance = totalInvoice - totalIn + totalReturn;
-    
+
     return {
         payable: payable,
         invoiceBalance: invoiceBalance,
@@ -156,6 +152,7 @@ async function recalculateSupplierCumulativeBalances(supplier) {
         totalInvoice: totalInvoice
     };
 }
+
 /**
  * 重新计算所有供应商的累计余额
  * 用于初始化或数据迁移
@@ -2921,6 +2918,47 @@ function searchStockInCheck(resetPage = true) {
         </tr>`;
     });
     
+// ===== 获取退货数据（用于显示汇总） =====
+let returnList = [];
+if (allReturnGoods && allReturnGoods.length > 0) {
+    returnList = allReturnGoods.filter(item => {
+        let match = true;
+        if (settle && item.settle_type !== settle) match = false;
+        if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        // 税率筛选
+        if (taxRate !== '') {
+            const goods = allGoodsList.find(g => 
+                g.name === item.goods_name && 
+                g.supplier === item.supplier && 
+                (g.spec || '') === (item.spec || '')
+            );
+            const rate = goods ? String(goods.tax_rate || '') : '';
+            if (rate !== taxRate) match = false;
+        }
+        return match;
+    });
+}
+
+// 如果有退货记录，在表格中显示退货汇总行
+if (returnList.length > 0) {
+    let returnTotalQty = 0;
+    let returnTotalAmount = 0;
+    returnList.forEach(item => {
+        returnTotalQty += Number(item.return_num);
+        returnTotalAmount += Number(item.in_price) * Number(item.return_num);
+    });
+    tbody.innerHTML += `
+    <tr style="background:#fff3e0;font-weight:bold;color:#e65100;">
+        <td colspan="7" style="text-align:right;">⚠️ 退货汇总：</td>
+        <td>${returnTotalQty}</td>
+        <td></td>
+        <td>${formatMoney(returnTotalAmount)}</td>
+        <td colspan="4"></td>
+    </tr>`;
+}
+
     // 汇总行
     const totalRemainColor = summary.cumulative_invoice_balance < 0 ? 'style="color:red;"' : '';
     tbody.innerHTML += `
