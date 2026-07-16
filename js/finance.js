@@ -2755,12 +2755,15 @@ function searchStockInCheck(resetPage = true) {
             const channel = record.settleType || (goods ? goods.channel : '');
 
             // 判断状态（基于全量数据计算）
-            let invoiceStatus = invoiceBalance >= 0 ? '已开票' : '未开票';
-            let payStatus = payBalance <= 0 ? '已付清' : '未付清';
-            if (channel === '线上') {
-                invoiceStatus = '-';
-                payStatus = '-';
-            }
+let invoiceStatus = invoiceBalance >= 0 ? '已开票' : '未开票';
+let payStatus = payBalance <= 0 ? '已付清' : '未付清';
+if (channel === '线上') {
+    invoiceStatus = '-';
+    payStatus = '-';
+    // ✅ 线上供应商的结余设为 null，页面显示为 "-"
+    invoiceBalance = null;
+    payBalance = null;
+}
 
             // 计算金额
             let taxRateDisplay = '';
@@ -3031,7 +3034,6 @@ function searchStockInCheck(resetPage = true) {
         displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
 
-    // ============================================================
 // ============================================================
 // 【第十二步】计算汇总
 // ============================================================
@@ -3044,9 +3046,16 @@ let summary = {
     cumulative_pay_balance: 0
 };
 
-// ✅ 直接从 allStockInList 取每个线下供应商最后一条入库记录的结余
-// 不受任何筛选条件影响
+// ✅ 根据筛选条件决定取哪些供应商的结余
+// 如果筛选了特定供应商，只取该供应商的结余；否则取所有线下供应商
 let baseForBalance = allStockInList.filter(i => i.settleType === '线下');
+
+// 如果供应商筛选框有值，只取该供应商
+if (supplier) {
+    baseForBalance = baseForBalance.filter(i => 
+        (i.supplier || '').toLowerCase().includes(supplier.toLowerCase())
+    );
+}
 
 const supplierLastBalance = {};
 baseForBalance.forEach(item => {
@@ -3103,6 +3112,7 @@ displayData.forEach(row => {
     }
 
     // ============================================================
+    // ============================================================
     // 【第十四步】分页渲染
     // ============================================================
     const cfg = financePageConfig.stockInCheck;
@@ -3141,7 +3151,16 @@ displayData.forEach(row => {
             payClass = 'bg-yellow-invoice';
         }
 
-        if (row.cumulative_invoice_balance < 0 && !row._isReturn) {
+        // ✅ 发票结余显示：null 或 undefined 显示为 "-"
+        let balanceDisplay = '';
+        if (row.cumulative_invoice_balance === null || row.cumulative_invoice_balance === undefined) {
+            balanceDisplay = '-';
+        } else {
+            balanceDisplay = formatMoney(row.cumulative_invoice_balance);
+        }
+
+        // ✅ 红色样式判断（只有非 null 且小于0才标红）
+        if (row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined && row.cumulative_invoice_balance < 0 && !row._isReturn) {
             remainColor = 'style="color:red;"';
         }
 
@@ -3161,7 +3180,7 @@ displayData.forEach(row => {
             <td>${formatMoney(row.totalAmount)}</td>
             <td>${formatMoney(row.noTaxTotal)}</td>
             <td>${formatMoney(row.taxTotal)}</td>
-            <td ${remainColor}>${formatMoney(row.cumulative_invoice_balance)}</td>
+            <td ${remainColor}>${balanceDisplay}</td>
             <td>${row.record_date}</td>
         </tr>`;
     });
@@ -3169,6 +3188,9 @@ displayData.forEach(row => {
     // 汇总行
     const totalRemainColor = summary.cumulative_invoice_balance < 0 ? 'style="color:red;"' : '';
     const totalQtyColor = summary.in_num < 0 ? 'style="color:red;font-weight:bold;"' : '';
+    const totalBalanceDisplay = summary.cumulative_invoice_balance === null || summary.cumulative_invoice_balance === undefined 
+        ? '-' 
+        : formatMoney(summary.cumulative_invoice_balance);
     tbody.innerHTML += `
     <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
         <td colspan="7" style="text-align:right;">总汇总：</td>
@@ -3177,7 +3199,7 @@ displayData.forEach(row => {
         <td>${formatMoney(summary.totalAmount)}</td>
         <td>${formatMoney(summary.noTaxTotal)}</td>
         <td>${formatMoney(summary.taxTotal)}</td>
-        <td ${totalRemainColor}>${formatMoney(summary.cumulative_invoice_balance)}</td>
+        <td ${totalRemainColor}>${totalBalanceDisplay}</td>
         <td></td>
     </tr>`;
 
