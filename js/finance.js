@@ -2677,12 +2677,8 @@ function searchStockInCheck(resetPage = true) {
     let inList = [...allStockInList];
     if (settle) inList = inList.filter(i => i.settleType === settle);
     if (invStatus && invStatus !== '全部') {
-        inList = inList.filter(i => {
-            const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
-            const status = cumInvoice >= 0 ? '已开票' : '未开票';
-            return status === invStatus;
-        });
-    }
+    inList = inList.filter(i => i.invoice_status === invStatus);
+}
     if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
     if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
     if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
@@ -2704,7 +2700,7 @@ function searchStockInCheck(resetPage = true) {
         returnList = allReturnGoods.filter(item => {
             let match = true;
             if (settle && item.settle_type !== settle) match = false;
-            if (invStatus && invStatus !== '全部') match = false;
+if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false;
             if (month && item.record_date && item.record_date.substring(0, 7) !== month) match = false;
             if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
             if (goodsName && !(item.goods_name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
