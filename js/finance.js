@@ -406,7 +406,6 @@ async function initFinanceBaseData() {
     
     // ✅ 数据加载完成后，计算所有供应商的累计余额
     await recalculateAllSuppliersBalances();
-    await loadAllStockIn();
 }
 // 加载线下去重供应商
 async function loadOfflineSupplier() {
@@ -2676,27 +2675,8 @@ function searchStockInCheck(resetPage = true) {
 
 // ===== 1. 获取入库数据 =====
 let inList = [...allStockInList];
-if (settle) inList = inList.filter(i => i.settleType === settle);
+if (settle) inList = inList.filter(i => i.settleType === settle); 
 
-// ✅ 根据 cumulative_invoice_balance 动态判断发票状态（与 allRecords 逻辑一致）
-if (invStatus && invStatus !== '全部') {
-    inList = inList.filter(i => {
-        const goods = allGoodsList.find(g => 
-            g.name === i.goodsName && 
-            g.supplier === i.supplier && 
-            (g.spec || '') === (i.spec || '')
-        );
-        const channel = i.settleType || (goods ? goods.channel : '');
-        // 线上供应商不参与筛选
-        if (channel === '线上') return false;
-        
-        // ✅ 根据累计结余判断状态（与 allRecords 中的逻辑一致）
-        const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
-        // 发票结余 >= 0 → 已开票；< 0 → 未开票
-        const status = cumInvoice >= 0 ? '已开票' : '未开票';
-        return status === invStatus;
-    });
-}    
     // ===== 2. 获取退货数据 =====
     let returnList = [];
     if (allReturnGoods && allReturnGoods.length > 0) {
@@ -2974,7 +2954,16 @@ if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false
     
     displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
 }
-    
+// ✅ 新增：根据发票状态过滤 displayData（已开票/未开票/退货）
+// 注意：退货记录只有在 invStatus === '退货' 时才显示
+if (invStatus && invStatus !== '全部') {
+    displayData = displayData.filter(row => {
+        // 线上供应商的入库记录显示为 "-"，不参与筛选
+        if (row.invoice_status === '-') return false;
+        return row.invoice_status === invStatus;
+    });
+} 
+  
 // ===== 7. 计算汇总 =====
 let summary = {
     in_num: 0,
@@ -3024,41 +3013,13 @@ for (const supplier in supplierLastBalance) {
     summary.cumulative_pay_balance += supplierLastBalance[supplier].cumulative_pay_balance || 0;
 }
 
-// ✅ 数量、金额的汇总：从 displayData 中累加（只累加入库记录，不累加退货）
-// 或者直接从 filteredInList 累加
-filteredInList.forEach(item => {
-    const amount = Number(item.in_price) * Number(item.in_num);
-    const goods = allGoodsList.find(g => 
-        g.name === item.goodsName && 
-        g.supplier === item.supplier && 
-        (g.spec || '') === (item.spec || '')
-    );
-    const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-    const channel = item.settleType || (goods ? goods.channel : '');
-    
-    let noTaxTotal = 0;
-    let taxTotal = 0;
-    
-    if (channel === '线上') {
-        noTaxTotal = 0;
-        taxTotal = 0;
-    } else {
-        const taxDecimal = taxRateVal / 100;
-        if (taxDecimal > 0) {
-            noTaxTotal = amount / (1 + taxDecimal);
-            taxTotal = amount - noTaxTotal;
-        } else {
-            noTaxTotal = amount;
-            taxTotal = 0;
-        }
-    }
-    
-    summary.in_num += Number(item.in_num);
-    summary.totalAmount += amount;
-    summary.noTaxTotal += noTaxTotal;
-    summary.taxTotal += taxTotal;
+// ✅ 数量、金额的汇总：从 displayData 累加（包含入库和退货）
+displayData.forEach(row => {
+    summary.in_num += Number(row.in_num);
+    summary.totalAmount += Number(row.totalAmount);
+    summary.noTaxTotal += Number(row.noTaxTotal);
+    summary.taxTotal += Number(row.taxTotal);
 });
-
 // ✅ 调试日志
 console.log('供应商最后结余汇总:', supplierLastBalance);
 console.log('汇总结果:', summary);
