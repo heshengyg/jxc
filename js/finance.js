@@ -2771,7 +2771,7 @@ if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false
         for (const record of sortedInRecords) {
     const amount = Number(record.in_price) * Number(record.in_num);
     const returnAmount = returnMap[record.id] || 0;
-    const netAmount = amount - returnAmount;  // 净入库
+    const netAmount = amount - returnAmount;
     
     cumNetIn += netAmount;
     
@@ -2779,24 +2779,24 @@ if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false
     const invoiceBalance = remainingInvoice - cumNetIn;
     const payBalance = cumNetIn - remainingPay;
     
-    // 判断状态
+    // ✅ 先获取税率和渠道（移到前面）
+    const goods = allGoodsList.find(g => 
+        g.name === record.goodsName && 
+        g.supplier === record.supplier && 
+        (g.spec || '') === (record.spec || '')
+    );
+    const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+    const channel = record.settleType || (goods ? goods.channel : '');
+    
     // ✅ 直接使用数据库中的发票状态和付款状态
-let invoiceStatus = record.invoice_status || '未开票';
-let payStatus = record.pay_status || '未付清';
-
-// 获取税率和渠道
-const goods = allGoodsList.find(g => 
-    g.name === record.goodsName && 
-    g.supplier === record.supplier && 
-    (g.spec || '') === (record.spec || '')
-);
-const channel = record.settleType || (goods ? goods.channel : '');
-
-// ✅ 线上供应商显示为 "-"
-if (channel === '线上') {
-    payStatus = '-';
-    invoiceStatus = '-';
-}
+    let invoiceStatus = record.invoice_status || '未开票';
+    let payStatus = record.pay_status || '未付清';
+    
+    // ✅ 线上供应商显示为 "-"
+    if (channel === '线上') {
+        payStatus = '-';
+        invoiceStatus = '-';
+    }
     
     let taxRateDisplay = '';
     let inPriceDisplay = '';
@@ -2829,10 +2829,10 @@ if (channel === '线上') {
         goodsName: record.goodsName,
         spec: record.spec || '',
         tax_rate_display: taxRateDisplay,
-        invoice_status: invoiceStatus,  // ✅ 线上为 "-"，线下为 "已开票/未开票"
+        invoice_status: invoiceStatus,
         in_price_display: inPriceDisplay,
         in_num: Number(record.in_num),
-        isPay: payStatus,  // ✅ 线上为 "-"，线下为 "已付清/未付清"
+        isPay: payStatus,
         totalAmount: amount,
         noTaxTotal: noTaxTotal,
         taxTotal: taxTotal,
