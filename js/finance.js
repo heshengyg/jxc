@@ -2904,49 +2904,69 @@ function searchStockInCheck(resetPage = true) {
     // ===== 6. 分组汇总 =====
     let displayData = allRecords;
     if (groupSupplier || groupGoods) {
-        const groupMap = {};
-        displayData.forEach(row => {
-            const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
-            if (!groupMap[key]) {
-                groupMap[key] = {
-                    supplier: row.supplier,
-                    goodsName: row.goodsName,
-                    spec: row.spec || '',
-                    tax_rate_display: row.tax_rate_display,
-                    invoice_status: row.invoice_status,
-                    in_price_display: row.in_price_display,
-                    in_num: 0,
-                    isPay: row.isPay,
-                    totalAmount: 0,
-                    noTaxTotal: 0,
-                    taxTotal: 0,
-                    cumulative_invoice_balance: row.cumulative_invoice_balance,
-                    cumulative_pay_balance: row.cumulative_pay_balance,
-                    record_date: row.record_date || '',
-                    count: 0,
-                    _isReturn: row._isReturn || false,
-                    latestDate: row.record_date || ''
-                };
-            }
-            const g = groupMap[key];
-            g.in_num += Number(row.in_num);
-            g.totalAmount += Number(row.totalAmount);
-            g.noTaxTotal += Number(row.noTaxTotal);
-            g.taxTotal += Number(row.taxTotal);
-            // ✅ 取最新日期的累计结余（比较日期）
+    const groupMap = {};
+    displayData.forEach(row => {
+        const key = groupSupplier ? row.supplier : `${row.supplier}_${row.goodsName}_${row.spec}`;
+        if (!groupMap[key]) {
+            groupMap[key] = {
+                supplier: row.supplier,
+                goodsName: row.goodsName,
+                spec: row.spec || '',
+                tax_rate_display: row.tax_rate_display,
+                invoice_status: row.invoice_status,
+                in_price_display: row.in_price_display,
+                in_num: 0,
+                isPay: row.isPay,
+                totalAmount: 0,
+                noTaxTotal: 0,
+                taxTotal: 0,
+                cumulative_invoice_balance: null,  // 初始为 null
+                cumulative_pay_balance: null,
+                record_date: row.record_date || '',
+                count: 0,
+                _isReturn: row._isReturn || false,
+                latestDate: row.record_date || '',
+                hasInRecord: false  // ✅ 标记是否有入库记录
+            };
+        }
+        const g = groupMap[key];
+        g.in_num += Number(row.in_num);
+        g.totalAmount += Number(row.totalAmount);
+        g.noTaxTotal += Number(row.noTaxTotal);
+        g.taxTotal += Number(row.taxTotal);
+        g.count++;
+        if (g.count === 1) {
+            g.record_date = row.record_date;
+        }
+        
+        // ✅ 关键修复：只从非退货记录取结余
+        if (!row._isReturn && row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined) {
+            g.hasInRecord = true;
             if (row.record_date && row.record_date > g.latestDate) {
                 g.latestDate = row.record_date;
-                g.cumulative_invoice_balance = row.cumulative_invoice_balance;
-                g.cumulative_pay_balance = row.cumulative_pay_balance;
+                g.cumulative_invoice_balance = Number(row.cumulative_invoice_balance);
+                g.cumulative_pay_balance = Number(row.cumulative_pay_balance);
             }
-            g.count++;
-            if (g.count === 1) {
-                g.record_date = row.record_date;
+            // 如果是第一条入库记录，也设置结余
+            if (g.cumulative_invoice_balance === null) {
+                g.cumulative_invoice_balance = Number(row.cumulative_invoice_balance);
+                g.cumulative_pay_balance = Number(row.cumulative_pay_balance);
+                g.latestDate = row.record_date;
             }
-        });
-        displayData = Object.values(groupMap);
-        displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
-    }
+        }
+    });
+    displayData = Object.values(groupMap);
+    
+    // ✅ 对于没有入库记录只有退货记录的组，结余设为 0
+    displayData.forEach(row => {
+        if (!row.hasInRecord) {
+            row.cumulative_invoice_balance = 0;
+            row.cumulative_pay_balance = 0;
+        }
+    });
+    
+    displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
+}
     
     // ===== 7. 计算汇总（⚠️ 关键修复：确保 summary 始终被定义） =====
     let summary = {
