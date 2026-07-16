@@ -3032,46 +3032,48 @@ function searchStockInCheck(resetPage = true) {
     }
 
     // ============================================================
-    // 【第十二步】计算汇总
-    // ============================================================
-    let summary = {
-        in_num: 0,
-        totalAmount: 0,
-        noTaxTotal: 0,
-        taxTotal: 0,
-        cumulative_invoice_balance: 0,
-        cumulative_pay_balance: 0
-    };
+// ============================================================
+// 【第十二步】计算汇总
+// ============================================================
+let summary = {
+    in_num: 0,
+    totalAmount: 0,
+    noTaxTotal: 0,
+    taxTotal: 0,
+    cumulative_invoice_balance: 0,
+    cumulative_pay_balance: 0
+};
 
-    // 从 displayData 中取各供应商的最后结余
-    const supplierLastBalance = {};
-    displayData.forEach(row => {
-        if (!row._isReturn && row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined) {
-            const sup = row.supplier;
-            const currentDate = row.record_date || '';
-            if (!supplierLastBalance[sup] || currentDate > supplierLastBalance[sup].record_date) {
-                supplierLastBalance[sup] = {
-                    record_date: currentDate,
-                    cumulative_invoice_balance: Number(row.cumulative_invoice_balance) || 0,
-                    cumulative_pay_balance: Number(row.cumulative_pay_balance) || 0
-                };
-            }
-        }
-    });
+// ✅ 直接从 allStockInList 取每个线下供应商最后一条入库记录的结余
+// 不受任何筛选条件影响
+let baseForBalance = allStockInList.filter(i => i.settleType === '线下');
 
-    for (const supplier in supplierLastBalance) {
-        summary.cumulative_invoice_balance += supplierLastBalance[supplier].cumulative_invoice_balance || 0;
-        summary.cumulative_pay_balance += supplierLastBalance[supplier].cumulative_pay_balance || 0;
+const supplierLastBalance = {};
+baseForBalance.forEach(item => {
+    const sup = item.supplier;
+    const currentDate = item.record_date || '';
+    if (!supplierLastBalance[sup] || currentDate > supplierLastBalance[sup].record_date) {
+        supplierLastBalance[sup] = {
+            record_date: currentDate,
+            cumulative_invoice_balance: Number(item.cumulative_invoice_balance) || 0,
+            cumulative_pay_balance: Number(item.cumulative_pay_balance) || 0
+        };
     }
+});
 
-    // 数量、金额汇总
-    displayData.forEach(row => {
-        summary.in_num += Number(row.in_num);
-        summary.totalAmount += Number(row.totalAmount);
-        summary.noTaxTotal += Number(row.noTaxTotal);
-        summary.taxTotal += Number(row.taxTotal);
-    });
+// 汇总各供应商的最后结余
+for (const supplier in supplierLastBalance) {
+    summary.cumulative_invoice_balance += supplierLastBalance[supplier].cumulative_invoice_balance || 0;
+    summary.cumulative_pay_balance += supplierLastBalance[supplier].cumulative_pay_balance || 0;
+}
 
+// 数量、金额汇总（从 displayData 累加）
+displayData.forEach(row => {
+    summary.in_num += Number(row.in_num);
+    summary.totalAmount += Number(row.totalAmount);
+    summary.noTaxTotal += Number(row.noTaxTotal);
+    summary.taxTotal += Number(row.taxTotal);
+});
     // ============================================================
     // 【第十三步】更新总条数提示
     // ============================================================
