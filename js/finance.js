@@ -2666,6 +2666,7 @@ function searchStockInCheck(resetPage = true) {
     // 获取筛选条件
     const settle = document.getElementById('checkInSettle').value;
     const invStatus = document.getElementById('checkInInvoice').value;
+    const payStatus = document.getElementById('checkInPayStatus').value; 
     const month = document.getElementById('checkInMonth').value;
     const supplier = document.getElementById('checkInSupplierSearchInput').value.trim();
     const goodsName = document.getElementById('checkInGoodsSearchInput').value.trim();
@@ -2836,6 +2837,7 @@ if (channel === '线上') {
                 const rate = goods ? String(goods.tax_rate || '') : '';
                 if (rate !== taxRate) match = false;
             }
+            if (payStatus && payStatus !== '全部' && payStatus !== '退货') match = false;
             return match;
         });
 
@@ -2947,7 +2949,18 @@ if (channel === '线上') {
             return row.invoice_status === invStatus;
         });
     }
-
+// 【第八步B】是否付清筛选（基于计算出的状态）
+// ============================================================
+if (payStatus && payStatus !== '全部') {
+    displayData = displayData.filter(row => {
+        if (row.channel === '线上') return false;
+        // 退货记录只有在筛选"退货"时才显示
+        if (row._isReturn) {
+            return payStatus === '退货';
+        }
+        return row.isPay === payStatus;
+    });
+}
     // ============================================================
     // 【第九步】加入退货数据
     // ============================================================
@@ -3214,6 +3227,7 @@ displayData.forEach(row => {
 function resetStockInCheck() {
     document.getElementById('checkInSettle').value = '';
     document.getElementById('checkInInvoice').value = '';
+    document.getElementById('checkInPayStatus').value = '';
     document.getElementById('checkInMonth').value = '';
     document.getElementById('checkInSupplierSearchInput').value = '';
     document.getElementById('checkInGoodsSearchInput').value = '';
