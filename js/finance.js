@@ -2742,8 +2742,8 @@ function searchStockInCheck(resetPage = true) {
             cumNetIn += netAmount;
 
             // ✅ 计算结余（基于全量数据）
-            const invoiceBalance = remainingInvoice - cumNetIn;
-            const payBalance = cumNetIn - remainingPay;
+let invoiceBalance = remainingInvoice - cumNetIn;
+let payBalance = cumNetIn - remainingPay;
 
             // 获取税率和渠道
             const goods = allGoodsList.find(g => 
