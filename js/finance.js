@@ -406,6 +406,7 @@ async function initFinanceBaseData() {
     
     // ✅ 数据加载完成后，计算所有供应商的累计余额
     await recalculateAllSuppliersBalances();
+    await loadAllStockIn();
 }
 // 加载线下去重供应商
 async function loadOfflineSupplier() {
