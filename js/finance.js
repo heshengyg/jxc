@@ -2674,25 +2674,46 @@ function searchStockInCheck(resetPage = true) {
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
     
     // ===== 1. 获取入库数据 =====
-    let inList = [...allStockInList];
-    if (settle) inList = inList.filter(i => i.settleType === settle);
-    if (invStatus && invStatus !== '全部') {
-    inList = inList.filter(i => i.invoice_status === invStatus);
+    // ===== 1. 获取入库数据 =====
+let inList = [...allStockInList];
+if (settle) inList = inList.filter(i => i.settleType === settle);
+
+// ✅ 根据 cumulative_invoice_balance 动态判断发票状态
+if (invStatus && invStatus !== '全部') {
+    inList = inList.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const channel = i.settleType || (goods ? goods.channel : '');
+        // 线上供应商不参与筛选
+        if (channel === '线上') return false;
+        
+        const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
+        if (invStatus === '已开票') {
+            return cumInvoice >= 0;
+        } else if (invStatus === '未开票') {
+            return cumInvoice < 0;
+        }
+        return true;
+    });
 }
-    if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
-    if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
-    if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
-    if (taxRate !== '') {
-        inList = inList.filter(i => {
-            const goods = allGoodsList.find(g => 
-                g.name === i.goodsName && 
-                g.supplier === i.supplier && 
-                (g.spec || '') === (i.spec || '')
-            );
-            const rate = goods ? String(goods.tax_rate || '') : '';
-            return rate === taxRate;
-        });
-    }
+
+if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
+if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
+if (taxRate !== '') {
+    inList = inList.filter(i => {
+        const goods = allGoodsList.find(g => 
+            g.name === i.goodsName && 
+            g.supplier === i.supplier && 
+            (g.spec || '') === (i.spec || '')
+        );
+        const rate = goods ? String(goods.tax_rate || '') : '';
+        return rate === taxRate;
+    });
+}
     
     // ===== 2. 获取退货数据 =====
     let returnList = [];
