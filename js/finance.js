@@ -2968,43 +2968,53 @@ function searchStockInCheck(resetPage = true) {
     displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
 }
     
-    // ===== 7. 计算汇总（⚠️ 关键修复：确保 summary 始终被定义） =====
-    let summary = {
-        in_num: 0,
-        totalAmount: 0,
-        noTaxTotal: 0,
-        taxTotal: 0,
-        cumulative_invoice_balance: 0,
-        cumulative_pay_balance: 0
-    };
+// ===== 7. 计算汇总 =====
+let summary = {
+    in_num: 0,
+    totalAmount: 0,
+    noTaxTotal: 0,
+    taxTotal: 0,
+    cumulative_invoice_balance: 0,
+    cumulative_pay_balance: 0
+};
+
+// ✅ 使用 Map 按供应商分组，取最后一条入库记录的结余
+const supplierBalanceMap = new Map();
+
+displayData.forEach(row => {
+    // 累加汇总数据（数量、金额等）- 所有记录都累加
+    summary.in_num += Number(row.in_num);
+    summary.totalAmount += Number(row.totalAmount);
+    summary.noTaxTotal += Number(row.noTaxTotal);
+    summary.taxTotal += Number(row.taxTotal);
     
-    // ✅ 新增：计算各供应商最后入库批次的结余汇总
-    const supplierLastBalance = {};
-    displayData.forEach(row => {
-        // ✅ 只处理入库记录，记录每个供应商最后入库批次的结余
-        if (!row._isReturn && row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined) {
-            const supplier = row.supplier;
-            if (!supplierLastBalance[supplier] || row.record_date > supplierLastBalance[supplier].record_date) {
-                supplierLastBalance[supplier] = {
-                    record_date: row.record_date,
-                    cumulative_invoice_balance: Number(row.cumulative_invoice_balance),
-                    cumulative_pay_balance: Number(row.cumulative_pay_balance)
-                };
-            }
-        }
+    // ✅ 只处理入库记录（非退货），取每个供应商最后一批的结余
+    if (!row._isReturn && row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined) {
+        const supplier = row.supplier;
+        const currentDate = row.record_date || '';
+        const existing = supplierBalanceMap.get(supplier);
         
-        // 累加汇总数据
-        summary.in_num += Number(row.in_num);
-        summary.totalAmount += Number(row.totalAmount);
-        summary.noTaxTotal += Number(row.noTaxTotal);
-        summary.taxTotal += Number(row.taxTotal);
-    });
-    
-    // ✅ 汇总结余 = 各供应商最后入库批次结余之和
-    for (const sup of Object.keys(supplierLastBalance)) {
-        summary.cumulative_invoice_balance += supplierLastBalance[sup].cumulative_invoice_balance || 0;
-        summary.cumulative_pay_balance += supplierLastBalance[sup].cumulative_pay_balance || 0;
+        // 如果该供应商还没有记录，或者当前记录日期比已有记录更新
+        // ✅ 直接比较字符串，YYYY-MM-DD 格式的字符串比较是有效的
+        if (!existing || currentDate > existing.record_date) {
+            supplierBalanceMap.set(supplier, {
+                record_date: currentDate,
+                cumulative_invoice_balance: Number(row.cumulative_invoice_balance),
+                cumulative_pay_balance: Number(row.cumulative_pay_balance)
+            });
+        }
     }
+});
+
+// ✅ 汇总各供应商的最后结余
+for (const [supplier, value] of supplierBalanceMap) {
+    summary.cumulative_invoice_balance += value.cumulative_invoice_balance || 0;
+    summary.cumulative_pay_balance += value.cumulative_pay_balance || 0;
+}
+
+// ✅ 添加调试日志，方便排查
+console.log('供应商最后结余汇总:', Object.fromEntries(supplierBalanceMap));
+console.log('汇总结果:', summary);
     
     // ===== 8. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
