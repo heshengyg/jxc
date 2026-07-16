@@ -2672,13 +2672,12 @@ function searchStockInCheck(resetPage = true) {
     const taxRate = document.getElementById('checkInTaxRateSearch').value;
     const groupSupplier = document.getElementById('checkInSupplierGroup').checked;
     const groupGoods = document.getElementById('checkInGoodsGroup').checked;
-    
-    // ===== 1. 获取入库数据 =====
-    // ===== 1. 获取入库数据 =====
+
+// ===== 1. 获取入库数据 =====
 let inList = [...allStockInList];
 if (settle) inList = inList.filter(i => i.settleType === settle);
 
-// ✅ 根据 cumulative_invoice_balance 动态判断发票状态
+// ✅ 直接使用数据库中的 invoice_status 字段筛选
 if (invStatus && invStatus !== '全部') {
     inList = inList.filter(i => {
         const goods = allGoodsList.find(g => 
@@ -2689,17 +2688,9 @@ if (invStatus && invStatus !== '全部') {
         const channel = i.settleType || (goods ? goods.channel : '');
         // 线上供应商不参与筛选
         if (channel === '线上') return false;
-        
-        const cumInvoice = Number(i.cumulative_invoice_balance) || 0;
-        if (invStatus === '已开票') {
-            return cumInvoice >= 0;
-        } else if (invStatus === '未开票') {
-            return cumInvoice < 0;
-        }
-        return true;
+        return i.invoice_status === invStatus;
     });
 }
-
 if (month) inList = inList.filter(i => i.record_date && i.record_date.substring(0, 7) === month);
 if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
 if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName.toLowerCase()));
