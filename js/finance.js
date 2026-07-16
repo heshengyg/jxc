@@ -2782,7 +2782,7 @@ function searchStockInCheck(resetPage = true) {
             .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
     });
     
-   // ===== 4. 逐条核销计算 =====
+// ===== 4. 逐条核销计算 =====
 let allRecords = [];
 for (const sup of Object.keys(supplierGroups)) {
     const group = supplierGroups[sup];
@@ -2906,7 +2906,7 @@ for (const sup of Object.keys(supplierGroups)) {
                 taxTotal = 0;
             }
             
-            // ✅ 退货记录：显示退货后的累计结余
+            // ✅ 退货记录：结余显示为 "-"（设为 null）
             allRecords.push({
                 id: -record.id,
                 supplier: record.supplier,
@@ -2926,15 +2926,16 @@ for (const sup of Object.keys(supplierGroups)) {
                 totalAmount: -returnAmount,
                 noTaxTotal: -noTaxTotal,
                 taxTotal: -taxTotal,
-                // ✅ 退货后的累计结余（即增加退货金额后的结余）
-                cumulative_invoice_balance: remainingInvoice,
-                cumulative_pay_balance: remainingPay,
+                // ✅ 修改：退货记录结余显示为 "-"
+                cumulative_invoice_balance: null,
+                cumulative_pay_balance: null,
                 _isReturn: true,
                 _returnNum: record.return_num
             });
         }
     }
-}   
+}
+
     // ===== 5. 按日期倒序排列 =====
     allRecords.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     
@@ -2985,29 +2986,35 @@ for (const sup of Object.keys(supplierGroups)) {
         displayData.sort((a, b) => (b.record_date || '').localeCompare(a.record_date || ''));
     }
     
-    // ===== 7. 计算汇总 =====
-    const summary = {
-        in_num: 0,
-        totalAmount: 0,
-        noTaxTotal: 0,
-        taxTotal: 0,
-        cumulative_invoice_balance: 0,
-        cumulative_pay_balance: 0,
-        latestDate: ''
-    };
-    displayData.forEach(row => {
-        summary.in_num += Number(row.in_num);
-        summary.totalAmount += Number(row.totalAmount);
-        summary.noTaxTotal += Number(row.noTaxTotal);
-        summary.taxTotal += Number(row.taxTotal);
-        // ✅ 取最新日期的累计结余
-        if (row.record_date && row.record_date > summary.latestDate) {
-            summary.latestDate = row.record_date;
-            summary.cumulative_invoice_balance = row.cumulative_invoice_balance;
-            summary.cumulative_pay_balance = row.cumulative_pay_balance;
-        }
-    });
-    
+// ===== 7. 计算汇总 =====
+const summary = {
+    in_num: 0,
+    totalAmount: 0,
+    noTaxTotal: 0,
+    taxTotal: 0,
+    cumulative_invoice_balance: 0,
+    cumulative_pay_balance: 0,
+    latestDate: ''
+};
+displayData.forEach(row => {
+    summary.in_num += Number(row.in_num);
+    summary.totalAmount += Number(row.totalAmount);
+    summary.noTaxTotal += Number(row.noTaxTotal);
+    summary.taxTotal += Number(row.taxTotal);
+    // ✅ 只累加非 null 的结余
+    if (row.cumulative_invoice_balance !== null && row.cumulative_invoice_balance !== undefined) {
+        summary.cumulative_invoice_balance += Number(row.cumulative_invoice_balance);
+    }
+    if (row.cumulative_pay_balance !== null && row.cumulative_pay_balance !== undefined) {
+        summary.cumulative_pay_balance += Number(row.cumulative_pay_balance);
+    }
+    // ✅ 取最新日期的累计结余（只取非 null 的）
+    if (row.record_date && row.record_date > summary.latestDate && row.cumulative_invoice_balance !== null) {
+        summary.latestDate = row.record_date;
+        summary.cumulative_invoice_balance = row.cumulative_invoice_balance;
+        summary.cumulative_pay_balance = row.cumulative_pay_balance;
+    }
+});    
     // ===== 8. 更新总条数提示 =====
     const totalTip = document.getElementById('stockInCheckTotalTip');
     if (totalTip) {
