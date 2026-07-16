@@ -45,10 +45,9 @@ async function recalculateSupplierCumulativeBalances(supplier) {
         return { payable: 0, invoiceBalance: 0 };
     }
 
-    // ===== 2. 获取该供应商的所有退货记录（线下，按日期正序） =====
+    // ===== 2. 获取该供应商的所有退货记录 =====
     const returnRecords = (allReturnGoods || [])
-        .filter(r => r.supplier === supplier && r.settle_type === '线下')
-        .sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+        .filter(r => r.supplier === supplier && r.settle_type === '线下');
 
     // ===== 3. 获取该供应商的所有付款记录 =====
     const totalPay = allPayList
@@ -60,64 +59,39 @@ async function recalculateSupplierCumulativeBalances(supplier) {
         .filter(b => b.supplier === supplier)
         .reduce((sum, b) => sum + Number(b.invoice_amount), 0);
 
-    // ===== 5. 构建合并队列（入库 + 退货），按日期排序 =====
-    const queue = [];
-
-    inRecords.forEach(record => {
-        const amount = Number(record.in_price) * Number(record.in_num);
-        queue.push({
-            type: 'in',
-            id: record.id,
-            amount: amount,
-            date: record.record_date,
-            record: record
-        });
+    // ===== 5. 构建退货映射表：按 in_record_id 精确匹配 =====
+    const returnMap = {};
+    returnRecords.forEach(r => {
+        const inId = r.in_record_id;
+        if (!inId) return;  // 如果没有关联ID，跳过
+        if (!returnMap[inId]) returnMap[inId] = 0;
+        returnMap[inId] += Number(r.in_price) * Number(r.return_num);
     });
 
-    returnRecords.forEach(record => {
-        const amount = Number(record.in_price) * Number(record.return_num);
-        queue.push({
-            type: 'return',
-            id: record.id,
-            amount: -amount,  // 退货为负数（冲减应付款）
-            date: record.record_date,
-            record: record
-        });
-    });
-
-    // ⚠️ 关键：按日期排序（先录先核销）
-    queue.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // ===== 6. 滚动计算（逐笔核销） =====
-    let cumulativeInvoice = totalInvoice;
-    let cumulativePay = totalPay;
-
+    // ===== 6. 按录入日期正序计算累计净入库 =====
+    const sortedInRecords = [...inRecords].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+    
+    let cumNetIn = 0;
     const updates = [];
     let totalIn = 0;
     let totalReturn = 0;
 
-    for (const item of queue) {
-    if (item.type === 'in') {
-        totalIn += item.amount;
-        // 入库：减少结余（我们欠供应商的钱/发票增加）
-        cumulativeInvoice -= item.amount;
-        cumulativePay -= item.amount;
-
-        // 存储该笔入库记录核销后的累计结余
+    for (const record of sortedInRecords) {
+        const amount = Number(record.in_price) * Number(record.in_num);
+        const returnAmount = returnMap[record.id] || 0;
+        const netAmount = amount - returnAmount;
+        
+        totalIn += amount;
+        totalReturn += returnAmount;
+        cumNetIn += netAmount;
+        
+        // ✅ 每条入库记录存储其核销后的累计结余
         updates.push({
-            id: item.id,
-            cumulative_invoice_balance: cumulativeInvoice,
-            cumulative_pay_balance: cumulativePay
+            id: record.id,
+            cumulative_invoice_balance: totalInvoice - cumNetIn,
+            cumulative_pay_balance: cumNetIn - totalPay
         });
-    } else {
-        // ✅ 退货：增加结余（退货冲减应付款）
-        // item.amount 是负数，所以 cumulative - (-amount) = cumulative + amount
-        totalReturn += Math.abs(item.amount);
-        cumulativeInvoice -= item.amount;  // 相当于加上退货金额
-        cumulativePay -= item.amount;      // 相当于加上退货金额
-        // ⚠️ 退货不更新 stock_in 表
     }
-}
 
     // ===== 7. 批量更新 stock_in 表 =====
     for (const update of updates) {
@@ -152,7 +126,6 @@ async function recalculateSupplierCumulativeBalances(supplier) {
         totalInvoice: totalInvoice
     };
 }
-
 /**
  * 重新计算所有供应商的累计余额
  * 用于初始化或数据迁移
