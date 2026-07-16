@@ -119,12 +119,6 @@ async function recalculateSupplierCumulativeBalances(supplier) {
     }
 }
 
-// ===== 6.5 用最终结余更新所有入库记录 =====
-for (const update of updates) {
-    update.cumulative_invoice_balance = cumulativeInvoice;
-    update.cumulative_pay_balance = cumulativePay;
-}
-
     // ===== 7. 批量更新 stock_in 表 =====
     for (const update of updates) {
         try {
