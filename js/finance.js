@@ -2783,6 +2783,7 @@ function searchStockInCheck(resetPage = true) {
     });
     
 // ===== 4. 逐条核销计算 =====
+let allRecords = [];
 for (const sup of Object.keys(supplierGroups)) {
     const group = supplierGroups[sup];
     const inRecords = [...group.inRecords];
