@@ -2773,73 +2773,79 @@ function searchStockInCheck(resetPage = true) {
         let cumNetIn = 0;  // 累计净入库
         
         for (const record of sortedInRecords) {
-            const amount = Number(record.in_price) * Number(record.in_num);
-            const returnAmount = returnMap[record.id] || 0;
-            const netAmount = amount - returnAmount;  // 净入库
-            
-            cumNetIn += netAmount;
-            
-            // ✅ 计算结余
-            const invoiceBalance = remainingInvoice - cumNetIn;
-            const payBalance = cumNetIn - remainingPay;
-            
-            // 判断状态
-            const payStatus = remainingPay >= cumNetIn ? '已付清' : '未付清';
-            const invoiceStatus = remainingInvoice >= cumNetIn ? '已开票' : '未开票';
-            
-            // 获取税率
-            const goods = allGoodsList.find(g => 
-                g.name === record.goodsName && 
-                g.supplier === record.supplier && 
-                (g.spec || '') === (record.spec || '')
-            );
-            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-            const channel = record.settleType || (goods ? goods.channel : '');
-            
-            let taxRateDisplay = '';
-            let inPriceDisplay = '';
-            let noTaxTotal = 0;
-            let taxTotal = 0;
-            
-            if (channel === '线上') {
-                taxRateDisplay = '';
-                inPriceDisplay = formatMoney(record.in_price);
-                noTaxTotal = 0;
-                taxTotal = 0;
-            } else {
-                taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
-                inPriceDisplay = formatMoney(record.in_price);
-                
-                const taxDecimal = taxRateVal / 100;
-                if (taxDecimal > 0) {
-                    const noTaxPrice = Number(record.in_price) / (1 + taxDecimal);
-                    noTaxTotal = noTaxPrice * Number(record.in_num);
-                    taxTotal = amount - noTaxTotal;
-                } else {
-                    noTaxTotal = amount;
-                    taxTotal = 0;
-                }
-            }
-            
-            allRecords.push({
-                id: record.id,
-                supplier: record.supplier,
-                goodsName: record.goodsName,
-                spec: record.spec || '',
-                tax_rate_display: taxRateDisplay,
-                invoice_status: invoiceStatus,
-                in_price_display: inPriceDisplay,
-                in_num: Number(record.in_num),
-                isPay: payStatus,
-                totalAmount: amount,
-                noTaxTotal: noTaxTotal,
-                taxTotal: taxTotal,
-                cumulative_invoice_balance: invoiceBalance,
-                cumulative_pay_balance: payBalance,
-                record_date: record.record_date || '',
-                _isReturn: false
-            });
+    const amount = Number(record.in_price) * Number(record.in_num);
+    const returnAmount = returnMap[record.id] || 0;
+    const netAmount = amount - returnAmount;  // 净入库
+    
+    cumNetIn += netAmount;
+    
+    // ✅ 计算结余
+    const invoiceBalance = remainingInvoice - cumNetIn;
+    const payBalance = cumNetIn - remainingPay;
+    
+    // 判断状态
+    let payStatus = remainingPay >= cumNetIn ? '已付清' : '未付清';
+    let invoiceStatus = remainingInvoice >= cumNetIn ? '已开票' : '未开票';
+    
+    // 获取税率
+    const goods = allGoodsList.find(g => 
+        g.name === record.goodsName && 
+        g.supplier === record.supplier && 
+        (g.spec || '') === (record.spec || '')
+    );
+    const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+    const channel = record.settleType || (goods ? goods.channel : '');
+    
+    // ✅ 线上供应商：发票状态和是否付清显示为 "-"
+    if (channel === '线上') {
+        payStatus = '-';
+        invoiceStatus = '-';
+    }
+    
+    let taxRateDisplay = '';
+    let inPriceDisplay = '';
+    let noTaxTotal = 0;
+    let taxTotal = 0;
+    
+    if (channel === '线上') {
+        taxRateDisplay = '';
+        inPriceDisplay = formatMoney(record.in_price);
+        noTaxTotal = 0;
+        taxTotal = 0;
+    } else {
+        taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+        inPriceDisplay = formatMoney(record.in_price);
+        
+        const taxDecimal = taxRateVal / 100;
+        if (taxDecimal > 0) {
+            const noTaxPrice = Number(record.in_price) / (1 + taxDecimal);
+            noTaxTotal = noTaxPrice * Number(record.in_num);
+            taxTotal = amount - noTaxTotal;
+        } else {
+            noTaxTotal = amount;
+            taxTotal = 0;
         }
+    }
+    
+    allRecords.push({
+        id: record.id,
+        supplier: record.supplier,
+        goodsName: record.goodsName,
+        spec: record.spec || '',
+        tax_rate_display: taxRateDisplay,
+        invoice_status: invoiceStatus,  // ✅ 线上为 "-"，线下为 "已开票/未开票"
+        in_price_display: inPriceDisplay,
+        in_num: Number(record.in_num),
+        isPay: payStatus,  // ✅ 线上为 "-"，线下为 "已付清/未付清"
+        totalAmount: amount,
+        noTaxTotal: noTaxTotal,
+        taxTotal: taxTotal,
+        cumulative_invoice_balance: invoiceBalance,
+        cumulative_pay_balance: payBalance,
+        record_date: record.record_date || '',
+        _isReturn: false
+    });
+}
         
         // ✅ 退货记录单独显示，结余为 null
         returnRecords.forEach(record => {
