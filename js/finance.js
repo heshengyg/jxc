@@ -2781,9 +2781,11 @@ if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false
     const invoiceBalance = remainingInvoice - cumNetIn;
     const payBalance = cumNetIn - remainingPay;
     
-    // ✅ 动态判断状态（核销逻辑）
-    let payStatus = remainingPay >= cumNetIn ? '已付清' : '未付清';
-    let invoiceStatus = remainingInvoice >= cumNetIn ? '已开票' : '未开票';
+    // ✅ 基于结余判断状态（与 inList 筛选逻辑一致）
+    // 发票结余 >= 0 → 已开票；< 0 → 未开票
+    let invoiceStatus = invoiceBalance >= 0 ? '已开票' : '未开票';
+    // 应付款结余 <= 0 → 已付清；> 0 → 未付清
+    let payStatus = payBalance <= 0 ? '已付清' : '未付清';
     
     // 获取税率和渠道
     const goods = allGoodsList.find(g => 
@@ -2794,7 +2796,7 @@ if (invStatus && invStatus !== '全部' && invStatus !== '退货') match = false
     const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
     const channel = record.settleType || (goods ? goods.channel : '');
     
-    // ✅ 线上供应商：发票状态和是否付清显示为 "-"
+    // ✅ 线上供应商显示为 "-"
     if (channel === '线上') {
         payStatus = '-';
         invoiceStatus = '-';
