@@ -449,23 +449,23 @@ async function submitStockIn(){
     let produceDate = document.getElementById('inProduceDate').value;
     let expireDate = document.getElementById('inExpireDate').value;
 
-    if(!supplier) return showMsg('请选择供应商');
-    if(!goodsName || !goodsId) return showMsg('请选择商品');
-    if(!inNum || +inNum < 1) return showMsg('入库数量必须大于0');
-    if(!recordDate) return showMsg('请选择录入日期');
+    if(!supplier) return alert('请选择供应商');
+    if(!goodsName || !goodsId) return alert('请选择商品');
+    if(!inNum || +inNum < 1) return alert('入库数量必须大于0');
+    if(!recordDate) return alert('请选择录入日期');
     if(settleType === '线下'){
         if(inPrice === '' || isNaN(+inPrice) || +inPrice < 0){
-            return showMsg('线下商品必须填写入库单价');
+            return alert('线下商品必须填写入库单价');
         }
     }
     if(settleType === '线上'){
         // 只有【新增单据】才拦截手动填写单价；编辑单据直接跳过校验
         if(!editId && inPrice !== '' && +inPrice > 0){
-            return showMsg('线上商品不允许填写入库单价');
+            return alert('线上商品不允许填写入库单价');
         }
     }
     if (produceDate && expireDate) {
-        return showMsg('生产日期和到期日期不能同时填写');
+        return alert('生产日期和到期日期不能同时填写');
     }
 
     let targetGoods = allGoods.find(g => g.id == goodsId);
