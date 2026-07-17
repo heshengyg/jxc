@@ -1484,92 +1484,179 @@
 
 <!-- 入库弹窗 -->
 <div class="form-modal" id="stockInModal">
-    <div class="form-container">
-        <h4 id="stockInFormTitle">添加入库单据</h4>
+    <div class="form-container" style="max-width: 900px; padding: 30px 35px; min-width: 700px;">
+        <h4 id="stockInFormTitle" style="margin:0 0 22px 0; text-align:center; font-size:22px;">添加入库单据</h4>
         <input type="hidden" id="inEditId">
-        <div class="form-group">
-            <label>供应商：</label>
-            <div class="search-select-wrap">
-                <input class="search-select-input" id="supSearchInput" placeholder="搜索/选择供应商" onfocus="showSupList()" oninput="filterSupplierList()">
-                <div class="search-select-list" id="supListBox"></div>
+        
+        <!-- 第一行：供应商 + 商品名称 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:280px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">供应商：</label>
+                <div class="search-select-wrap" style="flex:1; min-width:0; position:relative;">
+                    <input class="search-select-input" id="supSearchInput" placeholder="搜索/选择供应商" 
+                           onfocus="showSupList()" oninput="filterSupplierList()"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; box-sizing:border-box; height:44px;">
+                    <div class="search-select-list" id="supListBox" 
+                         style="position:absolute;top:100%;left:0;width:100%;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                </div>
             </div>
-            <label>商品名称：</label>
-            <div class="search-select-wrap">
-                <input class="search-select-input" id="goodsSearchInput" placeholder="搜索/选择商品" onfocus="showGoodsList()" oninput="filterGoodsList()">
-                <div class="search-select-list" id="goodsListBox"></div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:280px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">商品名称：</label>
+                <div class="search-select-wrap" style="flex:1; min-width:0; position:relative;">
+                    <input class="search-select-input" id="goodsSearchInput" placeholder="搜索/选择商品" 
+                           onfocus="showGoodsList()" oninput="filterGoodsList()"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; box-sizing:border-box; height:44px;">
+                    <div class="search-select-list" id="goodsListBox" 
+                         style="position:absolute;top:100%;left:0;width:100%;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                </div>
+                <input type="hidden" id="curSelectGoodsId">
             </div>
-            <input type="hidden" id="curSelectGoodsId">
         </div>
-        <div class="form-group">
-            <label>规格：</label>
-            <input type="text" id="inSpec" readonly placeholder="自动带出">
-            <label>结算方式(渠道)：</label>
-            <input type="text" id="inSettleType" readonly placeholder="自动带出">
-            <label>销售单价：</label>
-            <input type="text" id="inSalePrice" readonly placeholder="自动带出">
+        
+        <!-- 第二行：规格 + 结算方式 + 销售单价 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">规格：</label>
+                <input type="text" id="inSpec" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">结算方式：</label>
+                <input type="text" id="inSettleType" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">销售单价：</label>
+                <input type="text" id="inSalePrice" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
         </div>
-        <div class="form-group">
-            <label>入库数量：</label>
-            <input type="number" id="inNum" min="1" placeholder="必填">
-            <label>入库单价：</label>
-            <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填">
-            <label>录入日期：</label>
-            <input type="date" id="inRecordDate">
+        
+        <!-- 第三行：入库数量 + 入库单价 + 录入日期 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库数量：</label>
+                <input type="number" id="inNum" min="1" placeholder="必填" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库单价：</label>
+                <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">录入日期：</label>
+                <input type="date" id="inRecordDate" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
         </div>
-        <div class="form-group">
-            <label>生产日期：</label>
-            <input type="date" id="inProduceDate" onchange="lockExpireDate()">
-            <label>到期日期：</label>
-            <input type="date" id="inExpireDate" onchange="lockProduceDate()">
+        
+        <!-- 第四行：生产日期 + 到期日期 -->
+        <div style="display:flex; gap:25px; margin-bottom:22px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">生产日期：</label>
+                <input type="date" id="inProduceDate" onchange="lockExpireDate()" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">到期日期：</label>
+                <input type="date" id="inExpireDate" onchange="lockProduceDate()" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1;"></div> <!-- 占位保持对齐 -->
         </div>
-        <div class="form-actions">
-            <button class="btn btn-primary" onclick="submitStockIn()">提交</button>
-            <button class="btn" onclick="closeStockInForm()">取消</button>
+        
+        <!-- 按钮 -->
+        <div style="text-align:center; padding-top:18px; border-top:1px solid #eee;">
+            <button class="btn btn-primary" onclick="submitStockIn()" style="padding:12px 60px; font-size:16px; border-radius:4px; cursor:pointer;">提交</button>
+            <button class="btn btn-default" onclick="closeStockInForm()" style="padding:12px 60px; margin-left:15px; font-size:16px; border-radius:4px; cursor:pointer;">取消</button>
         </div>
     </div>
 </div>
 
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">
-    <div class="form-container">
-        <h4 id="stockOutFormTitle">添加出库单据</h4>
+    <div class="form-container" style="max-width: 900px; padding: 30px 35px; min-width: 700px;">
+        <h4 id="stockOutFormTitle" style="margin:0 0 22px 0; text-align:center; font-size:22px;">添加出库单据</h4>
         <input type="hidden" id="outEditId">
-        <div class="form-group">
-            <label>供应商：</label>
-            <div class="search-select-wrap">
-                <input class="search-select-input" id="outSupSearchInput" placeholder="搜索/选择供应商" onfocus="showOutSupList()" oninput="filterOutSupList()">
-                <div class="search-select-list" id="outSupListBox"></div>
+        
+        <!-- 第一行：供应商 + 商品名称 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:280px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">供应商：</label>
+                <div class="search-select-wrap" style="flex:1; min-width:0; position:relative;">
+                    <input class="search-select-input" id="outSupSearchInput" placeholder="搜索/选择供应商" 
+                           onfocus="showOutSupList()" oninput="filterOutSupList()"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; box-sizing:border-box; height:44px;">
+                    <div class="search-select-list" id="outSupListBox" 
+                         style="position:absolute;top:100%;left:0;width:100%;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                </div>
             </div>
-            <label>商品名称：</label>
-            <div class="search-select-wrap">
-                <input class="search-select-input" id="outGoodsSearchInput" placeholder="搜索/选择商品" onfocus="showOutGoodsList()" oninput="filterOutGoodsList()">
-                <div class="search-select-list" id="outGoodsListBox"></div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:280px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">商品名称：</label>
+                <div class="search-select-wrap" style="flex:1; min-width:0; position:relative;">
+                    <input class="search-select-input" id="outGoodsSearchInput" placeholder="搜索/选择商品" 
+                           onfocus="showOutGoodsList()" oninput="filterOutGoodsList()"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; box-sizing:border-box; height:44px;">
+                    <div class="search-select-list" id="outGoodsListBox" 
+                         style="position:absolute;top:100%;left:0;width:100%;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                </div>
+                <input type="hidden" id="outCurGoodsId">
             </div>
-            <input type="hidden" id="outCurGoodsId">
         </div>
-        <div class="form-group">
-            <label>规格：</label>
-            <input type="text" id="outSpec" readonly placeholder="自动带出">
-            <label>结算方式：</label>
-            <input type="text" id="outSettleType" readonly placeholder="自动带出">
-            <label>销售单价：</label>
-            <input type="text" id="outSalePrice" readonly placeholder="自动带出">
+        
+        <!-- 第二行：规格 + 结算方式 + 销售单价 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">规格：</label>
+                <input type="text" id="outSpec" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">结算方式：</label>
+                <input type="text" id="outSettleType" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">销售单价：</label>
+                <input type="text" id="outSalePrice" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
         </div>
-        <div class="form-group">
-            <label>当前总库存：</label>
-            <input type="text" id="totalStockNum" readonly placeholder="自动带出">
-            <label>出库数量：</label>
-            <input type="number" id="outNum" min="1" placeholder="必填" oninput="checkStockNum()">
-            <label>录入日期：</label>
-            <input type="date" id="outRecordDate">
+        
+        <!-- 第三行：当前总库存 + 出库数量 + 录入日期 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">当前总库存：</label>
+                <input type="text" id="totalStockNum" readonly placeholder="自动带出" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">出库数量：</label>
+                <input type="number" id="outNum" min="1" placeholder="必填" oninput="checkStockNum()" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">录入日期：</label>
+                <input type="date" id="outRecordDate" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
         </div>
-        <div class="form-actions">
-            <button class="btn btn-primary" onclick="submitStockOut()">提交</button>
-            <button class="btn" onclick="closeStockOutForm()">取消</button>
+        
+        <!-- 第四行：占位保持对齐（可选留空） -->
+        <div style="display:flex; gap:25px; margin-bottom:22px; flex-wrap:wrap;">
+            <div style="flex:1;"></div>
+            <div style="flex:1;"></div>
+            <div style="flex:1;"></div>
+        </div>
+        
+        <!-- 按钮 -->
+        <div style="text-align:center; padding-top:18px; border-top:1px solid #eee;">
+            <button class="btn btn-primary" onclick="submitStockOut()" style="padding:12px 60px; font-size:16px; border-radius:4px; cursor:pointer;">提交</button>
+            <button class="btn btn-default" onclick="closeStockOutForm()" style="padding:12px 60px; margin-left:15px; font-size:16px; border-radius:4px; cursor:pointer;">取消</button>
         </div>
     </div>
 </div>
-
 <!-- 退货弹窗 -->
 <div class="form-modal" id="returnModal">
     <div class="form-container" style="max-width: 820px; padding: 25px 30px;">
