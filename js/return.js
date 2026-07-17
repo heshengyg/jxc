@@ -164,15 +164,12 @@ function initReturnPrintControls() {
         checkbox.onchange = function () {
     if (skipReturnAllChange) return;
     const checked = this.checked;
-    // 设置所有行复选框
     document.querySelectorAll('.return-item-checkbox').forEach(cb => cb.checked = checked);
-    // 更新选中集合
     selectedReturnIds.clear();
     if (checked) {
         filteredReturnGoods.forEach(item => selectedReturnIds.add(item.id));
     }
     skipReturnAllChange = false;
-    // 全选复选框自身已经设置，但为了保险，确保状态一致（此处可省略，但保留）
 };
         const textNode = firstTh.childNodes[0];
         if (textNode) {
@@ -308,7 +305,7 @@ function renderReturnList() {
         tb.innerHTML += summaryHtml;
     }
 
-    // 绑定checkbox change事件，同步 selectedReturnIds 和全选状态
+   // 绑定checkbox change事件（参照 finance.js 实现）
 document.querySelectorAll('.return-item-checkbox').forEach(cb => {
     cb.onchange = function() {
         const id = Number(this.dataset.id);
@@ -317,10 +314,9 @@ document.querySelectorAll('.return-item-checkbox').forEach(cb => {
         } else {
             selectedReturnIds.delete(id);
         }
-        // ===== 直接计算全选状态并设置全选复选框（参照 finance.js） =====
+        // ===== 参照 finance.js：基于全量数据计算全选状态 =====
         const allCheckbox = document.getElementById('returnPrintAllCheck');
         if (allCheckbox) {
-            // 使用 filteredReturnGoods.length 作为总数（与 finance.js 的 printStockInData.length 对应）
             const total = filteredReturnGoods.length;
             const allChecked = (selectedReturnIds.size === total && total > 0);
             skipReturnAllChange = true;
@@ -329,6 +325,7 @@ document.querySelectorAll('.return-item-checkbox').forEach(cb => {
         }
     };
 });
+
     // 更新全选状态
     updateReturnAllCheckboxState();
 }
