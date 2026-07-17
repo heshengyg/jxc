@@ -317,31 +317,33 @@ async function loadStockStock() {
         await loadReturnGoods();
     }
 
-    // ✅ 确保 stockDataCache 已刷新（包含最新的批次库存）
+    // ✅ 确保 stockDataCache 已刷新
     refreshAllStockCache(allStockIn, allStockOut);
 
     try {
-        // ✅ 直接使用 stockDataCache 构建库存表
         allStockBatchList = [];
         
         for (const [key, cacheData] of stockDataCache) {
             if (!cacheData.batchList || cacheData.batchList.length === 0) continue;
             
-            // 遍历每个批次
             for (const batch of cacheData.batchList) {
-                // ✅ 批次库存 = batch.batchRemain（已在 getStockBatchList 中计算好）
                 if (batch.batchRemain <= 0) continue;
+                
+                // ✅ 从第一条入库记录获取单价
+                const firstRecord = batch.inRecords && batch.inRecords[0];
+                if (!firstRecord) continue;
                 
                 const goodsBase = allGoods.find(g =>
                     g.supplier === batch.supplier &&
                     g.name === batch.goodsName &&
-                    g.spec === batch.spec
+                    (g.spec || '') === (batch.spec || '')
                 );
                 if (!goodsBase) continue;
                 
                 const totalAllStock = cacheData.totalStock || getTotalStockNum(batch.supplier, batch.goodsName);
                 const warnStockThreshold = goodsBase.warn_num || 0;
-                const batchAmount = getBatchStockAmount(batch.batchRemain, batch.inPrice);
+                // ✅ 使用 firstRecord.in_price
+                const batchAmount = getBatchStockAmount(batch.batchRemain, firstRecord.in_price || 0);
                 
                 // 计算保质期状态
                 let unitCode = "day";
@@ -361,11 +363,9 @@ async function loadStockStock() {
                     warnDay = Number(expireResult) || 0;
                 }
                 
-                // 取该批次第一条入库记录的日期
-                const firstInRecord = batch.inRecords && batch.inRecords[0] ? batch.inRecords[0] : null;
-                const produceDate = firstInRecord ? (firstInRecord.produce_date || '-') : '-';
-                const expireDate = firstInRecord ? (firstInRecord.expire_date || '-') : '-';
-                const recordDate = firstInRecord ? (firstInRecord.record_date || '') : '';
+                const produceDate = firstRecord.produce_date || '-';
+                const expireDate = firstRecord.expire_date || '-';
+                const recordDate = firstRecord.record_date || '';
                 
                 const bzResult = calcBzStatus(
                     produceDate === '-' ? '' : produceDate,
@@ -386,8 +386,8 @@ async function loadStockStock() {
                     goodsName: batch.goodsName,
                     spec: batch.spec || '-',
                     settleType: batch.settleType || '-',
-                    outPrice: batch.inPrice || 0,
-                    batchRemain: batch.batchRemain,        // ✅ 来自 stockDataCache 的批次库存
+                    outPrice: firstRecord.in_price || 0,  // ✅ 从第一条入库记录取单价
+                    batchRemain: batch.batchRemain,
                     totalAllStock: totalAllStock,
                     warnStockThreshold: warnStockThreshold,
                     stockWarnText: stockWarnText,
@@ -402,7 +402,6 @@ async function loadStockStock() {
             }
         }
 
-        // ✅ 按录入日期排序（最新在前）
         allStockBatchList.sort((a, b) => (b.recordDate || '').localeCompare(a.recordDate || ''));
 
         const totalEl = document.getElementById('stockTotalCount');
