@@ -357,60 +357,61 @@ async function submitStockOut(){
     if(outNum < 1) return alert('出库数量必须大于0');
     if(!recordDate) return alert('请选择录入日期');
     
-    // ============================================================
-    // ✅ 1. 检查是否为"过期"状态，禁止出库
-    // ============================================================
-    const bzStatus = window._outSelectedBzStatus || '';
-    if (bzStatus === '过期') {
-        return alert('❌ 商品已过期，不能继续销售，请做退货处理！');
-    }
-    
-    // ============================================================
-    // ✅ 2. 检查价格是否为空（折扣/临期/过期状态必须录入价格）
-    // ============================================================
-    const priceInput = document.getElementById('outSalePrice');
-    const priceValue = priceInput.value || '';
-    
-    // 检查输入框是否为空或无效
-    const isPriceEmpty = !priceValue || 
-                         priceValue === '' || 
-                         priceValue === '￥0.00' || 
-                         priceValue === '￥' ||
-                         priceValue === '￥0' ||
-                         priceValue.trim() === '' ||
-                         priceValue === '价格未录入';
-    
-    // 判断是否为折扣或临期状态
-    const isDiscountOrExpire = (bzStatus === '临期' || bzStatus.startsWith('discount_'));
-    
-    // ✅ 如果是折扣或临期状态，且价格为空，阻止提交
-    if (isDiscountOrExpire && isPriceEmpty) {
-        let statusDisplay = bzStatus;
-        // 将 discount_1 转换为显示名称（如"打6.5折"）
-        if (bzStatus.startsWith('discount_')) {
-            const match = bzStatus.match(/discount_(\d+)/);
-            if (match) {
-                const config = window.settingsData?.discountConfig?.items || [];
-                const idx = parseInt(match[1]) - 1;
-                if (config[idx] && config[idx].label) {
-                    statusDisplay = config[idx].label;
-                }
+// ============================================================
+// ✅ 1. 检查是否为"过期"状态，禁止出库
+// ============================================================
+const bzStatus = window._outSelectedBzStatus || '';
+if (bzStatus === '过期') {
+    return alert('❌ 商品已过期，不能继续销售，请做退货处理！');
+}
+
+// ============================================================
+// ✅ 2. 检查价格是否为空（所有非正常状态都需要检查）
+// ============================================================
+const priceInput = document.getElementById('outSalePrice');
+const priceValue = priceInput.value || '';
+
+// 检查输入框是否为空或无效
+const isPriceEmpty = !priceValue || 
+                     priceValue === '' || 
+                     priceValue === '￥0.00' || 
+                     priceValue === '￥' ||
+                     priceValue === '￥0' ||
+                     priceValue.trim() === '' ||
+                     priceValue === '价格未录入';
+
+// ✅ 判断是否为非正常状态（临期 或 任何折扣状态）
+const isSpecialStatus = (bzStatus === '临期' || bzStatus.startsWith('discount_'));
+
+// ✅ 如果是非正常状态，且价格为空，阻止提交
+if (isSpecialStatus && isPriceEmpty) {
+    let statusDisplay = bzStatus;
+    // 将 discount_1/2/3/4 转换为显示名称（如"打6.5折"）
+    if (bzStatus.startsWith('discount_')) {
+        const match = bzStatus.match(/discount_(\d+)/);
+        if (match) {
+            const config = window.settingsData?.discountConfig?.items || [];
+            const idx = parseInt(match[1]) - 1;
+            if (config[idx] && config[idx].label) {
+                statusDisplay = config[idx].label;
             }
         }
-        return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
     }
-    
-    // ============================================================
-    // ✅ 3. 使用 window._outSelectedSalePrice 作为最终销售价
-    // ============================================================
-    const finalSalePrice = window._outSelectedSalePrice !== null && window._outSelectedSalePrice !== undefined 
-        ? window._outSelectedSalePrice 
-        : salePrice;
-    
-    if (!finalSalePrice || finalSalePrice === 0) {
-        return alert('⚠️ 销售价格无效，请检查商品价格设置！');
-    }
-    // ============================================================
+    // ✅ 统一的提示模板，自动抓取对应状态名称
+    return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
+}
+
+// ============================================================
+// ✅ 3. 使用 window._outSelectedSalePrice 作为最终销售价
+// ============================================================
+const finalSalePrice = window._outSelectedSalePrice !== null && window._outSelectedSalePrice !== undefined 
+    ? window._outSelectedSalePrice 
+    : salePrice;
+
+if (!finalSalePrice || finalSalePrice === 0) {
+    return alert('⚠️ 销售价格无效，请检查商品价格设置！');
+}
+   // ============================================================
 
     // 统一调用公共库存函数
     const totalStock = getTotalStockNum(supplier, goodsName);
