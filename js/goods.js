@@ -2852,7 +2852,18 @@ function openPriceModal(id) {
     const statusText = item.earliestBatch?.bzStatusText || '未知';
     const normalPrice = item.normalPrice || item.sale_price || 0;       // 当前正常销售价
     const lastPrice = item.lastSalePrice || normalPrice;                // 上次正常销售价（原销售价）
-    const currentPrice = item.currentSalePrice || normalPrice;          // 当前状态销售价
+    
+    // ✅ 修复：获取当前状态销售价
+    let currentPrice = null;
+    // 优先使用 item 中已经计算好的 currentSalePrice（它已经根据状态匹配了价格）
+    if (item.currentSalePrice !== undefined && item.currentSalePrice !== null) {
+        currentPrice = item.currentSalePrice;
+    } else {
+        currentPrice = normalPrice;
+    }
+    
+    // 如果 currentPrice 为 null 或 undefined，显示"未录入"
+    const currentPriceDisplay = (currentPrice === null || currentPrice === undefined) ? '未录入' : formatMoney(currentPrice);
     
     const modal = document.createElement('div');
     modal.id = 'priceModal';
@@ -2861,6 +2872,13 @@ function openPriceModal(id) {
         background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
         z-index: 99999;
     `;
+    
+    // ✅ 判断是否为折扣/临期状态（非正常/过期状态）
+    const isSpecialStatus = (statusText !== '正常' && statusText !== '过期');
+    // 如果是特殊状态且价格为 null，显示"未录入"
+    const displayPrice = (isSpecialStatus && (currentPrice === null || currentPrice === undefined)) 
+        ? '未录入' 
+        : formatMoney(currentPrice);
     
     modal.innerHTML = `
         <div style="background:#fff; border-radius:8px; padding:30px; width:440px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
@@ -2888,7 +2906,7 @@ function openPriceModal(id) {
             
             <div style="margin-bottom:20px; padding:14px 16px; background:#f8f9fa; border-radius:6px; border-left:4px solid #ff6b6b;">
                 <label style="font-weight:bold; display:block; margin-bottom:2px; font-size:13px;">当前销售价（${statusText}状态）</label>
-                <span style="font-size:24px; color:#ff6b6b; font-weight:bold;">${formatMoney(currentPrice)}</span>
+                <span style="font-size:24px; color:#ff6b6b; font-weight:bold;">${displayPrice}</span>
             </div>
             
             <div style="margin-bottom:20px;">
