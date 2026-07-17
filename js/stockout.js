@@ -277,7 +277,7 @@ function checkStockNum(){
     let totalStock = Number(document.getElementById('totalStockNum').value) || 0;
     let outNum = Number(document.getElementById('outNum').value) || 0;
     if(outNum > totalStock && totalStock > 0){
-        showMsg(`库存不足！当前可用库存：${totalStock}`);
+        alert(`库存不足！当前可用库存：${totalStock}`);
     }
 }
 
@@ -350,10 +350,10 @@ async function submitStockOut(){
     let salePrice = parseFloat(salePriceText.replace('￥','')) || 0;
     let outNum = Number(document.getElementById('outNum').value) || 0;
     let recordDate = document.getElementById('outRecordDate').value;
-    if(!supplier) return showMsg('请选择供应商');
-    if(!goodsName) return showMsg('请选择商品');
-    if(outNum < 1) return showMsg('出库数量必须大于0');
-    if(!recordDate) return showMsg('请选择录入日期');
+    if(!supplier) return alert('请选择供应商');
+    if(!goodsName) return alert('请选择商品');
+    if(outNum < 1) return alert('出库数量必须大于0');
+    if(!recordDate) return alert('请选择录入日期');
     
     // ============================================================
     // ✅ 出库强制校验：检查销售单价是否为空（折扣/临期状态必须录入价格）
@@ -387,7 +387,7 @@ async function submitStockOut(){
                 }
             }
         }
-        return showMsg(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
+        return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
     }
     
     // 双重保险：如果 salePrice 为 0 且是折扣/临期状态，也拦截
@@ -403,18 +403,18 @@ async function submitStockOut(){
                 }
             }
         }
-        return showMsg(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
+        return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
     }
     // ============================================================
 
     // 统一调用公共库存函数，自动扣出库+退货
     const totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
-        return showMsg(`库存不足！当前可用库存：${totalStock}`);
+        return alert(`库存不足！当前可用库存：${totalStock}`);
     }
     // 【核心修复】直接调用common内置FIFO，删除手写报错循环
     const outDetail = calcFIFOOut(supplier, goodsName, outNum);
-    if(outDetail.length === 0) return showMsg('无可用库存批次');
+    if(outDetail.length === 0) return alert('无可用库存批次');
     // 按批次唯一key分组（同批次多条入库合并一组，不同批次分开）
     const groupMap = new Map();
     for(let d of outDetail){
@@ -444,7 +444,7 @@ async function submitStockOut(){
         targetGroup.details.push(d);
     }
     let groupList = Array.from(groupMap.values());
-    if(groupList.length === 0) return showMsg('拆分出库数据失败');
+    if(groupList.length === 0) return alert('拆分出库数据失败');
     if (!salePrice || salePrice === 0) {
         salePrice = window._outSelectedSalePrice || 0;
     }

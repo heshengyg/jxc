@@ -788,12 +788,12 @@ function updateReturnBatchList() {
 function toggleReturnBatch(index) {
     const allBatches = window._returnBatchListData || [];
     if (index >= allBatches.length) {
-        showMsg('批次数据异常');
+        alert('批次数据异常');
         return;
     }
     const batch = allBatches[index];
     if (!batch || !batch.inRecords || batch.inRecords.length === 0) {
-        showMsg('该批次数据异常');
+        alert('该批次数据异常');
         return;
     }
     const inRecord = batch.inRecords[0];
@@ -924,14 +924,14 @@ async function submitReturnGoods() {
     const recordDate = document.getElementById('returnRecordDate').value;
     const returnReason = document.getElementById('returnReason').value.trim();
 
-    if (!supplier) return showMsg('请选择供应商');
-    if (!goodsName || !goodsId) return showMsg('请选择商品');
+    if (!supplier) return alert('请选择供应商');
+    if (!goodsName || !goodsId) return alert('请选择商品');
     if (!selectedBatchInRecordId) {
-        showMsg('请选择退货批次');
+        alert('请选择退货批次');
         return;
     }
-    if (returnNum < 1) return showMsg('退货数量必须大于0');
-    if (!recordDate) return showMsg('请选择录入日期');
+    if (returnNum < 1) return alert('退货数量必须大于0');
+    if (!recordDate) return alert('请选择录入日期');
 
     const batchList = getStockBatchList(supplier, goodsName);
     let targetBatch = null;
@@ -942,7 +942,7 @@ async function submitReturnGoods() {
         }
     }
     if (!targetBatch) {
-        showMsg('该批次已无库存或已被删除');
+        alert('该批次已无库存或已被删除');
         return;
     }
     if (returnNum > targetBatch.batchRemain) {

@@ -369,7 +369,7 @@ async function submitSettleForm() {
     let channel = document.getElementById('settleChannelSelect').value;
     
     if (!supplier) {
-        showMsg('请输入供应商名称！');
+        alert('请输入供应商名称！');
         return;
     }
     
@@ -381,7 +381,7 @@ async function submitSettleForm() {
     });
     
     if (isDuplicate) {
-        showMsg(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
+        alert(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
         return;
     }
     
@@ -395,7 +395,7 @@ async function submitSettleForm() {
                     return item.id != id && item.supplier === supplier && item.channel === channel;
                 });
                 if (conflict) {
-                    showMsg(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
+                    alert(`供应商"${supplier}"的结算方式"${channel}"已存在！`);
                     return;
                 }
             }
@@ -1178,9 +1178,9 @@ async function submitForm() {
     let shelfNum = document.getElementById('add_shelf_life_num').value;
     let shelfUnit = document.getElementById('add_shelf_life_unit').value;
     
-    if (!supplier || !name || !channel || !salePrice) return showMsg('必填项不能为空');
-    if (+salePrice <= 0) return showMsg('销售单价必须大于0');
-    if (isDuplicate(supplier, name, spec, editId)) return showMsg('该供应商下已存在同名同规格商品！');
+    if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
+    if (+salePrice <= 0) return alert('销售单价必须大于0');
+    if (isDuplicate(supplier, name, spec, editId)) return alert('该供应商下已存在同名同规格商品！');
     
     let oldSalePrice = null;
     let priceChanged = false;
