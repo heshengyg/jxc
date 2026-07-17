@@ -2742,7 +2742,7 @@ actionButtons += '</div>';
                 <td style="background-color:${statusBgColor}; color:${statusColor}; text-align:center;">${statusText}</td>
                 <td>${countDownText}</td>
                 <td>${dateStr}</td>
-                <td style="background-color:${dateTypeColor}; font-weight:bold; text-align:center;">${dateTypeDisplay}</td>
+                <td style="background-color:${dateTypeColor}; text-align:center;">${dateTypeDisplay}</td>
                 <td ${needUpdateDateStyle}>${needUpdateDateDisplay}</td>
                 <td ${lastPriceStyle}>${lastPriceDisplay}</td>
                 <td ${needUpdatePriceStyle}>${needUpdatePriceDisplay}</td>
