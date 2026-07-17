@@ -329,6 +329,7 @@ if (allCheckbox) {
     const allChecked = (selectedReturnIds.size === total && total > 0);
     allCheckbox.checked = allChecked;
 }
+}
 
 // ========== 分页 ==========
 function renderReturnPagination() {
