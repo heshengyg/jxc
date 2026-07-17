@@ -317,17 +317,18 @@ document.querySelectorAll('.return-item-checkbox').forEach(cb => {
         } else {
             selectedReturnIds.delete(id);
         }
-        // ===== 直接计算全选状态并设置全选复选框（无需调用外部函数） =====
+        // ===== 直接计算全选状态并设置全选复选框（参照 finance.js） =====
         const allCheckbox = document.getElementById('returnPrintAllCheck');
         if (allCheckbox) {
-            const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
+            // 使用 filteredReturnGoods.length 作为总数（与 finance.js 的 printStockInData.length 对应）
+            const total = filteredReturnGoods.length;
+            const allChecked = (selectedReturnIds.size === total && total > 0);
             skipReturnAllChange = true;
             allCheckbox.checked = allChecked;
             skipReturnAllChange = false;
         }
     };
 });
-
     // 更新全选状态
     updateReturnAllCheckboxState();
 }
