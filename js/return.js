@@ -946,9 +946,9 @@ async function submitReturnGoods() {
         return;
     }
     if (returnNum > targetBatch.batchRemain) {
-        showMsg(`退货数量不能大于批次库存（${targetBatch.batchRemain}）`);
-        return;
-    }
+    alert(`退货数量不能大于批次库存（${targetBatch.batchRemain}）`);
+    return;
+}
     const returnAmount = inPrice * returnNum;
     const saleAmount = salePrice * returnNum;
 
