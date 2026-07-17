@@ -314,18 +314,14 @@ document.querySelectorAll('.return-item-checkbox').forEach(cb => {
         } else {
             selectedReturnIds.delete(id);
         }
-        // ===== 参照 finance.js：基于全量数据计算全选状态 =====
+        // ✅ 直接更新全选复选框状态
         const allCheckbox = document.getElementById('returnPrintAllCheck');
         if (allCheckbox) {
-            const total = filteredReturnGoods.length;
-            const allChecked = (selectedReturnIds.size === total && total > 0);
-            skipReturnAllChange = true;
+            const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
             allCheckbox.checked = allChecked;
-            skipReturnAllChange = false;
         }
     };
 });
-
     // 更新全选状态
     updateReturnAllCheckboxState();
 }
@@ -333,13 +329,9 @@ document.querySelectorAll('.return-item-checkbox').forEach(cb => {
 // ===== 更新全选复选框状态（参照 finance.js：基于集合大小判断） =====
 function updateReturnAllCheckboxState() {
     const allCheckbox = document.getElementById('returnPrintAllCheck');
-    if (!allCheckbox) return;
-    const total = filteredReturnGoods.length;
-    const checkedCount = selectedReturnIds.size;
-    const allChecked = (checkedCount === total && total > 0);
-    skipReturnAllChange = true;
+if (allCheckbox) {
+    const allChecked = (selectedReturnIds.size === filteredReturnGoods.length && filteredReturnGoods.length > 0);
     allCheckbox.checked = allChecked;
-    skipReturnAllChange = false;
 }
 
 // ========== 分页 ==========
