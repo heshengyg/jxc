@@ -328,10 +328,20 @@ async function loadStockStock() {
         inAllList.forEach(inItem => {
             const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
             const singleRemain = getInItemRemain(inItem.id);
+            
             if (batchMap.has(key)) {
                 const batch = batchMap.get(key);
-                batch.totalRemain += singleRemain;
+                // ✅ 同批次：只取任意一条入库记录的库存即可
+                // 因为同批次的所有入库记录库存应该相同
+                // 这里取第一条记录的库存作为该批次的库存
+                batch.totalRemain = singleRemain;  // ← 关键修改：直接赋值，不累加
                 batch.totalInNum += Number(inItem.in_num || 0);
+                // 记录最早的入库记录ID（用于取生产/到期日期）
+                if (!batch.firstInRecordId) {
+                    batch.firstInRecordId = inItem.id;
+                    batch.produce_date = inItem.produce_date || '-';
+                    batch.expire_date = inItem.expire_date || '-';
+                }
             } else {
                 const goodsBase = allGoods.find(g =>
                     g.supplier === inItem.supplier &&
@@ -347,7 +357,8 @@ async function loadStockStock() {
                     produce_date: inItem.produce_date || '-',
                     expire_date: inItem.expire_date || '-',
                     totalInNum: Number(inItem.in_num || 0),
-                    totalRemain: singleRemain,
+                    totalRemain: singleRemain,  // ✅ 直接赋值
+                    firstInRecordId: inItem.id,
                     goodsBase: goodsBase
                 });
             }
@@ -355,9 +366,11 @@ async function loadStockStock() {
 
         allStockBatchList = [];
         batchMap.forEach(batch => {
-            if (batch.totalRemain <= 0) return;
             const goodsBase = batch.goodsBase;
             if (!goodsBase) return;
+
+            // ✅ 直接使用 batch.totalRemain（已是同批次的库存）
+            if (batch.totalRemain <= 0) return;
 
             const totalAllStock = getTotalStockNum(batch.supplier, batch.goodsName);
             const warnStockThreshold = goodsBase.warn_num || 0;
@@ -366,20 +379,20 @@ async function loadStockStock() {
             let unitCode = "day";
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
             if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
-            // 修改为：使用公式计算临期天数
-const expireResult = typeof calculateExpireDays === 'function' 
-    ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
-    : (goodsBase.warn_num || 0);
+            
+            const expireResult = typeof calculateExpireDays === 'function' 
+                ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
+                : (goodsBase.warn_num || 0);
 
-// 如果返回的是字符串（如"5天"），提取数字；否则直接使用数字
-let warnDay = 0;
-if (typeof expireResult === 'string' && expireResult.includes('天')) {
-    warnDay = parseInt(expireResult) || 0;
-} else if (typeof expireResult === 'number') {
-    warnDay = expireResult;
-} else {
-    warnDay = Number(expireResult) || 0;
-}
+            let warnDay = 0;
+            if (typeof expireResult === 'string' && expireResult.includes('天')) {
+                warnDay = parseInt(expireResult) || 0;
+            } else if (typeof expireResult === 'number') {
+                warnDay = expireResult;
+            } else {
+                warnDay = Number(expireResult) || 0;
+            }
+            
             const bzResult = calcBzStatus(
                 batch.produce_date === '-' ? '' : batch.produce_date,
                 batch.expire_date === '-' ? '' : batch.expire_date,
@@ -400,7 +413,7 @@ if (typeof expireResult === 'string' && expireResult.includes('天')) {
                 spec: batch.spec,
                 settleType: batch.settleType,
                 outPrice: batch.inPrice,
-                batchRemain: batch.totalRemain,
+                batchRemain: batch.totalRemain,    // ✅ 同批次库存
                 totalAllStock: totalAllStock,
                 warnStockThreshold: warnStockThreshold,
                 stockWarnText: stockWarnText,
@@ -422,7 +435,6 @@ if (typeof expireResult === 'string' && expireResult.includes('天')) {
         console.error("库存加载异常：", e);
     }
 }
-
 /**
  * 搜索筛选（原有点击搜索按钮依然保留可用，新增输入实时触发）
  */
