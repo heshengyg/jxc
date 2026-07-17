@@ -300,7 +300,7 @@ function capitalize(str) {
  * 修改点1：仅批次库存>0才加入列表，过滤批次库存为0的行
  */
 async function loadStockStock() {
-    // ✅ 新增：从 Supabase 同步最新打折配置
+    // ✅ 同步最新打折配置
     if (typeof loadSettings === 'function') {
         try {
             await loadSettings();
@@ -310,112 +310,97 @@ async function loadStockStock() {
         }
     }
 
-    // 前置加载全局入库、出库、退货数据
+    // 前置加载数据
     if (allStockIn.length === 0) await loadStockIn();
     await preLoadStockOutData();
     if (allReturnGoods.length === 0 && typeof loadReturnGoods === 'function') {
         await loadReturnGoods();
     }
 
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.asc`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        if (!res.ok) throw new Error('读取入库批次失败');
-        const inAllList = await res.json();
+    // ✅ 确保 stockDataCache 已刷新（包含最新的批次库存）
+    refreshAllStockCache(allStockIn, allStockOut);
 
-        // ✅ 核心：按批次分组，同批次只取最早录入的那条记录
-        const batchMap = new Map();
-        inAllList.forEach(inItem => {
-            // ✅ 直接计算该条入库记录的剩余库存（批次库存）
-            const singleRemain = getInItemRemain(inItem.id);
-            // ✅ 批次库存 > 0 才显示
-            if (singleRemain <= 0) return;
+    try {
+        // ✅ 直接使用 stockDataCache 构建库存表
+        allStockBatchList = [];
+        
+        for (const [key, cacheData] of stockDataCache) {
+            if (!cacheData.batchList || cacheData.batchList.length === 0) continue;
             
-            const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
-            
-            if (!batchMap.has(key)) {
-                // ✅ 只取最早录入的那条记录（id 最小，因为按 id.asc 排序）
+            // 遍历每个批次
+            for (const batch of cacheData.batchList) {
+                // ✅ 批次库存 = batch.batchRemain（已在 getStockBatchList 中计算好）
+                if (batch.batchRemain <= 0) continue;
+                
                 const goodsBase = allGoods.find(g =>
-                    g.supplier === inItem.supplier &&
-                    g.name === inItem.goodsName &&
-                    g.spec === inItem.spec
+                    g.supplier === batch.supplier &&
+                    g.name === batch.goodsName &&
+                    g.spec === batch.spec
                 );
-                batchMap.set(key, {
-                    supplier: inItem.supplier,
-                    goodsName: inItem.goodsName,
-                    spec: inItem.spec || '-',
-                    settleType: inItem.settleType || '-',
-                    inPrice: inItem.in_price || 0,
-                    produce_date: inItem.produce_date || '-',
-                    expire_date: inItem.expire_date || '-',
-                    batchRemain: singleRemain,  // ✅ 直接取该条记录的批次库存
-                    goodsBase: goodsBase,
-                    recordDate: inItem.record_date || ''  // 用于排序
+                if (!goodsBase) continue;
+                
+                const totalAllStock = cacheData.totalStock || getTotalStockNum(batch.supplier, batch.goodsName);
+                const warnStockThreshold = goodsBase.warn_num || 0;
+                const batchAmount = getBatchStockAmount(batch.batchRemain, batch.inPrice);
+                
+                // 计算保质期状态
+                let unitCode = "day";
+                if (goodsBase.shelf_life_unit === "年") unitCode = "year";
+                if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
+                
+                const expireResult = typeof calculateExpireDays === 'function' 
+                    ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
+                    : (goodsBase.warn_num || 0);
+                
+                let warnDay = 0;
+                if (typeof expireResult === 'string' && expireResult.includes('天')) {
+                    warnDay = parseInt(expireResult) || 0;
+                } else if (typeof expireResult === 'number') {
+                    warnDay = expireResult;
+                } else {
+                    warnDay = Number(expireResult) || 0;
+                }
+                
+                // 取该批次第一条入库记录的日期
+                const firstInRecord = batch.inRecords && batch.inRecords[0] ? batch.inRecords[0] : null;
+                const produceDate = firstInRecord ? (firstInRecord.produce_date || '-') : '-';
+                const expireDate = firstInRecord ? (firstInRecord.expire_date || '-') : '-';
+                const recordDate = firstInRecord ? (firstInRecord.record_date || '') : '';
+                
+                const bzResult = calcBzStatus(
+                    produceDate === '-' ? '' : produceDate,
+                    expireDate === '-' ? '' : expireDate,
+                    goodsBase.shelf_life_num || 0,
+                    unitCode,
+                    warnDay
+                );
+                const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
+                
+                let bzText = '';
+                if (goodsBase.shelf_life_num && goodsBase.shelf_life_unit) {
+                    bzText = `${goodsBase.shelf_life_num}${goodsBase.shelf_life_unit}`;
+                }
+                
+                allStockBatchList.push({
+                    supplier: batch.supplier,
+                    goodsName: batch.goodsName,
+                    spec: batch.spec || '-',
+                    settleType: batch.settleType || '-',
+                    outPrice: batch.inPrice || 0,
+                    batchRemain: batch.batchRemain,        // ✅ 来自 stockDataCache 的批次库存
+                    totalAllStock: totalAllStock,
+                    warnStockThreshold: warnStockThreshold,
+                    stockWarnText: stockWarnText,
+                    batchAmount: batchAmount,
+                    produce_date: produceDate,
+                    expire_date: expireDate,
+                    bzText: bzText,
+                    bzStatusText: bzResult.statusText,
+                    countDownText: bzResult.countDownText,
+                    recordDate: recordDate
                 });
             }
-            // ✅ 同批次有记录则跳过，不再添加（只保留最早录入的那条）
-        });
-
-        allStockBatchList = [];
-        batchMap.forEach(batch => {
-            const goodsBase = batch.goodsBase;
-            if (!goodsBase) return;
-
-            const totalAllStock = getTotalStockNum(batch.supplier, batch.goodsName);
-            const warnStockThreshold = goodsBase.warn_num || 0;
-            const batchAmount = getBatchStockAmount(batch.batchRemain, batch.inPrice);
-
-            let unitCode = "day";
-            if (goodsBase.shelf_life_unit === "年") unitCode = "year";
-            if (goodsBase.shelf_life_unit === "个月") unitCode = "month";
-            
-            const expireResult = typeof calculateExpireDays === 'function' 
-                ? calculateExpireDays(goodsBase.shelf_life_num, goodsBase.shelf_life_unit) 
-                : (goodsBase.warn_num || 0);
-
-            let warnDay = 0;
-            if (typeof expireResult === 'string' && expireResult.includes('天')) {
-                warnDay = parseInt(expireResult) || 0;
-            } else if (typeof expireResult === 'number') {
-                warnDay = expireResult;
-            } else {
-                warnDay = Number(expireResult) || 0;
-            }
-            
-            const bzResult = calcBzStatus(
-                batch.produce_date === '-' ? '' : batch.produce_date,
-                batch.expire_date === '-' ? '' : batch.expire_date,
-                goodsBase.shelf_life_num || 0,
-                unitCode,
-                warnDay
-            );
-            const stockWarnText = calcStockWarnStatus(totalAllStock, warnStockThreshold);
-
-            let bzText = '';
-            if (goodsBase.shelf_life_num && goodsBase.shelf_life_unit) {
-                bzText = `${goodsBase.shelf_life_num}${goodsBase.shelf_life_unit}`;
-            }
-
-            allStockBatchList.push({
-                supplier: batch.supplier,
-                goodsName: batch.goodsName,
-                spec: batch.spec,
-                settleType: batch.settleType,
-                outPrice: batch.inPrice,
-                batchRemain: batch.batchRemain,    // ✅ 该批次的批次库存
-                totalAllStock: totalAllStock,
-                warnStockThreshold: warnStockThreshold,
-                stockWarnText: stockWarnText,
-                batchAmount: batchAmount,
-                produce_date: batch.produce_date,
-                expire_date: batch.expire_date,
-                bzText: bzText,
-                bzStatusText: bzResult.statusText,
-                countDownText: bzResult.countDownText,
-                recordDate: batch.recordDate
-            });
-        });
+        }
 
         // ✅ 按录入日期排序（最新在前）
         allStockBatchList.sort((a, b) => (b.recordDate || '').localeCompare(a.recordDate || ''));
