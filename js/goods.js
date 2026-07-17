@@ -3053,7 +3053,8 @@ function copyNewPrice(id) {
         return;
     }
     
-    const text = formatMoney(item.newSalePrice);
+    // ✅ 修改：只复制数字，不加 ￥
+    const text = String(item.newSalePrice);  // 直接转为字符串，不加 formatMoney
     
     const doCopy = function() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
