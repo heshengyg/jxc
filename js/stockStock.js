@@ -318,31 +318,24 @@ async function loadStockStock() {
     }
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.desc`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/stock_in?order=id.asc`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error('读取入库批次失败');
         const inAllList = await res.json();
 
+        // ✅ 核心：按批次分组，同批次只取最早录入的那条记录
         const batchMap = new Map();
         inAllList.forEach(inItem => {
-            const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
+            // ✅ 直接计算该条入库记录的剩余库存（批次库存）
             const singleRemain = getInItemRemain(inItem.id);
+            // ✅ 批次库存 > 0 才显示
+            if (singleRemain <= 0) return;
             
-            if (batchMap.has(key)) {
-                const batch = batchMap.get(key);
-                // ✅ 同批次：只取任意一条入库记录的库存即可
-                // 因为同批次的所有入库记录库存应该相同
-                // 这里取第一条记录的库存作为该批次的库存
-                batch.totalRemain = singleRemain;  // ← 关键修改：直接赋值，不累加
-                batch.totalInNum += Number(inItem.in_num || 0);
-                // 记录最早的入库记录ID（用于取生产/到期日期）
-                if (!batch.firstInRecordId) {
-                    batch.firstInRecordId = inItem.id;
-                    batch.produce_date = inItem.produce_date || '-';
-                    batch.expire_date = inItem.expire_date || '-';
-                }
-            } else {
+            const key = `${inItem.supplier}||${inItem.goodsName}||${inItem.spec || ''}||${inItem.in_price || 0}||${inItem.produce_date || ''}||${inItem.expire_date || ''}`;
+            
+            if (!batchMap.has(key)) {
+                // ✅ 只取最早录入的那条记录（id 最小，因为按 id.asc 排序）
                 const goodsBase = allGoods.find(g =>
                     g.supplier === inItem.supplier &&
                     g.name === inItem.goodsName &&
@@ -356,12 +349,12 @@ async function loadStockStock() {
                     inPrice: inItem.in_price || 0,
                     produce_date: inItem.produce_date || '-',
                     expire_date: inItem.expire_date || '-',
-                    totalInNum: Number(inItem.in_num || 0),
-                    totalRemain: singleRemain,  // ✅ 直接赋值
-                    firstInRecordId: inItem.id,
-                    goodsBase: goodsBase
+                    batchRemain: singleRemain,  // ✅ 直接取该条记录的批次库存
+                    goodsBase: goodsBase,
+                    recordDate: inItem.record_date || ''  // 用于排序
                 });
             }
+            // ✅ 同批次有记录则跳过，不再添加（只保留最早录入的那条）
         });
 
         allStockBatchList = [];
@@ -369,12 +362,9 @@ async function loadStockStock() {
             const goodsBase = batch.goodsBase;
             if (!goodsBase) return;
 
-            // ✅ 直接使用 batch.totalRemain（已是同批次的库存）
-            if (batch.totalRemain <= 0) return;
-
             const totalAllStock = getTotalStockNum(batch.supplier, batch.goodsName);
             const warnStockThreshold = goodsBase.warn_num || 0;
-            const batchAmount = getBatchStockAmount(batch.totalRemain, batch.inPrice);
+            const batchAmount = getBatchStockAmount(batch.batchRemain, batch.inPrice);
 
             let unitCode = "day";
             if (goodsBase.shelf_life_unit === "年") unitCode = "year";
@@ -413,7 +403,7 @@ async function loadStockStock() {
                 spec: batch.spec,
                 settleType: batch.settleType,
                 outPrice: batch.inPrice,
-                batchRemain: batch.totalRemain,    // ✅ 同批次库存
+                batchRemain: batch.batchRemain,    // ✅ 该批次的批次库存
                 totalAllStock: totalAllStock,
                 warnStockThreshold: warnStockThreshold,
                 stockWarnText: stockWarnText,
@@ -422,9 +412,13 @@ async function loadStockStock() {
                 expire_date: batch.expire_date,
                 bzText: bzText,
                 bzStatusText: bzResult.statusText,
-                countDownText: bzResult.countDownText
+                countDownText: bzResult.countDownText,
+                recordDate: batch.recordDate
             });
         });
+
+        // ✅ 按录入日期排序（最新在前）
+        allStockBatchList.sort((a, b) => (b.recordDate || '').localeCompare(a.recordDate || ''));
 
         const totalEl = document.getElementById('stockTotalCount');
         if (totalEl) totalEl.textContent = allStockBatchList.length;
@@ -435,6 +429,7 @@ async function loadStockStock() {
         console.error("库存加载异常：", e);
     }
 }
+
 /**
  * 搜索筛选（原有点击搜索按钮依然保留可用，新增输入实时触发）
  */
