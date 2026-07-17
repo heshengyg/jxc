@@ -371,7 +371,6 @@ if (bzStatus === '过期') {
 const priceInput = document.getElementById('outSalePrice');
 const priceValue = priceInput.value || '';
 
-// 检查输入框是否为空或无效
 const isPriceEmpty = !priceValue || 
                      priceValue === '' || 
                      priceValue === '￥0.00' || 
@@ -380,13 +379,11 @@ const isPriceEmpty = !priceValue ||
                      priceValue.trim() === '' ||
                      priceValue === '价格未录入';
 
-// ✅ 判断是否为非正常状态（临期 或 任何折扣状态）
 const isSpecialStatus = (bzStatus === '临期' || bzStatus.startsWith('discount_'));
 
 // ✅ 如果是非正常状态，且价格为空，阻止提交
 if (isSpecialStatus && isPriceEmpty) {
     let statusDisplay = bzStatus;
-    // 将 discount_1/2/3/4 转换为显示名称（如"打6.5折"）
     if (bzStatus.startsWith('discount_')) {
         const match = bzStatus.match(/discount_(\d+)/);
         if (match) {
@@ -397,22 +394,28 @@ if (isSpecialStatus && isPriceEmpty) {
             }
         }
     }
-    // ✅ 统一的提示模板，自动抓取对应状态名称
     return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
 }
 
 // ============================================================
-// ✅ 3. 使用 window._outSelectedSalePrice 作为最终销售价
+// ✅ 3. 获取最终销售价
 // ============================================================
-const finalSalePrice = window._outSelectedSalePrice !== null && window._outSelectedSalePrice !== undefined 
+// 正常状态使用 salePrice，非正常状态使用 _outSelectedSalePrice
+const finalSalePrice = isSpecialStatus 
     ? window._outSelectedSalePrice 
     : salePrice;
 
-if (!finalSalePrice || finalSalePrice === 0) {
+// ✅ 正常状态：如果价格为 0，拦截
+if (!isSpecialStatus && (!finalSalePrice || finalSalePrice === 0)) {
     return alert('⚠️ 销售价格无效，请检查商品价格设置！');
 }
-   // ============================================================
 
+// ✅ 非正常状态：这里应该已经有价格了（上面已拦截空价格）
+// 如果仍然为 null 或 0，也拦截
+if (isSpecialStatus && (!finalSalePrice || finalSalePrice === 0)) {
+    return alert('⚠️ 销售价格无效，请检查商品价格设置！');
+}
+// ============================================================
     // 统一调用公共库存函数
     const totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
