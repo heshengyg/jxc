@@ -2703,9 +2703,10 @@ if (item.showPriceBtn) {
     `;
 }
 // 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
+// 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
 if (item.showCopyPriceBtn && item.priceChanged) {
     actionButtons += `
-        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px; font-size:12px; background:#17a2b8; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制新价</button>
+        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px; font-size:12px; background:#1a7a8a; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px; font-weight:bold;">复制新价</button>
     `;
 }
 // 复制日期按钮：仅日期变动时显示（无权限限制）
@@ -2716,7 +2717,7 @@ if (item.showCopyDateBtn) {
             ? `（${item.displayValue}到期）` 
             : '';
     actionButtons += `
-        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制日期</button>
+        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px; font-size:12px; background:#1a7a2a; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px; font-weight:bold;">复制日期</button>
     `;
 }
 // 更新按钮：原有业务禁用 + 角色权限双重判断
