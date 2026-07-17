@@ -1800,28 +1800,45 @@ let priceStatus = 'pending';
 let statusPrice = null;
 
 const priceData = priceMap[item.id];
+const isNormalOrExpire = (bzStatus === '正常' || bzStatus === '过期');
 
-if (priceData) {
-    if (bzStatus === '临期') {
-        statusPrice = priceData.expirePrice;
-    } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
-        statusPrice = priceData.discount1Price;
-    } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
-        statusPrice = priceData.discount2Price;
-    } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
-        statusPrice = priceData.discount3Price;
-    } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
-        statusPrice = priceData.discount4Price;
-    }
-    
-    if (statusPrice !== null && statusPrice !== undefined) {
-        currentSalePrice = statusPrice;
-        // ✅ 关键修改：newSalePrice 只用于显示和复制，不用于更新 goods.sale_price
-        newSalePrice = statusPrice;
-        priceStatus = 'updated';
+if (isNormalOrExpire) {
+    // 正常/过期状态：使用 normalPrice
+    currentSalePrice = normalPrice;
+    newSalePrice = null;
+    priceStatus = 'pending';
+} else {
+    // 折扣/临期状态：从 price_temp_state 获取
+    if (priceData) {
+        if (bzStatus === '临期') {
+            statusPrice = priceData.expirePrice;
+        } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
+            statusPrice = priceData.discount1Price;
+        } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
+            statusPrice = priceData.discount2Price;
+        } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
+            statusPrice = priceData.discount3Price;
+        } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
+            statusPrice = priceData.discount4Price;
+        }
+        
+        if (statusPrice !== null && statusPrice !== undefined) {
+            currentSalePrice = statusPrice;
+            newSalePrice = statusPrice;
+            priceStatus = 'updated';
+        } else {
+            // ✅ 折扣/临期状态但价格为空，设为 null
+            currentSalePrice = null;
+            newSalePrice = null;
+            priceStatus = 'pending';
+        }
+    } else {
+        // 没有 price_temp_state 数据
+        currentSalePrice = null;
+        newSalePrice = null;
+        priceStatus = 'pending';
     }
 }
-
 // ========== 判断是否为折扣/临期状态 ==========
 const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
 
