@@ -341,7 +341,6 @@ function closeStockOutForm(){
     document.getElementById('stockOutModal').style.display = 'none';
 }
 // 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
-// 提交出库（改造：多单价自动拆分为多条出库记录，原有逻辑全部保留）
 async function submitStockOut(){
     let supplier = document.getElementById('outSupSearchInput').value.trim();
     let goodsName = document.getElementById('outGoodsSearchInput').value.trim();
@@ -357,65 +356,51 @@ async function submitStockOut(){
     if(outNum < 1) return alert('出库数量必须大于0');
     if(!recordDate) return alert('请选择录入日期');
     
-// ============================================================
-// ✅ 1. 检查是否为"过期"状态，禁止出库
-// ============================================================
-const bzStatus = window._outSelectedBzStatus || '';
-if (bzStatus === '过期') {
-    return alert('❌ 商品已过期，不能继续销售，请做退货处理！');
-}
-
-// ============================================================
-// ✅ 2. 检查价格是否为空（所有非正常状态都需要检查）
-// ============================================================
-const priceInput = document.getElementById('outSalePrice');
-const priceValue = priceInput.value || '';
-
-const isPriceEmpty = !priceValue || 
-                     priceValue === '' || 
-                     priceValue === '￥0.00' || 
-                     priceValue === '￥' ||
-                     priceValue === '￥0' ||
-                     priceValue.trim() === '' ||
-                     priceValue === '价格未录入';
-
-const isSpecialStatus = (bzStatus === '临期' || bzStatus.startsWith('discount_'));
-
-// ✅ 如果是非正常状态，且价格为空，阻止提交
-if (isSpecialStatus && isPriceEmpty) {
-    let statusDisplay = bzStatus;
-    if (bzStatus.startsWith('discount_')) {
-        const match = bzStatus.match(/discount_(\d+)/);
-        if (match) {
-            const config = window.settingsData?.discountConfig?.items || [];
-            const idx = parseInt(match[1]) - 1;
-            if (config[idx] && config[idx].label) {
-                statusDisplay = config[idx].label;
+    // ============================================================
+    // ✅ 1. 检查是否为"过期"状态，禁止出库
+    // ============================================================
+    const bzStatus = window._outSelectedBzStatus || '';
+    if (bzStatus === '过期') {
+        return alert('⚠️ 当前商品已过期，请做退货处理！');
+    }
+    
+    // ============================================================
+    // ✅ 2. 检查价格是否为空（任何状态，只要价格为空就提示）
+    // ============================================================
+    const priceValue = document.getElementById('outSalePrice').value || '';
+    
+    // 检查价格是否为空或无效
+    const isPriceEmpty = !priceValue || 
+                         priceValue === '' || 
+                         priceValue === '￥0.00' || 
+                         priceValue === '￥' ||
+                         priceValue === '￥0' ||
+                         priceValue.trim() === '' ||
+                         priceValue === '价格未录入';
+    
+    // 获取最终销售价
+    const finalSalePrice = window._outSelectedSalePrice !== null && window._outSelectedSalePrice !== undefined 
+        ? window._outSelectedSalePrice 
+        : salePrice;
+    
+    // ✅ 只要价格为 null 或 0，就提示对应状态
+    if (isPriceEmpty || finalSalePrice === null || finalSalePrice === 0 || finalSalePrice === undefined) {
+        // 获取状态显示名称
+        let statusDisplay = bzStatus || '正常';
+        if (bzStatus.startsWith('discount_')) {
+            const match = bzStatus.match(/discount_(\d+)/);
+            if (match) {
+                const config = window.settingsData?.discountConfig?.items || [];
+                const idx = parseInt(match[1]) - 1;
+                if (config[idx] && config[idx].label) {
+                    statusDisplay = config[idx].label;
+                }
             }
         }
+        return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
     }
-    return alert(`⚠️ 该商品当前为"${statusDisplay}"状态，但价格未录入，请提醒商品部人员录入！`);
-}
+    // ============================================================
 
-// ============================================================
-// ✅ 3. 获取最终销售价
-// ============================================================
-// 正常状态使用 salePrice，非正常状态使用 _outSelectedSalePrice
-const finalSalePrice = isSpecialStatus 
-    ? window._outSelectedSalePrice 
-    : salePrice;
-
-// ✅ 正常状态：如果价格为 0，拦截
-if (!isSpecialStatus && (!finalSalePrice || finalSalePrice === 0)) {
-    return alert('⚠️ 销售价格无效，请检查商品价格设置！');
-}
-
-// ✅ 非正常状态：这里应该已经有价格了（上面已拦截空价格）
-// 如果仍然为 null 或 0，也拦截
-if (isSpecialStatus && (!finalSalePrice || finalSalePrice === 0)) {
-    return alert('⚠️ 销售价格无效，请检查商品价格设置！');
-}
-// ============================================================
     // 统一调用公共库存函数
     const totalStock = getTotalStockNum(supplier, goodsName);
     if(outNum > totalStock){
@@ -509,6 +494,7 @@ if (isSpecialStatus && (!finalSalePrice || finalSalePrice === 0)) {
     await loadStockIn();
     refreshAllStockCache(allStockIn, allStockOut);
 }
+
 // 导出/导入/模板、分页、排序、删除 等通用功能
 function downloadStockOutTemplate(){
     const header = ["供应商","商品名称","规格","结算方式","出库单价","销售单价","出库数量","出库金额","销售金额","录入日期"];
