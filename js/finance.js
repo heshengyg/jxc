@@ -1003,9 +1003,10 @@ function searchPrintStockIn(resetPage = true) {
     const start = document.getElementById('printStartDate').value;
     const end = document.getElementById('printEndDate').value;
 
-    // ✅ 修改：同时获取入库和退货记录
+    // ✅ 入库记录：只取线下
     let inList = allStockInList.filter(item => item.settleType === '线下');
-    let returnList = allReturnGoods || [];
+    // ✅ 退货记录：只取线下（settle_type === '线下'）
+    let returnList = (allReturnGoods || []).filter(item => item.settle_type === '线下');
 
     // 对入库记录应用筛选
     if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
