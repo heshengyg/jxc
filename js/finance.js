@@ -1616,6 +1616,8 @@ function openPayAddModal() {
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('payAmount').value = '';
     document.getElementById('payRemark').value = '';
+    // ✅ 修复：重置供应商下拉框为默认值
+    document.getElementById('paySupplier').value = '';
     const displayEl = document.getElementById('payPayableDisplay');
     if (displayEl) {
         displayEl.textContent = '请选择供应商';
@@ -1650,13 +1652,14 @@ function updatePayPayableDisplay(supplier) {
         return;
     }
     
-    // 计算入库总额（线下）
+    // ✅ 从 allStockInList 中获取最新数据（包含累计字段）
+    const inRecords = allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier);
     let totalIn = 0;
-    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
+    inRecords.forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // ✅ 新增：计算退货总额（退货减少应付账款）
+    // 计算退货总额
     let totalReturn = 0;
     if (allReturnGoods && allReturnGoods.length > 0) {
         allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
@@ -1676,6 +1679,7 @@ function updatePayPayableDisplay(supplier) {
     displayEl.textContent = `￥${payable.toFixed(2)}`;
     displayEl.style.color = payable < 0 ? '#ff4d4f' : '#333';
 }
+
 // ========== 更新发票结余显示（包含退货） ==========
 function updateInvoiceBackBalance(supplier) {
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
@@ -1687,13 +1691,14 @@ function updateInvoiceBackBalance(supplier) {
         return;
     }
     
-    // 计算入库总额（线下）
+    // ✅ 从 allStockInList 中获取最新数据
+    const inRecords = allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier);
     let totalIn = 0;
-    allStockInList.filter(i => i.settleType === '线下' && i.supplier === supplier).forEach(item => {
+    inRecords.forEach(item => {
         totalIn += Number(item.in_price) * Number(item.in_num);
     });
     
-    // ✅ 新增：计算退货总额（退货减少应开票金额）
+    // 计算退货总额（退货减少应开票金额）
     let totalReturn = 0;
     if (allReturnGoods && allReturnGoods.length > 0) {
         allReturnGoods.filter(r => r.supplier === supplier).forEach(item => {
@@ -1713,6 +1718,7 @@ function updateInvoiceBackBalance(supplier) {
     displayEl.textContent = `￥${balance.toFixed(2)}`;
     displayEl.style.color = balance < 0 ? '#ff4d4f' : '#333';
 }
+
 // ===================== 👆 添加结束 =====================
 
 function closePayModal() {
@@ -2014,6 +2020,8 @@ function openInvoiceBackAddModal() {
     document.getElementById('invoiceBackAmount').value = '';
     document.getElementById('invoiceBackNo').value = '';
     document.getElementById('invoiceBackRemark').value = '';
+    // ✅ 修复：重置供应商下拉框为默认值
+    document.getElementById('invoiceBackSupplier').value = '';
     const displayEl = document.getElementById('invoiceBackBalanceDisplay');
     if (displayEl) {
         displayEl.textContent = '请选择供应商';
@@ -2022,12 +2030,6 @@ function openInvoiceBackAddModal() {
     const modal = document.getElementById('invoiceBackModal');
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
-    
-    // 🔧 如果当前有选中的供应商，立即更新显示
-    const supplier = document.getElementById('invoiceBackSupplier').value;
-    if (supplier) {
-        updateInvoiceBackBalance(supplier);
-    }
 }
 
 function openInvoiceBackEdit(id) {
