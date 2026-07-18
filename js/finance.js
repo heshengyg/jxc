@@ -1336,6 +1336,19 @@ function previewAndPrint() {
             font-weight: bold;
             font-size: 12pt;
         }
+        /* ✅ 新增：强制所有边框统一 */
+.goods-table th:last-child,
+.goods-table td:last-child {
+    border-right: 1px solid #000;
+}
+.goods-table th:first-child,
+.goods-table td:first-child {
+    border-left: 1px solid #000;
+}
+.goods-table th:last-child {
+    border-right: 1px solid #000;
+}
+
         .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 13%; }
         .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
         .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
