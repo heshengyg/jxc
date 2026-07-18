@@ -1320,6 +1320,7 @@ function previewAndPrint() {
             font-size: 11pt;
             table-layout: fixed;
             margin-bottom: 0;
+            border: 1px solid #000;
         }
         .goods-table th, .goods-table td {
             border: 1px solid #000;
