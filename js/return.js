@@ -1259,26 +1259,32 @@ function previewReturnPrint() {
         }
         .bill-header .label { font-weight: bold; }
         .goods-table {
-            width: 100% !important;
-            border-collapse: collapse;
-            font-size: 11pt;
-            table-layout: fixed;
-            margin-bottom: 0;
-        }
-        .goods-table th, .goods-table td {
-            border: 1px solid #000;
-            padding: 4px 3px;
-            text-align: center;
-            font-size: 11pt;
-            word-break: break-word;
-            height: auto;
-        }
-        .goods-table th {
-            border: 2px solid #000;
-            background: #f5f5f5;
-            font-weight: bold;
-            font-size: 12pt;
-        }
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 11pt;
+    table-layout: fixed;
+    margin-bottom: 0;
+}
+.goods-table th, .goods-table td {
+    border: 1px solid #000;
+    padding: 4px 3px;
+    text-align: center;
+    font-size: 11pt;
+    word-break: break-word;
+    height: auto;
+}
+.goods-table th {
+    border: 1px solid #000;  /* ✅ 已修改 */
+    background: #f5f5f5;
+    font-weight: bold;
+    font-size: 12pt;
+}
+.goods-table .total-row td {
+    border-top: 1px solid #000;  /* ✅ 已修改 */
+    font-weight: bold;
+    background: #fafafa;
+    font-size: 12pt;
+}
         .goods-table th:nth-child(1), .goods-table td:nth-child(1) { width: 14%; }
         .goods-table th:nth-child(2), .goods-table td:nth-child(2) { width: 14%; }
         .goods-table th:nth-child(3), .goods-table td:nth-child(3) { width: 22%; }
