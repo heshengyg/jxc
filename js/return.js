@@ -1255,7 +1255,7 @@ function previewReturnPrint() {
             justify-content: space-between;
             font-size: 12pt;
             margin-bottom: 4px;
-            padding: 0 2px;
+            padding: 0 1px;
         }
         .bill-header .label { font-weight: bold; }
         .goods-table {
@@ -1293,7 +1293,7 @@ function previewReturnPrint() {
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
         .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 14%; }
         .goods-table .total-row td {
-            border-top: 2px solid #000;
+            border-top: 1px solid #000;
             font-weight: bold;
             background: #fafafa;
             font-size: 12pt;
