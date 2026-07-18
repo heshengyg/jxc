@@ -227,3 +227,24 @@ function togglePasswordVisibility(el) {
         el.textContent = '👁️';
     }
 }
+
+// ========== 回车键登录支持 ==========
+// 监听用户名输入框的回车事件
+document.addEventListener('DOMContentLoaded', function() {
+    var usernameInput = document.getElementById('username');
+    var passwordInput = document.getElementById('password');
+    
+    function handleEnterKey(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            login();
+        }
+    }
+    
+    if (usernameInput) {
+        usernameInput.addEventListener('keydown', handleEnterKey);
+    }
+    if (passwordInput) {
+        passwordInput.addEventListener('keydown', handleEnterKey);
+    }
+});
