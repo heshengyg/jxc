@@ -1541,74 +1541,74 @@ function resetPaySearch() {
     document.getElementById('payEndDate').value = '';
     refreshPayRecordList(true);
 }
-function refreshInvoiceBackList(resetPage = true) {
+// ========== 付款记录刷新列表（含日期筛选和汇总） ==========
+function refreshPayRecordList(resetPage = true) {
     if (resetPage) {
-        financePageConfig.invoiceBack.current = 1;
+        financePageConfig.payRecord.current = 1;
     }
-    const filterSupplier = document.getElementById('invoiceBackSupplierSearchInput').value.trim();
-    // ✅ 新增：获取日期筛选条件
-    const startDate = document.getElementById('invoiceBackStartDate').value;
-    const endDate = document.getElementById('invoiceBackEndDate').value;
+    const filterSupplier = document.getElementById('paySupplierSearchInput').value.trim();
+    // ✅ 获取日期筛选条件
+    const startDate = document.getElementById('payStartDate').value;
+    const endDate = document.getElementById('payEndDate').value;
     
-    let list = [...allInvoiceBackList];
+    let list = [...allPayList];
     list.sort((a, b) => b.id - a.id);
     
     // 模糊匹配供应商
     if (filterSupplier) {
-        list = list.filter(i => (i.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+        list = list.filter(p => (p.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
     }
     
-    // ✅ 新增：日期筛选
+    // ✅ 日期筛选
     if (startDate) {
-        list = list.filter(i => i.return_date >= startDate);
+        list = list.filter(p => p.payment_date >= startDate);
     }
     if (endDate) {
-        list = list.filter(i => i.return_date <= endDate);
+        list = list.filter(p => p.payment_date <= endDate);
     }
 
-    const cfg = financePageConfig.invoiceBack;
+    const cfg = financePageConfig.payRecord;
     cfg.total = list.length;
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(start, start + cfg.pageSize);
 
-    const tbody = document.getElementById('invoiceBackList');
+    const tbody = document.getElementById('payRecordList');
     tbody.innerHTML = '';
     if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
         // ✅ 隐藏汇总行
-        document.getElementById('invoiceBackFoot').style.display = 'none';
-        renderFinancePagination('invoiceBack');
+        document.getElementById('payRecordFoot').style.display = 'none';
+        renderFinancePagination('payRecord');
         return;
     }
     
-    // ✅ 计算汇总金额（基于当前筛选后的全部数据，而非分页数据）
+    // ✅ 计算汇总金额（基于当前筛选后的全部数据）
     let totalAmount = 0;
     list.forEach(item => {
-        totalAmount += Number(item.invoice_amount) || 0;
+        totalAmount += Number(item.payment_amount) || 0;
     });
     
     pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
             <td>${start + idx + 1}</td>
-            <td>${item.return_date}</td>
+            <td>${item.payment_date}</td>
             <td>${item.supplier}</td>
-            <td>${Number(item.invoice_amount).toFixed(2)}</td>
-            <td>${item.invoice_no || ''}</td>
+            <td>${Number(item.payment_amount).toFixed(2)}</td>
             <td>${item.remark || ''}</td>
             <td>
-                <button class="btn btn-primary" onclick="openInvoiceBackEdit(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deleteInvoiceBackRecord(${item.id})">删除</button>
+                <button class="btn btn-primary" onclick="openPayEdit(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deletePayRecord(${item.id})">删除</button>
             </td>
         </tr>`;
     });
     
     // ✅ 显示汇总行并更新汇总金额
-    const foot = document.getElementById('invoiceBackFoot');
+    const foot = document.getElementById('payRecordFoot');
     foot.style.display = 'table-footer-group';
-    document.getElementById('invoiceBackTotalAmount').textContent = '￥' + totalAmount.toFixed(2);
+    document.getElementById('payTotalAmount').textContent = '￥' + totalAmount.toFixed(2);
     
-    renderFinancePagination('invoiceBack');
+    renderFinancePagination('payRecord');
 }
 
 function openPayAddModal() {
