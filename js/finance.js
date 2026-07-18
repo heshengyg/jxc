@@ -3070,12 +3070,16 @@ returnList.forEach(record => {
     }
 
     // 税率筛选
-    if (taxRate !== '') {
-        displayData = displayData.filter(row => {
-            const rate = row.tax_rate_val !== undefined ? String(row.tax_rate_val) : '';
-            return rate === taxRate;
-        });
-    }
+if (taxRate !== '') {
+    displayData = displayData.filter(row => {
+        // 未设置税率的商品不匹配任何税率选项
+        if (row.tax_rate_val === null || row.tax_rate_val === undefined || row.tax_rate_val === '') {
+            return false;
+        }
+        const rate = String(row.tax_rate_val);
+        return rate === taxRate;
+    });
+}
 
     // ============================================================
     // 【第八步】发票状态筛选（基于计算出的状态）
