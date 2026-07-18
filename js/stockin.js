@@ -484,24 +484,23 @@ function showInPriceReminder(lastPrice, lastDate) {
             （录入日期：${formattedDate}）
         </div>
     `;
-    // ✅ 改为居中 + 自适应宽度
+    // ✅ 改为居中 + 自适应宽度（只影响自身，不影响父容器其他子元素）
     reminderEl.style.display = 'inline-block';
     reminderEl.style.textAlign = 'center';
-    reminderEl.style.margin = '4px auto 0 auto';
+    // ✅ 使用 left: 50%; transform: translateX(-50%) 实现居中，不影响父容器
+    reminderEl.style.position = 'relative';
+    reminderEl.style.left = '50%';
+    reminderEl.style.transform = 'translateX(-50%)';
+    reminderEl.style.marginTop = '4px';
     reminderEl.style.background = '#fff3cd';
     reminderEl.style.border = '1px solid #ffc107';
     reminderEl.style.borderRadius = '4px';
     reminderEl.style.padding = '6px 16px';
     reminderEl.style.fontSize = '14px';
-    reminderEl.style.position = 'relative';
     reminderEl.style.borderTop = 'none';
     reminderEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
     
-    // 父容器设置为居中
-    const parentEl = reminderEl.parentNode;
-    if (parentEl) {
-        parentEl.style.textAlign = 'center';
-    }
+    // ✅ 移除父容器的 textAlign 设置（不再修改父容器）
     
     const arrowEl = document.createElement('div');
     arrowEl.style.cssText = `
@@ -517,7 +516,6 @@ function showInPriceReminder(lastPrice, lastDate) {
     `;
     reminderEl.appendChild(arrowEl);
 }
-
 /**
  * 显示无历史记录提示
  */
@@ -528,23 +526,23 @@ function showNoHistoryReminder() {
     reminderEl.innerHTML = `
         ℹ️ <span style="color:#17a2b8;">该商品暂无入库记录，请手动输入入库单价</span>
     `;
-    // ✅ 改为居中 + 自适应宽度
+    // ✅ 改为居中 + 自适应宽度（只影响自身，不影响父容器其他子元素）
     reminderEl.style.display = 'inline-block';
     reminderEl.style.textAlign = 'center';
-    reminderEl.style.margin = '4px auto 0 auto';
+    // ✅ 使用 left: 50%; transform: translateX(-50%) 实现居中
+    reminderEl.style.position = 'relative';
+    reminderEl.style.left = '50%';
+    reminderEl.style.transform = 'translateX(-50%)';
+    reminderEl.style.marginTop = '4px';
     reminderEl.style.background = '#d1ecf1';
     reminderEl.style.border = '1px solid #17a2b8';
     reminderEl.style.borderRadius = '4px';
     reminderEl.style.padding = '6px 16px';
     reminderEl.style.fontSize = '14px';
-    reminderEl.style.position = 'relative';
     reminderEl.style.borderTop = 'none';
     reminderEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
     
-    const parentEl = reminderEl.parentNode;
-    if (parentEl) {
-        parentEl.style.textAlign = 'center';
-    }
+    // ✅ 移除父容器的 textAlign 设置
     
     const arrowEl = document.createElement('div');
     arrowEl.style.cssText = `
@@ -560,6 +558,7 @@ function showNoHistoryReminder() {
     `;
     reminderEl.appendChild(arrowEl);
 }
+
 /**
  * 隐藏入库单价提醒
  */
@@ -568,14 +567,24 @@ function hideInPriceReminder() {
     if (reminderEl) {
         reminderEl.style.display = 'none';
         reminderEl.innerHTML = '';
-        // ✅ 恢复父容器的 text-align
-        const parentEl = reminderEl.parentNode;
-        if (parentEl) {
-            parentEl.style.textAlign = '';
+        // ✅ 重置自身样式
+        reminderEl.style.position = '';
+        reminderEl.style.left = '';
+        reminderEl.style.transform = '';
+        reminderEl.style.marginTop = '';
+        reminderEl.style.background = '';
+        reminderEl.style.border = '';
+        reminderEl.style.borderRadius = '';
+        reminderEl.style.padding = '';
+        reminderEl.style.fontSize = '';
+        reminderEl.style.borderTop = '';
+        reminderEl.style.boxShadow = '';
+        // ✅ 清除可能残留的箭头元素
+        while (reminderEl.firstChild) {
+            reminderEl.removeChild(reminderEl.firstChild);
         }
     }
 }
-
 /**
  * 显示价格一致的提醒（绿色）
  */
@@ -594,23 +603,22 @@ function showPriceConsistentReminder(lastPrice, lastDate) {
             （${formattedDate}）
         </div>
     `;
-    // ✅ 改为居中 + 自适应宽度
+    // ✅ 改为居中 + 自适应宽度（只影响自身）
     reminderEl.style.display = 'inline-block';
     reminderEl.style.textAlign = 'center';
-    reminderEl.style.margin = '4px auto 0 auto';
+    reminderEl.style.position = 'relative';
+    reminderEl.style.left = '50%';
+    reminderEl.style.transform = 'translateX(-50%)';
+    reminderEl.style.marginTop = '4px';
     reminderEl.style.background = '#d4edda';
     reminderEl.style.border = '1px solid #28a745';
     reminderEl.style.borderRadius = '4px';
     reminderEl.style.padding = '6px 16px';
     reminderEl.style.fontSize = '14px';
-    reminderEl.style.position = 'relative';
     reminderEl.style.borderTop = 'none';
     reminderEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
     
-    const parentEl = reminderEl.parentNode;
-    if (parentEl) {
-        parentEl.style.textAlign = 'center';
-    }
+    // ✅ 移除父容器的 textAlign 设置
     
     const arrowEl = document.createElement('div');
     arrowEl.style.cssText = `
@@ -647,23 +655,22 @@ function showPriceChangedReminder(lastPrice, currentPrice, lastDate) {
             （上次日期：${formattedDate}）
         </div>
     `;
-    // ✅ 改为居中 + 自适应宽度
+    // ✅ 改为居中 + 自适应宽度（只影响自身）
     reminderEl.style.display = 'inline-block';
     reminderEl.style.textAlign = 'center';
-    reminderEl.style.margin = '4px auto 0 auto';
+    reminderEl.style.position = 'relative';
+    reminderEl.style.left = '50%';
+    reminderEl.style.transform = 'translateX(-50%)';
+    reminderEl.style.marginTop = '4px';
     reminderEl.style.background = '#f8d7da';
     reminderEl.style.border = '1px solid #dc3545';
     reminderEl.style.borderRadius = '4px';
     reminderEl.style.padding = '6px 16px';
     reminderEl.style.fontSize = '14px';
-    reminderEl.style.position = 'relative';
     reminderEl.style.borderTop = 'none';
     reminderEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
     
-    const parentEl = reminderEl.parentNode;
-    if (parentEl) {
-        parentEl.style.textAlign = 'center';
-    }
+    // ✅ 移除父容器的 textAlign 设置
     
     const arrowEl = document.createElement('div');
     arrowEl.style.cssText = `
@@ -679,7 +686,6 @@ function showPriceChangedReminder(lastPrice, currentPrice, lastDate) {
     `;
     reminderEl.appendChild(arrowEl);
 }
-
 // ========== 绑定入库单价输入事件 ==========
 function bindInPriceEvents() {
     const priceInput = document.getElementById('inPrice');
