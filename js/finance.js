@@ -2918,7 +2918,7 @@ if (channel === '线上') {
 }
 
             // 计算金额
-            let taxRateDisplay = '';
+
             let inPriceDisplay = '';
             let noTaxTotal = 0;
             let taxTotal = 0;
