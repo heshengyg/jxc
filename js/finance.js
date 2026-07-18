@@ -2883,13 +2883,28 @@ let invoiceBalance = remainingInvoice - cumNetIn;
 let payBalance = cumNetIn - remainingPay;
 
             // 获取税率和渠道
-            const goods = allGoodsList.find(g => 
-                g.name === record.goodsName && 
-                g.supplier === record.supplier && 
-                (g.spec || '') === (record.spec || '')
-            );
-            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-            const channel = record.settleType || (goods ? goods.channel : '');
+const goods = allGoodsList.find(g => 
+    g.name === record.goodsName && 
+    g.supplier === record.supplier && 
+    (g.spec || '') === (record.spec || '')
+);
+const channel = record.settleType || (goods ? goods.channel : '');
+
+// ✅ 正确区分未设置和0%
+let taxRateVal = 0;
+let taxRateDisplay = '';
+
+if (channel === '线上') {
+    taxRateVal = -1;  // 线上用 -1 表示无税率
+    taxRateDisplay = '';
+} else if (goods && goods.tax_rate !== null && goods.tax_rate !== undefined && goods.tax_rate !== '') {
+    taxRateVal = Number(goods.tax_rate);
+    taxRateDisplay = taxRateVal + '%';
+} else {
+    // 线下但未设置税率
+    taxRateVal = null;  // 用 null 表示未设置
+    taxRateDisplay = '';
+}
 
             // 判断状态（基于全量数据计算）
 let invoiceStatus = invoiceBalance >= 0 ? '已开票' : '未开票';
@@ -3074,6 +3089,10 @@ if (taxRate !== '') {
     displayData = displayData.filter(row => {
         // 未设置税率的商品不匹配任何税率选项
         if (row.tax_rate_val === null || row.tax_rate_val === undefined || row.tax_rate_val === '') {
+            return false;
+        }
+        // 线上商品（tax_rate_val === -1）也不匹配
+        if (row.tax_rate_val === -1) {
             return false;
         }
         const rate = String(row.tax_rate_val);
