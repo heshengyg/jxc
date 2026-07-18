@@ -225,6 +225,8 @@ function loadGoodsBySupplier(supplier){
     document.getElementById('inSalePrice').value = '';
     document.getElementById('inPrice').value = '';
     document.getElementById('inPrice').disabled = false;
+    // ✅ 隐藏入库单价提醒
+    hideInPriceReminder();
 }
 
 // 商品下拉
@@ -269,8 +271,12 @@ function selectInGoods(goods){
     if(goods.channel === '线上'){
         priceInput.disabled = true;
         priceInput.value = '';
+        // ✅ 隐藏提醒
+        hideInPriceReminder();
     }else{
         priceInput.disabled = false;
+        // ✅ 自动加载最近入库单价并显示提醒
+        loadLastInPriceAndRemind(goods);
     }
     // ✅ 触发日期变化事件，根据已有日期匹配价格
     updateInPriceByDate();
@@ -366,6 +372,245 @@ function bindInDateEvents() {
     }
 }
 
+// ============================================================
+// ========== 入库单价自动填充与提醒功能 ==========
+// ============================================================
+
+/**
+ * 获取商品最近一次入库单价（通用）
+ */
+async function getLastInPrice(supplier, goodsName, spec) {
+    try {
+        const encodedSupplier = encodeURIComponent(supplier);
+        const encodedGoodsName = encodeURIComponent(goodsName);
+        const encodedSpec = encodeURIComponent(spec || '');
+        
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&order=record_date.desc&limit=1`,
+            {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].in_price) {
+            return {
+                price: data[0].in_price,
+                recordDate: data[0].record_date,
+                inNum: data[0].in_num
+            };
+        }
+        return null;
+    } catch (e) {
+        console.warn('获取最近入库单价失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 获取最近入库单价（排除自身ID，用于编辑时）
+ */
+async function getLastInPriceExcludeSelf(supplier, goodsName, spec, excludeId) {
+    try {
+        const encodedSupplier = encodeURIComponent(supplier);
+        const encodedGoodsName = encodeURIComponent(goodsName);
+        const encodedSpec = encodeURIComponent(spec || '');
+        
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&id=neq.${excludeId}&order=record_date.desc&limit=1`,
+            {
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].in_price) {
+            return {
+                price: data[0].in_price,
+                recordDate: data[0].record_date,
+                inNum: data[0].in_num
+            };
+        }
+        return null;
+    } catch (e) {
+        console.warn('获取最近入库单价（排除自身）失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 加载最近入库单价并显示提醒
+ */
+async function loadLastInPriceAndRemind(goods) {
+    const supplier = document.getElementById('supSearchInput').value.trim();
+    const goodsName = goods.name;
+    const spec = goods.spec || '';
+    const editId = document.getElementById('inEditId').value;
+    
+    if (!supplier || !goodsName) return;
+    
+    const getLastFn = editId ? getLastInPriceExcludeSelf : getLastInPrice;
+    const lastRecord = await getLastFn(supplier, goodsName, spec, editId);
+    const priceInput = document.getElementById('inPrice');
+    
+    if (lastRecord && lastRecord.price > 0) {
+        priceInput.value = lastRecord.price;
+        showInPriceReminder(lastRecord.price, lastRecord.recordDate);
+    } else {
+        priceInput.value = '';
+        showNoHistoryReminder();
+    }
+}
+
+/**
+ * 显示入库单价提醒（有历史记录）
+ */
+function showInPriceReminder(lastPrice, lastDate) {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (!reminderEl) return;
+    
+    const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    reminderEl.innerHTML = `
+        ⚠️ <span style="color:#ff6b6b; font-weight:bold;">请确认入库单价是否与上一次一致！</span>
+        <span style="color:#999; font-size:13px; margin-left:10px;">
+            上次入库价：<strong style="color:#333;">¥${formatMoney(lastPrice)}</strong>
+            （录入日期：${formattedDate}）
+        </span>
+    `;
+    reminderEl.style.display = 'block';
+    reminderEl.style.background = '#fff3cd';
+    reminderEl.style.border = '1px solid #ffc107';
+    reminderEl.style.borderRadius = '4px';
+    reminderEl.style.padding = '8px 12px';
+    reminderEl.style.marginTop = '4px';
+    reminderEl.style.fontSize = '14px';
+}
+
+/**
+ * 显示无历史记录提示
+ */
+function showNoHistoryReminder() {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (!reminderEl) return;
+    
+    reminderEl.innerHTML = `
+        ℹ️ <span style="color:#17a2b8;">该商品暂无入库记录，请手动输入入库单价</span>
+    `;
+    reminderEl.style.display = 'block';
+    reminderEl.style.background = '#d1ecf1';
+    reminderEl.style.border = '1px solid #17a2b8';
+    reminderEl.style.borderRadius = '4px';
+    reminderEl.style.padding = '8px 12px';
+    reminderEl.style.marginTop = '4px';
+    reminderEl.style.fontSize = '14px';
+}
+
+/**
+ * 隐藏入库单价提醒
+ */
+function hideInPriceReminder() {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (reminderEl) {
+        reminderEl.style.display = 'none';
+        reminderEl.innerHTML = '';
+    }
+}
+
+/**
+ * 显示价格一致的提醒（绿色）
+ */
+function showPriceConsistentReminder(lastPrice, lastDate) {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (!reminderEl) return;
+    
+    const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    reminderEl.innerHTML = `
+        ✅ <span style="color:#28a745; font-weight:bold;">入库单价与上次一致</span>
+        <span style="color:#999; font-size:13px; margin-left:10px;">
+            上次入库价：<strong style="color:#333;">¥${formatMoney(lastPrice)}</strong>
+            （${formattedDate}）
+        </span>
+    `;
+    reminderEl.style.display = 'block';
+    reminderEl.style.background = '#d4edda';
+    reminderEl.style.border = '1px solid #28a745';
+    reminderEl.style.borderRadius = '4px';
+    reminderEl.style.padding = '8px 12px';
+    reminderEl.style.marginTop = '4px';
+    reminderEl.style.fontSize = '14px';
+}
+
+/**
+ * 显示价格变更的提醒（红色）
+ */
+function showPriceChangedReminder(lastPrice, currentPrice, lastDate) {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (!reminderEl) return;
+    
+    const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    reminderEl.innerHTML = `
+        ⚠️ <span style="color:#dc3545; font-weight:bold;">入库单价已变更，请确认！</span>
+        <span style="color:#999; font-size:13px; margin-left:10px;">
+            上次入库价：<strong style="color:#dc3545;">¥${formatMoney(lastPrice)}</strong>
+            → 当前价：<strong style="color:#007bff;">¥${formatMoney(currentPrice)}</strong>
+            （上次日期：${formattedDate}）
+        </span>
+    `;
+    reminderEl.style.display = 'block';
+    reminderEl.style.background = '#f8d7da';
+    reminderEl.style.border = '1px solid #dc3545';
+    reminderEl.style.borderRadius = '4px';
+    reminderEl.style.padding = '8px 12px';
+    reminderEl.style.marginTop = '4px';
+    reminderEl.style.fontSize = '14px';
+}
+
+// ========== 绑定入库单价输入事件 ==========
+function bindInPriceEvents() {
+    const priceInput = document.getElementById('inPrice');
+    if (!priceInput) return;
+    
+    priceInput.removeEventListener('input', onPriceInputChange);
+    priceInput.addEventListener('input', onPriceInputChange);
+}
+
+function onPriceInputChange() {
+    const currentPrice = parseFloat(this.value);
+    if (isNaN(currentPrice) || currentPrice <= 0) {
+        const supplier = document.getElementById('supSearchInput').value.trim();
+        const goodsName = document.getElementById('goodsSearchInput').value.trim();
+        if (supplier && goodsName) {
+            const goods = currGoodsList.find(g => g.name === goodsName);
+            if (goods) {
+                loadLastInPriceAndRemind(goods);
+            }
+        }
+        return;
+    }
+    
+    const supplier = document.getElementById('supSearchInput').value.trim();
+    const goodsName = document.getElementById('goodsSearchInput').value.trim();
+    const spec = document.getElementById('inSpec').value || '';
+    const editId = document.getElementById('inEditId').value;
+    
+    if (supplier && goodsName) {
+        const getLastFn = editId ? getLastInPriceExcludeSelf : getLastInPrice;
+        getLastFn(supplier, goodsName, spec, editId).then(lastRecord => {
+            if (lastRecord && lastRecord.price > 0) {
+                if (Math.abs(lastRecord.price - currentPrice) < 0.01) {
+                    showPriceConsistentReminder(lastRecord.price, lastRecord.recordDate);
+                } else {
+                    showPriceChangedReminder(lastRecord.price, currentPrice, lastRecord.recordDate);
+                }
+            }
+        });
+    }
+}
+
 // 打开添加入库弹窗（异步校验）
 async function openStockInForm(id=null){
     // ----- 新增：重置所有字段和下拉列表 -----
@@ -381,6 +626,8 @@ async function openStockInForm(id=null){
     document.getElementById('inRecordDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('inProduceDate').value = '';
     document.getElementById('inExpireDate').value = '';
+    // ✅ 新增：隐藏入库单价提醒
+    hideInPriceReminder();
     // 重置销售价输入框样式
     const salePriceInput = document.getElementById('inSalePrice');
     salePriceInput.placeholder = '';
@@ -412,6 +659,18 @@ async function openStockInForm(id=null){
                 document.getElementById('inProduceDate').value = item.produce_date || '';
                 document.getElementById('inExpireDate').value = item.expire_date || '';
                 
+                // ✅ 编辑时也显示提醒（根据当前编辑的单价）
+                if (item.settleType === '线下' && item.in_price) {
+                    // 获取最近一次入库单价（排除自身）
+                    getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
+                        if (lastRecord && lastRecord.price > 0) {
+                            showInPriceReminder(lastRecord.price, lastRecord.recordDate);
+                        } else {
+                            showNoHistoryReminder();
+                        }
+                    });
+                }
+                
                 // ✅ 关键修改：加载完日期后，调用 updateInPriceByDate 匹配状态价格
                 setTimeout(() => {
                     updateInPriceByDate();
@@ -421,9 +680,10 @@ async function openStockInForm(id=null){
     }
     // ✅ 绑定日期事件
     bindInDateEvents();
+    // ✅ 绑定入库单价输入事件
+    bindInPriceEvents();
     document.getElementById('stockInModal').style.display = 'block';
 }
-
 function closeStockInForm(){
     document.getElementById('stockInModal').style.display = 'none';
 }
