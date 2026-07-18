@@ -1003,32 +1003,77 @@ function searchPrintStockIn(resetPage = true) {
     const start = document.getElementById('printStartDate').value;
     const end = document.getElementById('printEndDate').value;
 
-    let list = allStockInList.filter(item => item.settleType === '线下');
-    
-    // ✅ 改为模糊匹配（includes）
-    if (supplier) list = list.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
-    if (goodsName) list = list.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName));
-    if (spec) list = list.filter(i => (i.spec || '').toLowerCase().includes(spec));
-    if (start) list = list.filter(i => i.record_date >= start);
-    if (end) list = list.filter(i => i.record_date <= end);
+    // ✅ 修改：同时获取入库和退货记录
+    let inList = allStockInList.filter(item => item.settleType === '线下');
+    let returnList = allReturnGoods || [];
+
+    // 对入库记录应用筛选
+    if (supplier) inList = inList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+    if (goodsName) inList = inList.filter(i => (i.goodsName || '').toLowerCase().includes(goodsName));
+    if (spec) inList = inList.filter(i => (i.spec || '').toLowerCase().includes(spec));
+    if (start) inList = inList.filter(i => i.record_date >= start);
+    if (end) inList = inList.filter(i => i.record_date <= end);
+
+    // 对退货记录应用筛选（使用相同的筛选条件）
+    if (supplier) returnList = returnList.filter(i => (i.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+    if (goodsName) returnList = returnList.filter(i => (i.goods_name || '').toLowerCase().includes(goodsName));
+    if (spec) returnList = returnList.filter(i => (i.spec || '').toLowerCase().includes(spec));
+    if (start) returnList = returnList.filter(i => i.record_date >= start);
+    if (end) returnList = returnList.filter(i => i.record_date <= end);
+
+    // ✅ 合并入库和退货记录，退货记录转成负数和负金额
+    let list = [];
+
+    // 入库记录（正数）
+    inList.forEach(item => {
+        list.push({
+            id: item.id,
+            supplier: item.supplier,
+            goodsName: item.goodsName,
+            spec: item.spec || '',
+            in_price: Number(item.in_price),
+            in_num: Number(item.in_num),
+            record_date: item.record_date || '',
+            _isReturn: false,
+            amount: Number(item.in_price) * Number(item.in_num)
+        });
+    });
+
+    // 退货记录（负数和负金额）
+    returnList.forEach(item => {
+        const qty = -Number(item.return_num);
+        const price = Number(item.in_price);
+        list.push({
+            id: -item.id,  // 用负ID区分
+            supplier: item.supplier,
+            goodsName: item.goods_name,
+            spec: item.spec || '',
+            in_price: price,
+            in_num: qty,  // 负数量
+            record_date: item.record_date || '',
+            _isReturn: true,
+            amount: price * qty  // 负金额
+        });
+    });
 
     // 排序逻辑保持不变
     const cfg = financePageConfig.stockInPrint;
-    list.sort((a,b)=>{
+    list.sort((a, b) => {
         let val1 = a[cfg.sortField], val2 = b[cfg.sortField];
-        if(typeof val1 === 'string' && !/^\d+$/.test(val1)){
+        if (typeof val1 === 'string' && !/^\d+$/.test(val1)) {
             val1 = val1.toLowerCase();
             val2 = val2.toLowerCase();
         }
-        if(val1 > val2) return cfg.sortType === 'desc' ? -1 : 1;
-        if(val1 < val2) return cfg.sortType === 'desc' ? 1 : -1;
+        if (val1 > val2) return cfg.sortType === 'desc' ? -1 : 1;
+        if (val1 < val2) return cfg.sortType === 'desc' ? 1 : -1;
         return 0;
     });
     printStockInData = list;
 
+    // ✅ 更新总条数提示（入库条数 + 退货条数）
     const totalTipDom = document.getElementById('stockTotalTip');
-    if(totalTipDom){
-        totalTipDom.innerText = `共${list.length}条入库记录，当前搜索结果${list.length}条`;
+    if (totalTipDom) {
+        totalTipDom.innerText = `共${list.length}条记录（入库${inList.length}条，退货${returnList.length}条），当前搜索结果${list.length}条`;
     }
 
     const startIdx = (cfg.current - 1) * cfg.pageSize;
@@ -1038,31 +1083,36 @@ function searchPrintStockIn(resetPage = true) {
     tbody.innerHTML = '';
     pageData.forEach((item, idx) => {
         const isChecked = selectedPrintIds.has(item.id);
+        // ✅ 退货记录红色显示
+        const rowStyle = item._isReturn ? 'style="color:red;"' : '';
+        const qtyDisplay = item.in_num;
+        const amountDisplay = item.amount;
         tbody.innerHTML += `
-        <tr>
+        <tr ${rowStyle}>
             <td><input type="checkbox" class="print-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}></td>
             <td>${startIdx + idx + 1}</td>
             <td>${item.supplier}</td>
             <td>${item.goodsName}</td>
             <td>${item.spec || ''}</td>
             <td>${Number(item.in_price).toFixed(2)}</td>
-            <td>${item.in_num}</td>
-            <td>${(Number(item.in_price) * Number(item.in_num)).toFixed(2)}</td>
+            <td>${qtyDisplay}</td>
+            <td>${amountDisplay.toFixed(2)}</td>
             <td>${item.record_date}</td>
         </tr>`;
     });
 
     // 底部汇总（保持不变）
     const groupMap = {};
-    list.forEach(row=>{
-        if(!groupMap[row.supplier]) groupMap[row.supplier] = {num:0,amount:0};
+    list.forEach(row => {
+        if (!groupMap[row.supplier]) groupMap[row.supplier] = { num: 0, amount: 0 };
         groupMap[row.supplier].num += Number(row.in_num);
-        groupMap[row.supplier].amount += Number(row.in_price)*Number(row.in_num);
+        groupMap[row.supplier].amount += Number(row.amount);
     });
     let totalTpl = '';
-    Object.entries(groupMap).forEach(([sup,data])=>{
+    Object.entries(groupMap).forEach(([sup, data]) => {
+        const colorStyle = data.num < 0 ? 'style="color:red;"' : '';
         totalTpl += `
-        <tr style="background:#f5f5f5;font-weight:bold;">
+        <tr style="background:#f5f5f5;font-weight:bold;" ${colorStyle}>
             <td colspan="2">${sup} 汇总</td>
             <td colspan="5">入库总数量：${data.num}</td>
             <td colspan="2">入库总金额：${data.amount.toFixed(2)}</td>
@@ -1089,11 +1139,11 @@ function searchPrintStockIn(resetPage = true) {
     };
 
     document.querySelectorAll('.print-checkbox').forEach(checkbox => {
-        checkbox.onchange = function(){
+        checkbox.onchange = function () {
             const id = Number(this.dataset.id);
-            if(this.checked){
+            if (this.checked) {
                 selectedPrintIds.add(id);
-            }else{
+            } else {
                 selectedPrintIds.delete(id);
             }
             const allChecked = selectedPrintIds.size === printStockInData.length;
@@ -1139,7 +1189,7 @@ function previewAndPrint() {
         let supTotalQty = 0, supTotalAmount = 0;
         rows.forEach(r => {
             supTotalQty += Number(r.in_num);
-            supTotalAmount += Number(r.in_price) * Number(r.in_num);
+            supTotalAmount += Number(r.amount);
         });
 
         for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
@@ -1151,10 +1201,12 @@ function previewAndPrint() {
             chunk.forEach(row => {
                 const price = Number(row.in_price) || 0;
                 const qty = Number(row.in_num) || 0;
-                const amount = price * qty;
+                const amount = Number(row.amount) || 0;
                 const date = row.record_date ? row.record_date.replace(/-/g, '/') : '';
+                // ✅ 退货记录红色显示
+                const rowStyle = row._isReturn ? 'style="color:red;"' : '';
                 tableRows += `
-                    <tr>
+                    <tr ${rowStyle}>
                         <td>${date}</td>
                         <td>${supplier}</td>
                         <td>${row.goodsName || ''}</td>
@@ -1167,8 +1219,10 @@ function previewAndPrint() {
             });
 
             if (isLastPage) {
+                // ✅ 汇总行颜色根据金额正负决定
+                const totalColor = supTotalAmount < 0 ? 'style="color:red;"' : '';
                 tableRows += `
-                    <tr class="total-row">
+                    <tr class="total-row" ${totalColor}>
                         <td colspan="5" class="total-label">${supplier} 汇总</td>
                         <td class="total-qty">${supTotalQty}</td>
                         <td class="total-amount">￥${supTotalAmount.toFixed(2)}</td>
@@ -1204,6 +1258,8 @@ function previewAndPrint() {
             `;
         }
     });
+
+    // ... 后续的 fullHTML 保持不变（样式部分不变）
     const fullHTML = `
     <!DOCTYPE html>
     <html>
@@ -1345,6 +1401,13 @@ function previewAndPrint() {
             .bill-footer { bottom: 0.6cm !important; }
             .goods-table td, .goods-table th { height: auto !important; }
         }
+        /* ✅ 打印时退货记录红色显示 */
+        @media print {
+            .goods-table tr[style*="color:red"] td,
+            .goods-table tr[style*="color:red"] td * {
+                color: red !important;
+            }
+        }
     </style>
     </head>
     <body>
@@ -1367,7 +1430,6 @@ function previewAndPrint() {
     win.document.close();
     win.focus();
 }
-
 // ===================== ③财务付款记录模块 =====================
 let currentPayEditId = null;
 // 付款记录下拉缓存变量
