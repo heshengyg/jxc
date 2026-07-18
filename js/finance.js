@@ -2842,62 +2842,64 @@ if (channel === '线上') {
         });
 
         // 构建退货展示数据
-        returnList.forEach(record => {
-            const goods = allGoodsList.find(g => 
-                g.name === record.goods_name && 
-                g.supplier === record.supplier && 
-                (g.spec || '') === (record.spec || '')
-            );
-            const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
-            const channel = record.settle_type || (goods ? goods.channel : '');
-            const returnAmount = Number(record.in_price) * Number(record.return_num);
+        // 构建退货展示数据
+returnList.forEach(record => {
+    const goods = allGoodsList.find(g => 
+        g.name === record.goods_name && 
+        g.supplier === record.supplier && 
+        (g.spec || '') === (record.spec || '')
+    );
+    const taxRateVal = goods ? Number(goods.tax_rate || 0) : 0;
+    const channel = record.settle_type || (goods ? goods.channel : '');
+    const returnAmount = Number(record.in_price) * Number(record.return_num);
 
-            let taxRateDisplay = '';
-            let inPriceDisplay = '';
-            let noTaxTotal = 0;
-            let taxTotal = 0;
+    let taxRateDisplay = '';
+    let inPriceDisplay = '';
+    let noTaxTotal = 0;
+    let taxTotal = 0;
 
-            if (channel === '线上') {
-                taxRateDisplay = '';
-                inPriceDisplay = formatMoney(record.in_price);
-                noTaxTotal = 0;
-                taxTotal = 0;
-            } else {
-                taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
-                inPriceDisplay = formatMoney(record.in_price);
+    if (channel === '线上') {
+        taxRateDisplay = '';
+        inPriceDisplay = formatMoney(record.in_price);
+        noTaxTotal = 0;
+        taxTotal = 0;
+    } else {
+        taxRateDisplay = (taxRateVal > 0 ? taxRateVal + '%' : '0%');
+        inPriceDisplay = formatMoney(record.in_price);
 
-                const taxDecimal = taxRateVal / 100;
-                if (taxDecimal > 0) {
-                    const noTaxPrice = Number(record.in_price) / (1 + taxDecimal);
-                    noTaxTotal = noTaxPrice * Number(record.return_num);
-                    taxTotal = returnAmount - noTaxTotal;
-                } else {
-                    noTaxTotal = returnAmount;
-                    taxTotal = 0;
-                }
-            }
+        const taxDecimal = taxRateVal / 100;
+        if (taxDecimal > 0) {
+            const noTaxPrice = Number(record.in_price) / (1 + taxDecimal);
+            noTaxTotal = noTaxPrice * Number(record.return_num);
+            taxTotal = returnAmount - noTaxTotal;
+        } else {
+            noTaxTotal = returnAmount;
+            taxTotal = 0;
+        }
+    }
 
-            returnRecordsForDisplay.push({
-                id: -record.id,
-                supplier: record.supplier,
-                goodsName: record.goods_name,
-                spec: record.spec || '',
-                tax_rate_val: taxRateVal,
-                tax_rate_display: taxRateDisplay,
-                invoice_status: '退货',
-                in_price_display: inPriceDisplay,
-                in_num: -Number(record.return_num),
-                isPay: '退货',
-                totalAmount: returnAmount,
-                noTaxTotal: noTaxTotal,
-                taxTotal: taxTotal,
-                cumulative_invoice_balance: null,
-                cumulative_pay_balance: null,
-                record_date: record.record_date || '',
-                _isReturn: true,
-                channel: channel
-            });
-        });
+    returnRecordsForDisplay.push({
+        id: -record.id,
+        supplier: record.supplier,
+        goodsName: record.goods_name,
+        spec: record.spec || '',
+        tax_rate_val: taxRateVal,
+        tax_rate_display: taxRateDisplay,
+        invoice_status: '退货',
+        in_price_display: inPriceDisplay,
+        in_num: -Number(record.return_num),
+        isPay: '退货',
+        // ✅ 修改：所有金额取负值
+        totalAmount: -returnAmount,
+        noTaxTotal: -noTaxTotal,
+        taxTotal: -taxTotal,
+        cumulative_invoice_balance: null,
+        cumulative_pay_balance: null,
+        record_date: record.record_date || '',
+        _isReturn: true,
+        channel: channel
+    });
+});
     }
 
     // ============================================================
