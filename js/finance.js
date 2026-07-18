@@ -1343,7 +1343,7 @@ function previewAndPrint() {
         .goods-table th:nth-child(6), .goods-table td:nth-child(6) { width: 10%; }
         .goods-table th:nth-child(7), .goods-table td:nth-child(7) { width: 16%; }
         .goods-table .total-row td {
-            border-top: 2px solid #000;
+            border-top: 1px solid #000;
             font-weight: bold;
             background: #fafafa;
             font-size: 12pt;
