@@ -884,6 +884,14 @@
                    style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
             <div id="paySupplierListBox" style="position:absolute;top:100%;left:70px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <!-- ✅ 新增：付款起始日期 -->
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">付款起始日：</label>
+        <input type="date" id="payStartDate" onchange="refreshPayRecordList()" style="padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+        
+        <!-- ✅ 新增：付款截止日期 -->
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">付款截止日：</label>
+        <input type="date" id="payEndDate" onchange="refreshPayRecordList()" style="padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
     </div>
     <div class="table-container">
         <table border="1" cellpadding="6" cellspacing="0" width="100%">
@@ -898,6 +906,14 @@
                 </tr>
             </thead>
             <tbody id="payRecordList"></tbody>
+            <!-- ✅ 新增：汇总行 -->
+            <tfoot id="payRecordFoot" style="display:none;">
+                <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
+                    <td colspan="3" style="text-align:right;">汇总</td>
+                    <td id="payTotalAmount">￥0.00</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
     <div class="pagination" id="page_payRecord"></div>
@@ -928,6 +944,14 @@
                    style="width:160px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
             <div id="invoiceBackSupplierListBox" style="position:absolute;top:100%;left:70px;width:160px;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ccc;z-index:9999;display:none;"></div>
         </div>
+        
+        <!-- ✅ 新增：返回起始日期 -->
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">返回起始日：</label>
+        <input type="date" id="invoiceBackStartDate" onchange="refreshInvoiceBackList()" style="padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+        
+        <!-- ✅ 新增：返回截止日期 -->
+        <label style="white-space:nowrap;font-weight:bold;font-size:14px;">返回截止日：</label>
+        <input type="date" id="invoiceBackEndDate" onchange="refreshInvoiceBackList()" style="padding:6px 10px;height:34px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
     </div>
     <div class="table-container">
         <table border="1" cellpadding="6" cellspacing="0" width="100%">
@@ -943,6 +967,14 @@
                 </tr>
             </thead>
             <tbody id="invoiceBackList"></tbody>
+            <!-- ✅ 新增：汇总行 -->
+            <tfoot id="invoiceBackFoot" style="display:none;">
+                <tr style="background:#e8f0fe;font-weight:bold;font-size:14px;">
+                    <td colspan="3" style="text-align:right;">汇总</td>
+                    <td id="invoiceBackTotalAmount">￥0.00</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
     <div class="pagination" id="page_invoiceBack"></div>

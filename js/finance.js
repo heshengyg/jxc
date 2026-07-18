@@ -1536,49 +1536,79 @@ function onPayFilterInput() {
 function resetPaySearch() {
     document.getElementById('paySupplierSearchInput').value = '';
     document.getElementById('paySupplierListBox').style.display = 'none';
+    // ✅ 新增：清空日期筛选
+    document.getElementById('payStartDate').value = '';
+    document.getElementById('payEndDate').value = '';
     refreshPayRecordList(true);
 }
-
-function refreshPayRecordList(resetPage = true) {
-if(resetPage){
-    financePageConfig.payRecord.current = 1;
-}
-    const filterSupplier = document.getElementById('paySupplierSearchInput').value.trim();
-    let list = [...allPayList];
+function refreshInvoiceBackList(resetPage = true) {
+    if (resetPage) {
+        financePageConfig.invoiceBack.current = 1;
+    }
+    const filterSupplier = document.getElementById('invoiceBackSupplierSearchInput').value.trim();
+    // ✅ 新增：获取日期筛选条件
+    const startDate = document.getElementById('invoiceBackStartDate').value;
+    const endDate = document.getElementById('invoiceBackEndDate').value;
+    
+    let list = [...allInvoiceBackList];
     list.sort((a, b) => b.id - a.id);
     
     // 模糊匹配供应商
     if (filterSupplier) {
-        list = list.filter(p => (p.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+        list = list.filter(i => (i.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+    }
+    
+    // ✅ 新增：日期筛选
+    if (startDate) {
+        list = list.filter(i => i.return_date >= startDate);
+    }
+    if (endDate) {
+        list = list.filter(i => i.return_date <= endDate);
     }
 
-    const cfg = financePageConfig.payRecord;
+    const cfg = financePageConfig.invoiceBack;
     cfg.total = list.length;
     const start = (cfg.current - 1) * cfg.pageSize;
     const pageData = list.slice(start, start + cfg.pageSize);
 
-    const tbody = document.getElementById('payRecordList');
+    const tbody = document.getElementById('invoiceBackList');
     tbody.innerHTML = '';
     if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
-        renderFinancePagination('payRecord');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        // ✅ 隐藏汇总行
+        document.getElementById('invoiceBackFoot').style.display = 'none';
+        renderFinancePagination('invoiceBack');
         return;
     }
+    
+    // ✅ 计算汇总金额（基于当前筛选后的全部数据，而非分页数据）
+    let totalAmount = 0;
+    list.forEach(item => {
+        totalAmount += Number(item.invoice_amount) || 0;
+    });
+    
     pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
             <td>${start + idx + 1}</td>
-            <td>${item.payment_date}</td>
+            <td>${item.return_date}</td>
             <td>${item.supplier}</td>
-            <td>${Number(item.payment_amount).toFixed(2)}</td>
+            <td>${Number(item.invoice_amount).toFixed(2)}</td>
+            <td>${item.invoice_no || ''}</td>
             <td>${item.remark || ''}</td>
             <td>
-                <button class="btn btn-primary" onclick="openPayEdit(${item.id})">编辑</button>
-                <button class="btn btn-danger" onclick="deletePayRecord(${item.id})">删除</button>
+                <button class="btn btn-primary" onclick="openInvoiceBackEdit(${item.id})">编辑</button>
+                <button class="btn btn-danger" onclick="deleteInvoiceBackRecord(${item.id})">删除</button>
             </td>
         </tr>`;
     });
-    renderFinancePagination('payRecord');
+    
+    // ✅ 显示汇总行并更新汇总金额
+    const foot = document.getElementById('invoiceBackFoot');
+    foot.style.display = 'table-footer-group';
+    document.getElementById('invoiceBackTotalAmount').textContent = '￥' + totalAmount.toFixed(2);
+    
+    renderFinancePagination('invoiceBack');
 }
 
 function openPayAddModal() {
@@ -1904,21 +1934,34 @@ function onInvoiceBackFilterInput() {
 function resetInvoiceBackSearch() {
     document.getElementById('invoiceBackSupplierSearchInput').value = '';
     document.getElementById('invoiceBackSupplierListBox').style.display = 'none';
+    // ✅ 新增：清空日期筛选
+    document.getElementById('invoiceBackStartDate').value = '';
+    document.getElementById('invoiceBackEndDate').value = '';
     refreshInvoiceBackList(true);
-
 }
-
 function refreshInvoiceBackList(resetPage = true) {
-if(resetPage){
-    financePageConfig.invoiceBack.current = 1;
-}
+    if (resetPage) {
+        financePageConfig.invoiceBack.current = 1;
+    }
     const filterSupplier = document.getElementById('invoiceBackSupplierSearchInput').value.trim();
+    // ✅ 新增：获取日期筛选条件
+    const startDate = document.getElementById('invoiceBackStartDate').value;
+    const endDate = document.getElementById('invoiceBackEndDate').value;
+    
     let list = [...allInvoiceBackList];
     list.sort((a, b) => b.id - a.id);
     
     // 模糊匹配供应商
     if (filterSupplier) {
         list = list.filter(i => (i.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
+    }
+    
+    // ✅ 新增：日期筛选
+    if (startDate) {
+        list = list.filter(i => i.return_date >= startDate);
+    }
+    if (endDate) {
+        list = list.filter(i => i.return_date <= endDate);
     }
 
     const cfg = financePageConfig.invoiceBack;
@@ -1930,9 +1973,18 @@ if(resetPage){
     tbody.innerHTML = '';
     if (pageData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+        // ✅ 隐藏汇总行
+        document.getElementById('invoiceBackFoot').style.display = 'none';
         renderFinancePagination('invoiceBack');
         return;
     }
+    
+    // ✅ 计算汇总金额（基于当前筛选后的全部数据，而非分页数据）
+    let totalAmount = 0;
+    list.forEach(item => {
+        totalAmount += Number(item.invoice_amount) || 0;
+    });
+    
     pageData.forEach((item, idx) => {
         tbody.innerHTML += `
         <tr>
@@ -1948,9 +2000,14 @@ if(resetPage){
             </td>
         </tr>`;
     });
+    
+    // ✅ 显示汇总行并更新汇总金额
+    const foot = document.getElementById('invoiceBackFoot');
+    foot.style.display = 'table-footer-group';
+    document.getElementById('invoiceBackTotalAmount').textContent = '￥' + totalAmount.toFixed(2);
+    
     renderFinancePagination('invoiceBack');
 }
-
 function openInvoiceBackAddModal() {
     currentInvoiceBackEditId = null;
     document.getElementById('invoiceBackDate').value = new Date().toISOString().split('T')[0];
