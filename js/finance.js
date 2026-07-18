@@ -1243,7 +1243,7 @@ function previewAndPrint() {
                     <table class="goods-table">
                         <thead>
                             <tr>
-                                <th>入库日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
+                                <th>发生日期</th><th>供应商</th><th>商品名称</th><th>规格</th>
                                 <th>入库价</th><th>数量</th><th>金额（含税）</th>
                             </tr>
                         </thead>
