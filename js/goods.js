@@ -33,6 +33,7 @@ function canOperatePriceEdit() {
 // 挂载全局
 window.canOperateDateUpdate = canOperateDateUpdate;
 window.canOperatePriceEdit = canOperateDateUpdate;
+window.isFinanceOrAdmin = isFinanceOrAdmin;
 
 
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
@@ -2293,19 +2294,19 @@ function copyDateText(text, btnElement) {
             btnElement.style.color = '#ffffff';
             
             setTimeout(function() {
-                btnElement.textContent = '复制';
+                btnElement.textContent = '复制日期';  // 恢复为"复制日期"
                 btnElement.style.background = '';
                 btnElement.style.color = '';
             }, 2000);
         }).catch(function() {
-            fallbackCopy(text, btnElement);
+            fallbackCopyDate(text, btnElement);
         });
     } else {
-        fallbackCopy(text, btnElement);
+        fallbackCopyDate(text, btnElement);
     }
 }
 
-function fallbackCopy(text, btnElement) {
+function fallbackCopyDate(text, btnElement) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -2314,12 +2315,11 @@ function fallbackCopy(text, btnElement) {
     textarea.select();
     try {
         document.execCommand('copy');
-        const originalText = btnElement.textContent;
         btnElement.textContent = '√已复制';
         btnElement.style.background = '#52c41a';
         btnElement.style.color = '#ffffff';
         setTimeout(function() {
-            btnElement.textContent = '复制';
+            btnElement.textContent = '复制日期';
             btnElement.style.background = '';
             btnElement.style.color = '';
         }, 2000);
@@ -2328,7 +2328,6 @@ function fallbackCopy(text, btnElement) {
     }
     document.body.removeChild(textarea);
 }
-
 async function updateSingleGoodsDateWithPrice(id) {
 // 权限拦截
     if (!canOperateDateUpdate()) {
@@ -2706,46 +2705,56 @@ if (item.dateType === '生产日期') {
         const needUpdatePriceColor = item.needUpdatePriceColor || '#333';
         const needUpdatePriceStyle = 'style="color:' + needUpdatePriceColor + ';"';
         
-        // ========== 构建操作按钮 ==========
+       // ========== 构建操作按钮 ==========
 let actionButtons = '';
 actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
+
 // 改价按钮：仅折扣/临期状态显示 + 角色权限校验
 if (item.showPriceBtn) {
     const priceBtnDisabled = !canOperatePriceEdit();
-    const priceBtnStyle = priceBtnDisabled
-        ? 'disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px; font-size:12px; border:none; border-radius:3px; white-space:nowrap; height:28px; line-height:20px;"'
-        : 'style="padding:4px 10px; font-size:12px; background:#ff9800; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;"';
-    actionButtons += `
-        <button class="btn btn-warning" onclick="openPriceModal(${item.id})" ${priceBtnStyle}>改价</button>
-    `;
+    if (priceBtnDisabled) {
+        actionButtons += `
+            <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+        `;
+    } else {
+        actionButtons += `
+            <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+        `;
+    }
 }
 
 // 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
 if (item.showCopyPriceBtn) {
     actionButtons += `
-        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px; font-size:12px; background:#7030A0; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制新价</button>
+        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#7030A0;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制新价</button>
     `;
 }
+
 // 复制日期按钮：仅日期变动时显示（无权限限制）
 if (item.showCopyDateBtn) {
     const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
-        ? `（${item.displayValue}生产）` 
+        ? `${item.displayValue}生产` 
         : (item.dateType === '到期日期' && item.displayValue) 
-            ? `（${item.displayValue}到期）` 
+            ? `${item.displayValue}到期` 
             : '';
     actionButtons += `
-        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px; font-size:12px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;">复制日期</button>
+        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px;font-size:12px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制日期</button>
     `;
 }
+
 // 更新按钮：原有业务禁用 + 角色权限双重判断
 const dateUpdatePerm = canOperateDateUpdate();
 const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
-const updateDisabledStyle = updateBtnRealDisabled
-    ? 'disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;"' 
-    : 'style="padding:4px 10px; font-size:12px; background:#007bff; color:#fff; border:none; border-radius:3px; cursor:pointer; white-space:nowrap; height:28px; line-height:20px;"';
-actionButtons += `
-    <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" ${updateDisabledStyle}>更新</button>
-`;
+if (updateBtnRealDisabled) {
+    actionButtons += `
+        <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+    `;
+} else {
+    actionButtons += `
+        <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+    `;
+}
+
 actionButtons += '</div>';        
         const html = `
             <tr>
@@ -3089,38 +3098,40 @@ function copyNewPrice(id) {
         return;
     }
     
-    // ✅ 修改：只复制数字，不加 ￥
-    const text = String(item.newSalePrice);  // 直接转为字符串，不加 formatMoney
+    const text = String(item.newSalePrice);
+    
+    // 获取所有匹配的按钮
+    const buttons = document.querySelectorAll('button[onclick*="copyNewPrice(' + id + ')"]');
     
     const doCopy = function() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
-                showCopyFeedback(id);
+                showCopyNewPriceFeedback(buttons);
             }).catch(function() {
-                fallbackCopyPrice2(text, id);
+                fallbackCopyNewPrice(text, buttons);
             });
         } else {
-            fallbackCopyPrice2(text, id);
+            fallbackCopyNewPrice(text, buttons);
         }
     };
     
     doCopy();
 }
 
-function showCopyFeedback(id) {
-    const buttons = document.querySelectorAll('button[onclick*="copyNewPrice(' + id + ')"]');
+function showCopyNewPriceFeedback(buttons) {
     buttons.forEach(function(btn) {
-        const originalText = btn.textContent;
         btn.textContent = '√已复制';
         btn.style.background = '#28a745';
+        btn.style.color = '#ffffff';
         setTimeout(function() {
             btn.textContent = '复制新价';
-            btn.style.background = '#17a2b8';
+            btn.style.background = '#7030A0';
+            btn.style.color = '#ffffff';
         }, 2000);
     });
 }
 
-function fallbackCopyPrice2(text, id) {
+function fallbackCopyNewPrice(text, buttons) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -3129,7 +3140,7 @@ function fallbackCopyPrice2(text, id) {
     textarea.select();
     try {
         document.execCommand('copy');
-        showCopyFeedback(id);
+        showCopyNewPriceFeedback(buttons);
     } catch (e) {
         showMsg('复制失败，请手动复制');
     }
