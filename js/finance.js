@@ -1330,7 +1330,7 @@ function previewAndPrint() {
             height: auto;
         }
         .goods-table th {
-            border: 2px solid #000;
+            border: 1px solid #000;
             background: #f5f5f5;
             font-weight: bold;
             font-size: 12pt;
