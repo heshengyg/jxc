@@ -474,12 +474,16 @@ function showInPriceReminder(lastPrice, lastDate) {
     if (!reminderEl) return;
     
     const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    // ✅ formatMoney 已经包含 ¥，这里不再添加
+    const formattedPrice = formatMoney(lastPrice);
     reminderEl.innerHTML = `
-        ⚠️ <span style="color:#ff6b6b; font-weight:bold;">请确认入库单价是否与上一次一致！</span>
-        <span style="color:#999; font-size:13px; margin-left:10px;">
-            上次入库价：<strong style="color:#333;">¥${formatMoney(lastPrice)}</strong>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#ff6b6b; font-weight:bold;">⚠️ 调用的是上次入库单价，请确认！</span>
+        </div>
+        <div style="color:#999; font-size:13px; margin-top:4px;">
+            上次入库价：<strong style="color:#333;">${formattedPrice}</strong>
             （录入日期：${formattedDate}）
-        </span>
+        </div>
     `;
     reminderEl.style.display = 'block';
     reminderEl.style.background = '#fff3cd';
@@ -488,8 +492,24 @@ function showInPriceReminder(lastPrice, lastDate) {
     reminderEl.style.padding = '8px 12px';
     reminderEl.style.marginTop = '4px';
     reminderEl.style.fontSize = '14px';
+    // ✅ 添加三角箭头指向入库单价框
+    reminderEl.style.position = 'relative';
+    reminderEl.style.borderTop = 'none';
+    // 用伪元素实现三角箭头（通过添加一个额外的元素）
+    const arrowEl = document.createElement('div');
+    arrowEl.style.cssText = `
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 10px solid #ffc107;
+    `;
+    reminderEl.appendChild(arrowEl);
 }
-
 /**
  * 显示无历史记录提示
  */
@@ -507,6 +527,22 @@ function showNoHistoryReminder() {
     reminderEl.style.padding = '8px 12px';
     reminderEl.style.marginTop = '4px';
     reminderEl.style.fontSize = '14px';
+    reminderEl.style.position = 'relative';
+    reminderEl.style.borderTop = 'none';
+    // 添加三角箭头
+    const arrowEl = document.createElement('div');
+    arrowEl.style.cssText = `
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 10px solid #17a2b8;
+    `;
+    reminderEl.appendChild(arrowEl);
 }
 
 /**
@@ -528,12 +564,15 @@ function showPriceConsistentReminder(lastPrice, lastDate) {
     if (!reminderEl) return;
     
     const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    const formattedPrice = formatMoney(lastPrice);
     reminderEl.innerHTML = `
-        ✅ <span style="color:#28a745; font-weight:bold;">入库单价与上次一致</span>
-        <span style="color:#999; font-size:13px; margin-left:10px;">
-            上次入库价：<strong style="color:#333;">¥${formatMoney(lastPrice)}</strong>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#28a745; font-weight:bold;">✅ 入库单价与上次一致</span>
+        </div>
+        <div style="color:#999; font-size:13px; margin-top:4px;">
+            上次入库价：<strong style="color:#333;">${formattedPrice}</strong>
             （${formattedDate}）
-        </span>
+        </div>
     `;
     reminderEl.style.display = 'block';
     reminderEl.style.background = '#d4edda';
@@ -542,8 +581,22 @@ function showPriceConsistentReminder(lastPrice, lastDate) {
     reminderEl.style.padding = '8px 12px';
     reminderEl.style.marginTop = '4px';
     reminderEl.style.fontSize = '14px';
+    reminderEl.style.position = 'relative';
+    reminderEl.style.borderTop = 'none';
+    const arrowEl = document.createElement('div');
+    arrowEl.style.cssText = `
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 10px solid #28a745;
+    `;
+    reminderEl.appendChild(arrowEl);
 }
-
 /**
  * 显示价格变更的提醒（红色）
  */
@@ -567,6 +620,45 @@ function showPriceChangedReminder(lastPrice, currentPrice, lastDate) {
     reminderEl.style.padding = '8px 12px';
     reminderEl.style.marginTop = '4px';
     reminderEl.style.fontSize = '14px';
+}function showPriceChangedReminder(lastPrice, currentPrice, lastDate) {
+    const reminderEl = document.getElementById('inPriceReminder');
+    if (!reminderEl) return;
+    
+    const formattedDate = lastDate ? new Date(lastDate).toISOString().split('T')[0] : '未知日期';
+    const formattedLastPrice = formatMoney(lastPrice);
+    const formattedCurrentPrice = formatMoney(currentPrice);
+    reminderEl.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#dc3545; font-weight:bold;">⚠️ 入库单价已变更，请确认！</span>
+        </div>
+        <div style="color:#999; font-size:13px; margin-top:4px;">
+            上次入库价：<strong style="color:#dc3545;">${formattedLastPrice}</strong>
+            → 当前价：<strong style="color:#007bff;">${formattedCurrentPrice}</strong>
+            （上次日期：${formattedDate}）
+        </div>
+    `;
+    reminderEl.style.display = 'block';
+    reminderEl.style.background = '#f8d7da';
+    reminderEl.style.border = '1px solid #dc3545';
+    reminderEl.style.borderRadius = '4px';
+    reminderEl.style.padding = '8px 12px';
+    reminderEl.style.marginTop = '4px';
+    reminderEl.style.fontSize = '14px';
+    reminderEl.style.position = 'relative';
+    reminderEl.style.borderTop = 'none';
+    const arrowEl = document.createElement('div');
+    arrowEl.style.cssText = `
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 10px solid #dc3545;
+    `;
+    reminderEl.appendChild(arrowEl);
 }
 
 // ========== 绑定入库单价输入事件 ==========
