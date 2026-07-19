@@ -3863,6 +3863,79 @@ document.addEventListener('click', function(e) {
 
 // ==================== 单位CRUD ====================
 
+// ✅ 编辑单位预设（供HTML按钮调用）
+function editUnitPreset(id) {
+    if (!id) {
+        showMsg('无效的单位ID');
+        return;
+    }
+    const item = unitList.find(u => u.id === id);
+    if (!item) {
+        showMsg('找不到该单位数据');
+        return;
+    }
+    openUnitForm(item);
+}
+
+// ✅ 删除单位预设（供HTML按钮调用）
+async function deleteUnitPreset(id) {
+    if (!id) {
+        showMsg('无效的单位ID');
+        return;
+    }
+    
+    const item = unitList.find(u => u.id === id);
+    if (!item) {
+        showMsg('找不到该单位数据');
+        return;
+    }
+    
+    if (item.is_locked) {
+        showMsg('🔒 该单位已被锁定，无法删除');
+        return;
+    }
+    
+    // 检查是否被商品引用
+    try {
+        const { data: refData, error: refError } = await supabase
+            .from('goods_combo_pack')
+            .select('goods_id')
+            .eq('combo_pack_id', id)
+            .limit(1);
+        if (!refError && refData && refData.length > 0) {
+            showMsg('该单位已被商品引用，无法删除');
+            return;
+        }
+    } catch (e) {
+        console.warn('检查引用失败:', e);
+    }
+    
+    if (!confirm(`确定要删除单位"${item.name}"吗？`)) return;
+    
+    try {
+        // 删除拆分单位明细
+        await supabase
+            .from('combo_pack_details')
+            .delete()
+            .eq('combo_pack_id', id);
+        
+        // 删除组合包
+        const { error } = await supabase
+            .from('combo_packs')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showMsg('✅ 单位已删除');
+        await loadUnitList();
+        loadComboPackSelect();
+    } catch (e) {
+        console.error('删除单位失败:', e);
+        showMsg('删除失败: ' + e.message);
+    }
+}
+
 function openUnitForm(data) {
     const modal = document.getElementById('unitModal');
     const title = document.getElementById('unitModalTitle');
@@ -3909,8 +3982,8 @@ function addSplitUnitRowWithDefault() {
     const container = document.getElementById('unitSplitUnitsContainer');
     // 清空并添加两行
     container.innerHTML = '';
-    addSplitUnitRow();
-    addSplitUnitRow();
+    addUnitSplitRow();  // ← 改成 addUnitSplitRow
+    addUnitSplitRow();
 }
 
 function closeUnitForm() {
