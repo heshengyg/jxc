@@ -3699,7 +3699,7 @@ async function loadSplitUnitData() {
 // 添加拆分单位行
 function addUnitSplitRow(data) {
     const container = document.getElementById('unitSplitUnitsContainer');
-    const rowIndex = container.children.length;
+    const rowIndex = container.querySelectorAll('.split-unit-row').length;
     
     const row = document.createElement('div');
     row.className = 'split-unit-row';
@@ -3903,13 +3903,16 @@ function updateSplitUnitRelations() {
         }
         
         // 计算从当前行到最小单位的换算比例
-        let ratio = 1;
-        for (let j = i + 1; j < allUnits.length; j++) {
-            ratio = ratio * allUnits[j].qty;
-        }
+// 当前行数量为 allUnits[i].qty，下一行到最小单位的累积比例为 ratio
+let ratio = 1;
+for (let j = i + 1; j < allUnits.length; j++) {
+    ratio = ratio * allUnits[j].qty;
+}
+// 1 当前单位 = (ratio / allUnits[i].qty) 最小单位
+const resultRatio = ratio / allUnits[i].qty;
         const currentUnit = allUnits[i].name;
         const smallestUnit = allUnits[allUnits.length - 1].name;
-        relationEl.textContent = '1' + currentUnit + '=' + ratio + smallestUnit;
+        relationEl.textContent = '1' + currentUnit + '=' + resultRatio + smallestUnit;
         relationEl.style.color = '#ff6b6b';
         relationEl.style.fontWeight = 'bold';
         relationEl.style.fontSize = '12px';
