@@ -9,42 +9,30 @@ let isLoadingGoods = false;  // ✅ 添加这行
 let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // ========== 权限辅助函数 ==========
+function isFinanceOrAdmin() {
 // 改日改-更新按钮权限：管理员、APP部
 function canOperateDateUpdate() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
-    var user = permissionData.users.find(function(u) { return u.id === currentUserId; });
+    const user = permissionData.users.find(u => u.id === currentUserId);
     if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    const role = permissionData.roles.find(r => r.id === user.roleId);
     if (!role) return false;
     return role.name === '管理员' || role.name === 'APP部';
 }
-
 // 改价按钮权限：管理员、商品部
 function canOperatePriceEdit() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
-    var user = permissionData.users.find(function(u) { return u.id === currentUserId; });
+    const user = permissionData.users.find(u => u.id === currentUserId);
     if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
+    const role = permissionData.roles.find(r => r.id === user.roleId);
     if (!role) return false;
     return role.name === '管理员' || role.name === '商品部';
 }
-
-// 财务或管理员权限
-function isFinanceOrAdmin() {
-    if (typeof currentUserId === 'undefined' || !currentUserId) return false;
-    if (typeof permissionData === 'undefined') return false;
-    var user = permissionData.users.find(function(u) { return u.id === currentUserId; });
-    if (!user) return false;
-    var role = permissionData.roles.find(function(r) { return r.id === user.roleId; });
-    if (!role) return false;
-    return role.name === '管理员' || role.name === '财务部';
-}
-
 // 挂载全局
 window.canOperateDateUpdate = canOperateDateUpdate;
-window.canOperatePriceEdit = canOperatePriceEdit;
+window.canOperatePriceEdit = canOperateDateUpdate;
 window.isFinanceOrAdmin = isFinanceOrAdmin;
 
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
