@@ -3381,22 +3381,7 @@ window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
 window.switchGodsSubTab = window.switchGoodsSubTab;
-// 单位预设相关
-window.loadUnitPresets = loadUnitPresets;
-window.renderUnitTable = renderUnitTable;
-window.renderUnitPagination = renderUnitPagination;
-window.applyUnitFilter = applyUnitFilter;
-window.unitGoToPage = unitGoToPage;
-window.unitPrevPage = unitPrevPage;
-window.unitNextPage = unitNextPage;
-window.changeUnitPageSize = changeUnitPageSize;
-window.openUnitForm = openUnitForm;
-window.closeUnitForm = closeUnitForm;
-window.saveUnitPreset = saveUnitPreset;
-window.editUnitPreset = editUnitPreset;
-window.deleteUnitPreset = deleteUnitPreset;
-window.resetUnitSearch = resetUnitSearch;
-window.refreshUnitPresets = refreshUnitPresets;
+
 
 console.log('✅ 所有 goods.js 函数已暴露到 window');
 console.log('goods.js 加载完成');
@@ -3977,3 +3962,4 @@ window.selectUnitCategory = selectUnitCategory;
 window.showUnitBaseUnitList = showUnitBaseUnitList;
 window.filterUnitBaseUnitList = filterUnitBaseUnitList;
 window.selectUnitBaseUnit = selectUnitBaseUnit;
+window.openComboForm = openUnitForm;
