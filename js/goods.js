@@ -1515,20 +1515,48 @@ function importGoodsExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
-// ========== 提前暴露关键函数（供 DOMContentLoaded 调用） ==========
+// ============================================================
+// 提前暴露关键函数（确保 DOMContentLoaded 和 HTML onclick 能调用）
+// ============================================================
 window.switchGoodsSubTab = switchGoodsSubTab;
 window.loadGoods = loadGoods;
 window.refreshGoods = refreshGoods;
 window.filterGoods = filterGoods;
 window.renderGoods = renderGoods;
-
+window.renderPagination = renderPagination;
+window.loadUnitList = loadUnitList;
+window.openUnitForm = openUnitForm;
+window.closeUnitForm = closeUnitForm;
+window.saveUnitPreset = saveUnitPreset;
+window.editUnitPreset = editUnitPreset;
+window.deleteUnitPreset = deleteUnitPreset;
+window.addUnitSplitRow = addUnitSplitRow;
+window.updateSplitUnitRelations = updateSplitUnitRelations;
+window.updateUnitDescription = updateUnitDescription;
 // ========== 页面初始化 ==========
+// ✅ 使用 setTimeout 延迟执行，确保所有函数都已加载
 document.addEventListener('DOMContentLoaded', function() {
-    switchGoodsSubTab('goodsInfo');
-    if (typeof loadStockStock === 'function') {
-        loadStockStock();
-    }
+    setTimeout(function() {
+        if (typeof window.switchGoodsSubTab === 'function') {
+            window.switchGoodsSubTab('goodsInfo');
+        } else if (typeof switchGoodsSubTab === 'function') {
+            switchGoodsSubTab('goodsInfo');
+        } else {
+            console.warn('switchGoodsSubTab 尚未定义，稍后重试...');
+            setTimeout(function() {
+                if (typeof window.switchGoodsSubTab === 'function') {
+                    window.switchGoodsSubTab('goodsInfo');
+                }
+            }, 300);
+        }
+        if (typeof loadStockStock === 'function') {
+            loadStockStock();
+        } else if (typeof window.loadStockStock === 'function') {
+            window.loadStockStock();
+        }
+    }, 50);
 });
+
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
