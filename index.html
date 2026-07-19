@@ -332,126 +332,64 @@
             </div>
         </div>
         <!-- ========== 单位预设 ========== -->
-        <div id="sub-unitPreset" class="finance-sub-content" style="display:none;">
-    <h4>单位预设与组合包管理</h4>
-    
-    <!-- 子标签 -->
-    <div class="finance-sub-tabs" style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="finance-sub-btn active" data-tab="unitBasic" onclick="switchUnitSubTab('unitBasic')">基础单位</button>
-        <button class="finance-sub-btn" data-tab="categoryManage" onclick="switchUnitSubTab('categoryManage')">分类管理</button>
-        <button class="finance-sub-btn" data-tab="comboPack" onclick="switchUnitSubTab('comboPack')">组合包管理</button>
+<div id="sub-unitPreset" class="finance-sub-content" style="display:none;">
+    <h4>单位预设管理</h4>
+    <div class="stat-bar">
+        共 <span id="comboTotalCount">0</span> 个单位组合包
     </div>
-
-    <!-- 基础单位子版块 -->
-    <div id="sub-unitBasic" class="finance-sub-content">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h4 style="margin:0;">基础单位管理</h4>
+    <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+        <button class="btn btn-primary" onclick="openUnitForm()">新增单位</button>
+        <button class="btn btn-default" onclick="loadUnitList()">刷新列表</button>
+        <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
+        
+        <!-- 分类搜索 -->
+        <div style="position:relative; display:inline-block;">
+            <input type="text" id="unitFilterCategory" placeholder="搜索分类" 
+                   oninput="filterUnitList()"
+                   style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
         </div>
-        <div class="stat-bar">
-            共 <span id="unitTotalCount">0</span> 条单位，当前搜索结果 <span id="unitSearchCount">0</span> 条
-        </div>
-        <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
-            <button class="btn btn-primary" onclick="openUnitForm(null)">新增单位</button>
-            <button class="btn btn-default" onclick="refreshUnitPresets()">刷新列表</button>
-            <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
-            <div style="position:relative; display:inline-block;">
-                <input type="text" id="unitSearchInput" placeholder="搜索单位名称/编码" 
-                       oninput="applyUnitFilter(); renderUnitTable();"
-                       style="width:200px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-            </div>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>序号</th>
-                        <th>单位名称</th>
-                        <th>单位编码</th>
-                        <th>默认单位</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="unitPresetList">
-                    <tr><td colspan="5" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination">
-            <div class="page-info">
-                每页显示 <select id="unitPageSize" onchange="changeUnitPageSize()">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                </select> 条，当前第 <span id="unitCurrentPage">1</span> / <span id="unitTotalPages">1</span> 页
-            </div>
-            <div class="page-controls">
-                <button class="page-btn" onclick="unitGoToPage(1)">首页</button>
-                <button class="page-btn" onclick="unitPrevPage()">上一页</button>
-                <span id="unitPageNumbers"></span>
-                <button class="page-btn" onclick="unitNextPage()">下一页</button>
-                <button class="page-btn" onclick="unitGoToPage(Math.ceil(unitFilteredList.length / unitPageSize) || 1)">末页</button>
-            </div>
+        <!-- 单位搜索 -->
+        <div style="position:relative; display:inline-block;">
+            <input type="text" id="unitFilterName" placeholder="搜索单位名称" 
+                   oninput="filterUnitList()"
+                   style="width:130px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
         </div>
     </div>
-
-    <!-- 分类管理子版块 -->
-    <div id="sub-categoryManage" class="finance-sub-content" style="display:none;">
-        <h4>分类管理</h4>
-        <div class="stat-bar">共 <span id="categoryTotalCount">0</span> 个分类</div>
-        <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
-            <button class="btn btn-primary" onclick="openCategoryForm()">新增分类</button>
-            <button class="btn btn-default" onclick="loadCategories()">刷新列表</button>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>序号</th>
-                        <th>分类名称</th>
-                        <th>组合包数量</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="categoryList">
-                    <tr><td colspan="4" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>
-                </tbody>
-            </table>
-        </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>组合包名称</th>
+                    <th>分类</th>
+                    <th>换算关系</th>
+                    <th>基准单位</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="unitPresetList">
+                <tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>
+            </tbody>
+        </table>
     </div>
-
-    <!-- 组合包管理子版块 -->
-    <div id="sub-comboPack" class="finance-sub-content" style="display:none;">
-        <h4>组合包管理</h4>
-        <div class="stat-bar">共 <span id="comboTotalCount">0</span> 个组合包</div>
-        <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
-            <button class="btn btn-primary" onclick="openComboForm()">新增组合包</button>
-            <button class="btn btn-default" onclick="loadComboPacks()">刷新列表</button>
-            <select id="comboCategoryFilter" onchange="filterComboByCategory()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
-                <option value="">全部分类</option>
-            </select>
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="unitPageSize" onchange="changeUnitPageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select> 条，当前第 <span id="unitCurrentPage">1</span> / <span id="unitTotalPages">1</span> 页
         </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>序号</th>
-                        <th>组合包名称</th>
-                        <th>分类</th>
-                        <th>换算关系</th>
-                        <th>基准单位</th>
-                        <th>状态</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="comboPackList">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>
-                </tbody>
-            </table>
+        <div class="page-controls">
+            <button class="page-btn" onclick="unitGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="unitPrevPage()">上一页</button>
+            <span id="unitPageNumbers"></span>
+            <button class="page-btn" onclick="unitNextPage()">下一页</button>
+            <button class="page-btn" onclick="unitGoToPage(Math.ceil(unitFilteredList.length / unitPageSize) || 1)">末页</button>
         </div>
-        <div class="pagination" id="comboPagination"></div>
     </div>
 </div>
-    </div>
 
     <!-- 入库管理 -->
     <div id="stockIn" class="tab-content">
@@ -1498,7 +1436,7 @@
                         <h4 style="margin:0 0 10px 0;">🎭 角色管理</h4>
                         <div style="display:flex;gap:6px;margin-bottom:10px;">
                             <input type="text" id="newRoleName" placeholder="角色名称" style="flex:1;padding:4px 10px;border:1px solid #ddd;border-radius:4px;">
-                            <button class="btn btn-primary btn-sm" data-module="settings" data-op="addRole" onclick="openAddRoleModal()">新增</button>
+                            <button class="btn btn-primary btn-sm" onclick="openUnitForm(null)" style="white-space:nowrap;padding:4px 12px;font-size:12px;">＋ 新增</button>
                         </div>
                         <div id="roleList" style="max-height:300px;overflow-y:auto;"></div>
                     </div>
@@ -1644,25 +1582,59 @@
     </div>
 </div>
 
-<!-- 单位预设弹窗 -->
-<div id="unitModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff;padding:30px;width:420px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <h4 id="unitModalTitle" style="margin-top:0;">新增单位预设</h4>
+<!-- 单位预设弹窗（组合包） -->
+<div id="unitModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:99999;">
+    <div style="background:#fff;padding:30px;width:620px;max-height:90vh;overflow-y:auto;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h4 id="unitModalTitle" style="margin-top:0;">新增单位</h4>
         <input type="hidden" id="unitEditId">
-        <div class="form-group" style="margin:15px 0;">
+        
+        <div class="form-group" style="margin:10px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">单位名称 <span style="color:red;">*</span></label>
-            <input type="text" id="unitName" placeholder="请输入单位名称（如：个、箱、包）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            <input type="text" id="unitName" placeholder="如：啤酒标准箱" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
         </div>
-        <div class="form-group" style="margin:15px 0;">
-            <label style="display:block;margin-bottom:5px;font-weight:bold;">单位编码 <span style="color:red;">*</span></label>
-            <input type="text" id="unitCode" placeholder="请输入单位编码（如：PCE、BOX）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+        
+        <div class="form-group" style="margin:10px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">分类 <span style="color:red;">*</span></label>
+            <div style="position:relative;">
+                <input type="text" id="unitCategoryInput" placeholder="搜索或输入分类" 
+                       onfocus="showUnitCategoryList()" 
+                       oninput="filterUnitCategoryList()"
+                       style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;">
+                <div id="unitCategoryListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+            </div>
+            <input type="hidden" id="unitCategoryValue">
         </div>
-        <div class="form-group" style="margin:15px 0;">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <input type="checkbox" id="unitIsDefault"> 设为默认单位
-            </label>
-            <span style="font-size:12px;color:#999;">（默认单位将在商品管理中优先显示）</span>
+        
+        <div class="form-group" style="margin:10px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">基准单位 <span style="color:red;">*</span></label>
+            <div style="position:relative;">
+                <input type="text" id="unitBaseUnitInput" placeholder="搜索或输入基准单位" 
+                       onfocus="showUnitBaseUnitList()" 
+                       oninput="filterUnitBaseUnitList()"
+                       style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;">
+                <div id="unitBaseUnitListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+            </div>
+            <input type="hidden" id="unitBaseUnitValue">
         </div>
+        
+        <div class="form-group" style="margin:10px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">换算关系描述</label>
+            <input type="text" id="unitDescription" placeholder="如：1箱=4提=24瓶" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+        </div>
+        
+        <div class="form-group" style="margin:10px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">单位明细</label>
+            <div id="unitDetailsContainer">
+                <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+                    <input type="text" placeholder="单位名称" class="unit-detail-name" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <input type="text" placeholder="换算关系（如：1箱=24瓶）" class="unit-detail-ratio" style="flex:2;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <input type="number" placeholder="层级" class="unit-detail-order" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <button class="btn btn-danger btn-sm" onclick="removeUnitDetailRow(this)">×</button>
+                </div>
+            </div>
+            <button class="btn btn-default btn-sm" onclick="addUnitDetailRow()" style="margin-top:6px;">＋ 添加单位</button>
+        </div>
+        
         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-primary" onclick="saveUnitPreset()">保存</button>
             <button class="btn btn-default" onclick="closeUnitForm()">取消</button>
