@@ -3722,8 +3722,9 @@ function addUnitSplitRow(data) {
                    style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;">
         </div>
         <div style="flex:1;font-size:13px;color:#999;text-align:center;">
-            <span class="split-unit-preview">层级${rowIndex + 1}</span>
-        </div>
+    <span class="split-unit-preview">层级${rowIndex + 1}</span>
+    <span class="split-unit-relation" style="display:block;font-size:12px;color:#ff6b6b;font-weight:bold;"></span>
+</div>
         <button class="btn btn-danger btn-sm" onclick="removeSplitUnitRow(this)" style="padding:2px 10px;">×</button>
     `;
     container.appendChild(row);
@@ -3734,6 +3735,8 @@ function addUnitSplitRow(data) {
         input.value = data.unit_name;
     }
     updateUnitDescription();
+    // ✅ 新增：更新每行换算关系
+    updateSplitUnitRelations();
 }
 
 // 移除拆分单位行
@@ -3745,6 +3748,7 @@ function removeSplitUnitRow(btn) {
     }
     btn.closest('.split-unit-row').remove();
     updateUnitDescription();
+    updateSplitUnitRelations();  // ✅ 添加这行
     // 更新层级显示
     document.querySelectorAll('.split-unit-row').forEach((row, idx) => {
         row.dataset.index = idx;
@@ -3816,14 +3820,13 @@ function updateUnitDescription() {
     const baseUnit = document.getElementById('unitBaseUnitInput').value.trim() || document.getElementById('unitBaseUnitValue').value.trim();
     if (!baseUnit) {
         document.getElementById('unitDescription').value = '';
+        updateSplitUnitRelations(); // 清空行关系
         return;
     }
     
     const rows = document.querySelectorAll('.split-unit-row');
     let parts = ['1' + baseUnit];
     let hasValid = false;
-    let lastUnit = baseUnit;
-    let lastQty = 1;
     let allUnits = [];  // 收集所有层级
     
     rows.forEach((row, idx) => {
@@ -3844,25 +3847,74 @@ function updateUnitDescription() {
             }
             if (!isDuplicate) {
                 parts.push(qty + name);
-                lastUnit = name;
-                lastQty = qty;
-                allUnits.push({ name: name, qty: qty });
+                allUnits.push({ name: name, qty: qty, row: row });
                 hasValid = true;
             }
         }
     });
     
     // 生成主换算关系
-let mainDesc = parts.join('=');
-
-// ✅ 只显示主换算关系，不额外添加最小单位换算
-
-if (hasValid) {
-    document.getElementById('unitDescription').value = mainDesc;
-} else {
-    document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
+    let mainDesc = parts.join('=');
+    
+    if (hasValid) {
+        document.getElementById('unitDescription').value = mainDesc;
+    } else {
+        document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
+    }
+    
+    // ✅ 更新每行的换算关系
+    updateSplitUnitRelations();
 }
 
+// ==================== 更新每行拆分单位的换算关系 ====================
+function updateSplitUnitRelations() {
+    const rows = document.querySelectorAll('.split-unit-row');
+    const allUnits = [];
+    
+    // 收集所有有效行
+    rows.forEach((row) => {
+        const nameInput = row.querySelector('.split-unit-name-input');
+        const qtyInput = row.querySelector('.split-unit-quantity');
+        const name = nameInput ? nameInput.value.trim() : '';
+        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
+        if (name && qty > 0) {
+            allUnits.push({ name: name, qty: qty, row: row });
+        }
+    });
+    
+    // 如果没有数据或只有一行，清空所有关系显示
+    if (allUnits.length <= 1) {
+        rows.forEach(row => {
+            const relationEl = row.querySelector('.split-unit-relation');
+            if (relationEl) relationEl.textContent = '';
+        });
+        return;
+    }
+    
+    // 从后往前计算：最后一行不显示换算关系
+    for (let i = 0; i < allUnits.length; i++) {
+        const relationEl = allUnits[i].row.querySelector('.split-unit-relation');
+        if (!relationEl) continue;
+        
+        // 最后一行不显示
+        if (i === allUnits.length - 1) {
+            relationEl.textContent = '';
+            continue;
+        }
+        
+        // 计算从当前行到最小单位的换算比例
+        let ratio = 1;
+        for (let j = i + 1; j < allUnits.length; j++) {
+            ratio = ratio * allUnits[j].qty;
+        }
+        const currentUnit = allUnits[i].name;
+        const smallestUnit = allUnits[allUnits.length - 1].name;
+        relationEl.textContent = '1' + currentUnit + '=' + ratio + smallestUnit;
+        relationEl.style.color = '#ff6b6b';
+        relationEl.style.fontWeight = 'bold';
+        relationEl.style.fontSize = '12px';
+    }
+}
 // 点击外部关闭拆分单位下拉
 document.addEventListener('click', function(e) {
     document.querySelectorAll('.split-unit-list-box').forEach(box => {
@@ -3992,13 +4044,16 @@ function openUnitForm(data) {
 
 function addSplitUnitRowWithDefault() {
     const container = document.getElementById('unitSplitUnitsContainer');
-    // ✅ 只清空行，保留按钮
+    // 只清空行，保留按钮
     const rows = container.querySelectorAll('.split-unit-row');
     rows.forEach(row => row.remove());
     addUnitSplitRow();
     addUnitSplitRow();
+    // ✅ 添加更新
+    setTimeout(function() {
+        updateSplitUnitRelations();
+    }, 50);
 }
-
 function closeUnitForm() {
     document.getElementById('unitModal').style.display = 'none';
     document.getElementById('unitCategoryListBox').style.display = 'none';
@@ -4016,7 +4071,7 @@ async function loadSplitUnits(comboId) {
             .order('display_order');
         if (error) throw error;
         const container = document.getElementById('unitSplitUnitsContainer');
-        // ✅ 只清空行，保留按钮
+        // 只清空行，保留按钮
         const rows = container.querySelectorAll('.split-unit-row');
         rows.forEach(row => row.remove());
         if (data && data.length > 0) {
@@ -4030,11 +4085,15 @@ async function loadSplitUnits(comboId) {
             addUnitSplitRow();
             addUnitSplitRow();
         }
-        setTimeout(updateUnitDescription, 100);
+        setTimeout(function() {
+            updateUnitDescription();
+            updateSplitUnitRelations();  // ✅ 添加这行
+        }, 100);
     } catch (e) {
         console.error('加载拆分单位失败:', e);
     }
 }
+
 // 保存单位
 async function saveUnitPreset() {
     const id = document.getElementById('unitEditId').value;
@@ -4386,3 +4445,4 @@ window.filterSplitUnitList = filterSplitUnitList;
 window.selectSplitUnit = selectSplitUnit;
 window.updateUnitDescription = updateUnitDescription;
 window.loadComboPackSelect = loadComboPackSelect;
+window.updateSplitUnitRelations = updateSplitUnitRelations;
