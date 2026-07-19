@@ -1588,11 +1588,13 @@
         <h4 id="unitModalTitle" style="margin-top:0;">新增单位</h4>
         <input type="hidden" id="unitEditId">
         
+        <!-- 单位名称 -->
         <div class="form-group" style="margin:10px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">单位名称 <span style="color:red;">*</span></label>
             <input type="text" id="unitName" placeholder="如：啤酒标准箱" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
         </div>
         
+        <!-- 分类 -->
         <div class="form-group" style="margin:10px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">分类 <span style="color:red;">*</span></label>
             <div style="position:relative;">
@@ -1605,6 +1607,7 @@
             <input type="hidden" id="unitCategoryValue">
         </div>
         
+        <!-- 基准单位 -->
         <div class="form-group" style="margin:10px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">基准单位 <span style="color:red;">*</span></label>
             <div style="position:relative;">
@@ -1617,22 +1620,20 @@
             <input type="hidden" id="unitBaseUnitValue">
         </div>
         
+        <!-- 换算关系描述（自动生成，只读） -->
         <div class="form-group" style="margin:10px 0;">
             <label style="display:block;margin-bottom:5px;font-weight:bold;">换算关系描述</label>
-            <input type="text" id="unitDescription" placeholder="如：1箱=4提=24瓶" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+            <input type="text" id="unitDescription" readonly placeholder="自动生成" 
+                   style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#f5f5f5;color:#333;">
         </div>
         
+        <!-- 拆分单位明细 -->
         <div class="form-group" style="margin:10px 0;">
-            <label style="display:block;margin-bottom:5px;font-weight:bold;">单位明细</label>
-            <div id="unitDetailsContainer">
-                <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-                    <input type="text" placeholder="单位名称" class="unit-detail-name" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:4px;">
-                    <input type="text" placeholder="换算关系（如：1箱=24瓶）" class="unit-detail-ratio" style="flex:2;padding:6px;border:1px solid #ddd;border-radius:4px;">
-                    <input type="number" placeholder="层级" class="unit-detail-order" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:4px;">
-                    <button class="btn btn-danger btn-sm" onclick="removeUnitDetailRow(this)">×</button>
-                </div>
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">拆分单位 <span style="color:#999;font-size:12px;">（添加拆分单位后换算关系自动生成）</span></label>
+            <div id="unitSplitUnitsContainer">
+                <!-- 动态添加 -->
             </div>
-            <button class="btn btn-default btn-sm" onclick="addUnitDetailRow()" style="margin-top:6px;">＋ 添加单位</button>
+            <button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="margin-top:6px;">＋ 添加拆分单位</button>
         </div>
         
         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
