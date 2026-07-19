@@ -580,9 +580,10 @@ function switchGoodsSubTab(tab) {
         loadGoods(true);
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
+    } else if (tab === 'unitPreset') {
+        loadUnitPresets();
     }
 }
-
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -3381,6 +3382,270 @@ window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
 window.switchGodsSubTab = window.switchGoodsSubTab;
+// 单位预设相关
+window.loadUnitPresets = loadUnitPresets;
+window.renderUnitTable = renderUnitTable;
+window.renderUnitPagination = renderUnitPagination;
+window.applyUnitFilter = applyUnitFilter;
+window.unitGoToPage = unitGoToPage;
+window.unitPrevPage = unitPrevPage;
+window.unitNextPage = unitNextPage;
+window.changeUnitPageSize = changeUnitPageSize;
+window.openUnitForm = openUnitForm;
+window.closeUnitForm = closeUnitForm;
+window.saveUnitPreset = saveUnitPreset;
+window.editUnitPreset = editUnitPreset;
+window.deleteUnitPreset = deleteUnitPreset;
+window.resetUnitSearch = resetUnitSearch;
+window.refreshUnitPresets = refreshUnitPresets;
 
 console.log('✅ 所有 goods.js 函数已暴露到 window');
 console.log('goods.js 加载完成');
+// ==================== 单位预设管理 ====================
+
+// 单位预设状态
+let unitList = [];
+let unitFilteredList = [];
+let unitCurrentPage = 1;
+let unitPageSize = 10;
+
+// 获取单位预设列表
+async function loadUnitPresets() {
+    try {
+        const { data, error } = await supabase
+            .from('unit_presets')
+            .select('*')
+            .order('unit_name', { ascending: true });
+        
+        if (error) throw error;
+        unitList = data || [];
+        applyUnitFilter();
+        renderUnitTable();
+    } catch (e) {
+        console.error('加载单位预设失败:', e);
+        showMsg('加载单位预设失败: ' + e.message);
+    }
+}
+
+// 渲染单位预设表格
+function renderUnitTable() {
+    const tbody = document.getElementById('unitPresetList');
+    if (!tbody) return;
+    
+    const start = (unitCurrentPage - 1) * unitPageSize;
+    const end = Math.min(start + unitPageSize, unitFilteredList.length);
+    const pageData = unitFilteredList.slice(start, end);
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:#999;">暂无单位预设数据</td></tr>`;
+    } else {
+        tbody.innerHTML = pageData.map((item, index) => `
+            <tr>
+                <td>${start + index + 1}</td>
+                <td>${escapeHtml(item.unit_name || '')}</td>
+                <td>${escapeHtml(item.unit_code || '')}</td>
+                <td>${item.is_default ? '✅ 默认' : ''}</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="editUnitPreset('${item.id}')">编辑</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUnitPreset('${item.id}')">删除</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    // 更新分页信息
+    document.getElementById('unitTotalCount').textContent = unitList.length;
+    document.getElementById('unitSearchCount').textContent = unitFilteredList.length;
+    document.getElementById('unitCurrentPage').textContent = unitCurrentPage;
+    document.getElementById('unitTotalPages').textContent = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
+    
+    renderUnitPagination();
+}
+
+// 渲染单位预设分页
+function renderUnitPagination() {
+    const container = document.getElementById('unitPageNumbers');
+    if (!container) return;
+    
+    const total = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
+    let html = '';
+    const startPage = Math.max(1, unitCurrentPage - 2);
+    const endPage = Math.min(total, unitCurrentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="page-btn ${i === unitCurrentPage ? 'active' : ''}" onclick="unitGoToPage(${i})">${i}</button>`;
+    }
+    container.innerHTML = html;
+}
+
+// 应用单位筛选
+function applyUnitFilter() {
+    const keyword = document.getElementById('unitSearchInput')?.value?.trim() || '';
+    if (keyword) {
+        unitFilteredList = unitList.filter(item => 
+            (item.unit_name || '').includes(keyword) || 
+            (item.unit_code || '').includes(keyword)
+        );
+    } else {
+        unitFilteredList = [...unitList];
+    }
+    if (unitFilteredList.length === 0) unitCurrentPage = 1;
+    if (unitCurrentPage > Math.ceil(unitFilteredList.length / unitPageSize)) {
+        unitCurrentPage = Math.max(1, Math.ceil(unitFilteredList.length / unitPageSize));
+    }
+}
+
+// 单位预设分页操作
+function unitGoToPage(page) {
+    const total = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
+    if (page < 1 || page > total) return;
+    unitCurrentPage = page;
+    renderUnitTable();
+}
+
+function unitPrevPage() { unitGoToPage(unitCurrentPage - 1); }
+function unitNextPage() { unitGoToPage(unitCurrentPage + 1); }
+function changeUnitPageSize() {
+    const el = document.getElementById('unitPageSize');
+    if (el) unitPageSize = parseInt(el.value) || 10;
+    unitCurrentPage = 1;
+    renderUnitTable();
+}
+
+// 新增单位预设
+function openUnitForm(data) {
+    const modal = document.getElementById('unitModal');
+    const title = document.getElementById('unitModalTitle');
+    const idField = document.getElementById('unitEditId');
+    const nameField = document.getElementById('unitName');
+    const codeField = document.getElementById('unitCode');
+    const defaultField = document.getElementById('unitIsDefault');
+    
+    if (data) {
+        title.textContent = '编辑单位预设';
+        idField.value = data.id || '';
+        nameField.value = data.unit_name || '';
+        codeField.value = data.unit_code || '';
+        defaultField.checked = data.is_default || false;
+    } else {
+        title.textContent = '新增单位预设';
+        idField.value = '';
+        nameField.value = '';
+        codeField.value = '';
+        defaultField.checked = false;
+    }
+    modal.style.display = 'flex';
+}
+
+function closeUnitForm() {
+    document.getElementById('unitModal').style.display = 'none';
+}
+
+// 保存单位预设
+async function saveUnitPreset() {
+    const id = document.getElementById('unitEditId').value;
+    const name = document.getElementById('unitName').value.trim();
+    const code = document.getElementById('unitCode').value.trim();
+    const isDefault = document.getElementById('unitIsDefault').checked;
+    
+    if (!name) {
+        showMsg('请输入单位名称');
+        return;
+    }
+    if (!code) {
+        showMsg('请输入单位编码');
+        return;
+    }
+    
+    try {
+        // 检查重名
+        const { data: existData, error: existError } = await supabase
+            .from('unit_presets')
+            .select('id')
+            .eq('unit_name', name)
+            .neq('id', id || '')
+            .maybeSingle();
+        
+        if (existError) throw existError;
+        if (existData) {
+            showMsg('该单位名称已存在，请勿重复添加');
+            return;
+        }
+        
+        // 如果设为默认，取消其他默认
+        if (isDefault) {
+            const { error: clearError } = await supabase
+                .from('unit_presets')
+                .update({ is_default: false })
+                .neq('id', id || '');
+            if (clearError) throw clearError;
+        }
+        
+        const data = {
+            unit_name: name,
+            unit_code: code,
+            is_default: isDefault
+        };
+        
+        let result;
+        if (id) {
+            result = await supabase.from('unit_presets').update(data).eq('id', id);
+        } else {
+            result = await supabase.from('unit_presets').insert([data]);
+        }
+        
+        if (result.error) throw result.error;
+        
+        closeUnitForm();
+        showMsg(id ? '单位预设更新成功' : '单位预设添加成功');
+        await loadUnitPresets();
+    } catch (e) {
+        console.error('保存单位预设失败:', e);
+        showMsg('保存失败: ' + e.message);
+    }
+}
+
+// 编辑单位预设
+async function editUnitPreset(id) {
+    try {
+        const { data, error } = await supabase
+            .from('unit_presets')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        openUnitForm(data);
+    } catch (e) {
+        console.error('获取单位预设失败:', e);
+        showMsg('获取数据失败: ' + e.message);
+    }
+}
+
+// 删除单位预设
+async function deleteUnitPreset(id) {
+    if (!confirm('确定要删除该单位预设吗？')) return;
+    try {
+        const { error } = await supabase.from('unit_presets').delete().eq('id', id);
+        if (error) throw error;
+        showMsg('删除成功');
+        await loadUnitPresets();
+    } catch (e) {
+        console.error('删除单位预设失败:', e);
+        showMsg('删除失败: ' + e.message);
+    }
+}
+
+// 重置单位预设搜索
+function resetUnitSearch() {
+    const input = document.getElementById('unitSearchInput');
+    if (input) input.value = '';
+    unitCurrentPage = 1;
+    applyUnitFilter();
+    renderUnitTable();
+}
+
+// 刷新单位预设列表
+function refreshUnitPresets() {
+    loadUnitPresets();
+}

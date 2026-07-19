@@ -76,6 +76,7 @@
         <h3>商品管理</h3>
         <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
+            <button class="finance-sub-btn" data-tab="unitPreset" onclick="switchGoodsSubTab('unitPreset')">单位预设</button>
             <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
             <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">改日改价</button>
         </div>
@@ -327,6 +328,56 @@
                     <span id="dateChangePageNumbers"></span>
                     <button class="page-btn" onclick="dateChangeNextPage()">下一页</button>
                     <button class="page-btn" onclick="dateChangeGoToPage(dateChangeTotalPages)">末页</button>
+                </div>
+            </div>
+        </div>
+        <!-- ========== 单位预设 ========== -->
+        <div id="sub-unitPreset" class="finance-sub-content" style="display:none;">
+            <h4>单位预设管理</h4>
+            <div class="stat-bar">
+                共 <span id="unitTotalCount">0</span> 条单位，当前搜索结果 <span id="unitSearchCount">0</span> 条
+            </div>
+            <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center;">
+                <button class="btn btn-primary" onclick="openUnitForm(null)">新增单位</button>
+                <button class="btn btn-default" onclick="refreshUnitPresets()">刷新列表</button>
+                <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
+                
+                <div style="position:relative; display:inline-block;">
+                    <input type="text" id="unitSearchInput" placeholder="搜索单位名称/编码" 
+                           oninput="applyUnitFilter(); renderUnitTable();"
+                           style="width:200px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>单位名称</th>
+                            <th>单位编码</th>
+                            <th>默认单位</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="unitPresetList">
+                        <tr><td colspan="5" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div class="page-info">
+                    每页显示 <select id="unitPageSize" onchange="changeUnitPageSize()">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                    </select> 条，当前第 <span id="unitCurrentPage">1</span> / <span id="unitTotalPages">1</span> 页
+                </div>
+                <div class="page-controls">
+                    <button class="page-btn" onclick="unitGoToPage(1)">首页</button>
+                    <button class="page-btn" onclick="unitPrevPage()">上一页</button>
+                    <span id="unitPageNumbers"></span>
+                    <button class="page-btn" onclick="unitNextPage()">下一页</button>
+                    <button class="page-btn" onclick="unitGoToPage(Math.ceil(unitFilteredList.length / unitPageSize) || 1)">末页</button>
                 </div>
             </div>
         </div>
@@ -1510,6 +1561,32 @@
         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-primary" onclick="submitSettleForm()">保存</button>
             <button class="btn btn-default" onclick="closeSettleModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 单位预设弹窗 -->
+<div id="unitModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:#fff;padding:30px;width:420px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h4 id="unitModalTitle" style="margin-top:0;">新增单位预设</h4>
+        <input type="hidden" id="unitEditId">
+        <div class="form-group" style="margin:15px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">单位名称 <span style="color:red;">*</span></label>
+            <input type="text" id="unitName" placeholder="请输入单位名称（如：个、箱、包）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+        </div>
+        <div class="form-group" style="margin:15px 0;">
+            <label style="display:block;margin-bottom:5px;font-weight:bold;">单位编码 <span style="color:red;">*</span></label>
+            <input type="text" id="unitCode" placeholder="请输入单位编码（如：PCE、BOX）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+        </div>
+        <div class="form-group" style="margin:15px 0;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="unitIsDefault"> 设为默认单位
+            </label>
+            <span style="font-size:12px;color:#999;">（默认单位将在商品管理中优先显示）</span>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="saveUnitPreset()">保存</button>
+            <button class="btn btn-default" onclick="closeUnitForm()">取消</button>
         </div>
     </div>
 </div>
