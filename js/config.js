@@ -13,7 +13,7 @@ var users = [{ user: 'admin', pwd: '123', name: '管理员' }];
 // ===== 初始化 Supabase 客户端 =====
 // ============================================================
 
-var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var supabase = window.supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
 window.supabase = supabase;
 
 console.log('✅ Supabase 客户端已初始化');
