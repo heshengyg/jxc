@@ -3674,55 +3674,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ==================== 单位CRUD ====================
 
-function openUnitForm(data) {
-    const modal = document.getElementById('unitModal');
-    const title = document.getElementById('unitModalTitle');
-    const idField = document.getElementById('unitEditId');
-    const nameField = document.getElementById('unitName');
-    const categoryInput = document.getElementById('unitCategoryInput');
-    const categoryValue = document.getElementById('unitCategoryValue');
-    const baseUnitInput = document.getElementById('unitBaseUnitInput');
-    const baseUnitValue = document.getElementById('unitBaseUnitValue');
-    const descField = document.getElementById('unitDescription');
-    const detailsContainer = document.getElementById('unitDetailsContainer');
-    
-    // 加载下拉数据
-    loadUnitSelectData();
-    
-    if (data) {
-        title.textContent = data.is_locked ? '🔒 编辑单位（已锁定）' : '编辑单位';
-        idField.value = data.id;
-        nameField.value = data.name || '';
-        categoryInput.value = data.categories?.name || '';
-        categoryValue.value = data.categories?.name || '';
-        baseUnitInput.value = data.unit_presets?.unit_name || '';
-        baseUnitValue.value = data.unit_presets?.unit_name || '';
-        descField.value = data.description || '';
-        // 加载明细
-        loadUnitDetails(data.id);
-    } else {
-        title.textContent = '新增单位';
-        idField.value = '';
-        nameField.value = '';
-        categoryInput.value = '';
-        categoryValue.value = '';
-        baseUnitInput.value = '';
-        baseUnitValue.value = '';
-        descField.value = '';
-        detailsContainer.innerHTML = '';
-        addUnitDetailRow();
-    }
-    modal.style.display = 'flex';
-}
-
-function closeUnitForm() {
-    document.getElementById('unitModal').style.display = 'none';
-    // 关闭下拉
-    document.getElementById('unitCategoryListBox').style.display = 'none';
-    document.getElementById('unitBaseUnitListBox').style.display = 'none';
-}
 
 // ==================== 拆分单位数据 ====================
 let unitSplitUnitList = [];  // 所有可用的拆分单位（从 unit_presets 加载）
@@ -4216,7 +4168,6 @@ window.saveUnitPreset = saveUnitPreset;
 window.editUnitPreset = editUnitPreset;
 window.deleteUnitPreset = deleteUnitPreset;
 window.addUnitDetailRow = addUnitDetailRow;
-window.removeUnitDetailRow = removeUnitDetailRow;
 window.showUnitCategoryList = showUnitCategoryList;
 window.filterUnitCategoryList = filterUnitCategoryList;
 window.selectUnitCategory = selectUnitCategory;
