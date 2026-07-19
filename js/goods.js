@@ -3648,3 +3648,445 @@ function resetUnitSearch() {
 function refreshUnitPresets() {
     loadUnitPresets();
 }
+
+// ==================== 分类管理 ====================
+
+let categoryList = [];
+let comboPackList = [];
+let comboPackFiltered = [];
+let comboCurrentPage = 1;
+let comboPageSize = 10;
+
+// 加载分类列表
+async function loadCategories() {
+    try {
+        const { data, error } = await supabase
+            .from('categories')
+            .select('*')
+            .order('name');
+        if (error) throw error;
+        categoryList = data || [];
+        document.getElementById('categoryTotalCount').textContent = categoryList.length;
+        renderCategoryList();
+        // 更新分类下拉
+        updateCategorySelects();
+    } catch (e) {
+        console.error('加载分类失败:', e);
+        showMsg('加载分类失败: ' + e.message);
+    }
+}
+
+function renderCategoryList() {
+    const tbody = document.getElementById('categoryList');
+    if (!tbody) return;
+    if (categoryList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:#999;">暂无分类数据</td></tr>';
+        return;
+    }
+    tbody.innerHTML = categoryList.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${item.combo_count || 0}</td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="editCategory('${item.id}')">编辑</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCategory('${item.id}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openCategoryForm(data) {
+    const modal = document.getElementById('categoryModal');
+    const title = document.getElementById('categoryModalTitle');
+    const idField = document.getElementById('categoryEditId');
+    const nameField = document.getElementById('categoryNameInput');
+    
+    if (data) {
+        title.textContent = '编辑分类';
+        idField.value = data.id;
+        nameField.value = data.name;
+    } else {
+        title.textContent = '新增分类';
+        idField.value = '';
+        nameField.value = '';
+    }
+    modal.style.display = 'flex';
+}
+
+function closeCategoryModal() {
+    document.getElementById('categoryModal').style.display = 'none';
+}
+
+async function saveCategory() {
+    const id = document.getElementById('categoryEditId').value;
+    const name = document.getElementById('categoryNameInput').value.trim();
+    if (!name) {
+        showMsg('请输入分类名称');
+        return;
+    }
+    try {
+        if (id) {
+            await supabase.from('categories').update({ name }).eq('id', id);
+            showMsg('分类更新成功');
+        } else {
+            await supabase.from('categories').insert([{ name }]);
+            showMsg('分类添加成功');
+        }
+        closeCategoryModal();
+        await loadCategories();
+        await loadComboPacks();
+    } catch (e) {
+        showMsg('操作失败: ' + e.message);
+    }
+}
+
+async function editCategory(id) {
+    const item = categoryList.find(c => c.id === id);
+    if (item) openCategoryForm(item);
+}
+
+async function deleteCategory(id) {
+    if (!confirm('确定删除该分类吗？')) return;
+    try {
+        await supabase.from('categories').delete().eq('id', id);
+        showMsg('分类已删除');
+        await loadCategories();
+        await loadComboPacks();
+    } catch (e) {
+        showMsg('删除失败: ' + e.message);
+    }
+}
+
+function updateCategorySelects() {
+    const selects = ['comboCategorySelect', 'comboCategoryFilter'];
+    selects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">请选择分类</option>';
+        categoryList.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.name;
+            sel.appendChild(opt);
+        });
+        if (currentVal) sel.value = currentVal;
+    });
+}
+
+// ==================== 组合包管理 ====================
+
+async function loadComboPacks() {
+    try {
+        const { data, error } = await supabase
+            .from('combo_packs')
+            .select('*, categories(name), unit_presets(unit_name)')
+            .order('name');
+        if (error) throw error;
+        comboPackList = data || [];
+        comboPackFiltered = [...comboPackList];
+        document.getElementById('comboTotalCount').textContent = comboPackList.length;
+        renderComboPacks();
+    } catch (e) {
+        console.error('加载组合包失败:', e);
+        showMsg('加载组合包失败: ' + e.message);
+    }
+}
+
+function renderComboPacks() {
+    const tbody = document.getElementById('comboPackList');
+    if (!tbody) return;
+    const start = (comboCurrentPage - 1) * comboPageSize;
+    const pageData = comboPackFiltered.slice(start, start + comboPageSize);
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">暂无组合包数据</td></tr>';
+        return;
+    }
+    tbody.innerHTML = pageData.map((item, index) => `
+        <tr>
+            <td>${start + index + 1}</td>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${item.categories?.name || '-'}</td>
+            <td>${item.description || '-'}</td>
+            <td>${item.unit_presets?.unit_name || '-'}</td>
+            <td>${item.is_locked ? '🔒 已锁定' : '✅ 可用'}</td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="editComboPack('${item.id}')">编辑</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteComboPack('${item.id}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterComboByCategory() {
+    const catId = document.getElementById('comboCategoryFilter').value;
+    if (catId) {
+        comboPackFiltered = comboPackList.filter(item => item.category_id === catId);
+    } else {
+        comboPackFiltered = [...comboPackList];
+    }
+    comboCurrentPage = 1;
+    renderComboPacks();
+}
+
+function openComboForm(data) {
+    const modal = document.getElementById('comboModal');
+    const title = document.getElementById('comboModalTitle');
+    const idField = document.getElementById('comboEditId');
+    const nameField = document.getElementById('comboNameInput');
+    const catSelect = document.getElementById('comboCategorySelect');
+    const baseUnitSelect = document.getElementById('comboBaseUnitSelect');
+    const descField = document.getElementById('comboDescriptionInput');
+    const detailsContainer = document.getElementById('comboUnitDetails');
+    
+    // 加载单位和分类下拉
+    loadUnitSelect('comboBaseUnitSelect');
+    updateCategorySelects();
+    
+    if (data) {
+        title.textContent = data.is_locked ? '🔒 编辑组合包（已锁定）' : '编辑组合包';
+        idField.value = data.id;
+        nameField.value = data.name;
+        catSelect.value = data.category_id || '';
+        baseUnitSelect.value = data.base_unit_id || '';
+        descField.value = data.description || '';
+        // 加载明细
+        loadComboPackDetails(data.id);
+    } else {
+        title.textContent = '新增组合包';
+        idField.value = '';
+        nameField.value = '';
+        catSelect.value = '';
+        baseUnitSelect.value = '';
+        descField.value = '';
+        detailsContainer.innerHTML = '';
+        addComboUnitRow();
+    }
+    modal.style.display = 'flex';
+}
+
+function closeComboModal() {
+    document.getElementById('comboModal').style.display = 'none';
+}
+
+function addComboUnitRow() {
+    const container = document.getElementById('comboUnitDetails');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+    row.innerHTML = `
+        <input type="text" placeholder="单位名称" class="combo-unit-name" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:4px;">
+        <input type="text" placeholder="换算关系（如：1箱=24瓶）" class="combo-unit-ratio" style="flex:2;padding:6px;border:1px solid #ddd;border-radius:4px;">
+        <input type="number" placeholder="层级" class="combo-unit-order" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:4px;">
+        <button class="btn btn-danger btn-sm" onclick="removeComboUnitRow(this)">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function removeComboUnitRow(btn) {
+    const container = document.getElementById('comboUnitDetails');
+    if (container.children.length <= 1) {
+        showMsg('至少保留一行');
+        return;
+    }
+    btn.closest('div').remove();
+}
+
+async function saveComboPack() {
+    const id = document.getElementById('comboEditId').value;
+    const name = document.getElementById('comboNameInput').value.trim();
+    const categoryId = document.getElementById('comboCategorySelect').value;
+    const baseUnitId = document.getElementById('comboBaseUnitSelect').value;
+    const description = document.getElementById('comboDescriptionInput').value.trim();
+    
+    if (!name) { showMsg('请输入组合包名称'); return; }
+    if (!categoryId) { showMsg('请选择分类'); return; }
+    if (!baseUnitId) { showMsg('请选择基准单位'); return; }
+    
+    try {
+        const data = { name, category_id: categoryId, base_unit_id: baseUnitId, description };
+        let result;
+        if (id) {
+            // 检查是否锁定
+            const existing = comboPackList.find(c => c.id === id);
+            if (existing?.is_locked) {
+                // 锁定状态只能改名称
+                result = await supabase.from('combo_packs').update({ name }).eq('id', id);
+            } else {
+                result = await supabase.from('combo_packs').update(data).eq('id', id);
+            }
+            showMsg('组合包更新成功');
+        } else {
+            result = await supabase.from('combo_packs').insert([data]);
+            showMsg('组合包添加成功');
+        }
+        closeComboModal();
+        await loadComboPacks();
+        await loadCategories();
+    } catch (e) {
+        showMsg('操作失败: ' + e.message);
+    }
+}
+
+async function editComboPack(id) {
+    const item = comboPackList.find(c => c.id === id);
+    if (item) openComboForm(item);
+}
+
+async function deleteComboPack(id) {
+    const item = comboPackList.find(c => c.id === id);
+    if (!item) return;
+    if (item.is_locked) {
+        showMsg('该组合包已被锁定，无法删除');
+        return;
+    }
+    if (!confirm(`确定删除组合包"${item.name}"吗？`)) return;
+    try {
+        await supabase.from('combo_packs').delete().eq('id', id);
+        showMsg('组合包已删除');
+        await loadComboPacks();
+        await loadCategories();
+    } catch (e) {
+        showMsg('删除失败: ' + e.message);
+    }
+}
+
+async function loadComboPackDetails(comboId) {
+    try {
+        const { data, error } = await supabase
+            .from('combo_pack_details')
+            .select('*')
+            .eq('combo_pack_id', comboId)
+            .order('display_order');
+        if (error) throw error;
+        const container = document.getElementById('comboUnitDetails');
+        container.innerHTML = '';
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+                row.innerHTML = `
+                    <input type="text" value="${escapeHtml(item.unit_name || '')}" placeholder="单位名称" class="combo-unit-name" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <input type="text" value="${escapeHtml(item.conversion_ratio || '')}" placeholder="换算关系" class="combo-unit-ratio" style="flex:2;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <input type="number" value="${item.display_order || 0}" placeholder="层级" class="combo-unit-order" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    <button class="btn btn-danger btn-sm" onclick="removeComboUnitRow(this)">×</button>
+                `;
+                container.appendChild(row);
+            });
+        } else {
+            addComboUnitRow();
+        }
+    } catch (e) {
+        console.error('加载组合包明细失败:', e);
+    }
+}
+
+// ==================== 单位预设切换 ====================
+
+function switchUnitSubTab(tab) {
+    document.querySelectorAll('#sub-unitPreset .finance-sub-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.querySelectorAll('#sub-unitPreset .finance-sub-content').forEach(el => {
+        el.style.display = 'none';
+    });
+    const target = document.getElementById('sub-' + tab);
+    if (target) target.style.display = 'block';
+    
+    if (tab === 'unitBasic') {
+        loadUnitPresets();
+    } else if (tab === 'categoryManage') {
+        loadCategories();
+    } else if (tab === 'comboPack') {
+        loadComboPacks();
+        loadCategories();
+        loadUnitSelect('comboBaseUnitSelect');
+    }
+}
+
+// 加载单位下拉
+async function loadUnitSelect(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    try {
+        const { data, error } = await supabase
+            .from('unit_presets')
+            .select('*')
+            .order('unit_name');
+        if (error) throw error;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">请选择单位</option>';
+        (data || []).forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.unit_name + (item.is_default ? ' (默认)' : '');
+            sel.appendChild(opt);
+        });
+        if (currentVal) sel.value = currentVal;
+    } catch (e) {
+        console.error('加载单位下拉失败:', e);
+    }
+}
+
+// ==================== 商品编辑 - 单位选择集成 ====================
+
+// 在商品弹窗中加载组合包下拉
+async function loadComboPackSelect(goodsId) {
+    const sel = document.getElementById('add_combo_pack');
+    if (!sel) return;
+    try {
+        // 加载所有组合包
+        const { data, error } = await supabase
+            .from('combo_packs')
+            .select('*, categories(name), unit_presets(unit_name)')
+            .order('name');
+        if (error) throw error;
+        
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">请选择组合包</option>';
+        (data || []).forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            const catName = item.categories?.name || '未分类';
+            const baseUnit = item.unit_presets?.unit_name || '';
+            opt.textContent = `${item.name} (${catName} | 基准: ${baseUnit})`;
+            sel.appendChild(opt);
+        });
+        
+        // 如果传入了商品ID，加载已关联的组合包
+        if (goodsId) {
+            const { data: relData, error: relError } = await supabase
+                .from('goods_combo_pack')
+                .select('combo_pack_id')
+                .eq('goods_id', goodsId)
+                .maybeSingle();
+            if (!relError && relData) {
+                sel.value = relData.combo_pack_id;
+            }
+        }
+        if (currentVal) sel.value = currentVal;
+    } catch (e) {
+        console.error('加载组合包下拉失败:', e);
+    }
+}
+// 分类管理
+window.loadCategories = loadCategories;
+window.openCategoryForm = openCategoryForm;
+window.closeCategoryModal = closeCategoryModal;
+window.saveCategory = saveCategory;
+window.editCategory = editCategory;
+window.deleteCategory = deleteCategory;
+
+// 组合包管理
+window.loadComboPacks = loadComboPacks;
+window.openComboForm = openComboForm;
+window.closeComboModal = closeComboModal;
+window.saveComboPack = saveComboPack;
+window.editComboPack = editComboPack;
+window.deleteComboPack = deleteComboPack;
+window.addComboUnitRow = addComboUnitRow;
+window.removeComboUnitRow = removeComboUnitRow;
+window.filterComboByCategory = filterComboByCategory;
+window.switchUnitSubTab = switchUnitSubTab;
+window.loadComboPackSelect = loadComboPackSelect;
