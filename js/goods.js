@@ -3831,7 +3831,15 @@ function filterComboByCategory() {
     renderComboPacks();
 }
 
+let wasFormModalOpen = false;
+
 function openComboForm(data) {
+    const formModal = document.getElementById('formModal');
+    wasFormModalOpen = formModal && formModal.style.display === 'block';
+    if (wasFormModalOpen) {
+        formModal.style.display = 'none';
+    }
+    
     const modal = document.getElementById('comboModal');
     const title = document.getElementById('comboModalTitle');
     const idField = document.getElementById('comboEditId');
@@ -3866,9 +3874,12 @@ function openComboForm(data) {
     }
     modal.style.display = 'flex';
 }
-
 function closeComboModal() {
     document.getElementById('comboModal').style.display = 'none';
+    if (wasFormModalOpen) {
+        document.getElementById('formModal').style.display = 'block';
+        wasFormModalOpen = false;
+    }
 }
 
 function addComboUnitRow() {
