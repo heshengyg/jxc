@@ -1501,7 +1501,7 @@
         
          <!-- 单位选择（搜索+下拉） -->
 <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
-    <label style="width:80px; text-align:right; font-weight:bold; font-size:13px; flex-shrink:0;">单位：</label>
+    <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">单位：</label>
     <div style="position:relative; flex:1; min-width:0;">
         <input type="text" id="addComboPackSearch" placeholder="搜索/选择单位" 
                onfocus="showComboPackList()" 
@@ -1633,7 +1633,7 @@
         </div>
         
         <!-- 拆分单位明细 -->
-        <div class="form-group" style="margin:10px 0;">
+<div class="form-group" style="margin:10px 0;">
     <label style="display:block;margin-bottom:5px;font-weight:bold;">拆分单位 <span style="color:#999;font-size:12px;">（添加拆分单位后换算关系自动生成）</span></label>
     <div id="unitSplitUnitsContainer">
         <!-- 动态添加 -->
@@ -1641,6 +1641,12 @@
             <button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>
         </div>
     </div>
+</div>
+
+<!-- ✅ 添加保存和取消按钮 -->
+<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #eee;padding-top:18px;">
+    <button class="btn btn-primary" onclick="saveUnitPreset()" style="padding:8px 40px;font-size:15px;">保存</button>
+    <button class="btn btn-default" onclick="closeUnitForm()" style="padding:8px 40px;font-size:15px;">取消</button>
 </div>
 
 <!-- 分类弹窗 -->

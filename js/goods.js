@@ -4321,31 +4321,30 @@ function renderComboPackList(keyword) {
     
     list.forEach(item => {
         const div = document.createElement('div');
-        div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
+        div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;';
         
         // 名称和分类
         const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'flex:0 0 auto;';
         nameSpan.textContent = item.name || '';
         
-        // 基准单位（红色显示）
+        // 基准单位（红色显示，放中间）
         const baseUnit = item.unit_presets?.unit_name || '';
         const baseSpan = document.createElement('span');
-        baseSpan.style.cssText = 'color:#ff4d4f;font-weight:bold;margin:0 8px;';
+        baseSpan.style.cssText = 'color:#ff4d4f;font-weight:bold;font-size:15px;margin:0 6px;';
         baseSpan.textContent = '【' + baseUnit + '】';
         
-        // 换算关系（显示 description）
+        // 换算关系（紧跟其后，字体大一点，黑色）
         const descSpan = document.createElement('span');
-        descSpan.style.cssText = 'color:#666;font-size:12px;';
+        descSpan.style.cssText = 'color:#333;font-size:14px;';
         descSpan.textContent = item.description || '';
         
-        const rightWrapper = document.createElement('span');
-        rightWrapper.appendChild(baseSpan);
-        if (item.description) {
-            rightWrapper.appendChild(descSpan);
-        }
-        
+        // 组装：名称 + 基准单位(红色) + 换算关系
         div.appendChild(nameSpan);
-        div.appendChild(rightWrapper);
+        div.appendChild(baseSpan);
+        if (item.description) {
+            div.appendChild(descSpan);
+        }
         
         div.onmouseover = function() { this.style.background = '#e5efff'; };
         div.onmouseout = function() { this.style.background = 'transparent'; };
@@ -4357,7 +4356,6 @@ function renderComboPackList(keyword) {
         box.appendChild(div);
     });
 }
-
 // 点击外部关闭下拉
 document.addEventListener('click', function(e) {
     if (!e.target.closest('#addComboPackSearch') && !e.target.closest('#addComboPackListBox')) {
