@@ -3853,24 +3853,14 @@ function updateUnitDescription() {
     });
     
     // 生成主换算关系
-    let mainDesc = parts.join('=');
-    
-    // ✅ 新增：生成最小单位换算关系（最底层单位到基准单位的换算）
-    if (allUnits.length > 0) {
-        // 计算最小单位到基准单位的换算比例
-        let totalRatio = 1;
-        for (let i = 0; i < allUnits.length; i++) {
-            totalRatio = totalRatio * allUnits[i].qty;
-        }
-        const smallestUnit = allUnits[allUnits.length - 1].name;
-        mainDesc += '  （1' + baseUnit + '=' + totalRatio + smallestUnit + '）';
-    }
-    
-    if (hasValid) {
-        document.getElementById('unitDescription').value = mainDesc;
-    } else {
-        document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
-    }
+let mainDesc = parts.join('=');
+
+// ✅ 只显示主换算关系，不额外添加最小单位换算
+
+if (hasValid) {
+    document.getElementById('unitDescription').value = mainDesc;
+} else {
+    document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
 }
 
 // 点击外部关闭拆分单位下拉
@@ -4002,9 +3992,10 @@ function openUnitForm(data) {
 
 function addSplitUnitRowWithDefault() {
     const container = document.getElementById('unitSplitUnitsContainer');
-    // 清空并添加两行
-    container.innerHTML = '';
-    addUnitSplitRow();  // ← 改成 addUnitSplitRow
+    // ✅ 只清空行，保留按钮
+    const rows = container.querySelectorAll('.split-unit-row');
+    rows.forEach(row => row.remove());
+    addUnitSplitRow();
     addUnitSplitRow();
 }
 
@@ -4025,7 +4016,9 @@ async function loadSplitUnits(comboId) {
             .order('display_order');
         if (error) throw error;
         const container = document.getElementById('unitSplitUnitsContainer');
-        container.innerHTML = '';
+        // ✅ 只清空行，保留按钮
+        const rows = container.querySelectorAll('.split-unit-row');
+        rows.forEach(row => row.remove());
         if (data && data.length > 0) {
             data.forEach(item => {
                 addUnitSplitRow({
@@ -4034,7 +4027,7 @@ async function loadSplitUnits(comboId) {
                 });
             });
         } else {
-            addUnitSplitRow();   // ← 改成 addUnitSplitRow
+            addUnitSplitRow();
             addUnitSplitRow();
         }
         setTimeout(updateUnitDescription, 100);
@@ -4042,7 +4035,6 @@ async function loadSplitUnits(comboId) {
         console.error('加载拆分单位失败:', e);
     }
 }
-
 // 保存单位
 async function saveUnitPreset() {
     const id = document.getElementById('unitEditId').value;
@@ -4379,7 +4371,6 @@ window.closeUnitForm = closeUnitForm;
 window.saveUnitPreset = saveUnitPreset;
 window.editUnitPreset = editUnitPreset;
 window.deleteUnitPreset = deleteUnitPreset;
-window.addUnitDetailRow = addUnitDetailRow;
 window.showUnitCategoryList = showUnitCategoryList;
 window.filterUnitCategoryList = filterUnitCategoryList;
 window.selectUnitCategory = selectUnitCategory;
@@ -4388,7 +4379,7 @@ window.filterUnitBaseUnitList = filterUnitBaseUnitList;
 window.selectUnitBaseUnit = selectUnitBaseUnit;
 window.openComboForm = openUnitForm;
 // 拆分单位相关
-window.addSplitUnitRow = addSplitUnitRow;
+window.addSplitUnitRow = addUnitSplitRow;  // 函数名是 addUnitSplitRow
 window.removeSplitUnitRow = removeSplitUnitRow;
 window.showSplitUnitList = showSplitUnitList;
 window.filterSplitUnitList = filterSplitUnitList;
