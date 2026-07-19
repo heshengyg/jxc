@@ -1499,12 +1499,17 @@
             </div>
         </div>
         
-         <!-- 组合包选择 -->
+         <!-- 单位选择（搜索+下拉） -->
 <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
-    <label style="width:80px; text-align:right; font-weight:bold; font-size:13px; flex-shrink:0;">组合包：</label>
-    <select id="add_combo_pack" style="flex:1; min-width:0; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:15px;">
-        <option value="">请选择组合包</option>
-    </select>
+    <label style="width:80px; text-align:right; font-weight:bold; font-size:13px; flex-shrink:0;">单位：</label>
+    <div style="position:relative; flex:1; min-width:0;">
+        <input type="text" id="addComboPackSearch" placeholder="搜索/选择单位" 
+               onfocus="showComboPackList()" 
+               oninput="filterComboPackList()"
+               style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:15px; box-sizing:border-box;">
+        <div id="addComboPackListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+    </div>
+    <input type="hidden" id="add_combo_pack">
     <button class="btn btn-primary btn-sm" onclick="openUnitForm(null)" style="white-space:nowrap;padding:4px 12px;font-size:12px;">＋ 新增</button>
 </div>
 
@@ -1583,7 +1588,7 @@
 </div>
 
 <!-- 单位预设弹窗（组合包） -->
-<div id="unitModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:99999;">
+<div id="unitModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:999999;">
     <div style="background:#fff;padding:30px;width:620px;max-height:90vh;overflow-y:auto;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
         <h4 id="unitModalTitle" style="margin-top:0;">新增单位</h4>
         <input type="hidden" id="unitEditId">
@@ -1629,16 +1634,11 @@
         
         <!-- 拆分单位明细 -->
         <div class="form-group" style="margin:10px 0;">
-            <label style="display:block;margin-bottom:5px;font-weight:bold;">拆分单位 <span style="color:#999;font-size:12px;">（添加拆分单位后换算关系自动生成）</span></label>
-            <div id="unitSplitUnitsContainer">
-                <!-- 动态添加 -->
-            </div>
-            <button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="margin-top:6px;">＋ 添加拆分单位</button>
-        </div>
-        
-        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
-            <button class="btn btn-primary" onclick="saveUnitPreset()">保存</button>
-            <button class="btn btn-default" onclick="closeUnitForm()">取消</button>
+    <label style="display:block;margin-bottom:5px;font-weight:bold;">拆分单位 <span style="color:#999;font-size:12px;">（添加拆分单位后换算关系自动生成）</span></label>
+    <div id="unitSplitUnitsContainer">
+        <!-- 动态添加 -->
+        <div style="text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;">
+            <button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>
         </div>
     </div>
 </div>

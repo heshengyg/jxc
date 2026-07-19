@@ -785,6 +785,8 @@ function onSupplierChange() {
 
 function openAddForm() {
     try {
+// ✅ 加载单位下拉数据
+        loadComboPackListData();
         document.getElementById('formTitle').innerText = '新增商品';
         document.getElementById('editId').value = '';
 
@@ -3820,6 +3822,9 @@ function updateUnitDescription() {
     const rows = document.querySelectorAll('.split-unit-row');
     let parts = ['1' + baseUnit];
     let hasValid = false;
+    let lastUnit = baseUnit;
+    let lastQty = 1;
+    let allUnits = [];  // 收集所有层级
     
     rows.forEach((row, idx) => {
         const nameInput = row.querySelector('.split-unit-name-input');
@@ -3839,13 +3844,30 @@ function updateUnitDescription() {
             }
             if (!isDuplicate) {
                 parts.push(qty + name);
+                lastUnit = name;
+                lastQty = qty;
+                allUnits.push({ name: name, qty: qty });
                 hasValid = true;
             }
         }
     });
     
+    // 生成主换算关系
+    let mainDesc = parts.join('=');
+    
+    // ✅ 新增：生成最小单位换算关系（最底层单位到基准单位的换算）
+    if (allUnits.length > 0) {
+        // 计算最小单位到基准单位的换算比例
+        let totalRatio = 1;
+        for (let i = 0; i < allUnits.length; i++) {
+            totalRatio = totalRatio * allUnits[i].qty;
+        }
+        const smallestUnit = allUnits[allUnits.length - 1].name;
+        mainDesc += '  （1' + baseUnit + '=' + totalRatio + smallestUnit + '）';
+    }
+    
     if (hasValid) {
-        document.getElementById('unitDescription').value = parts.join('=');
+        document.getElementById('unitDescription').value = mainDesc;
     } else {
         document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
     }
@@ -4006,14 +4028,14 @@ async function loadSplitUnits(comboId) {
         container.innerHTML = '';
         if (data && data.length > 0) {
             data.forEach(item => {
-                addSplitUnitRow({
+                addUnitSplitRow({
                     unit_name: item.unit_name,
                     quantity: item.conversion_ratio ? parseInt(item.conversion_ratio) : null
                 });
             });
         } else {
-            addSplitUnitRow();
-            addSplitUnitRow();
+            addUnitSplitRow();   // ← 改成 addUnitSplitRow
+            addUnitSplitRow();
         }
         setTimeout(updateUnitDescription, 100);
     } catch (e) {
@@ -4039,26 +4061,34 @@ async function saveUnitPreset() {
     let hasError = false;
     const unitNames = new Set();
     
-    rows.forEach(row => {
-        const nameInput = row.querySelector('.split-unit-name-input');
-        const qtyInput = row.querySelector('.split-unit-quantity');
-        const name = nameInput ? nameInput.value.trim() : '';
-        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
-        if (name && qty > 0) {
-            if (name === baseUnit) {
-                showMsg('拆分单位"' + name + '"不能与基准单位相同');
-                hasError = true;
-                return;
-            }
-            if (unitNames.has(name)) {
-                showMsg('拆分单位"' + name + '"重复，请勿重复添加');
-                hasError = true;
-                return;
-            }
-            unitNames.add(name);
-            splitUnits.push({ unit_name: name, quantity: qty });
+    let prevQty = 0;
+rows.forEach((row, idx) => {
+    const nameInput = row.querySelector('.split-unit-name-input');
+    const qtyInput = row.querySelector('.split-unit-quantity');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const qty = qtyInput ? parseInt(qtyInput.value) : 0;
+    if (name && qty > 0) {
+        if (name === baseUnit) {
+            showMsg('拆分单位"' + name + '"不能与基准单位相同');
+            hasError = true;
+            return;
         }
-    });
+        if (unitNames.has(name)) {
+            showMsg('拆分单位"' + name + '"重复，请勿重复添加');
+            hasError = true;
+            return;
+        }
+        // ✅ 新增：层级必须递增（后一行数量必须大于前一行）
+        if (idx > 0 && qty <= prevQty) {
+            showMsg('第' + (idx + 1) + '行的数量(' + qty + ')必须大于上一行(' + prevQty + ')，请调整层级顺序');
+            hasError = true;
+            return;
+        }
+        prevQty = qty;
+        unitNames.add(name);
+        splitUnits.push({ unit_name: name, quantity: qty });
+    }
+});
     
     if (hasError) return;
     if (splitUnits.length === 0) {
@@ -4225,6 +4255,117 @@ async function loadComboPackSelect(goodsId) {
         console.error('加载组合包下拉失败:', e);
     }
 }
+
+// ========== 单位下拉（搜索+下拉，显示基准单位红色+换算关系） ==========
+
+let comboPackListData = [];
+
+// 加载单位下拉数据
+async function loadComboPackListData() {
+    try {
+        const { data, error } = await supabase
+            .from('combo_packs')
+            .select(`
+                id,
+                name,
+                categories(name),
+                unit_presets(unit_name),
+                description
+            `)
+            .order('name');
+        if (error) throw error;
+        comboPackListData = data || [];
+    } catch (e) {
+        console.error('加载单位下拉数据失败:', e);
+    }
+}
+
+// 显示单位下拉列表
+function showComboPackList() {
+    const box = document.getElementById('addComboPackListBox');
+    if (!box) return;
+    const input = document.getElementById('addComboPackSearch');
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderComboPackList(kw);
+    box.style.display = 'block';
+}
+
+// 过滤单位下拉列表
+function filterComboPackList() {
+    const input = document.getElementById('addComboPackSearch');
+    const kw = input ? input.value.toLowerCase().trim() : '';
+    renderComboPackList(kw);
+    const box = document.getElementById('addComboPackListBox');
+    if (box) box.style.display = 'block';
+}
+
+// 渲染单位下拉列表
+function renderComboPackList(keyword) {
+    const box = document.getElementById('addComboPackListBox');
+    if (!box) return;
+    
+    let list = comboPackListData;
+    if (keyword) {
+        list = list.filter(item => 
+            (item.name || '').toLowerCase().includes(keyword) ||
+            (item.categories?.name || '').toLowerCase().includes(keyword) ||
+            (item.unit_presets?.unit_name || '').toLowerCase().includes(keyword)
+        );
+    }
+    
+    box.innerHTML = '';
+    if (list.length === 0) {
+        box.innerHTML = '<div style="padding:8px 12px;color:#999;text-align:center;">暂无匹配单位</div>';
+        return;
+    }
+    
+    list.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
+        
+        // 名称和分类
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = item.name || '';
+        
+        // 基准单位（红色显示）
+        const baseUnit = item.unit_presets?.unit_name || '';
+        const baseSpan = document.createElement('span');
+        baseSpan.style.cssText = 'color:#ff4d4f;font-weight:bold;margin:0 8px;';
+        baseSpan.textContent = '【' + baseUnit + '】';
+        
+        // 换算关系（显示 description）
+        const descSpan = document.createElement('span');
+        descSpan.style.cssText = 'color:#666;font-size:12px;';
+        descSpan.textContent = item.description || '';
+        
+        const rightWrapper = document.createElement('span');
+        rightWrapper.appendChild(baseSpan);
+        if (item.description) {
+            rightWrapper.appendChild(descSpan);
+        }
+        
+        div.appendChild(nameSpan);
+        div.appendChild(rightWrapper);
+        
+        div.onmouseover = function() { this.style.background = '#e5efff'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('addComboPackSearch').value = item.name;
+            document.getElementById('add_combo_pack').value = item.id;
+            box.style.display = 'none';
+        };
+        box.appendChild(div);
+    });
+}
+
+// 点击外部关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#addComboPackSearch') && !e.target.closest('#addComboPackListBox')) {
+        const box = document.getElementById('addComboPackListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
 // 暴露函数
 window.loadUnitList = loadUnitList;
 window.renderUnitTable = renderUnitTable;
