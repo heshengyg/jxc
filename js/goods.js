@@ -2845,31 +2845,37 @@ function exportDateChangeExcel() {
 
 document.addEventListener('click', function(e) {
     const listIds = [
-        'goodsFilterSupplierList',
-        'goodsFilterGoodsNameList',
-        'goodsFilterChannelList'
-    ];
-    listIds.forEach(id => {
-        const box = document.getElementById(id);
-        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
-            box.style.display = 'none';
-        }
-    });
+    'goodsFilterSupplierList',
+    'goodsFilterGoodsNameList',
+    'goodsFilterChannelList'
+];
+listIds.forEach(id => {
+    const box = document.getElementById(id);
+    // ✅ 添加空值检查
+    if (!box) return;
+    const inputId = id.replace('List', 'Input');
+    const input = document.getElementById(inputId);
+    if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
+        box.style.display = 'none';
+    }
+});
 
     const dateChangeListIds = [
-        'dateChangeFilterSupplierList',
-        'dateChangeFilterGoodsList',
-        'dateChangeFilterSpecList',
-        'dateChangeFilterSettleList',
-        'dateChangeFilterBzStatusList'
-    ];
-    dateChangeListIds.forEach(id => {
-        const box = document.getElementById(id);
-        const inputId = id.replace('List', '');
-        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${inputId}`)) {
-            box.style.display = 'none';
-        }
-    });
+    'dateChangeFilterSupplierList',
+    'dateChangeFilterGoodsList',
+    'dateChangeFilterSpecList',
+    'dateChangeFilterSettleList',
+    'dateChangeFilterBzStatusList'
+];
+dateChangeListIds.forEach(id => {
+    const box = document.getElementById(id);
+    if (!box) return;
+    const inputId = id.replace('List', '');
+    const input = document.getElementById(inputId);
+    // ✅ 只有 input 存在时才检查 closest
+    if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
+        box.style.display = 'none';
+    }
 });
 
 // ============================================================
@@ -4047,16 +4053,20 @@ function openUnitForm(data) {
 
 function addSplitUnitRowWithDefault() {
     const container = document.getElementById('unitSplitUnitsContainer');
-    // 只清空行，保留按钮
-    const rows = container.querySelectorAll('.split-unit-row');
-    rows.forEach(row => row.remove());
+    // 清空容器
+    container.innerHTML = '';
     addUnitSplitRow();
     addUnitSplitRow();
-    // ✅ 添加更新
+    // ✅ 重新添加按钮
+    const btnDiv = document.createElement('div');
+    btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
+    btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
+    container.appendChild(btnDiv);
     setTimeout(function() {
         updateSplitUnitRelations();
     }, 50);
 }
+
 function closeUnitForm() {
     document.getElementById('unitModal').style.display = 'none';
     document.getElementById('unitCategoryListBox').style.display = 'none';
@@ -4074,9 +4084,8 @@ async function loadSplitUnits(comboId) {
             .order('display_order');
         if (error) throw error;
         const container = document.getElementById('unitSplitUnitsContainer');
-        // 只清空行，保留按钮
-        const rows = container.querySelectorAll('.split-unit-row');
-        rows.forEach(row => row.remove());
+        // 清空容器
+        container.innerHTML = '';
         if (data && data.length > 0) {
             data.forEach(item => {
                 addUnitSplitRow({
@@ -4088,9 +4097,14 @@ async function loadSplitUnits(comboId) {
             addUnitSplitRow();
             addUnitSplitRow();
         }
+        // ✅ 重新添加按钮
+        const btnDiv = document.createElement('div');
+        btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
+        btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
+        container.appendChild(btnDiv);
         setTimeout(function() {
             updateUnitDescription();
-            updateSplitUnitRelations();  // ✅ 添加这行
+            updateSplitUnitRelations();
         }, 100);
     } catch (e) {
         console.error('加载拆分单位失败:', e);
