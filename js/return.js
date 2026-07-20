@@ -1454,3 +1454,5 @@ window.onReturnFilterInput = onReturnFilterInput;
 window.showReturnFilterList = showReturnFilterList;
 window.filterReturnFilterList = filterReturnFilterList;
 window.renderReturnFilterList = renderReturnFilterList;
+
+if (typeof renderReturnList === 'function') renderReturnList();

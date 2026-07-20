@@ -733,3 +733,4 @@ document.addEventListener('click', function(e) {
     });
 });
 window.resetOutSearch = resetOutSearch;
+if (typeof renderStockOut === 'function') renderStockOut();

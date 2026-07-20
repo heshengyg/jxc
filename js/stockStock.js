@@ -746,3 +746,5 @@ document.addEventListener('click', function(e) {
 });
 window.resetStockSearch = resetStockSearch;
 window.onStockFilterInput = onStockFilterInput;
+
+if (typeof renderStockTable === 'function') renderStockTable();

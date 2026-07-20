@@ -1354,3 +1354,5 @@ document.addEventListener('click', function(e) {
         }
     });
 });
+
+if (typeof renderStockIn === 'function') renderStockIn();
