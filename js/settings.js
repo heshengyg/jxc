@@ -729,63 +729,77 @@ async function deleteUserFromSupabase(userId) {
 // ===== 初始化 =====
 async function loadSettings() {
     try {
-        const { data, error } = await supabase
-            .from('system_config')
-            .select('value')
-            .eq('key', 'discountConfig')
-            .single();
+        // 1. 从 Supabase 加载配置
+        try {
+            const { data, error } = await supabase
+                .from('system_config')
+                .select('value')
+                .eq('key', 'discountConfig')
+                .single();
 
-        if (error) {
-            console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值：', error);
-        } else if (data) {
-            settingsData.discountConfig = data.value;
+            if (error) {
+                console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值：', error);
+            } else if (data) {
+                settingsData.discountConfig = data.value;
+            }
+        } catch (supabaseError) {
+            console.warn('⚠️ Supabase 请求异常，使用默认值：', supabaseError);
         }
-    }
 
-    const saved = localStorage.getItem('erp_settings');
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        settingsData = {
-            ...settingsData,
-            ...parsed,
-            discountConfig: settingsData.discountConfig || { items: [
-                { label: '打7折', multiplier: 2 },
-                { label: '打8折', multiplier: 3 },
-                { label: '打9折', multiplier: 4 }
-            ] }
-        };
-    }
+        // 2. 从 localStorage 加载缓存
+        const saved = localStorage.getItem('erp_settings');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                settingsData = {
+                    ...settingsData,
+                    ...parsed,
+                    discountConfig: settingsData.discountConfig || { items: [
+                        { label: '打7折', multiplier: 2 },
+                        { label: '打8折', multiplier: 3 },
+                        { label: '打9折', multiplier: 4 }
+                    ] }
+                };
+            } catch (parseError) {
+                console.warn('⚠️ 解析 localStorage 设置失败:', parseError);
+            }
+        }
 
-    window.settingsData = settingsData;
-    localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+        // 3. 保存到 window 和 localStorage
+        window.settingsData = settingsData;
+        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
 
-    // ========== ✅ 添加：数据加载完成后渲染视图 ==========
-    try {
-        if (typeof renderRoles === 'function') {
-            renderRoles();
+        // 4. ✅ 数据加载完成后渲染视图
+        try {
+            if (typeof renderRoles === 'function') {
+                renderRoles();
+                console.log('✅ renderRoles 已调用');
+            }
+            if (typeof renderUsers === 'function') {
+                renderUsers();
+                console.log('✅ renderUsers 已调用');
+            }
+            if (typeof renderCompanyName === 'function') {
+                renderCompanyName();
+                console.log('✅ renderCompanyName 已调用');
+            }
+            if (typeof updateRoleSelect === 'function') {
+                updateRoleSelect();
+                console.log('✅ updateRoleSelect 已调用');
+            }
+            if (typeof renderUserOpsContainer === 'function') {
+                renderUserOpsContainer();
+                console.log('✅ renderUserOpsContainer 已调用');
+            }
+            console.log('✅ 系统设置视图渲染完成');
+        } catch (renderError) {
+            console.warn('⚠️ 系统设置渲染调用失败:', renderError.message);
         }
-        if (typeof renderUsers === 'function') {
-            renderUsers();
-        }
-        if (typeof renderCompanyName === 'function') {
-            renderCompanyName();
-        }
-        if (typeof updateRoleSelect === 'function') {
-            updateRoleSelect();
-        }
-        if (typeof renderUserOpsContainer === 'function') {
-            renderUserOpsContainer();
-        }
-        console.log('✅ 系统设置视图渲染完成');
+
     } catch (e) {
-        console.warn('⚠️ 系统设置渲染调用失败:', e.message);
+        console.error('❌ 加载设置异常：', e);
     }
-    // ========== 新增结束 ==========
-
-} catch (e) {
-    console.error('加载设置异常：', e);
 }
-
 function loadPermissionData() {
     try {
         const saved = localStorage.getItem('permissionData');
