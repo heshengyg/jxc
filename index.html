@@ -2132,28 +2132,5 @@ document.addEventListener('DOMContentLoaded', async function(){
     await refreshGoods();
 });
 </script>
-
-<script>
-// 全局挂载切换函数，不受goods报错影响
-window.switchGoodsSubTab = function(tab) {
-    const allTab = document.querySelectorAll('#goods .finance-sub-content');
-    allTab.forEach(el => el.style.display = 'none');
-    const target = document.getElementById('sub-' + tab);
-    if(target) target.style.display = 'block';
-    // 按钮激活
-    document.querySelectorAll('.finance-sub-btn').forEach(b=>b.classList.remove('active'));
-    const btn = document.querySelector(`.finance-sub-btn[data-tab="${tab}"]`);
-    if(btn) btn.classList.add('active');
-    // 延迟加载对应数据（防止函数未加载报错）
-    setTimeout(()=>{
-        if(tab === 'goodsInfo' && typeof loadGoods === 'function') loadGoods(1);
-        if(tab === 'unitPreset' && typeof loadUnitList === 'function') loadUnitList();
-        if(tab === 'settleType' && typeof loadSettleList === 'function') loadSettleList();
-        if(tab === 'dateChange' && typeof loadDateChangeTab === 'function') loadDateChangeTab();
-    },100)
-}
-</script>
-
-
 </body>
 </html>
