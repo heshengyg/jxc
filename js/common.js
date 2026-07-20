@@ -412,7 +412,6 @@ function switchTab(tabId) {
                     if (typeof loadStockStock === 'function') loadStockStock();
                     break;
                 case 'finance':
-                    // ✅ 修复：使用正确的财务入口函数
                     if (typeof initFinanceBaseData === 'function') {
                         initFinanceBaseData();
                     } else if (typeof loadTaxRateList === 'function') {
@@ -426,6 +425,37 @@ function switchTab(tabId) {
             console.error('❌ 加载Tab数据失败:', e);
         }
     }, 100);
+    
+    // ========== ✅ 新增：强制显示 Tab 内容（二次保障） ==========
+    setTimeout(function() {
+        var tab = document.getElementById(tabId);
+        if (tab) {
+            // 确保 Tab 可见
+            tab.style.display = 'block';
+            tab.style.visibility = 'visible';
+            tab.style.opacity = '1';
+            tab.style.height = 'auto';
+            tab.style.overflow = 'visible';
+            
+            // 确保 Tab 内的表格可见
+            tab.querySelectorAll('table').forEach(function(table) {
+                table.style.display = 'table';
+                table.style.width = '100%';
+                table.style.visibility = 'visible';
+                table.style.opacity = '1';
+            });
+            
+            // 确保 Tab 内的 tbody 可见
+            tab.querySelectorAll('tbody').forEach(function(tbody) {
+                tbody.style.display = 'table-row-group';
+                tbody.style.visibility = 'visible';
+                tbody.style.opacity = '1';
+            });
+            
+            console.log('✅ 二次确认 Tab 显示:', tabId);
+        }
+    }, 300);
+    // ========== 新增结束 ==========
     
     // 权限控制 + 解锁
     setTimeout(function() {
