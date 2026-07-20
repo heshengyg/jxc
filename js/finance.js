@@ -413,23 +413,21 @@ async function initFinanceBaseData() {
             renderFinance();
             console.log('✅ renderFinance 已调用');
         }
-        if (typeof renderFinancePagination === 'function') {
-            renderFinancePagination();
-            console.log('✅ renderFinancePagination 已调用');
-        }
-        // 如果有子Tab，切换到当前激活的子Tab
-        const activeSubTab = document.querySelector('#finance .finance-sub-btn.active');
-        if (activeSubTab) {
-            const tabName = activeSubTab.dataset.tab;
-            if (tabName && typeof switchFinanceSubTab === 'function') {
-                switchFinanceSubTab(tabName);
-                console.log('✅ 切换到财务子Tab:', tabName);
-            }
-        }
-        console.log('✅ 财务数据渲染完成');
-    } catch (e) {
-        console.warn('⚠️ 财务渲染调用失败:', e.message);
+        // 在 initFinanceBaseData 函数末尾，将 renderFinance() 改为安全调用
+try {
+    if (typeof renderFinancePagination === 'function') {
+        renderFinancePagination();
     }
+    const activeSubTab = document.querySelector('#finance .finance-sub-btn.active');
+    if (activeSubTab) {
+        const tabName = activeSubTab.dataset.tab;
+        if (tabName && typeof switchFinanceSubTab === 'function') {
+            switchFinanceSubTab(tabName);
+        }
+    }
+} catch (e) {
+    console.warn('财务渲染跳过:', e.message);
+}
 }
 // 加载线下去重供应商
 async function loadOfflineSupplier() {
