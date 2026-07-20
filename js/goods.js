@@ -598,7 +598,7 @@ function switchGoodsSubTab(tab) {
     }, 100);
   }
 }
-}
+
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
