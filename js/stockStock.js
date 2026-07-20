@@ -408,6 +408,8 @@ async function loadStockStock() {
         if (totalEl) totalEl.textContent = allStockBatchList.length;
         initStockFilterSelects();
         filterStockStock();
+// 在 loadStockStock 函数末尾添加
+if (typeof renderStockTable === 'function') renderStockTable();
     } catch (e) {
         showMsg('加载库存数据失败：' + e.message);
         console.error("库存加载异常：", e);
@@ -747,4 +749,3 @@ document.addEventListener('click', function(e) {
 window.resetStockSearch = resetStockSearch;
 window.onStockFilterInput = onStockFilterInput;
 
-if (typeof renderStockTable === 'function') renderStockTable();

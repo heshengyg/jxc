@@ -736,56 +736,54 @@ async function loadSettings() {
             .single();
 
         if (error) {
-            console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值:', error);
+            console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值：', error);
         } else if (data) {
             settingsData.discountConfig = data.value;
         }
-
-        const saved = localStorage.getItem('erp_settings');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            settingsData = {
-                ...settingsData,
-                ...parsed,
-                discountConfig: settingsData.discountConfig || { items: [
-                    { label: '打7折', multiplier: 2 },
-                    { label: '打8折', multiplier: 3 },
-                    { label: '打9折', multiplier: 4 }
-                ] }
-            };
-        }
-
-        window.settingsData = settingsData;
-        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
-
-    } catch (e) {
-        console.error('加载设置异常:', e);
     }
-}
 
-async function saveSettings() {
+    const saved = localStorage.getItem('erp_settings');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        settingsData = {
+            ...settingsData,
+            ...parsed,
+            discountConfig: settingsData.discountConfig || { items: [
+                { label: '打7折', multiplier: 2 },
+                { label: '打8折', multiplier: 3 },
+                { label: '打9折', multiplier: 4 }
+            ] }
+        };
+    }
+
+    window.settingsData = settingsData;
+    localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+
+    // ========== ✅ 添加：数据加载完成后渲染视图 ==========
     try {
-        const { error } = await supabase
-            .from('system_config')
-            .upsert({
-                key: 'discountConfig',
-                value: settingsData.discountConfig,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'key' });
-
-        if (error) {
-            console.error('❌ 保存到 Supabase 失败:', error);
-            showMsg('❌ 保存到云端失败，请检查网络');
-            return;
+        if (typeof renderRoles === 'function') {
+            renderRoles();
         }
-
-        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
-        window.settingsData = settingsData;
-
-        console.log('✅ 配置已同步到 Supabase');
+        if (typeof renderUsers === 'function') {
+            renderUsers();
+        }
+        if (typeof renderCompanyName === 'function') {
+            renderCompanyName();
+        }
+        if (typeof updateRoleSelect === 'function') {
+            updateRoleSelect();
+        }
+        if (typeof renderUserOpsContainer === 'function') {
+            renderUserOpsContainer();
+        }
+        console.log('✅ 系统设置视图渲染完成');
     } catch (e) {
-        console.error('保存设置异常:', e);
+        console.warn('⚠️ 系统设置渲染调用失败:', e.message);
     }
+    // ========== 新增结束 ==========
+
+} catch (e) {
+    console.error('加载设置异常：', e);
 }
 
 function loadPermissionData() {
