@@ -226,12 +226,22 @@
     </div>
     
     <script>
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('#settleSupplierSearchInput') && !e.target.closest('#settleSupplierListBox')) {
-            document.getElementById('settleSupplierListBox').style.display = 'none';
-        }
-    });
-    </script>
+// 安全版点击关闭下拉
+document.addEventListener('click', function(e) {
+    var box1 = document.getElementById('taxSupplierListBox');
+    if (box1 && !e.target.closest('#taxSupplierSearch') && !e.target.closest('#taxSupplierListBox')) {
+        box1.style.display = 'none';
+    }
+    var box2 = document.getElementById('taxGoodsListBox');
+    if (box2 && !e.target.closest('#taxGoodsSearch') && !e.target.closest('#taxGoodsListBox')) {
+        box2.style.display = 'none';
+    }
+    var box3 = document.getElementById('taxRateListBox');
+    if (box3 && !e.target.closest('#taxRateSearch') && !e.target.closest('#taxRateListBox')) {
+        box3.style.display = 'none';
+    }
+});
+</script>
 </div>
 
         <div id="sub-dateChange" class="finance-sub-content" style="display:none;">
