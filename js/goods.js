@@ -1,5 +1,5 @@
 // ========== 商品数据全局变量 ==========
-let allGoods = [];           // ✅ 添加 let 声明
+let allGoods = [];
 let filteredGoods = [];
 let currentPage = 1;
 let pageSize = 10;
@@ -24,11 +24,10 @@ let goodsFilterData = {
     goodsName: [],
     channel: ['线上', '线下']  // 结算方式固定
 };
-let isLoadingGoods = false;  // ✅ 添加这行
-let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
+let isLoadingGoods = false;
+let isGoodsLoaded = false;
 
 // ========== 权限辅助函数 ==========
-// 平级独立，不再嵌套
 function canOperateDateUpdate() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -38,7 +37,6 @@ function canOperateDateUpdate() {
     if (!role) return false;
     return role.name === '管理员' || role.name === 'APP部';
 }
-// 改价按钮权限：管理员、商品部
 function canOperatePriceEdit() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -48,7 +46,6 @@ function canOperatePriceEdit() {
     if (!role) return false;
     return role.name === '管理员' || role.name === '商品部';
 }
-// 权限辅助函数（独立顶层函数）
 function isFinanceOrAdmin() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -58,12 +55,10 @@ function isFinanceOrAdmin() {
     if (!role) return false;
     return role.name === '管理员' || role.name === '财务部';
 }
-// 全局挂载放到三个函数全部定义完成之后
 window.canOperateDateUpdate = canOperateDateUpdate;
 window.canOperatePriceEdit = canOperatePriceEdit;
 window.isFinanceOrAdmin = isFinanceOrAdmin;
 
-// 刷新商品列表
 function refreshGoods() {
     if(isLoadingGoods) return;
     loadGoods();
@@ -87,26 +82,17 @@ async function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
         return await res.json();
     } catch (err) {
         console.error("校验状态失败", err);
-        return true; // 出错时默认返回true，防止误删
+        return true;
     }
 }
 // ========== 结算类型相关全局变量 ==========
-let settleData = [];          // 所有结算类型数据
-let filteredSettle = [];      // 筛选后的结算类型
+let settleData = [];
+let filteredSettle = [];
 let settleCurrentPage = 1;
 let settlePageSize = 10;
 let settleTotalPages = 1;
-// 供应商管理下拉缓存变量
 let settleSupplierList = [];
 let settleSearchTimer = null;
-
-allGoods = [];
-filteredGoods = [];
-currentPage = 1;
-pageSize = 10;
-totalPages = 1;
-sortField = '';
-sortAsc = true;
 
 function capitalize(str = '') {
     if(!str) return '';
@@ -114,7 +100,6 @@ function capitalize(str = '') {
 }
 
 // ========== 结算类型管理 ==========
-// 加载结算类型列表（从独立的settle_types表）
 async function loadSettleList() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.desc`, {
@@ -126,13 +111,11 @@ async function loadSettleList() {
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
         
-        // 先加载商品数据用于计算数量
         let goodsRes = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         let goodsList = goodsRes.ok ? await goodsRes.json() : [];
         
-        // 计算每个供应商涉及的商品数
         for (let item of list) {
             let goodsCount = goodsList.filter(g => g.supplier === item.supplier).length;
             item.count = goodsCount;
@@ -140,11 +123,9 @@ async function loadSettleList() {
         
         settleData = list;
         
-        // 初始化供应商下拉数据
         const suppliers = settleData.map(s => s.supplier).sort();
         settleSupplierList = suppliers;
         
-        // 重置搜索框
         const searchInput = document.getElementById('settleSupplierSearchInput');
         if (searchInput) {
             searchInput.value = '';
@@ -169,7 +150,6 @@ async function loadSettleList() {
     }
 }
 
-// ========== 供应商管理 - 供应商搜索下拉 ==========
 function showSettleSupplierList() {
     renderSettleSupplierList(settleSupplierList);
     document.getElementById('settleSupplierListBox').style.display = 'block';
@@ -199,23 +179,18 @@ function renderSettleSupplierList(list) {
         div.onclick = function() {
             document.getElementById('settleSupplierSearchInput').value = s;
             document.getElementById('settleSupplierListBox').style.display = 'none';
-            // 输入即搜索
             filterSettleList();
         };
         box.appendChild(div);
     });
 }
 
-// ========== 供应商管理实时搜索（输入即搜索） ==========
 function onSettleFilterInput() {
-    // 清除之前的定时器
     if (settleSearchTimer) {
         clearTimeout(settleSearchTimer);
     }
-    // 防抖处理，300ms后执行搜索
     settleSearchTimer = setTimeout(() => {
         filterSettleList();
-        // 显示下拉列表
         const input = document.getElementById('settleSupplierSearchInput');
         if (document.activeElement === input) {
             const kw = input.value.toLowerCase().trim();
@@ -226,7 +201,6 @@ function onSettleFilterInput() {
     }, 300);
 }
 
-// ========== 供应商管理重置搜索 ==========
 function resetSettleSearch() {
     document.getElementById('settleSupplierSearchInput').value = '';
     document.getElementById('settleChannelSearch').value = '';
@@ -234,7 +208,6 @@ function resetSettleSearch() {
     filterSettleList();
 }
 
-// 筛选结算类型列表
 function filterSettleList() {
     let supplier = document.getElementById('settleSupplierSearchInput').value.trim();
     let channel = document.getElementById('settleChannelSearch').value;
@@ -243,7 +216,6 @@ function filterSettleList() {
         let matchSupplier = true;
         let matchChannel = !channel || item.channel === channel;
         
-        // 模糊匹配供应商
         if (supplier) {
             matchSupplier = (item.supplier || '').toLowerCase().includes(supplier.toLowerCase());
         }
@@ -259,7 +231,6 @@ function filterSettleList() {
     renderSettleList();
 }
 
-// 重置结算类型搜索（旧版本，保留兼容）
 function resetSettleSearchOld() {
     resetSettleSearch();
 }
@@ -279,13 +250,12 @@ function renderSettleList() {
         return;
     }
     pageData.forEach((item, idx) => {
-        // ✅ 根据结算方式设置颜色
         let channelColor = '';
         let channelDisplay = item.channel || '';
         if (channelDisplay === '线上') {
-            channelColor = 'style="color:#52c41a;font-weight:bold;"';  // 浅绿色
+            channelColor = 'style="color:#52c41a;font-weight:bold;"';
         } else if (channelDisplay === '线下') {
-            channelColor = 'style="color:#ff6b6b;font-weight:bold;"';  // 浅红色
+            channelColor = 'style="color:#ff6b6b;font-weight:bold;"';
         }
         
         let html = `
@@ -349,8 +319,7 @@ function changeSettlePageSize() {
     renderSettlePagination(); 
     renderSettleList(); 
 }
-// ========== 结算类型CRUD ==========
-// 新增结算类型 - 弹窗形式
+
 function openSettleForm() {
     document.getElementById('settleModalTitle').innerText = '新增结算类型';
     document.getElementById('settleEditId').value = '';
@@ -360,7 +329,6 @@ function openSettleForm() {
     document.getElementById('settleModal').style.display = 'flex';
 }
 
-// 编辑结算类型 - 弹窗形式
 function openSettleEditForm(id) {
     let item = settleData.find(s => s.id === id);
     if (!item) return;
@@ -373,7 +341,6 @@ function openSettleEditForm(id) {
     document.getElementById('settleModal').style.display = 'flex';
 }
 
-// 关闭结算类型弹窗
 function closeSettleModal() {
     document.getElementById('settleModal').style.display = 'none';
     document.getElementById('settleSupplierInput').disabled = false;
@@ -381,7 +348,6 @@ function closeSettleModal() {
     document.getElementById('settleEditId').value = '';
 }
 
-// 提交结算类型表单
 async function submitSettleForm() {
     let id = document.getElementById('settleEditId').value;
     let supplier = document.getElementById('settleSupplierInput').value.trim();
@@ -392,9 +358,7 @@ async function submitSettleForm() {
         return;
     }
     
-    // ✅ 检查供应商+结算方式是否重复
     let isDuplicate = settleData.some(item => {
-        // 如果是编辑模式，排除自身
         if (id && item.id == id) return false;
         return item.supplier === supplier && item.channel === channel;
     });
@@ -406,10 +370,8 @@ async function submitSettleForm() {
     
     try {
         if (id) {
-            // 编辑时也要检查：如果修改了结算方式，检查是否与其他记录重复
             let currentItem = settleData.find(s => s.id == id);
             if (currentItem && currentItem.channel !== channel) {
-                // 检查新的结算方式是否与其他记录重复
                 let conflict = settleData.some(item => {
                     return item.id != id && item.supplier === supplier && item.channel === channel;
                 });
@@ -444,7 +406,6 @@ async function submitSettleForm() {
         }
         
         closeSettleModal();
-        // 先重新加载商品数据，再加载结算类型
         loadGoods();
         loadSettleList();
         loadSupplierSelect();
@@ -454,7 +415,6 @@ async function submitSettleForm() {
     }
 }
 
-// 删除结算类型
 async function deleteSettleType(id) {
     let item = settleData.find(s => s.id === id);
     if (!item) return;
@@ -483,7 +443,6 @@ async function deleteSettleType(id) {
     }
 }
 
-// ========== 结算类型导入导出 ==========
 function downloadSettleTemplate() {
     let h = ["供应商", "结算方式"];
     let ws = XLSX.utils.aoa_to_sheet([h]);
@@ -574,21 +533,17 @@ function exportSettleExcel() {
     XLSX.writeFile(wb, "结算类型列表.xlsx");
 }
 
-// ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
-    // 1. 优先隐藏所有内容，不依赖按钮
     const contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(div => div.style.display = 'none');
     const targetContent = document.getElementById('sub-' + tab);
     if (targetContent) targetContent.style.display = 'block';
 
-    // 2. 容错处理按钮，找不到不阻断流程
     const buttons = document.querySelectorAll('#goods .finance-sub-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
     if (targetBtn) targetBtn.classList.add('active');
 
-    // 3. 各Tab加载逻辑
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
@@ -599,22 +554,20 @@ function switchGoodsSubTab(tab) {
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
     } else if (tab === 'unitPreset') {
-    setTimeout(function() {
-        if (typeof loadUnitList === 'function') {
-            loadUnitList();
-        }
-    }, 100);
-  }
+        setTimeout(function() {
+            if (typeof loadUnitList === 'function') {
+                loadUnitList();
+            }
+        }, 100);
+    }
 }
 
-// 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
     let costInput = document.getElementById('add_online_cost');
     let shelfNumInput = document.getElementById('add_shelf_life_num');
     let shelfUnitSelect = document.getElementById('add_shelf_life_unit');
 
-    // 线上成本价：线上可填，线下禁用
     if (channel === '线下') {
         costInput.disabled = true;
         costInput.value = '';
@@ -622,7 +575,6 @@ function toggleOnlineCostInput() {
         costInput.disabled = false;
     }
 
-    // 保质期和单位始终可用（不再根据渠道禁用）
     if (shelfNumInput) shelfNumInput.disabled = false;
     if (shelfUnitSelect) shelfUnitSelect.disabled = false;
 }
@@ -651,7 +603,6 @@ async function loadGoods(force) {
     try {
         isLoadingGoods = true;
         
-        // ✅ 检查 Supabase 配置
         if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
             console.error('❌ Supabase 配置未定义！请检查 config.js 是否加载');
             showMsg('系统配置错误，请刷新页面重试');
@@ -681,7 +632,6 @@ async function loadGoods(force) {
         initGoodsFilterData();
         isGoodsLoaded = true;
         
-        // ✅ 确保 DOM 元素存在后再调用
         await filterGoodsWaitCache();
         
         const totalCountEl = document.getElementById('totalCount');
@@ -695,7 +645,6 @@ async function loadGoods(force) {
         console.error('❌ 加载商品失败:', e);
         showMsg('加载商品失败：' + e.message);
         
-        // ✅ 显示空状态
         const tb = document.getElementById('goodsList');
         if (tb) {
             tb.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:30px;color:#ff6b6b;">
@@ -708,7 +657,7 @@ async function loadGoods(force) {
         console.log('🏁 loadGoods 执行完成');
     }
 }
-// 等待缓存异步完成的筛选函数
+
 async function filterGoodsWaitCache() {
     console.log('🔄 filterGoodsWaitCache 开始执行...');
     
@@ -736,11 +685,9 @@ async function filterGoodsWaitCache() {
         currentPage = 1;
         goodsUsedCache.clear();
         
-        // ✅ 分批加载缓存，避免阻塞
         const start = (currentPage - 1) * pageSize;
         const pageData = filteredGoods.slice(start, start + pageSize);
         
-        // ✅ 使用 Promise.all 并行加载
         await Promise.all(pageData.map(async (item) => {
             try {
                 const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
@@ -754,7 +701,6 @@ async function filterGoodsWaitCache() {
         console.log('✅ filterGoodsWaitCache 完成');
     } catch (e) {
         console.error('❌ filterGoodsWaitCache 执行失败:', e);
-        // 不抛出，继续执行
     }
 }
 
@@ -772,14 +718,12 @@ function loadSupplierSelect() {
     });
 }
 
-// ========== 商品弹窗供应商搜索下拉 ==========
 function showAddSupplierList() {
     const box = document.getElementById('addSupplierListBox');
     if (!box) return;
     const searchInput = document.getElementById('addSupplierSearch');
     if (!searchInput) return;
     
-    // ✅ 确保 settleData 已加载
     if (!settleData || settleData.length === 0) {
         loadSettleListSilently();
         box.innerHTML = '<div style="padding:6px 10px;color:#999;">加载中...</div>';
@@ -825,14 +769,6 @@ function filterAddSupplierList() {
     showAddSupplierList();
 }
 
-// 点击空白关闭下拉
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
-        const box = document.getElementById('addSupplierListBox');
-        if (box) box.style.display = 'none';
-    }
-});
-
 function onSupplierChange() {
     let supplier = document.getElementById('add_supplier').value;
     let channelInput = document.getElementById('add_channel');
@@ -849,7 +785,6 @@ function onSupplierChange() {
 
 function openAddForm() {
     try {
-// ✅ 加载单位下拉数据
         loadComboPackListData();
         document.getElementById('formTitle').innerText = '新增商品';
         document.getElementById('editId').value = '';
@@ -1009,7 +944,6 @@ function filterGoods() {
     renderGoods();
 }
 
-// ========== 商品筛选下拉 ==========
 function initGoodsFilterData() {
     if (!allGoods || allGoods.length === 0) return;
     goodsFilterData.supplier = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
@@ -1072,7 +1006,7 @@ function resetGoodsSearch() {
     document.querySelectorAll('[id^="goodsFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterGoods();
 }
-// ========== 商品实时搜索（输入即搜索） ==========
+
 function onGoodsFilterInput() {
     filterGoods();
     
@@ -1268,7 +1202,6 @@ async function submitForm() {
         const oldItem = allGoods.find(g => g.id == editId);
         if (oldItem) {
             oldSalePrice = Number(oldItem.sale_price);
-            // 用户输入的新价格 != 数据库中的旧价格 → 价格变动
             if (newPrice !== oldSalePrice) {
                 priceChanged = true;
                 console.log('⚠️ 销售价变动:', oldSalePrice, '→', newPrice);
@@ -1287,7 +1220,6 @@ async function submitForm() {
         warn_num: warnNum ? +warnNum : null,
         shelf_life_num: shelfNum ? +shelfNum : null,
         shelf_life_unit: shelfUnit || null,
-        // ✅ last_sale_price 记录上一次的价格（即修改前的 sale_price）
         last_sale_price: editId ? oldSalePrice : null
     };
     
@@ -1316,7 +1248,6 @@ async function submitForm() {
                 showMsg('⚠️ 销售价已变动，所有状态价格已清空，请重新设置');
             }
         } else {
-            // 新增商品：last_sale_price 为 null
             data.last_sale_price = null;
             await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: 'POST',
@@ -1365,6 +1296,7 @@ async function deleteGoods(id) {
         showMsg('删除失败');
     }
 }
+
 async function batchDelete() {
     if (!isCurrentUserAdmin()) {
         showMsg('只有管理员可以批量删除商品');
@@ -1457,7 +1389,6 @@ function exportExcel() {
     XLSX.writeFile(wb, "商品列表.xlsx");
 }
 
-// ========== 商品批量导入 ==========
 function importGoodsExcel() {
     let fileInput = document.getElementById('goodsFileInput');
     let file = fileInput.files[0];
@@ -1576,8 +1507,9 @@ function importGoodsExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
+
 // ============================================================
-// 提前暴露关键函数（确保 DOMContentLoaded 和 HTML onclick 能调用）
+// 提前暴露关键函数（确保 HTML onclick 能调用）
 // ============================================================
 window.switchGoodsSubTab = switchGoodsSubTab;
 window.loadGoods = loadGoods;
@@ -1594,46 +1526,7 @@ window.deleteUnitPreset = deleteUnitPreset;
 window.addUnitSplitRow = addUnitSplitRow;
 window.updateSplitUnitRelations = updateSplitUnitRelations;
 window.updateUnitDescription = updateUnitDescription;
-// ========== 页面初始化 ==========
-// ✅ 使用 setTimeout 延迟执行，确保所有函数都已加载
-// ✅ 在文件末尾修改初始化方式
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOMContentLoaded 触发');
-    
-    // ✅ 检查 Supabase 配置
-    if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
-        console.error('❌ Supabase 配置未加载！');
-        showMsg('系统配置错误，请检查网络连接');
-        return;
-    }
-    
-    // ✅ 延迟执行，确保所有函数都已定义
-    setTimeout(function() {
-        console.log('🔄 开始初始化商品模块...');
-        
-        // 先加载商品数据
-        if (typeof loadGoods === 'function') {
-            loadGoods(true);
-        } else {
-            console.error('❌ loadGoods 函数未定义！');
-        }
-        
-        // 加载结算类型
-        if (typeof loadSettleList === 'function') {
-            setTimeout(function() {
-                loadSettleList();
-            }, 500);
-        }
-        
-        // 加载单位列表
-        if (typeof loadUnitList === 'function') {
-            setTimeout(function() {
-                loadUnitList();
-            }, 800);
-        }
-        
-    }, 100);
-});
+
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
@@ -1859,7 +1752,6 @@ async function getNeedUpdateGoodsList() {
         return result;
     }
     
-    // 批量加载所有 price_temp_state 数据
     let priceMap = {};
     try {
         const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?select=*`, {
@@ -1884,177 +1776,155 @@ async function getNeedUpdateGoodsList() {
     }
     
     for (const item of allGoods) {
-        // ========== 检查是否有库存批次 ==========
         const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec || '-');
         if (!earliest || earliest.batchRemain <= 0) {
-            continue; // 没有库存，跳过
+            continue;
         }
         
-        // ========== 检查日期是否需要更新 ==========
-const dateCheck = checkNeedDateUpdate(item);
-const dateChanged = dateCheck.needUpdate;
+        const dateCheck = checkNeedDateUpdate(item);
+        const dateChanged = dateCheck.needUpdate;
 
-// ========== 检查价格是否需要更新 ==========
-const normalPrice = item.sale_price || 0;
-const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
-    ? Number(item.last_sale_price) 
-    : normalPrice;
-const priceChanged = (normalPrice !== lastPrice);
+        const normalPrice = item.sale_price || 0;
+        const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
+            ? Number(item.last_sale_price) 
+            : normalPrice;
+        const priceChanged = (normalPrice !== lastPrice);
 
-// ========== 如果日期和价格都没有变化，跳过 ==========
-if (!dateChanged && !priceChanged) {
-    continue;
-}
-
-// ========== 获取保质期状态 ==========
-const bzStatus = earliest.bzStatusText || '';
-
-// ========== ✅ 新增：计算"需更新日期" ==========
-let needUpdateDate = '';
-let needUpdateDateColor = '';
-let showCopyDateBtn = false;
-
-if (dateChanged) {
-    needUpdateDate = dateCheck.displayValue || dateCheck.dateValue || '日期已变';
-    needUpdateDateColor = '#ff6b6b';
-    showCopyDateBtn = true;
-} else {
-    needUpdateDate = '无需改日';
-    needUpdateDateColor = '#52c41a';
-}
-
-// ========== 根据状态获取当前销售价 ==========
-let currentSalePrice = normalPrice;
-let newSalePrice = null;
-let priceStatus = 'pending';
-let statusPrice = null;
-
-const priceData = priceMap[item.id];
-const isNormalOrExpire = (bzStatus === '正常' || bzStatus === '过期');
-
-if (isNormalOrExpire) {
-    // 正常/过期状态：使用 normalPrice
-    currentSalePrice = normalPrice;
-    newSalePrice = null;
-    priceStatus = 'pending';
-} else {
-    // 折扣/临期状态：从 price_temp_state 获取
-    if (priceData) {
-        if (bzStatus === '临期') {
-            statusPrice = priceData.expirePrice;
-        } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
-            statusPrice = priceData.discount1Price;
-        } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
-            statusPrice = priceData.discount2Price;
-        } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
-            statusPrice = priceData.discount3Price;
-        } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
-            statusPrice = priceData.discount4Price;
+        if (!dateChanged && !priceChanged) {
+            continue;
         }
-        
-        if (statusPrice !== null && statusPrice !== undefined) {
-            currentSalePrice = statusPrice;
-            newSalePrice = statusPrice;
-            priceStatus = 'updated';
+
+        const bzStatus = earliest.bzStatusText || '';
+
+        let needUpdateDate = '';
+        let needUpdateDateColor = '';
+        let showCopyDateBtn = false;
+
+        if (dateChanged) {
+            needUpdateDate = dateCheck.displayValue || dateCheck.dateValue || '日期已变';
+            needUpdateDateColor = '#ff6b6b';
+            showCopyDateBtn = true;
         } else {
-            // ✅ 折扣/临期状态但价格为空，设为 null
-            currentSalePrice = null;
+            needUpdateDate = '无需改日';
+            needUpdateDateColor = '#52c41a';
+        }
+
+        let currentSalePrice = normalPrice;
+        let newSalePrice = null;
+        let priceStatus = 'pending';
+        let statusPrice = null;
+
+        const priceData = priceMap[item.id];
+        const isNormalOrExpire = (bzStatus === '正常' || bzStatus === '过期');
+
+        if (isNormalOrExpire) {
+            currentSalePrice = normalPrice;
             newSalePrice = null;
             priceStatus = 'pending';
+        } else {
+            if (priceData) {
+                if (bzStatus === '临期') {
+                    statusPrice = priceData.expirePrice;
+                } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
+                    statusPrice = priceData.discount1Price;
+                } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
+                    statusPrice = priceData.discount2Price;
+                } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
+                    statusPrice = priceData.discount3Price;
+                } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
+                    statusPrice = priceData.discount4Price;
+                }
+                
+                if (statusPrice !== null && statusPrice !== undefined) {
+                    currentSalePrice = statusPrice;
+                    newSalePrice = statusPrice;
+                    priceStatus = 'updated';
+                } else {
+                    currentSalePrice = null;
+                    newSalePrice = null;
+                    priceStatus = 'pending';
+                }
+            } else {
+                currentSalePrice = null;
+                newSalePrice = null;
+                priceStatus = 'pending';
+            }
         }
-    } else {
-        // 没有 price_temp_state 数据
-        currentSalePrice = null;
-        newSalePrice = null;
-        priceStatus = 'pending';
-    }
-}
-// ========== 判断是否为折扣/临期状态 ==========
-const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
+        const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
 
-// ========== 计算"需更新销售价" ==========
-let needUpdatePrice = '';
-let needUpdatePriceColor = '';
-let showPriceBtn = false;
-let showCopyPriceBtn = false;
+        let needUpdatePrice = '';
+        let needUpdatePriceColor = '';
+        let showPriceBtn = false;
+        let showCopyPriceBtn = false;
 
-if (!isDiscountOrExpire) {
-    // 正常/过期状态：价格变化时更新 goods.sale_price
-    if (priceChanged) {
-        needUpdatePrice = formatMoney(normalPrice);
-        needUpdatePriceColor = '#ff6b6b';
-        // ✅ 正常状态：newSalePrice = normalPrice，用于更新 goods.sale_price
-        newSalePrice = normalPrice;
-        showCopyPriceBtn = true;
-    } else {
-        needUpdatePrice = '无需改价';
-        needUpdatePriceColor = '#52c41a';
-        // ✅ 正常状态没有价格变化时，newSalePrice 为 null
-        newSalePrice = null;
-    }
-    showPriceBtn = false;
-} else {
-    // 折扣/临期状态：价格存储在 price_temp_state，不修改 goods.sale_price
-    showPriceBtn = true;
-    if (statusPrice !== null && statusPrice !== undefined) {
-        needUpdatePrice = formatMoney(statusPrice);
-        needUpdatePriceColor = '#ff6b6b';
-        // ✅ 折扣/临期状态：newSalePrice 只用于显示"复制新价"，不更新 goods.sale_price
-        // 注意：这里 newSalePrice 保持 statusPrice 用于复制，但更新时不会写入 sale_price
-        showCopyPriceBtn = true;
-    } else {
-        needUpdatePrice = '待改价';
-        needUpdatePriceColor = '#ff9800';
-        showCopyPriceBtn = false;
-    }
-}
+        if (!isDiscountOrExpire) {
+            if (priceChanged) {
+                needUpdatePrice = formatMoney(normalPrice);
+                needUpdatePriceColor = '#ff6b6b';
+                newSalePrice = normalPrice;
+                showCopyPriceBtn = true;
+            } else {
+                needUpdatePrice = '无需改价';
+                needUpdatePriceColor = '#52c41a';
+                newSalePrice = null;
+            }
+            showPriceBtn = false;
+        } else {
+            showPriceBtn = true;
+            if (statusPrice !== null && statusPrice !== undefined) {
+                needUpdatePrice = formatMoney(statusPrice);
+                needUpdatePriceColor = '#ff6b6b';
+                showCopyPriceBtn = true;
+            } else {
+                needUpdatePrice = '待改价';
+                needUpdatePriceColor = '#ff9800';
+                showCopyPriceBtn = false;
+            }
+        }
 
-// ========== 判断更新按钮是否可用 ==========
-// 折扣/临期状态 + 没有状态价格 = 不可用
-const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPrice === undefined);
+        const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPrice === undefined);
 
-result.push({
-    id: item.id,
-    supplier: item.supplier || '',
-    name: item.name || '',
-    spec: item.spec || '-',
-    channel: item.channel || '',
-    settleType: item.channel || '',
-    sale_price: item.sale_price || 0,
-    currentSalePrice: currentSalePrice,
-    normalPrice: normalPrice,
-    lastSalePrice: lastPrice,
-    online_cost: item.online_cost || 0,
-    tax_rate: item.tax_rate || '',
-    warn_num: item.warn_num || 0,
-    shelf_life_num: item.shelf_life_num || '',
-    shelf_life_unit: item.shelf_life_unit || '',
-    saved_produce_date: item.saved_produce_date || null,
-    saved_expire_date: item.saved_expire_date || null,
-    saved_date_updated_at: item.saved_date_updated_at || null,
-    earliestBatch: earliest,
-    dateType: dateCheck.dateType || '',
-    dateValue: dateCheck.dateValue || null,
-    displayValue: dateCheck.displayValue || '',
-    batchRemain: earliest.batchRemain || 0,
-    recordDate: earliest.recordDate || null,
-    newSalePrice: newSalePrice,
-    priceStatus: priceStatus,
-    bzStatus: bzStatus,
-    dateChanged: dateChanged,
-    priceChanged: priceChanged,
-    needUpdateDate: needUpdateDate,          // ✅ 现在已定义
-    needUpdateDateColor: needUpdateDateColor, // ✅ 现在已定义
-    needUpdatePrice: needUpdatePrice,
-    needUpdatePriceColor: needUpdatePriceColor,
-    showPriceBtn: showPriceBtn,
-    showCopyPriceBtn: showCopyPriceBtn,
-    showCopyDateBtn: showCopyDateBtn,        // ✅ 现在已定义
-    statusPrice: statusPrice,
-    isDiscountOrExpire: isDiscountOrExpire,
-    isUpdateDisabled: isUpdateDisabled
-});
-
+        result.push({
+            id: item.id,
+            supplier: item.supplier || '',
+            name: item.name || '',
+            spec: item.spec || '-',
+            channel: item.channel || '',
+            settleType: item.channel || '',
+            sale_price: item.sale_price || 0,
+            currentSalePrice: currentSalePrice,
+            normalPrice: normalPrice,
+            lastSalePrice: lastPrice,
+            online_cost: item.online_cost || 0,
+            tax_rate: item.tax_rate || '',
+            warn_num: item.warn_num || 0,
+            shelf_life_num: item.shelf_life_num || '',
+            shelf_life_unit: item.shelf_life_unit || '',
+            saved_produce_date: item.saved_produce_date || null,
+            saved_expire_date: item.saved_expire_date || null,
+            saved_date_updated_at: item.saved_date_updated_at || null,
+            earliestBatch: earliest,
+            dateType: dateCheck.dateType || '',
+            dateValue: dateCheck.dateValue || null,
+            displayValue: dateCheck.displayValue || '',
+            batchRemain: earliest.batchRemain || 0,
+            recordDate: earliest.recordDate || null,
+            newSalePrice: newSalePrice,
+            priceStatus: priceStatus,
+            bzStatus: bzStatus,
+            dateChanged: dateChanged,
+            priceChanged: priceChanged,
+            needUpdateDate: needUpdateDate,
+            needUpdateDateColor: needUpdateDateColor,
+            needUpdatePrice: needUpdatePrice,
+            needUpdatePriceColor: needUpdatePriceColor,
+            showPriceBtn: showPriceBtn,
+            showCopyPriceBtn: showCopyPriceBtn,
+            showCopyDateBtn: showCopyDateBtn,
+            statusPrice: statusPrice,
+            isDiscountOrExpire: isDiscountOrExpire,
+            isUpdateDisabled: isUpdateDisabled
+        });
     }
     
     console.log('需要更新的商品总数:', result.length);
@@ -2077,7 +1947,6 @@ async function loadDateChangeTab() {
             allStockBatchList = [];
             await loadStockStock();
         }
-// ========== 新增：如果 allStockBatchList 为空，手动构建 ==========
         if ((!allStockBatchList || allStockBatchList.length === 0) && allStockIn && allStockIn.length > 0) {
             console.log('🔄 allStockBatchList 为空，手动构建...');
             const groupMap = {};
@@ -2112,62 +1981,61 @@ async function loadDateChangeTab() {
     }
     
     async function doLoadDateChange() {
-    try {
-        dateChangeData = await getNeedUpdateGoodsList();
-        dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-// ========== 新增：如果 getNeedUpdateGoodsList 返回空，手动构建 ==========
-        if (dateChangeFilteredList.length === 0 && allStockBatchList && allStockBatchList.length > 0) {
-            console.log('🔄 getNeedUpdateGoodsList 返回空，手动构建改日改价数据...');
-            dateChangeData = [];
-            for (const item of allGoods || []) {
-                const batches = (allStockBatchList || []).filter(b => 
-                    b.supplier === item.supplier && 
-                    b.goodsName === item.name &&
-                    (b.spec || '-') === (item.spec || '-')
-                );
-                if (batches.length > 0) {
-                    const earliest = batches[0];
-                    const dateType = (earliest.produce_date && earliest.produce_date !== '-') ? '生产日期' : 
-                                     (earliest.expire_date && earliest.expire_date !== '-') ? '到期日期' : '';
-                    const dateValue = (earliest.produce_date && earliest.produce_date !== '-') ? earliest.produce_date : 
-                                      (earliest.expire_date || null);
-                    dateChangeData.push({
-                        id: item.id,
-                        supplier: item.supplier || '',
-                        name: item.name || '',
-                        spec: item.spec || '-',
-                        settleType: item.channel || '',
-                        currentSalePrice: item.sale_price || 0,
-                        batchRemain: earliest.batchRemain || 0,
-                        earliestBatch: earliest,
-                        dateType: dateType,
-                        dateValue: dateValue,
-                        displayValue: dateValue || '',
-                        recordDate: earliest.recordDate || null,
-                        newSalePrice: null,
-                        priceStatus: 'pending'
-                    });
+        try {
+            dateChangeData = await getNeedUpdateGoodsList();
+            dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+            if (dateChangeFilteredList.length === 0 && allStockBatchList && allStockBatchList.length > 0) {
+                console.log('🔄 getNeedUpdateGoodsList 返回空，手动构建改日改价数据...');
+                dateChangeData = [];
+                for (const item of allGoods || []) {
+                    const batches = (allStockBatchList || []).filter(b => 
+                        b.supplier === item.supplier && 
+                        b.goodsName === item.name &&
+                        (b.spec || '-') === (item.spec || '-')
+                    );
+                    if (batches.length > 0) {
+                        const earliest = batches[0];
+                        const dateType = (earliest.produce_date && earliest.produce_date !== '-') ? '生产日期' : 
+                                         (earliest.expire_date && earliest.expire_date !== '-') ? '到期日期' : '';
+                        const dateValue = (earliest.produce_date && earliest.produce_date !== '-') ? earliest.produce_date : 
+                                          (earliest.expire_date || null);
+                        dateChangeData.push({
+                            id: item.id,
+                            supplier: item.supplier || '',
+                            name: item.name || '',
+                            spec: item.spec || '-',
+                            settleType: item.channel || '',
+                            currentSalePrice: item.sale_price || 0,
+                            batchRemain: earliest.batchRemain || 0,
+                            earliestBatch: earliest,
+                            dateType: dateType,
+                            dateValue: dateValue,
+                            displayValue: dateValue || '',
+                            recordDate: earliest.recordDate || null,
+                            newSalePrice: null,
+                            priceStatus: 'pending'
+                        });
+                    }
                 }
+                dateChangeFilteredList = [...dateChangeData];
+                console.log('✅ 手动构建改日改价数据:', dateChangeFilteredList.length, '条');
             }
-            dateChangeFilteredList = [...dateChangeData];
-            console.log('✅ 手动构建改日改价数据:', dateChangeFilteredList.length, '条');
+            initDateChangeFilterData();
+            console.log('需要更新的商品数量:', dateChangeFilteredList.length);
+            updateDateChangeButton();
+            updateDateChangeStatus();
+            dateChangeCurrentPage = 1;
+            renderDateChangePagination();
+            renderDateChangeList();
+        } catch (e) {
+            console.error('加载后台更换日期失败:', e);
+            dateChangeFilteredList = [];
+            dateChangeData = [];
+            initDateChangeFilterData();
+            renderDateChangeList();
+            showMsg('加载数据失败，请刷新重试');
         }
-        initDateChangeFilterData();
-        console.log('需要更新的商品数量:', dateChangeFilteredList.length);
-        updateDateChangeButton();
-        updateDateChangeStatus();
-        dateChangeCurrentPage = 1;
-        renderDateChangePagination();
-        renderDateChangeList();
-    } catch (e) {
-        console.error('加载后台更换日期失败:', e);
-        dateChangeFilteredList = [];
-        dateChangeData = [];
-        initDateChangeFilterData();
-        renderDateChangeList();
-        showMsg('加载数据失败，请刷新重试');
     }
-}
     
     checkAndLoad();
 }
@@ -2409,6 +2277,7 @@ function updateDateChangeButton() {
         btn.disabled = true;
     }
 }
+
 function copyDateText(text, btnElement) {
     if (!text) {
         showMsg('没有可复制的内容');
@@ -2423,7 +2292,7 @@ function copyDateText(text, btnElement) {
             btnElement.style.color = '#ffffff';
             
             setTimeout(function() {
-                btnElement.textContent = '复制日期';  // 恢复为"复制日期"
+                btnElement.textContent = '复制日期';
                 btnElement.style.background = '';
                 btnElement.style.color = '';
             }, 2000);
@@ -2457,8 +2326,8 @@ function fallbackCopyDate(text, btnElement) {
     }
     document.body.removeChild(textarea);
 }
+
 async function updateSingleGoodsDateWithPrice(id) {
-// 权限拦截
     if (!canOperateDateUpdate()) {
         showMsg('当前角色无更新商品日期权限（仅管理员、APP部可操作）');
         return;
@@ -2469,7 +2338,6 @@ async function updateSingleGoodsDateWithPrice(id) {
     const statusText = item.earliestBatch?.bzStatusText || '';
     const isDiscountOrExpire = (statusText !== '正常' && statusText !== '过期');
     
-    // 折扣/临期状态，如果没有状态价格且不是跳过状态，阻止更新
     if (isDiscountOrExpire && item.newSalePrice === null && item.priceStatus !== 'skipped') {
         showMsg('请先设置新销售价或点击"无需修改"');
         return;
@@ -2500,8 +2368,6 @@ async function updateSingleGoodsDateWithPrice(id) {
         body: JSON.stringify(updateData)
     });
     
-    // ✅ 关键修改：只有价格发生变化的商品，才清空 price_temp_state
-    // 如果只是更新日期（priceChanged = false），保留状态价格
     if (item.priceChanged) {
         clearPriceTempState(item.id);
         console.log('✅ 价格已变动，清空状态价格');
@@ -2515,12 +2381,10 @@ async function updateSingleGoodsDateWithPrice(id) {
 }
 
 async function batchUpdateGoodsDate() {
-// 权限拦截
     if (!canOperateDateUpdate()) {
         showMsg('当前角色无批量更新权限（仅管理员、APP部可操作）');
         return;
     }
-    // ✅ 修改：统计更新按钮未置灰的行（即 isUpdateDisabled === false）
     const canUpdateList = dateChangeFilteredList.filter(item => {
         return item.isUpdateDisabled === false;
     });
@@ -2685,9 +2549,7 @@ function updateDateChangeSortIcon() {
 }
 
 function renderDateChangeList() {
-    // 排序规则：如果用户点击了表头排序，则优先使用表头排序；无表头排序时默认「待改价」置顶
     dateChangeFilteredList.sort((a, b) => {
-        // 1. 优先判断是否有手动点击的排序列
         if(dateChangeSortField) {
             let valA = a[dateChangeSortField];
             let valB = b[dateChangeSortField];
@@ -2705,12 +2567,10 @@ function renderDateChangeList() {
             if (valA < valB) return dateChangeSortAsc ? -1 : 1;
             return 0;
         }
-        // 2. 无表头排序时，默认规则：待改价 置顶
         const aIsNeedPrice = a.needUpdatePrice === '待改价';
         const bIsNeedPrice = b.needUpdatePrice === '待改价';
         if(aIsNeedPrice && !bIsNeedPrice) return -1;
         if(!aIsNeedPrice && bIsNeedPrice) return 1;
-        // 同为待改价 / 同为无需改价，保持原有加载顺序不变
         return 0;
     });
     const tb = document.getElementById('dateChangeList');
@@ -2766,46 +2626,41 @@ function renderDateChangeList() {
             statusColor = '#999';
         }
         
-        // 日期显示：始终显示批次日期
-let dateStr = '-';
-if (item.dateValue) {
-    dateStr = new Date(item.dateValue).toISOString().split('T')[0];
-} else if (item.earliestBatch && item.earliestBatch.dateValue) {
-    dateStr = new Date(item.earliestBatch.dateValue).toISOString().split('T')[0];
-} else if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
-    dateStr = new Date(item.earliestBatch.produce_date).toISOString().split('T')[0];
-} else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
-    dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
-}
-        // 生产/到期列显示
-let dateTypeDisplay = '';
-let dateTypeColor = '';
-// 优先从 item.dateType 获取
-if (item.dateType === '生产日期') {
-    dateTypeDisplay = '生产';
-    dateTypeColor = '#d4edda';
-} else if (item.dateType === '到期日期') {
-    dateTypeDisplay = '到期';
-    dateTypeColor = '#f8d7da';
-} else if (item.earliestBatch && item.earliestBatch.dateType) {
-    // 如果 item.dateType 为空，从 earliestBatch 获取
-    if (item.earliestBatch.dateType === '生产日期') {
-        dateTypeDisplay = '生产';
-        dateTypeColor = '#d4edda';
-    } else if (item.earliestBatch.dateType === '到期日期') {
-        dateTypeDisplay = '到期';
-        dateTypeColor = '#f8d7da';
-    }
-} else {
-    // 从 earliestBatch 的日期字段判断
-    if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
-        dateTypeDisplay = '生产';
-        dateTypeColor = '#d4edda';
-    } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
-        dateTypeDisplay = '到期';
-        dateTypeColor = '#f8d7da';
-    }
-}
+        let dateStr = '-';
+        if (item.dateValue) {
+            dateStr = new Date(item.dateValue).toISOString().split('T')[0];
+        } else if (item.earliestBatch && item.earliestBatch.dateValue) {
+            dateStr = new Date(item.earliestBatch.dateValue).toISOString().split('T')[0];
+        } else if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+            dateStr = new Date(item.earliestBatch.produce_date).toISOString().split('T')[0];
+        } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+            dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
+        }
+        let dateTypeDisplay = '';
+        let dateTypeColor = '';
+        if (item.dateType === '生产日期') {
+            dateTypeDisplay = '生产';
+            dateTypeColor = '#d4edda';
+        } else if (item.dateType === '到期日期') {
+            dateTypeDisplay = '到期';
+            dateTypeColor = '#f8d7da';
+        } else if (item.earliestBatch && item.earliestBatch.dateType) {
+            if (item.earliestBatch.dateType === '生产日期') {
+                dateTypeDisplay = '生产';
+                dateTypeColor = '#d4edda';
+            } else if (item.earliestBatch.dateType === '到期日期') {
+                dateTypeDisplay = '到期';
+                dateTypeColor = '#f8d7da';
+            }
+        } else {
+            if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+                dateTypeDisplay = '生产';
+                dateTypeColor = '#d4edda';
+            } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+                dateTypeDisplay = '到期';
+                dateTypeColor = '#f8d7da';
+            }
+        }
         
         let settleColor = '';
         if (item.settleType === '线上') {
@@ -2820,71 +2675,63 @@ if (item.dateType === '生产日期') {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
-        // ========== 原销售价（灰色显示 lastSalePrice） ==========
         const lastPriceDisplay = formatMoney(item.lastSalePrice || 0);
         const lastPriceStyle = 'style="color:#999;font-size:13px;"';
         
-        // ========== 需更新日期（带颜色） ==========
         const needUpdateDateDisplay = item.needUpdateDate || '';
         const needUpdateDateColor = item.needUpdateDateColor || '#333';
         const needUpdateDateStyle = 'style="color:' + needUpdateDateColor + ';"';
         
-        // ========== 需更新销售价（带颜色） ==========
         const needUpdatePriceDisplay = item.needUpdatePrice || '';
         const needUpdatePriceColor = item.needUpdatePriceColor || '#333';
         const needUpdatePriceStyle = 'style="color:' + needUpdatePriceColor + ';"';
         
-       // ========== 构建操作按钮 ==========
-let actionButtons = '';
-actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
+        let actionButtons = '';
+        actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
 
-// 改价按钮：仅折扣/临期状态显示 + 角色权限校验
-if (item.showPriceBtn) {
-    const priceBtnDisabled = !canOperatePriceEdit();
-    if (priceBtnDisabled) {
-        actionButtons += `
-            <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">改价</button>
-        `;
-    } else {
-        actionButtons += `
-            <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">改价</button>
-        `;
-    }
-}
+        if (item.showPriceBtn) {
+            const priceBtnDisabled = !canOperatePriceEdit();
+            if (priceBtnDisabled) {
+                actionButtons += `
+                    <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+                `;
+            } else {
+                actionButtons += `
+                    <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+                `;
+            }
+        }
 
-// 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
-if (item.showCopyPriceBtn) {
-    actionButtons += `
-        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#7030A0;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制新价</button>
-    `;
-}
+        if (item.showCopyPriceBtn) {
+            actionButtons += `
+                <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#7030A0;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制新价</button>
+            `;
+        }
 
-// 复制日期按钮：仅日期变动时显示（无权限限制）
-if (item.showCopyDateBtn) {
-    const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
-        ? `${item.displayValue}生产` 
-        : (item.dateType === '到期日期' && item.displayValue) 
-            ? `${item.displayValue}到期` 
-            : '';
-    actionButtons += `
-        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px;font-size:12px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制日期</button>
-    `;
-}
+        if (item.showCopyDateBtn) {
+            const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
+                ? `${item.displayValue}生产` 
+                : (item.dateType === '到期日期' && item.displayValue) 
+                    ? `${item.displayValue}到期` 
+                    : '';
+            actionButtons += `
+                <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px;font-size:12px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制日期</button>
+            `;
+        }
 
-// 更新按钮：原有业务禁用 + 角色权限双重判断
-const dateUpdatePerm = canOperateDateUpdate();
-const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
-if (updateBtnRealDisabled) {
-    actionButtons += `
-        <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">更新</button>
-    `;
-} else {
-    actionButtons += `
-        <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">更新</button>
-    `;
-}
+        const dateUpdatePerm = canOperateDateUpdate();
+        const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
+        if (updateBtnRealDisabled) {
+            actionButtons += `
+                <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+            `;
+        } else {
+            actionButtons += `
+                <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+            `;
+        }
 
-actionButtons += '</div>';        
+        actionButtons += '</div>';        
         const html = `
             <tr>
                 <td>${rowNum}</td>
@@ -2907,6 +2754,7 @@ actionButtons += '</div>';
         tb.innerHTML += html;
     });
 }
+
 function exportDateChangeExcel() {
     if (dateChangeFilteredList.length === 0) {
         showMsg('暂无数据可导出');
@@ -2959,47 +2807,11 @@ function exportDateChangeExcel() {
     XLSX.writeFile(wb, `改日改价明细_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-document.addEventListener('click', function(e) {
-    const listIds = [
-    'goodsFilterSupplierList',
-    'goodsFilterGoodsNameList',
-    'goodsFilterChannelList'
-];
-listIds.forEach(id => {
-    const box = document.getElementById(id);
-    // ✅ 添加空值检查
-    if (!box) return;
-    const inputId = id.replace('List', 'Input');
-    const input = document.getElementById(inputId);
-    if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
-        box.style.display = 'none';
-    }
-});
-
-    const dateChangeListIds = [
-    'dateChangeFilterSupplierList',
-    'dateChangeFilterGoodsList',
-    'dateChangeFilterSpecList',
-    'dateChangeFilterSettleList',
-    'dateChangeFilterBzStatusList'
-];
-dateChangeListIds.forEach(id => {
-    const box = document.getElementById(id);
-    if (!box) return;
-    const inputId = id.replace('List', '');
-    const input = document.getElementById(inputId);
-    // ✅ 只有 input 存在时才检查 closest
-    if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
-        box.style.display = 'none';
-    }
-});
-
 // ============================================================
-// ========== 改价弹窗相关函数（新改价逻辑） ==========
+// ========== 改价弹窗相关函数 ==========
 // ============================================================
 
 function openPriceModal(id) {
-// 权限拦截
     if (!canOperatePriceEdit()) {
         showMsg('当前角色无改价权限（仅管理员、商品部可操作）');
         return;
@@ -3014,18 +2826,14 @@ function openPriceModal(id) {
     const normalPrice = item.normalPrice || item.sale_price || 0;
     const lastPrice = item.lastSalePrice || normalPrice;
     
-    // ✅ 修复：获取当前状态销售价
     let currentPrice = null;
-    // 直接使用 item.currentSalePrice，即使是 null 也保留
     if (item.currentSalePrice !== undefined) {
         currentPrice = item.currentSalePrice;
     } else {
         currentPrice = normalPrice;
     }
     
-    // ✅ 判断是否为折扣/临期状态（非正常/过期状态）
     const isSpecialStatus = (statusText !== '正常' && statusText !== '过期');
-    // 如果是特殊状态且价格为 null，显示"未录入"
     let displayPrice;
     if (isSpecialStatus && (currentPrice === null || currentPrice === undefined)) {
         displayPrice = '未录入';
@@ -3122,7 +2930,6 @@ async function confirmPriceChange(id) {
     console.log('确认改价:', item.name, '状态:', bzStatus, '新价格:', newPrice);
     
     if (bzStatus === '正常') {
-        // 正常状态 → 更新 goods 表
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
@@ -3139,19 +2946,16 @@ async function confirmPriceChange(id) {
             return;
         }
     } else {
-        // 其他状态 → 存入 price_temp_state 表
         await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
         showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
     }
     
     closePriceModal();
-    // ========== 重新加载改日改价 ==========
     await loadDateChangeTab();
 }
 
 async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
     try {
-        // 先检查是否存在
         const checkRes = await fetch(
             `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`,
             {
@@ -3163,7 +2967,6 @@ async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
         );
         const existData = await checkRes.json();
         
-        // 根据状态决定更新哪个字段
         let updateField = {};
         if (bzStatus === '临期') {
             updateField = { expire_price: newSalePrice };
@@ -3176,7 +2979,6 @@ async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
         } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
             updateField = { discount_4_price: newSalePrice };
         } else {
-            // 其他状态（如正常）不存储
             return;
         }
         
@@ -3235,7 +3037,6 @@ function copyNewPrice(id) {
     
     const text = String(item.newSalePrice);
     
-    // 获取所有匹配的按钮
     const buttons = document.querySelectorAll('button[onclick*="copyNewPrice(' + id + ')"]');
     
     const doCopy = function() {
@@ -3433,107 +3234,16 @@ function clearPriceTempStateLocal(id) {
 }
 
 // ============================================================
-// 暴露所有核心函数到全局（确保 HTML onclick 能调用）
+// ========== 单位预设管理 ==========
 // ============================================================
-
-// 商品信息相关
-window.switchGoodsSubTab = switchGoodsSubTab;
-window.loadGoods = loadGoods;
-window.filterGoods = filterGoods;
-window.renderGoods = renderGoods;
-window.renderPagination = renderPagination;
-window.goToPage = goToPage;
-window.prevPage = prevPage;
-window.nextPage = nextPage;
-window.changePageSize = changePageSize;
-window.deleteGoods = deleteGoods;
-window.batchDelete = batchDelete;
-window.openEditForm = openEditForm;
-window.openAddForm = openAddForm;
-window.closeForm = closeForm;
-window.toggleSelectAll = toggleSelectAll;
-window.resetGoodsSearch = resetGoodsSearch;
-window.onGoodsFilterInput = onGoodsFilterInput;
-window.exportExcel = exportExcel;
-window.downloadTemplate = downloadTemplate;
-window.importGoodsExcel = importGoodsExcel;
-window.refreshGoods = refreshGoods;
-window.clearSort = clearSort;
-
-// 供应商管理相关
-window.loadSettleList = loadSettleList;
-window.renderSettleList = renderSettleList;
-window.renderSettlePagination = renderSettlePagination;
-window.settleGoToPage = settleGoToPage;
-window.settlePrevPage = settlePrevPage;
-window.settleNextPage = settleNextPage;
-window.changeSettlePageSize = changeSettlePageSize;
-window.filterSettleList = filterSettleList;
-window.resetSettleSearch = resetSettleSearch;
-window.showSettleSupplierList = showSettleSupplierList;
-window.filterSettleSupplierList = filterSettleSupplierList;
-window.onSettleFilterInput = onSettleFilterInput;
-window.openSettleForm = openSettleForm;
-window.openSettleEditForm = openSettleEditForm;
-window.closeSettleModal = closeSettleModal;
-window.submitSettleForm = submitSettleForm;
-window.deleteSettleType = deleteSettleType;
-window.downloadSettleTemplate = downloadSettleTemplate;
-window.importSettleExcel = importSettleExcel;
-window.exportSettleExcel = exportSettleExcel;
-window.refreshSettleList = refreshSettleList;
-window.resetSettleSearchOld = resetSettleSearchOld;
-
-// 改日改价相关
-window.loadDateChangeTab = loadDateChangeTab;
-window.renderDateChangeList = renderDateChangeList;
-window.renderDateChangePagination = renderDateChangePagination;
-window.dateChangeGoToPage = dateChangeGoToPage;
-window.dateChangePrevPage = dateChangePrevPage;
-window.dateChangeNextPage = dateChangeNextPage;
-window.changeDateChangePageSize = changeDateChangePageSize;
-window.refreshDateChangeList = refreshDateChangeList;
-window.clearDateChangeSort = clearDateChangeSort;
-window.dateChangeSortTable = dateChangeSortTable;
-window.exportDateChangeExcel = exportDateChangeExcel;
-window.filterDateChangeList = filterDateChangeList;
-window.resetDateChangeFilter = resetDateChangeFilter;
-window.showDateChangeFilterList = showDateChangeFilterList;
-window.onDateChangeFilterInput = onDateChangeFilterInput;
-window.batchUpdateGoodsDate = batchUpdateGoodsDate;
-window.copyDateText = copyDateText;
-
-// 改价弹窗相关（已有，但确保完整）
-window.openPriceModal = openPriceModal;
-window.closePriceModal = closePriceModal;
-window.confirmPriceChange = confirmPriceChange;
-window.skipPriceChange = skipPriceChange;
-window.copyNewPrice = copyNewPrice;
-window.updateSingleGoodsDateWithPrice = updateSingleGoodsDateWithPrice;
-window.savePriceTempState = savePriceTempState;
-window.loadPriceTempState = loadPriceTempState;
-window.clearPriceTempState = clearPriceTempState;
-window.clearAllPriceTempState = clearAllPriceTempState;
-window.savePriceTempStateByStatus = savePriceTempStateByStatus;
-window.switchGoodsSubTab = window.switchGoodsSubTab;
-
-
-
-console.log('✅ 所有 goods.js 函数已暴露到 window');
-console.log('goods.js 加载完成');
-// ==================== 单位预设管理 ====================
-
-// ==================== 单位预设管理（组合包） ====================
 
 let unitList = [];
 let unitFilteredList = [];
 let unitCurrentPage = 1;
 let unitPageSize = 10;
 
-// 加载单位列表（组合包）
 async function loadUnitList() {
     try {
-        // 加载组合包数据，关联分类和基准单位
         const { data, error } = await supabase
             .from('combo_packs')
             .select(`
@@ -3552,7 +3262,6 @@ async function loadUnitList() {
     }
 }
 
-// 渲染单位表格
 function renderUnitTable() {
     const tbody = document.getElementById('unitPresetList');
     if (!tbody) return;
@@ -3587,7 +3296,6 @@ function renderUnitTable() {
     renderUnitPagination();
 }
 
-// 渲染分页
 function renderUnitPagination() {
     const container = document.getElementById('unitPageNumbers');
     if (!container) return;
@@ -3601,7 +3309,6 @@ function renderUnitPagination() {
     container.innerHTML = html;
 }
 
-// 应用筛选
 function applyUnitFilter() {
     const category = document.getElementById('unitFilterCategory')?.value?.trim() || '';
     const name = document.getElementById('unitFilterName')?.value?.trim() || '';
@@ -3628,7 +3335,6 @@ function filterUnitList() {
     renderUnitTable();
 }
 
-// 分页操作
 function unitGoToPage(page) {
     const total = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
     if (page < 1 || page > total) return;
@@ -3653,15 +3359,11 @@ function resetUnitSearch() {
     renderUnitTable();
 }
 
-// ==================== 单位弹窗（分类/基准单位 关键词+下拉） ====================
-
 let unitCategoryList = [];
 let unitBaseUnitList = [];
 
-// 加载分类和基准单位数据
 async function loadUnitSelectData() {
     try {
-        // 加载分类
         const { data: catData, error: catError } = await supabase
             .from('categories')
             .select('name')
@@ -3670,7 +3372,6 @@ async function loadUnitSelectData() {
             unitCategoryList = catData.map(c => c.name);
         }
         
-        // 加载基准单位
         const { data: unitData, error: unitError } = await supabase
             .from('unit_presets')
             .select('unit_name')
@@ -3683,7 +3384,6 @@ async function loadUnitSelectData() {
     }
 }
 
-// 分类下拉
 function showUnitCategoryList() {
     renderUnitCategoryList(unitCategoryList);
     document.getElementById('unitCategoryListBox').style.display = 'block';
@@ -3736,7 +3436,6 @@ function checkUnitCategoryDuplicate(value) {
     }
 }
 
-// 基准单位下拉
 function showUnitBaseUnitList() {
     renderUnitBaseUnitList(unitBaseUnitList);
     document.getElementById('unitBaseUnitListBox').style.display = 'block';
@@ -3789,22 +3488,8 @@ function checkUnitBaseUnitDuplicate(value) {
     }
 }
 
-// 点击外部关闭下拉
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#unitCategoryInput') && !e.target.closest('#unitCategoryListBox')) {
-        document.getElementById('unitCategoryListBox').style.display = 'none';
-    }
-    if (!e.target.closest('#unitBaseUnitInput') && !e.target.closest('#unitBaseUnitListBox')) {
-        document.getElementById('unitBaseUnitListBox').style.display = 'none';
-    }
-});
+let unitSplitUnitList = [];
 
-
-
-// ==================== 拆分单位数据 ====================
-let unitSplitUnitList = [];  // 所有可用的拆分单位（从 unit_presets 加载）
-
-// 加载拆分单位下拉数据
 async function loadSplitUnitData() {
     try {
         const { data, error } = await supabase
@@ -3819,7 +3504,6 @@ async function loadSplitUnitData() {
     }
 }
 
-// 添加拆分单位行
 function addUnitSplitRow(data) {
     const container = document.getElementById('unitSplitUnitsContainer');
     const rowIndex = container.querySelectorAll('.split-unit-row').length;
@@ -3852,17 +3536,14 @@ function addUnitSplitRow(data) {
     `;
     container.appendChild(row);
     
-    // 如果传入了数据，设置隐藏值
     if (data && data.unit_name) {
         const input = row.querySelector('.split-unit-name-input');
         input.value = data.unit_name;
     }
     updateUnitDescription();
-    // ✅ 新增：更新每行换算关系
     updateSplitUnitRelations();
 }
 
-// 移除拆分单位行
 function removeSplitUnitRow(btn) {
     const container = document.getElementById('unitSplitUnitsContainer');
     if (container.children.length <= 1) {
@@ -3871,8 +3552,7 @@ function removeSplitUnitRow(btn) {
     }
     btn.closest('.split-unit-row').remove();
     updateUnitDescription();
-    updateSplitUnitRelations();  // ✅ 添加这行
-    // 更新层级显示
+    updateSplitUnitRelations();
     document.querySelectorAll('.split-unit-row').forEach((row, idx) => {
         row.dataset.index = idx;
         const preview = row.querySelector('.split-unit-preview');
@@ -3880,7 +3560,6 @@ function removeSplitUnitRow(btn) {
     });
 }
 
-// 拆分单位下拉
 function showSplitUnitList(input) {
     const parent = input.closest('.split-unit-row');
     const box = parent.querySelector('.split-unit-list-box');
@@ -3927,7 +3606,6 @@ function selectSplitUnit(el, value) {
     input.value = value;
     const box = parent.querySelector('.split-unit-list-box');
     box.style.display = 'none';
-    // 检查是否与基准单位重复
     const baseUnit = document.getElementById('unitBaseUnitValue').value.trim() || document.getElementById('unitBaseUnitInput').value.trim();
     if (value === baseUnit) {
         input.style.borderColor = '#ff6b6b';
@@ -3938,19 +3616,18 @@ function selectSplitUnit(el, value) {
     updateUnitDescription();
 }
 
-// 更新换算关系描述（自动生成）
 function updateUnitDescription() {
     const baseUnit = document.getElementById('unitBaseUnitInput').value.trim() || document.getElementById('unitBaseUnitValue').value.trim();
     if (!baseUnit) {
         document.getElementById('unitDescription').value = '';
-        updateSplitUnitRelations(); // 清空行关系
+        updateSplitUnitRelations();
         return;
     }
     
     const rows = document.querySelectorAll('.split-unit-row');
     let parts = ['1' + baseUnit];
     let hasValid = false;
-    let allUnits = [];  // 收集所有层级
+    let allUnits = [];
     
     rows.forEach((row, idx) => {
         const nameInput = row.querySelector('.split-unit-name-input');
@@ -3958,7 +3635,6 @@ function updateUnitDescription() {
         const name = nameInput ? nameInput.value.trim() : '';
         const qty = qtyInput ? parseInt(qtyInput.value) : 0;
         if (name && qty > 0 && name !== baseUnit) {
-            // 检查是否与之前的拆分单位重复
             let isDuplicate = false;
             for (let i = 0; i < idx; i++) {
                 const prevRow = rows[i];
@@ -3976,7 +3652,6 @@ function updateUnitDescription() {
         }
     });
     
-    // 生成主换算关系
     let mainDesc = parts.join('=');
     
     if (hasValid) {
@@ -3985,16 +3660,13 @@ function updateUnitDescription() {
         document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
     }
     
-    // ✅ 更新每行的换算关系
     updateSplitUnitRelations();
 }
 
-// ==================== 更新每行拆分单位的换算关系 ====================
 function updateSplitUnitRelations() {
     const rows = document.querySelectorAll('.split-unit-row');
     const allUnits = [];
     
-    // 收集所有有效行
     rows.forEach((row) => {
         const nameInput = row.querySelector('.split-unit-name-input');
         const qtyInput = row.querySelector('.split-unit-quantity');
@@ -4005,7 +3677,6 @@ function updateSplitUnitRelations() {
         }
     });
     
-    // 如果没有数据或只有一行，清空所有关系显示
     if (allUnits.length <= 1) {
         rows.forEach(row => {
             const relationEl = row.querySelector('.split-unit-relation');
@@ -4014,25 +3685,20 @@ function updateSplitUnitRelations() {
         return;
     }
     
-    // 从后往前计算：最后一行不显示换算关系
     for (let i = 0; i < allUnits.length; i++) {
         const relationEl = allUnits[i].row.querySelector('.split-unit-relation');
         if (!relationEl) continue;
         
-        // 最后一行不显示
         if (i === allUnits.length - 1) {
             relationEl.textContent = '';
             continue;
         }
         
-        // 计算从当前行到最小单位的换算比例
-// 当前行数量为 allUnits[i].qty，下一行到最小单位的累积比例为 ratio
-let ratio = 1;
-for (let j = i + 1; j < allUnits.length; j++) {
-    ratio = ratio * allUnits[j].qty;
-}
-// 1 当前单位 = (ratio / allUnits[i].qty) 最小单位
-const resultRatio = ratio / allUnits[i].qty;
+        let ratio = 1;
+        for (let j = i + 1; j < allUnits.length; j++) {
+            ratio = ratio * allUnits[j].qty;
+        }
+        const resultRatio = ratio / allUnits[i].qty;
         const currentUnit = allUnits[i].name;
         const smallestUnit = allUnits[allUnits.length - 1].name;
         relationEl.textContent = '1' + currentUnit + '=' + resultRatio + smallestUnit;
@@ -4041,19 +3707,7 @@ const resultRatio = ratio / allUnits[i].qty;
         relationEl.style.fontSize = '12px';
     }
 }
-// 点击外部关闭拆分单位下拉
-document.addEventListener('click', function(e) {
-    document.querySelectorAll('.split-unit-list-box').forEach(box => {
-        const parent = box.closest('.split-unit-row');
-        if (parent && !e.target.closest(parent)) {
-            box.style.display = 'none';
-        }
-    });
-});
 
-// ==================== 单位CRUD ====================
-
-// ✅ 编辑单位预设（供HTML按钮调用）
 function editUnitPreset(id) {
     if (!id) {
         showMsg('无效的单位ID');
@@ -4067,7 +3721,6 @@ function editUnitPreset(id) {
     openUnitForm(item);
 }
 
-// ✅ 删除单位预设（供HTML按钮调用）
 async function deleteUnitPreset(id) {
     if (!id) {
         showMsg('无效的单位ID');
@@ -4085,7 +3738,6 @@ async function deleteUnitPreset(id) {
         return;
     }
     
-    // 检查是否被商品引用
     try {
         const { data: refData, error: refError } = await supabase
             .from('goods_combo_pack')
@@ -4103,13 +3755,11 @@ async function deleteUnitPreset(id) {
     if (!confirm(`确定要删除单位"${item.name}"吗？`)) return;
     
     try {
-        // 删除拆分单位明细
         await supabase
             .from('combo_pack_details')
             .delete()
             .eq('combo_pack_id', id);
         
-        // 删除组合包
         const { error } = await supabase
             .from('combo_packs')
             .delete()
@@ -4138,7 +3788,6 @@ function openUnitForm(data) {
     const descField = document.getElementById('unitDescription');
     const container = document.getElementById('unitSplitUnitsContainer');
     
-    // 加载下拉数据
     loadUnitSelectData();
     loadSplitUnitData();
     
@@ -4150,7 +3799,6 @@ function openUnitForm(data) {
         categoryValue.value = data.categories?.name || '';
         baseUnitInput.value = data.unit_presets?.unit_name || '';
         baseUnitValue.value = data.unit_presets?.unit_name || '';
-        // 加载拆分单位明细
         loadSplitUnits(data.id);
     } else {
         title.textContent = '新增单位';
@@ -4162,7 +3810,6 @@ function openUnitForm(data) {
         baseUnitValue.value = '';
         descField.value = '';
         container.innerHTML = '';
-        // 默认添加两行拆分单位
         addSplitUnitRowWithDefault();
     }
     modal.style.display = 'flex';
@@ -4170,11 +3817,9 @@ function openUnitForm(data) {
 
 function addSplitUnitRowWithDefault() {
     const container = document.getElementById('unitSplitUnitsContainer');
-    // 清空容器
     container.innerHTML = '';
     addUnitSplitRow();
     addUnitSplitRow();
-    // ✅ 重新添加按钮
     const btnDiv = document.createElement('div');
     btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
     btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
@@ -4191,7 +3836,6 @@ function closeUnitForm() {
     document.querySelectorAll('.split-unit-list-box').forEach(box => box.style.display = 'none');
 }
 
-// 加载拆分单位
 async function loadSplitUnits(comboId) {
     try {
         const { data, error } = await supabase
@@ -4201,7 +3845,6 @@ async function loadSplitUnits(comboId) {
             .order('display_order');
         if (error) throw error;
         const container = document.getElementById('unitSplitUnitsContainer');
-        // 清空容器
         container.innerHTML = '';
         if (data && data.length > 0) {
             data.forEach(item => {
@@ -4214,7 +3857,6 @@ async function loadSplitUnits(comboId) {
             addUnitSplitRow();
             addUnitSplitRow();
         }
-        // ✅ 重新添加按钮
         const btnDiv = document.createElement('div');
         btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
         btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
@@ -4228,7 +3870,6 @@ async function loadSplitUnits(comboId) {
     }
 }
 
-// 保存单位
 async function saveUnitPreset() {
     const id = document.getElementById('unitEditId').value;
     const name = document.getElementById('unitName').value.trim();
@@ -4240,40 +3881,38 @@ async function saveUnitPreset() {
     if (!category) { showMsg('请输入或选择分类'); return; }
     if (!baseUnit) { showMsg('请输入或选择基准单位'); return; }
     
-    // 收集拆分单位
     const rows = document.querySelectorAll('.split-unit-row');
     const splitUnits = [];
     let hasError = false;
     const unitNames = new Set();
     
     let prevQty = 0;
-rows.forEach((row, idx) => {
-    const nameInput = row.querySelector('.split-unit-name-input');
-    const qtyInput = row.querySelector('.split-unit-quantity');
-    const name = nameInput ? nameInput.value.trim() : '';
-    const qty = qtyInput ? parseInt(qtyInput.value) : 0;
-    if (name && qty > 0) {
-        if (name === baseUnit) {
-            showMsg('拆分单位"' + name + '"不能与基准单位相同');
-            hasError = true;
-            return;
+    rows.forEach((row, idx) => {
+        const nameInput = row.querySelector('.split-unit-name-input');
+        const qtyInput = row.querySelector('.split-unit-quantity');
+        const name = nameInput ? nameInput.value.trim() : '';
+        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
+        if (name && qty > 0) {
+            if (name === baseUnit) {
+                showMsg('拆分单位"' + name + '"不能与基准单位相同');
+                hasError = true;
+                return;
+            }
+            if (unitNames.has(name)) {
+                showMsg('拆分单位"' + name + '"重复，请勿重复添加');
+                hasError = true;
+                return;
+            }
+            if (idx > 0 && qty <= prevQty) {
+                showMsg('第' + (idx + 1) + '行的数量(' + qty + ')必须大于上一行(' + prevQty + ')，请调整层级顺序');
+                hasError = true;
+                return;
+            }
+            prevQty = qty;
+            unitNames.add(name);
+            splitUnits.push({ unit_name: name, quantity: qty });
         }
-        if (unitNames.has(name)) {
-            showMsg('拆分单位"' + name + '"重复，请勿重复添加');
-            hasError = true;
-            return;
-        }
-        // ✅ 新增：层级必须递增（后一行数量必须大于前一行）
-        if (idx > 0 && qty <= prevQty) {
-            showMsg('第' + (idx + 1) + '行的数量(' + qty + ')必须大于上一行(' + prevQty + ')，请调整层级顺序');
-            hasError = true;
-            return;
-        }
-        prevQty = qty;
-        unitNames.add(name);
-        splitUnits.push({ unit_name: name, quantity: qty });
-    }
-});
+    });
     
     if (hasError) return;
     if (splitUnits.length === 0) {
@@ -4282,7 +3921,6 @@ rows.forEach((row, idx) => {
     }
     
     try {
-        // 1. 处理分类
         let categoryId = null;
         const { data: catData, error: catError } = await supabase
             .from('categories')
@@ -4303,7 +3941,6 @@ rows.forEach((row, idx) => {
             unitCategoryList.push(category);
         }
         
-        // 2. 处理基准单位
         let baseUnitId = null;
         const { data: unitData, error: unitError } = await supabase
             .from('unit_presets')
@@ -4324,7 +3961,6 @@ rows.forEach((row, idx) => {
             unitBaseUnitList.push(baseUnit);
         }
         
-        // 3. 处理拆分单位（保存到 unit_presets 如果不存在）
         for (const su of splitUnits) {
             const { data: existUnit, error: existError } = await supabase
                 .from('unit_presets')
@@ -4339,7 +3975,6 @@ rows.forEach((row, idx) => {
             }
         }
         
-        // 4. 保存组合包
         const comboData = {
             name: name,
             category_id: categoryId,
@@ -4374,7 +4009,6 @@ rows.forEach((row, idx) => {
             comboId = data.id;
         }
         
-        // 5. 保存拆分单位明细
         if (comboId) {
             await supabase.from('combo_pack_details').delete().eq('combo_pack_id', comboId);
             
@@ -4395,7 +4029,6 @@ rows.forEach((row, idx) => {
         closeUnitForm();
         showMsg(id ? '单位更新成功' : '单位添加成功');
         await loadUnitList();
-        // 刷新商品弹窗中的组合包下拉
         loadComboPackSelect();
     } catch (e) {
         console.error('保存单位失败:', e);
@@ -4403,7 +4036,6 @@ rows.forEach((row, idx) => {
     }
 }
 
-// 加载组合包下拉（商品弹窗使用）
 async function loadComboPackSelect(goodsId) {
     const sel = document.getElementById('add_combo_pack');
     if (!sel) return;
@@ -4441,11 +4073,8 @@ async function loadComboPackSelect(goodsId) {
     }
 }
 
-// ========== 单位下拉（搜索+下拉，显示基准单位红色+换算关系） ==========
-
 let comboPackListData = [];
 
-// 加载单位下拉数据
 async function loadComboPackListData() {
     try {
         const { data, error } = await supabase
@@ -4465,7 +4094,6 @@ async function loadComboPackListData() {
     }
 }
 
-// 显示单位下拉列表
 function showComboPackList() {
     const box = document.getElementById('addComboPackListBox');
     if (!box) return;
@@ -4475,7 +4103,6 @@ function showComboPackList() {
     box.style.display = 'block';
 }
 
-// 过滤单位下拉列表
 function filterComboPackList() {
     const input = document.getElementById('addComboPackSearch');
     const kw = input ? input.value.toLowerCase().trim() : '';
@@ -4484,7 +4111,6 @@ function filterComboPackList() {
     if (box) box.style.display = 'block';
 }
 
-// 渲染单位下拉列表
 function renderComboPackList(keyword) {
     const box = document.getElementById('addComboPackListBox');
     if (!box) return;
@@ -4508,23 +4134,19 @@ function renderComboPackList(keyword) {
         const div = document.createElement('div');
         div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;';
         
-        // 名称和分类
         const nameSpan = document.createElement('span');
         nameSpan.style.cssText = 'flex:0 0 auto;';
         nameSpan.textContent = item.name || '';
         
-        // 基准单位（红色显示，放中间）
         const baseUnit = item.unit_presets?.unit_name || '';
         const baseSpan = document.createElement('span');
         baseSpan.style.cssText = 'color:#ff4d4f;font-weight:bold;font-size:15px;margin:0 6px;';
         baseSpan.textContent = '【' + baseUnit + '】';
         
-        // 换算关系（紧跟其后，字体大一点，黑色）
         const descSpan = document.createElement('span');
         descSpan.style.cssText = 'color:#333;font-size:14px;';
         descSpan.textContent = item.description || '';
         
-        // 组装：名称 + 基准单位(红色) + 换算关系
         div.appendChild(nameSpan);
         div.appendChild(baseSpan);
         if (item.description) {
@@ -4541,15 +4163,10 @@ function renderComboPackList(keyword) {
         box.appendChild(div);
     });
 }
-// 点击外部关闭下拉
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#addComboPackSearch') && !e.target.closest('#addComboPackListBox')) {
-        const box = document.getElementById('addComboPackListBox');
-        if (box) box.style.display = 'none';
-    }
-});
 
-// 暴露函数
+// ============================================================
+// 暴露单位相关函数到全局
+// ============================================================
 window.loadUnitList = loadUnitList;
 window.renderUnitTable = renderUnitTable;
 window.applyUnitFilter = applyUnitFilter;
@@ -4571,8 +4188,7 @@ window.showUnitBaseUnitList = showUnitBaseUnitList;
 window.filterUnitBaseUnitList = filterUnitBaseUnitList;
 window.selectUnitBaseUnit = selectUnitBaseUnit;
 window.openComboForm = openUnitForm;
-// 拆分单位相关
-window.addSplitUnitRow = addUnitSplitRow;  // 函数名是 addUnitSplitRow
+window.addSplitUnitRow = addUnitSplitRow;
 window.removeSplitUnitRow = removeSplitUnitRow;
 window.showSplitUnitList = showSplitUnitList;
 window.filterSplitUnitList = filterSplitUnitList;
@@ -4581,7 +4197,9 @@ window.updateUnitDescription = updateUnitDescription;
 window.loadComboPackSelect = loadComboPackSelect;
 window.updateSplitUnitRelations = updateSplitUnitRelations;
 
-// ✅ 在文件末尾添加调试辅助
+// ============================================================
+// ✅ 调试辅助
+// ============================================================
 window.__debug = {
     allGoods: () => allGoods,
     filteredGoods: () => filteredGoods,
@@ -4593,3 +4211,108 @@ window.__debug = {
 
 console.log('✅ goods.js 加载完成');
 console.log('🔍 调试: window.__debug.allGoods() 查看商品数据');
+
+// ============================================================
+// ✅ 页面初始化 - 所有 DOM 事件监听放在最后
+// ============================================================
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
+        const box = document.getElementById('addSupplierListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'goodsFilterSupplierList',
+        'goodsFilterGoodsNameList',
+        'goodsFilterChannelList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (!box) return;
+        const inputId = id.replace('List', 'Input');
+        const input = document.getElementById(inputId);
+        if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
+            box.style.display = 'none';
+        }
+    });
+
+    const dateChangeListIds = [
+        'dateChangeFilterSupplierList',
+        'dateChangeFilterGoodsList',
+        'dateChangeFilterSpecList',
+        'dateChangeFilterSettleList',
+        'dateChangeFilterBzStatusList'
+    ];
+    dateChangeListIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (!box) return;
+        const inputId = id.replace('List', '');
+        const input = document.getElementById(inputId);
+        if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
+            box.style.display = 'none';
+        }
+    });
+});
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#unitCategoryInput') && !e.target.closest('#unitCategoryListBox')) {
+        document.getElementById('unitCategoryListBox').style.display = 'none';
+    }
+    if (!e.target.closest('#unitBaseUnitInput') && !e.target.closest('#unitBaseUnitListBox')) {
+        document.getElementById('unitBaseUnitListBox').style.display = 'none';
+    }
+});
+
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.split-unit-list-box').forEach(box => {
+        const parent = box.closest('.split-unit-row');
+        if (parent && !e.target.closest(parent)) {
+            box.style.display = 'none';
+        }
+    });
+});
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#addComboPackSearch') && !e.target.closest('#addComboPackListBox')) {
+        const box = document.getElementById('addComboPackListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
+// DOMContentLoaded 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOMContentLoaded 触发');
+    
+    if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
+        console.error('❌ Supabase 配置未加载！');
+        showMsg('系统配置错误，请检查网络连接');
+        return;
+    }
+    
+    setTimeout(function() {
+        console.log('🔄 开始初始化商品模块...');
+        
+        if (typeof loadGoods === 'function') {
+            loadGoods(true);
+        } else {
+            console.error('❌ loadGoods 函数未定义！');
+        }
+        
+        if (typeof loadSettleList === 'function') {
+            setTimeout(function() {
+                loadSettleList();
+            }, 500);
+        }
+        
+        if (typeof loadUnitList === 'function') {
+            setTimeout(function() {
+                loadUnitList();
+            }, 800);
+        }
+        
+    }, 100);
+});
