@@ -1,10 +1,3 @@
-// 如果 showMsg 未定义，提供备用实现
-if (typeof showMsg === 'undefined') {
-    window.showMsg = function(msg) {
-        console.log('📢 showMsg:', msg);
-        alert(msg);
-    };
-}
 // ============================================================
 // ===== 头像下拉菜单（提前定义，确保全局可用） =====
 // ============================================================
@@ -318,157 +311,100 @@ function closeMsg() {
     document.getElementById('msgModal').style.display = 'none';
 }
 
-// ============================================================
-// 标签页切换（修复版 - 防止无限循环）
-// ============================================================
-
-// 添加锁变量（放在 switchTab 函数之前）
-window._switching = false;
-window._lastTab = '';
-
+// 标签页切换
 function switchTab(tabId) {
-    // 防重复调用
-    if (window._switching) {
-        console.log('⏳ 切换中，跳过:', tabId);
-        return;
-    }
-    
-    // 防止同一个 Tab 反复切换
-    if (window._lastTab === tabId) {
-        console.log('📌 已在当前 Tab:', tabId);
-        return;
-    }
-    
-    window._switching = true;
-    window._lastTab = tabId;
-    
-    console.log('🔄 切换到 Tab:', tabId);
+    console.log('切换到Tab:', tabId);
     
     // 1. 隐藏所有tab内容 - 包括 #goods 内部和外部的
-    document.querySelectorAll('.tab-content').forEach(function(t) {
+    document.querySelectorAll('.tab-content').forEach(t => {
         t.classList.remove('active');
         t.style.display = 'none';
     });
     
     // 2. 显示目标Tab
-    var targetTab = document.getElementById(tabId);
+    const targetTab = document.getElementById(tabId);
     if (targetTab) {
         targetTab.classList.add('active');
         targetTab.style.display = 'block';
         console.log('✅ 显示Tab:', tabId);
     } else {
         console.warn('❌ 找不到Tab元素:', tabId);
-        window._switching = false;
         return;
     }
     
     // 3. 切换按钮样式
-    document.querySelectorAll('.tabs .tab-btn').forEach(function(b) {
-        b.classList.remove('active');
-    });
-    document.querySelectorAll('.tabs .tab-btn').forEach(function(b) {
-        var onclickAttr = b.getAttribute('onclick');
-        if (onclickAttr && onclickAttr.includes("'" + tabId + "'")) {
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        const onclickAttr = b.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(`'${tabId}'`)) {
             b.classList.add('active');
         }
     });
     
-    // 4. 如果切换到商品管理，重新激活默认子Tab
+    // 4. ✅ 如果切换到商品管理，重新激活默认子Tab
     if (tabId === 'goods') {
+        // ========== 关键修复：先隐藏所有子版块内容 ==========
         document.querySelectorAll('#goods .finance-sub-content').forEach(function(div) {
             div.style.display = 'none';
         });
+        
+        // 移除所有子Tab的active状态
         document.querySelectorAll('#goods .finance-sub-btn').forEach(function(btn) {
             btn.classList.remove('active');
         });
-        var goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
+        
+        // 激活商品信息子Tab
+        const goodsInfoBtn = document.querySelector('#goods .finance-sub-btn[data-tab="goodsInfo"]');
         if (goodsInfoBtn) {
             goodsInfoBtn.classList.add('active');
         }
-        var goodsInfoContent = document.getElementById('sub-goodsInfo');
+        
+        // 显示商品信息内容
+        const goodsInfoContent = document.getElementById('sub-goodsInfo');
         if (goodsInfoContent) {
             goodsInfoContent.style.display = 'block';
         }
+        
+        // 重新加载商品列表
         if (typeof loadGoods === 'function') {
-            setTimeout(function() { loadGoods(); }, 50);
+            loadGoods();
         }
     }
     
-    // 5. 加载对应数据（延迟执行，避免阻塞）
-    setTimeout(function() {
-        try {
-            console.log('📦 加载数据:', tabId);
-            switch(tabId) {
-                case 'stockIn':
-                    if (typeof loadStockIn === 'function') loadStockIn();
-                    break;
-                case 'returnGoods':
-                    if (typeof loadReturnGoods === 'function') loadReturnGoods();
-                    break;
-                case 'stockOut':
-                    if (typeof loadStockOut === 'function') loadStockOut();
-                    break;
-                case 'stockView':
-                    if (typeof loadStockStock === 'function') loadStockStock();
-                    break;
-                case 'finance':
-                    if (typeof initFinanceBaseData === 'function') {
-                        initFinanceBaseData();
-                    } else if (typeof loadTaxRateList === 'function') {
-                        loadTaxRateList();
-                    }
-                    break;
-                default:
-                    break;
-            }
-        } catch (e) {
-            console.error('❌ 加载Tab数据失败:', e);
+    // 5. 加载对应数据
+    try {
+        console.log('加载数据:', tabId);
+        switch(tabId) {
+            case 'stockIn':
+                if (typeof loadStockIn === 'function') loadStockIn();
+                break;
+            case 'returnGoods':
+                if (typeof loadReturnGoods === 'function') loadReturnGoods();
+                break;
+            case 'stockOut':
+                if (typeof loadStockOut === 'function') loadStockOut();
+                break;
+            case 'stockView':
+                if (typeof loadStockStock === 'function') loadStockStock();
+                break;
+            case 'finance':
+                if (typeof loadTaxRateList === 'function') loadTaxRateList();
+                break;
+            default:
+                break;
         }
-    }, 100);
+    } catch (e) {
+        console.error('加载Tab数据失败:', e);
+    }
     
-    // ========== ✅ 新增：强制显示 Tab 内容（二次保障） ==========
-    setTimeout(function() {
-        var tab = document.getElementById(tabId);
-        if (tab) {
-            // 确保 Tab 可见
-            tab.style.display = 'block';
-            tab.style.visibility = 'visible';
-            tab.style.opacity = '1';
-            tab.style.height = 'auto';
-            tab.style.overflow = 'visible';
-            
-            // 确保 Tab 内的表格可见
-            tab.querySelectorAll('table').forEach(function(table) {
-                table.style.display = 'table';
-                table.style.width = '100%';
-                table.style.visibility = 'visible';
-                table.style.opacity = '1';
-            });
-            
-            // 确保 Tab 内的 tbody 可见
-            tab.querySelectorAll('tbody').forEach(function(tbody) {
-                tbody.style.display = 'table-row-group';
-                tbody.style.visibility = 'visible';
-                tbody.style.opacity = '1';
-            });
-            
-            console.log('✅ 二次确认 Tab 显示:', tabId);
-        }
-    }, 300);
-    // ========== 新增结束 ==========
-    
-    // 权限控制 + 解锁
+    // ========== 新增：切换Tab后应用权限控制 ==========
     setTimeout(function() {
         if (typeof applyAllPermissions === 'function') {
             applyAllPermissions();
         }
-        // 解锁
-        setTimeout(function() {
-            window._switching = false;
-            console.log('🔓 切换锁已释放');
-        }, 300);
-    }, 200);
+    }, 150);
 }
+
 // ============================================================
 // ===== 权限控制统一管理（新增） =====
 // ============================================================

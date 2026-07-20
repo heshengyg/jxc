@@ -1046,7 +1046,7 @@ async function loadStockIn() {
         });
         const allData = await fetchAll.json();
         allStockIn = allData;
-        initInFilterData();
+       initInFilterData();
         document.getElementById('inTotalCount').textContent = allData.length;
         
         // ✅ 确保缓存刷新
@@ -1054,13 +1054,6 @@ async function loadStockIn() {
         
         inCurrentPage = 1;
         filterStockIn();
-        
-        // ========== ✅ 在这里添加渲染调用 ==========
-        if (typeof renderStockIn === 'function') {
-            renderStockIn();
-        }
-        // ==========================================
-        
     } catch (e) {
         showMsg('加载入库记录失败：' + e.message);
     }

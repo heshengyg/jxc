@@ -16,14 +16,6 @@ if (typeof OPERATION_PERMISSIONS === 'undefined') {
                     { key: 'downloadTemplate', label: '下载模板' }
                 ]
             },
-unitPreset: {                    // ← 放在这里（goodsInfo 后面）
-            label: '单位预设',
-            operations: [
-                { key: 'add', label: '新增单位' },
-                { key: 'edit', label: '编辑单位' },
-                { key: 'delete', label: '删除单位' }
-            ]
-        },
             settleType: {
                 label: '供应商管理',
                 operations: [
@@ -227,7 +219,6 @@ window.settingsData = settingsData;
 // ===== 子版块菜单定义 =====
 const ALL_MENUS = [
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'unitPreset', label: '单位预设', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
@@ -259,7 +250,7 @@ const MODULE_GROUPS = {
 };
 
 const MODULE_SUB_KEYS = {
-    goods: ['goodsInfo', 'unitPreset', 'settleType', 'dateChange'],
+    goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
@@ -729,77 +720,65 @@ async function deleteUserFromSupabase(userId) {
 // ===== 初始化 =====
 async function loadSettings() {
     try {
-        // 1. 从 Supabase 加载配置
-        try {
-            const { data, error } = await supabase
-                .from('system_config')
-                .select('value')
-                .eq('key', 'discountConfig')
-                .single();
+        const { data, error } = await supabase
+            .from('system_config')
+            .select('value')
+            .eq('key', 'discountConfig')
+            .single();
 
-            if (error) {
-                console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值：', error);
-            } else if (data) {
-                settingsData.discountConfig = data.value;
-            }
-        } catch (supabaseError) {
-            console.warn('⚠️ Supabase 请求异常，使用默认值：', supabaseError);
+        if (error) {
+            console.warn('⚠️ 从 Supabase 加载配置失败，使用默认值:', error);
+        } else if (data) {
+            settingsData.discountConfig = data.value;
         }
 
-        // 2. 从 localStorage 加载缓存
         const saved = localStorage.getItem('erp_settings');
         if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                settingsData = {
-                    ...settingsData,
-                    ...parsed,
-                    discountConfig: settingsData.discountConfig || { items: [
-                        { label: '打7折', multiplier: 2 },
-                        { label: '打8折', multiplier: 3 },
-                        { label: '打9折', multiplier: 4 }
-                    ] }
-                };
-            } catch (parseError) {
-                console.warn('⚠️ 解析 localStorage 设置失败:', parseError);
-            }
+            const parsed = JSON.parse(saved);
+            settingsData = {
+                ...settingsData,
+                ...parsed,
+                discountConfig: settingsData.discountConfig || { items: [
+                    { label: '打7折', multiplier: 2 },
+                    { label: '打8折', multiplier: 3 },
+                    { label: '打9折', multiplier: 4 }
+                ] }
+            };
         }
 
-        // 3. 保存到 window 和 localStorage
         window.settingsData = settingsData;
         localStorage.setItem('erp_settings', JSON.stringify(settingsData));
 
-        // 4. ✅ 数据加载完成后渲染视图
-        try {
-            if (typeof renderRoles === 'function') {
-                renderRoles();
-                console.log('✅ renderRoles 已调用');
-            }
-            if (typeof renderUsers === 'function') {
-                renderUsers();
-                console.log('✅ renderUsers 已调用');
-            }
-            if (typeof renderCompanyName === 'function') {
-                renderCompanyName();
-                console.log('✅ renderCompanyName 已调用');
-            }
-            if (typeof updateRoleSelect === 'function') {
-                updateRoleSelect();
-                console.log('✅ updateRoleSelect 已调用');
-            }
-            if (typeof renderUserOpsContainer === 'function') {
-                renderUserOpsContainer();
-                console.log('✅ renderUserOpsContainer 已调用');
-            }
-            console.log('✅ 系统设置视图渲染完成');
-        } catch (renderError) {
-            console.warn('⚠️ 系统设置渲染调用失败:', renderError.message);
-        }
-
     } catch (e) {
-        console.error('❌ 加载设置异常：', e);
+        console.error('加载设置异常:', e);
     }
 }
+
+async function saveSettings() {
+    try {
+        const { error } = await supabase
+            .from('system_config')
+            .upsert({
+                key: 'discountConfig',
+                value: settingsData.discountConfig,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+        if (error) {
+            console.error('❌ 保存到 Supabase 失败:', error);
+            showMsg('❌ 保存到云端失败，请检查网络');
+            return;
+        }
+
+        localStorage.setItem('erp_settings', JSON.stringify(settingsData));
+        window.settingsData = settingsData;
+
+        console.log('✅ 配置已同步到 Supabase');
+    } catch (e) {
+        console.error('保存设置异常:', e);
+    }
+}
+
 function loadPermissionData() {
     try {
         const saved = localStorage.getItem('permissionData');

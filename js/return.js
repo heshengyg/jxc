@@ -122,8 +122,6 @@ async function loadReturnGoods() {
         if (totalEl) totalEl.textContent = data.length;
         returnCurrentPage = 1;
         filterReturnGoods();
-// 在 loadReturnGoods 函数末尾添加
-if (typeof renderReturnList === 'function') renderReturnList();
         setTimeout(function() {
             try {
                 initReturnPrintControls();

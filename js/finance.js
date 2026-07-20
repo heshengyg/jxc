@@ -406,35 +406,6 @@ async function initFinanceBaseData() {
     
     // ✅ 数据加载完成后，计算所有供应商的累计余额
     await recalculateAllSuppliersBalances();
-    
-    // ========== ✅ 数据加载完成后渲染视图 ==========
-    try {
-        // 尝试调用渲染函数
-        if (typeof renderFinance === 'function') {
-            renderFinance();
-            console.log('✅ renderFinance 已调用');
-        }
-        
-        if (typeof renderFinancePagination === 'function') {
-            renderFinancePagination();
-            console.log('✅ renderFinancePagination 已调用');
-        }
-        
-        // 刷新当前子Tab
-        const activeSubTab = document.querySelector('#finance .finance-sub-btn.active');
-        if (activeSubTab) {
-            const tabName = activeSubTab.dataset.tab;
-            if (tabName && typeof switchFinanceSubTab === 'function') {
-                switchFinanceSubTab(tabName);
-                console.log('✅ 切换到财务子Tab:', tabName);
-            }
-        }
-        
-        console.log('✅ 财务视图渲染完成');
-    } catch (e) {
-        console.warn('⚠️ 财务渲染失败:', e.message);
-    }
-    // ========== 新增结束 ==========
 }
 // 加载线下去重供应商
 async function loadOfflineSupplier() {

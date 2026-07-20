@@ -533,8 +533,6 @@ async function loadStockOut() {
         document.getElementById('outTotalCount').textContent = allData.length;
         outCurrentPage = 1;
         filterStockOut();
-// 在 loadStockOut 函数末尾添加
-if (typeof renderStockOut === 'function') renderStockOut();
     } catch (e) {
         showMsg('加载出库记录失败：' + e.message);
     }
