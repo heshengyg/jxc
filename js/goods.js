@@ -1342,7 +1342,7 @@ async function batchDelete() {
             break;
         }
     }
-}
+
     if (hasUsed) {
         showMsg('选中商品中存在已录入入库单据的数据，无法批量删除！');
         return;
