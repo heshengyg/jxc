@@ -1,3 +1,11 @@
+// ========== 商品数据全局变量 ==========
+let allGoods = [];           // ✅ 添加 let 声明
+let filteredGoods = [];
+let currentPage = 1;
+let pageSize = 10;
+let totalPages = 1;
+let sortField = '';
+let sortAsc = true;
 let goodsUsedCache = new Map();
 // ========== HTML 转义函数 ==========
 function escapeHtml(str) {
@@ -627,75 +635,126 @@ function clearSort() {
 }
 
 async function loadGoods(force) {
+    console.log('🔄 loadGoods 被调用, force:', force);
+    
     if (force) {
         isLoadingGoods = false;
         isGoodsLoaded = false;
         allGoods = [];
     } else {
-        if (isLoadingGoods) return;
+        if (isLoadingGoods) {
+            console.log('⏳ 正在加载中，跳过...');
+            return;
+        }
     }
+    
     try {
         isLoadingGoods = true;
+        
+        // ✅ 检查 Supabase 配置
+        if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
+            console.error('❌ Supabase 配置未定义！请检查 config.js 是否加载');
+            showMsg('系统配置错误，请刷新页面重试');
+            return;
+        }
+        
+        console.log('📡 请求商品数据...');
         const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        if (!res.ok) throw new Error('读取失败');
-        const list = await res.json();
-        allGoods = list.sort((a, b) => b.id - a.id);
-        window.allGoods = allGoods;
-        initGoodsFilterData();
-        isGoodsLoaded = true;
-        await filterGoodsWaitCache();
-        const totalCountEl = document.getElementById('totalCount');
-        if (totalCountEl) totalCountEl.textContent = allGoods.length;
-        renderPagination();
-        renderGoods();
-        loadSettleListSilently();
-    } catch (e) {
-        showMsg('加载商品失败：' + e.message);
-        console.error(e);
-    } finally {
-        isLoadingGoods = false;
-    }
-}
-
-// 等待缓存异步完成的筛选函数
-async function filterGoodsWaitCache() {
-    const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
-    const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
-    const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
-    filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
-        let match = true;
-        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-        if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-        if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
-        return match;
-    }) : [];
-    const searchCount = document.getElementById('searchCount');
-    if (searchCount) searchCount.textContent = filteredGoods.length;
-    currentPage = 1;
-    goodsUsedCache.clear();
-    const start = (currentPage - 1) * pageSize;
-    const pageData = filteredGoods.slice(start, start + pageSize);
-    for (const item of pageData) {
-        const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
-        goodsUsedCache.set(item.id, used);
-    }
-}
-
-async function loadSettleListSilently() {
-    try {
-        let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
             headers: { 
                 apikey: SUPABASE_KEY, 
                 Authorization: `Bearer ${SUPABASE_KEY}` 
             }
         });
-        if (!res.ok) throw new Error('读取失败');
-        let list = await res.json();
-        settleData = list;
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('❌ API 请求失败:', res.status, errorText);
+            throw new Error(`HTTP ${res.status}: ${errorText}`);
+        }
+        
+        const list = await res.json();
+        console.log('✅ 获取到商品数据:', list.length, '条');
+        
+        allGoods = list.sort((a, b) => b.id - a.id);
+        window.allGoods = allGoods;
+        
+        initGoodsFilterData();
+        isGoodsLoaded = true;
+        
+        // ✅ 确保 DOM 元素存在后再调用
+        await filterGoodsWaitCache();
+        
+        const totalCountEl = document.getElementById('totalCount');
+        if (totalCountEl) totalCountEl.textContent = allGoods.length;
+        
+        renderPagination();
+        renderGoods();
+        loadSettleListSilently();
+        
     } catch (e) {
-        console.error('静默加载结算类型失败：', e.message);
+        console.error('❌ 加载商品失败:', e);
+        showMsg('加载商品失败：' + e.message);
+        
+        // ✅ 显示空状态
+        const tb = document.getElementById('goodsList');
+        if (tb) {
+            tb.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:30px;color:#ff6b6b;">
+                加载失败：${e.message}<br>
+                <small>请检查控制台错误信息</small>
+            </td></tr>`;
+        }
+    } finally {
+        isLoadingGoods = false;
+        console.log('🏁 loadGoods 执行完成');
+    }
+}
+// 等待缓存异步完成的筛选函数
+async function filterGoodsWaitCache() {
+    console.log('🔄 filterGoodsWaitCache 开始执行...');
+    
+    try {
+        const supplier = document.getElementById('goodsFilterSupplierInput')?.value?.trim() || '';
+        const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value?.trim() || '';
+        const channel = document.getElementById('goodsFilterChannelInput')?.value?.trim() || '';
+        
+        console.log('🔍 筛选条件:', { supplier, goodsName, channel });
+        console.log('📦 allGoods 长度:', allGoods?.length || 0);
+        
+        filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
+            let match = true;
+            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+            if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
+            return match;
+        }) : [];
+        
+        console.log('✅ 筛选后数据量:', filteredGoods.length);
+        
+        const searchCount = document.getElementById('searchCount');
+        if (searchCount) searchCount.textContent = filteredGoods.length;
+        
+        currentPage = 1;
+        goodsUsedCache.clear();
+        
+        // ✅ 分批加载缓存，避免阻塞
+        const start = (currentPage - 1) * pageSize;
+        const pageData = filteredGoods.slice(start, start + pageSize);
+        
+        // ✅ 使用 Promise.all 并行加载
+        await Promise.all(pageData.map(async (item) => {
+            try {
+                const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+                goodsUsedCache.set(item.id, used);
+            } catch (e) {
+                console.warn('⚠️ 检查商品使用状态失败:', item.id, e);
+                goodsUsedCache.set(item.id, false);
+            }
+        }));
+        
+        console.log('✅ filterGoodsWaitCache 完成');
+    } catch (e) {
+        console.error('❌ filterGoodsWaitCache 执行失败:', e);
+        // 不抛出，继续执行
     }
 }
 
@@ -1537,28 +1596,44 @@ window.updateSplitUnitRelations = updateSplitUnitRelations;
 window.updateUnitDescription = updateUnitDescription;
 // ========== 页面初始化 ==========
 // ✅ 使用 setTimeout 延迟执行，确保所有函数都已加载
+// ✅ 在文件末尾修改初始化方式
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOMContentLoaded 触发');
+    
+    // ✅ 检查 Supabase 配置
+    if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
+        console.error('❌ Supabase 配置未加载！');
+        showMsg('系统配置错误，请检查网络连接');
+        return;
+    }
+    
+    // ✅ 延迟执行，确保所有函数都已定义
     setTimeout(function() {
-        if (typeof window.switchGoodsSubTab === 'function') {
-            window.switchGoodsSubTab('goodsInfo');
-        } else if (typeof switchGoodsSubTab === 'function') {
-            switchGoodsSubTab('goodsInfo');
+        console.log('🔄 开始初始化商品模块...');
+        
+        // 先加载商品数据
+        if (typeof loadGoods === 'function') {
+            loadGoods(true);
         } else {
-            console.warn('switchGoodsSubTab 尚未定义，稍后重试...');
+            console.error('❌ loadGoods 函数未定义！');
+        }
+        
+        // 加载结算类型
+        if (typeof loadSettleList === 'function') {
             setTimeout(function() {
-                if (typeof window.switchGoodsSubTab === 'function') {
-                    window.switchGoodsSubTab('goodsInfo');
-                }
-            }, 300);
+                loadSettleList();
+            }, 500);
         }
-        if (typeof loadStockStock === 'function') {
-            loadStockStock();
-        } else if (typeof window.loadStockStock === 'function') {
-            window.loadStockStock();
+        
+        // 加载单位列表
+        if (typeof loadUnitList === 'function') {
+            setTimeout(function() {
+                loadUnitList();
+            }, 800);
         }
-    }, 50);
+        
+    }, 100);
 });
-
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
@@ -4505,3 +4580,16 @@ window.selectSplitUnit = selectSplitUnit;
 window.updateUnitDescription = updateUnitDescription;
 window.loadComboPackSelect = loadComboPackSelect;
 window.updateSplitUnitRelations = updateSplitUnitRelations;
+
+// ✅ 在文件末尾添加调试辅助
+window.__debug = {
+    allGoods: () => allGoods,
+    filteredGoods: () => filteredGoods,
+    settleData: () => settleData,
+    unitList: () => unitList,
+    supabaseUrl: SUPABASE_URL,
+    hasSupabaseKey: typeof SUPABASE_KEY !== 'undefined'
+};
+
+console.log('✅ goods.js 加载完成');
+console.log('🔍 调试: window.__debug.allGoods() 查看商品数据');
