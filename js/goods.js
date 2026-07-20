@@ -1,11 +1,3 @@
-// ========== 商品数据全局变量 ==========
-let allGoods = [];
-let filteredGoods = [];
-let currentPage = 1;
-let pageSize = 10;
-let totalPages = 1;
-let sortField = '';
-let sortAsc = true;
 let goodsUsedCache = new Map();
 // ========== HTML 转义函数 ==========
 function escapeHtml(str) {
@@ -584,6 +576,23 @@ function clearSort() {
     sortAsc = true;
     updateSortIcon();
     loadGoods();
+}
+
+// ========== 静默加载结算类型 ==========
+async function loadSettleListSilently() {
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
+            headers: { 
+                apikey: SUPABASE_KEY, 
+                Authorization: `Bearer ${SUPABASE_KEY}` 
+            }
+        });
+        if (!res.ok) throw new Error('读取失败');
+        let list = await res.json();
+        settleData = list;
+    } catch (e) {
+        console.error('静默加载结算类型失败：', e.message);
+    }
 }
 
 async function loadGoods(force) {
