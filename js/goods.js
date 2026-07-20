@@ -20,8 +20,7 @@ let isLoadingGoods = false;  // ✅ 添加这行
 let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // ========== 权限辅助函数 ==========
-function isFinanceOrAdmin() {
-// 改日改-更新按钮权限：管理员、APP部
+// 平级独立，不再嵌套
 function canOperateDateUpdate() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -41,11 +40,8 @@ function canOperatePriceEdit() {
     if (!role) return false;
     return role.name === '管理员' || role.name === '商品部';
 }
-// 挂载全局
-window.canOperateDateUpdate = canOperateDateUpdate;
-window.canOperatePriceEdit = canOperateDateUpdate;
-window.isFinanceOrAdmin = isFinanceOrAdmin;
-
+// 权限辅助函数（独立顶层函数）
+function isFinanceOrAdmin() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
     var user = permissionData.users.find(u => u.id === currentUserId);
@@ -54,6 +50,10 @@ window.isFinanceOrAdmin = isFinanceOrAdmin;
     if (!role) return false;
     return role.name === '管理员' || role.name === '财务部';
 }
+// 全局挂载放到三个函数全部定义完成之后
+window.canOperateDateUpdate = canOperateDateUpdate;
+window.canOperatePriceEdit = canOperatePriceEdit;
+window.isFinanceOrAdmin = isFinanceOrAdmin;
 
 // 刷新商品列表
 function refreshGoods() {
@@ -596,8 +596,9 @@ function switchGoodsSubTab(tab) {
             loadUnitList();
         }
     }, 100);
+  }
 }
-}
+
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
@@ -3438,7 +3439,8 @@ window.loadPriceTempState = loadPriceTempState;
 window.clearPriceTempState = clearPriceTempState;
 window.clearAllPriceTempState = clearAllPriceTempState;
 window.savePriceTempStateByStatus = savePriceTempStateByStatus;
-window.switchGodsSubTab = window.switchGoodsSubTab;
+window.switchGoodsSubTab = window.switchGoodsSubTab;
+
 
 
 console.log('✅ 所有 goods.js 函数已暴露到 window');
