@@ -3614,33 +3614,6 @@ function renderBaseUnitSelectOpt() {
     }
 }
 
-// 删除一级单位
-async function deleteBaseUnit(id) {
-    if (!confirm('确定删除该最小单位？关联规格会同步清空绑定')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${id}`, { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } })
-        showMsg('删除成功');
-        await loadAllBaseUnit();
-        await loadAllUnitSpec();
-        renderAllUnitTable();
-        renderBaseUnitSelectOpt();
-    } catch (e) {
-        showMsg('删除失败，已被商品绑定');
-    }
-}
-// 删除换算规格
-async function deleteUnitSpec(id) {
-    if (!confirm('确定删除该换算规格？')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${id}`, { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } })
-        showMsg('删除成功');
-        await loadAllUnitSpec();
-        renderAllUnitTable();
-    } catch (e) {
-        showMsg('删除失败，已绑定商品');
-    }
-}
-// ========== 商品弹窗一级搜索+二级多选逻辑 ==========
 
 // 防抖复用页面原有debounce
 const filterBaseFunc = function () {
