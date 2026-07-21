@@ -3413,22 +3413,11 @@ if (!window._originSwitchGoodsSubTab) {
         if (tab === 'unitSet') {
             await loadAllBaseUnit();
             await loadAllUnitSpec();
-            renderAllUnitTable(); // 统一一张总表，取消两个表格
+            renderAllUnitTable();
         }
     }
 }
 
-// 加载一级最小单位
-async function loadAllBaseUnit() {
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit?order=id.asc`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        baseUnitList = await res.json() || [];
-    } catch (e) {
-        showMsg('加载单位失败：' + e.message);
-    }
-}
 
 // 加载二级换算规格
 async function loadAllUnitSpec() {
@@ -3652,7 +3641,7 @@ async function deleteUnitSpec(id) {
     }
 
 // ========== 商品弹窗一级搜索+二级多选逻辑 ==========
-let baseUnitSearchTimer = null;
+
 // 防抖复用页面原有debounce
 const filterBaseFunc = function () {
     const input = document.getElementById('addBaseUnitSearch');
