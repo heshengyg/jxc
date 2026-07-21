@@ -164,24 +164,33 @@
             </div>
         </div>
 
-<div class="finance-sub-tabs" style="margin:15px 0;">
-    <button class="btn btn-primary" onclick="openUnitEdit()">新增单位</button>
+<!-- 单位预设 -->
+<div id="sub-unitSet" class="finance-sub-content" style="display:none;">
+    <h4>单位预设管理</h4>
+    <div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增最小计量单位</button>
+        <button class="btn btn-success" onclick="openUnitEdit(null, 2)">➕ 新增换算规格</button>
+        <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
+        <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
+    </div>
+    <div class="table-container">
+        <table border="1" cellpadding="6" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th style="width:60px;">ID</th>
+                    <th style="min-width:150px;">单位名称</th>
+                    <th style="min-width:120px;">换算名称</th>
+                    <th style="min-width:100px;">换算比例</th>
+                    <th style="width:80px;">状态</th>
+                    <th style="min-width:300px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="allUnitTable">
+                <tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请新增单位</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
-<table border="1" width="100%" id="allUnitTable">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>单位名称</th>
-            <th>换算名称</th>
-            <th>换算比例</th>
-            <th>状态</th>
-            <th>操作</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-</div>
-
 
         <div id="sub-settleType" class="finance-sub-content" style="display:none;">
     <h4>供应商管理</h4>
@@ -1974,35 +1983,39 @@ document.addEventListener('DOMContentLoaded', async function(){
 </script>
 <!-- 全局唯一单位弹窗（一级+二级共用） -->
 <div id="unitAllModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div style="width:580px;background:#fff;padding:24px;border-radius:6;">
-        <h4 id="unitModalTitle" style="margin:0 0 16px;"></h4>
-        <input type="hidden" id="unitEditType">
-        <input type="hidden" id="unitEditId">
+    <div style="width:580px;max-width:90%;background:#fff;padding:24px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h4 id="unitModalTitle" style="margin:0 0 16px;font-size:18px;">新增最小计量单位</h4>
+        <input type="hidden" id="unitEditType" value="1">
+        <input type="hidden" id="unitEditId" value="">
+        
         <div style="margin-bottom:14px;">
-            <label>最小计量单位</label>
-            <input id="baseUnitName" style="width:100%;margin-top:6px;padding:7px;border:1px #ddd solid;border-radius:4;">
+            <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">最小计量单位</label>
+            <input id="baseUnitName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="请输入单位名称（如：克）">
         </div>
-        <div id="specInputWrap" style="display:none;margin-bottom:14px;">
+        
+        <div id="specInputWrap" style="display:none;margin-bottom:14px;border-top:1px solid #eee;padding-top:14px;">
             <div style="margin-bottom:12px;">
-                <label>归属最小单位</label>
-                <select id="specBaseUnitId" style="width:100%;margin-top:6px;padding:7px;border:1px #ddd solid;border-radius:4;"></select>
+                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">归属最小单位</label>
+                <select id="specBaseUnitId" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;">
+                    <option value="">请选择</option>
+                </select>
             </div>
             <div style="margin-bottom:12px;">
-                <label>换算单位名称</label>
-                <input id="specShowName" style="width:100%;margin-top:6px;padding:7px;border:1px #ddd solid;border-radius:4;">
+                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">换算单位名称</label>
+                <input id="specShowName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：份">
             </div>
             <div>
-                <label>换算系数（1规格=多少最小单位）</label>
-                <input type="number" min="0.01" step="0.01" id="specRate" style="width:100%;margin-top:6px;padding:7px;border:1px #ddd solid;border-radius:4;">
+                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">换算系数（1规格 = ? 最小单位）</label>
+                <input type="number" min="0.01" step="0.01" id="specRate" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：200">
             </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:10;margin-top:20px;">
-            <button class="btn btn-default" onclick="closeUnitAllModal()">取消</button>
-            <button class="btn btn-primary" onclick="submitAllUnit()">保存</button>
+        
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+            <button class="btn btn-default" onclick="closeUnitAllModal()" style="padding:8px 30px;cursor:pointer;">取消</button>
+            <button class="btn btn-primary" onclick="submitAllUnit()" style="padding:8px 30px;cursor:pointer;">保存</button>
         </div>
     </div>
 </div>
-
 
 </body>
 </html>
