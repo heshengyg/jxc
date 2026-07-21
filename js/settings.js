@@ -219,6 +219,7 @@ window.settingsData = settingsData;
 // ===== 子版块菜单定义 =====
 const ALL_MENUS = [
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
+    { key: 'unitSet', label: '单位预设', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
@@ -250,7 +251,7 @@ const MODULE_GROUPS = {
 };
 
 const MODULE_SUB_KEYS = {
-    goods: ['goodsInfo', 'settleType', 'dateChange'],
+    goods: ['goodsInfo', 'unitSet', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],

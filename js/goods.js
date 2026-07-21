@@ -3385,18 +3385,18 @@ window.switchGodsSubTab = window.switchGoodsSubTab;
 console.log('✅ 所有 goods.js 函数已暴露到 window');
 console.log('goods.js 加载完成');
 
-// ====================== 新增：单位预设模块全部逻辑（仅追加，不修改原有代码） ======================
-let baseUnitList = [];        // 基础最小单位全局缓存
-let unitSpecList = [];        // 换算规格全局缓存
+// ===================== 新增：单位预设全局变量 =====================
+let baseUnitList = [];
+let unitSpecList = [];
 let baseUnitPage = 1;
 let baseUnitPageSize = 10;
 let specPage = 1;
 let specPageSize = 10;
 
-// 切换Tab兼容原有switchGoodsSubTab，原有逻辑不动，仅新增分支
-const oldSwitchGoodsSubTab = switchGoodsSubTab;
+// 劫持原有切换函数，切换unitSet自动加载单位数据
+const originSwitchGoodsSubTab = switchGoodsSubTab;
 switchGoodsSubTab = async function(tab) {
-    await oldSwitchGoodsSubTab(tab);
+    await originSwitchGoodsSubTab(tab);
     if (tab === 'unitSet') {
         await loadAllBaseUnit();
         await loadAllUnitSpec();
@@ -3406,7 +3406,7 @@ switchGoodsSubTab = async function(tab) {
     }
 }
 
-// 1 加载所有最小单位
+// 1 加载全部最小基准单位 base_unit
 async function loadAllBaseUnit() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit?order=id.asc`, {
@@ -3414,28 +3414,33 @@ async function loadAllBaseUnit() {
         });
         baseUnitList = await res.json() || [];
     } catch (e) {
-        showMsg('加载最小单位失败:' + e.message);
+        showMsg('加载最小单位失败：' + e.message);
     }
 }
 
-// 下拉框渲染（筛选用+弹窗用）
+// 渲染所有下拉框（筛选下拉、弹窗单位下拉共用）
 function renderBaseUnitSelect() {
     const filterSel = document.getElementById('filterBaseUnit');
-    const editSel = document.getElementById('specBaseUnitId');
-    if (!filterSel || !editSel) return;
-    filterSel.innerHTML = '<option value="">全部最小单位</option>';
-    editSel.innerHTML = '';
-    baseUnitList.forEach(item => {
-        const opt1 = document.createElement('option');
-        opt1.value = item.id;
-        opt1.textContent = item.unit_name;
-        filterSel.appendChild(opt1);
-
-        const opt2 = document.createElement('option');
-        opt2.value = item.id;
-        opt2.textContent = item.unit_name;
-        editSel.appendChild(opt2);
-    });
+    const specSel = document.getElementById('specBaseUnitId');
+    if (!filterSel && !specSel) return;
+    if(filterSel){
+        filterSel.innerHTML = '<option value="">全部最小单位</option>';
+        baseUnitList.forEach(item=>{
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.unit_name;
+            filterSel.appendChild(opt);
+        })
+    }
+    if(specSel){
+        specSel.innerHTML = '';
+        baseUnitList.forEach(item=>{
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.unit_name;
+            specSel.appendChild(opt);
+        })
+    }
 }
 
 // 渲染最小单位表格
@@ -3445,236 +3450,420 @@ function renderBaseUnitList() {
     tb.innerHTML = '';
     const start = (baseUnitPage - 1) * baseUnitPageSize;
     const pageData = baseUnitList.slice(start, start + baseUnitPageSize);
-    if (!pageData.length) {
+    if(pageData.length === 0){
         tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无数据</td>';
         return;
     }
-    pageData.forEach((item, idx) => {
-        const locked = item.is_locked === true;
-        let btnEdit = locked ? `<button disabled class="btn btn-primary" style="opacity:0.5">编辑</button>` : `<button class="btn btn-primary" onclick="openBaseUnitForm(${item.id})">编辑</button>`;
-        let btnDel = locked ? `<button disabled class="btn btn-danger" style="opacity:0.5">删除</button>` : `<button class="btn btn-danger" onclick="deleteBaseUnit(${item.id})">删除</button>`;
+    pageData.forEach((item,idx)=>{
+        const locked = item.is_locked;
+        let editBtn = locked ? `<button disabled class="btn btn-primary" style="opacity:0.5">编辑</button>` : `<button onclick="openBaseUnitForm(${item.id})" class="btn btn-primary">编辑</button>`;
+        let delBtn = locked ? `<button disabled class="btn btn-danger" style="opacity:0.5">删除</button>` : `<button onclick="deleteBaseUnit(${item.id})" class="btn btn-danger">删除</button>`;
         tb.innerHTML += `
         <tr>
-            <td>${start + idx + 1}</td>
+            <td>${start+idx+1}</td>
             <td>${item.unit_name}</td>
-            <td>${locked ? '已绑定商品，锁定' : '未锁定可删改'}</td>
-            <td>${btnEdit} ${btnDel}</td>
-        `;
-    });
+            <td>${locked ? '已绑定商品，锁定' : '可编辑删除'}</td>
+            <td>${editBtn} ${delBtn}</td>
+        `
+    })
 }
 
-// 最小单位弹窗
-function openBaseUnitForm(id = null) {
+// 最小单位弹窗打开/关闭
+function openBaseUnitForm(editId=null){
     const modal = document.getElementById('baseUnitModal');
     const title = document.getElementById('baseUnitTitle');
-    const editId = document.getElementById('baseUnitEditId');
-    const nameInp = document.getElementById('baseUnitName');
-    editId.value = id || '';
-    if (!id) {
+    const input = document.getElementById('baseUnitName');
+    const hid = document.getElementById('baseUnitEditId');
+    hid.value = editId||'';
+    if(!editId){
         title.textContent = '新增最小单位';
-        nameInp.value = '';
-    } else {
+        input.value = '';
+    }else{
         title.textContent = '编辑最小单位';
-        const row = baseUnitList.find(d => d.id == id);
-        nameInp.value = row.unit_name;
+        const row = baseUnitList.find(d=>d.id == editId);
+        input.value = row.unit_name;
     }
     modal.style.display = 'flex';
 }
-function closeBaseUnitModal() {
+function closeBaseUnitForm(){
     document.getElementById('baseUnitModal').style.display = 'none';
 }
 
-// 提交最小单位
-async function submitBaseUnit() {
+// 提交新增/编辑最小单位
+async function submitBaseUnit(){
     const editId = document.getElementById('baseUnitEditId').value;
-    const unitName = document.getElementById('baseUnitName').value.trim();
-    if (!unitName) return showMsg('请填写单位名称');
-    const payload = { unit_name: unitName, is_locked: false };
-    try {
-        if (editId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
-                method: 'PATCH',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
-                body: JSON.stringify(payload)
-            });
+    const name = document.getElementById('baseUnitName').value.trim();
+    if(!name) return showMsg('请填写单位名称');
+    const payload = {unit_name:name,is_locked:false};
+    try{
+        if(editId){
+            await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`,{
+                method:'PATCH',
+                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+                body:JSON.stringify(payload)
+            })
             showMsg('编辑成功');
-        } else {
-            await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
-                body: JSON.stringify(payload)
-            });
+        }else{
+            await fetch(`${SUPABASE_URL}/rest/v1/base_unit`,{
+                method:'POST',
+                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+                body:JSON.stringify(payload)
+            })
             showMsg('新增成功');
         }
-        closeBaseUnitModal();
+        closeBaseUnitForm();
         await loadAllBaseUnit();
         renderBaseUnitSelect();
         renderBaseUnitList();
-    } catch (e) {
-        showMsg('操作失败：' + e.message);
+    }catch(e){
+        showMsg('操作失败：'+e.message);
     }
 }
 
 // 删除最小单位
-async function deleteBaseUnit(id) {
-    if (!confirm('确定删除该最小单位？')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${id}`, {
-            method: 'DELETE',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
+async function deleteBaseUnit(id){
+    if(!confirm('确定删除该最小单位？')) return;
+    try{
+        await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${id}`,{
+            method:'DELETE',
+            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+        })
         showMsg('删除成功');
         await loadAllBaseUnit();
-        renderBaseSelect();
+        renderBaseUnitSelect();
         renderBaseUnitList();
-    } catch (e) {
-        showMsg('删除失败，该单位已被使用');
+    }catch(e){
+        showMsg('删除失败，该单位已被商品引用');
     }
 }
 
-// 加载所有换算规格
-async function loadAllUnitSpec() {
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?order=base_unit_id,id.asc`, {
+// 加载换算规格 unit_spec
+async function loadAllUnitSpec(){
+    try{
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?order=base_unit_id,id.asc`,{
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         unitSpecList = await res.json() || [];
     } catch (e) {
-        showMsg('加载换算规格失败:' + e.message);
+        showMsg('加载换算规格失败：' + e.message);
     }
 }
 
 // 渲染换算规格表格
-function renderUnitSpecList() {
-    const filterVal = document.getElementById('filterBaseUnit').value;
-    let filterData = unitSpecList;
-    if (filterVal) filterData = unitSpecList.filter(d => d.base_unit_id == filterVal);
+function renderUnitSpecList(){
+    const filterVal = document.getElementById('filterBaseUnit')?.value || '';
+    let data = [...unitSpecList];
+    if(filterVal) data = data.filter(d=>d.base_unit_id == filterVal);
     const tb = document.getElementById('unitSpecList');
-    if (!tb) return;
+    if(!tb) return;
     tb.innerHTML = '';
-    const start = (specPage - 1) * specPageSize;
-    const pageData = filterData.slice(start, start + specPageSize);
-    if (!pageData.length) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">暂无数据</td>';
+    const start = (specPage - 1)*specPageSize;
+    const pageData = data.slice(start, start + specPageSize);
+    if(pageData.length === 0){
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">暂无规格数据</td>';
         return;
     }
-    pageData.forEach((item, idx) => {
-        const base = baseUnitList.find(u => u.id === item.base_unit_id);
+    pageData.forEach((item,idx)=>{
+        const base = baseUnitList.find(u=>u.id === item.base_unit_id);
         const baseName = base?.unit_name || '-';
         const fullText = `${item.show_name}（${item.convert_rate}${baseName}）`;
         const locked = item.is_locked;
-        let btnEdit = locked ? `<button disabled class="btn btn-primary" style="opacity:0.5">编辑</button>` : `<button class="btn btn-primary" onclick="openUnitSpecForm(${item.id})">编辑</button>`;
-        let btnDel = locked ? `<button disabled class="btn btn-danger" style="opacity:0.5">删除</button>` : `<button class="btn btn-danger" onclick="deleteUnitSpec(${item.id})">删除</button>`;
+        let editBtn = locked ? `<button disabled class="btn btn-primary" style="opacity:0.5">编辑</button>` : `<button onclick="openUnitSpecForm(${item.id})" class="btn btn-primary">编辑</button>`;
+        let delBtn = locked ? `<button disabled class="btn btn-danger" style="opacity:0.5">删除</button>` : `<button onclick="deleteUnitSpec(${item.id})" class="btn btn-danger">删除</button>`;
         tb.innerHTML += `
         <tr>
-            <td>${start + idx + 1}</td>
+            <td>${start+idx+1}</td>
             <td>${baseName}</td>
             <td>${item.show_name}</td>
             <td>${item.convert_rate}</td>
             <td>${fullText}</td>
-            <td>${locked ? '已绑定商品锁定' : '可编辑'}</td>
-            <td>${btnEdit} ${btnDel}</td>
-        `;
-    });
+            <td>${locked ? '已锁定' : '正常'}</td>
+            <td>${editBtn} ${delBtn}</td>
+        `
+    })
 }
 
 // 换算规格弹窗
-function openUnitSpecForm(id = null) {
+function openUnitSpecForm(editId=null){
     const modal = document.getElementById('unitSpecModal');
     const title = document.getElementById('unitSpecTitle');
-    const editId = document.getElementById('unitSpecEditId');
-    const baseSel = document.getElementById('specBaseUnitId');
-    const showInp = document.getElementById('specShowName');
+    const hid = document.getElementById('unitSpecEditId');
+    const sel = document.getElementById('specBaseUnitId');
+    const nameInp = document.getElementById('specShowName');
     const rateInp = document.getElementById('specRate');
-    editId.value = id || '';
-    if (!id) {
+    hid.value = editId||'';
+    if(!editId){
         title.textContent = '新增换算规格';
-        showInp.value = '';
+        nameInp.value = '';
         rateInp.value = '';
-    } else {
+    }else{
         title.textContent = '编辑换算规格';
-        const row = unitSpecList.find(d => d.id == id);
-        baseSel.value = row.base_unit_id;
-        showInp.value = row.show_name;
+        const row = unitSpecList.find(d=>d.id == editId);
+        sel.value = row.base_unit_id;
+        nameInp.value = row.show_name;
         rateInp.value = row.convert_rate;
     }
     modal.style.display = 'flex';
 }
-function closeUnitSpecModal() {
+function closeUnitSpecForm(){
     document.getElementById('unitSpecModal').style.display = 'none';
 }
 
 // 提交换算规格
-async function submitUnitSpec() {
+async function submitUnitSpec(){
     const editId = document.getElementById('unitSpecEditId').value;
     const baseId = document.getElementById('specBaseUnitId').value;
     const showName = document.getElementById('specShowName').value.trim();
     const rate = parseFloat(document.getElementById('specRate').value);
-    if (!baseId) return showMsg('请选择归属最小单位');
-    if (!showName) return showMsg('请填写展示名称');
-    if (isNaN(rate) || rate <= 0) return showMsg('换算系数必须大于0');
+    if(!baseId) return showMsg('请选择归属最小单位');
+    if(!showName) return showMsg('填写展示名称');
+    if(isNaN(rate) || rate <= 0) return showMsg('换算系数大于0');
     const payload = {
-        base_unit_id: baseId,
-        show_name: showName,
-        convert_rate: rate,
-        is_locked: false
-    };
-    try {
-        if (editId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
-                method: 'PATCH',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
-                body: JSON.stringify(payload)
-            });
+        base_unit_id:baseId,
+        show_name:showName,
+        convert_rate:rate,
+        is_locked:false
+    }
+    try{
+        if(editId){
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`,{
+                method:'PATCH',
+                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+                body:JSON.stringify(payload)
+            })
             showMsg('规格编辑成功');
-        } else {
-            await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
-                body: JSON.stringify(payload)
-            });
+        }else{
+            await fetch(`${SUPABASE_URL}/rest/v1/base_unit`,{
+                method:'POST',
+                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+                body:JSON.stringify(payload)
+            })
             showMsg('规格新增成功');
         }
-        closeUnitSpecModal();
+        closeUnitSpecForm();
         await loadAllBaseUnit();
         await loadAllUnitSpec();
         renderBaseUnitSelect();
         renderUnitSpecList();
+    }catch(e){
+        showMsg('保存失败：'+e.message);
+    }
+}
+
+// 删除换算规格
+async function deleteUnitSpec(id){
+    if(!confirm('确定删除该规格？')) return;
+    try{
+        await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${id}`,{
+            method:'DELETE',
+            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+        })
+        showMsg('删除成功');
+        await loadAllUnitSpec();
+        renderUnitSpecList();
+    }catch(e){
+        showMsg('删除失败，已被商品绑定');
+    }
+}
+
+// ===================== 商品弹窗【基准单位搜索下拉】逻辑 =====================
+let baseUnitSearchTimer = null;
+// 打开弹窗时加载单位列表
+async function loadAddBaseUnitList(){
+    if(baseUnitList.length === 0) await loadAllBaseUnit();
+}
+// 展示单位下拉
+function showAddBaseUnitList(){
+    loadAddBaseUnitList();
+    renderAddBaseUnitList('');
+    document.getElementById('addBaseUnitListBox').style.display = 'block';
+}
+// 过滤单位输入
+function filterAddBaseUnitList(){
+    clearTimeout(baseUnitSearchTimer);
+    baseUnitSearchTimer = setTimeout(()=>{
+        const kw = document.getElementById('addBaseUnitSearch').value.toLowerCase();
+        renderAddBaseUnitList(kw);
+        document.getElementById('addBaseUnitListBox').style.display = 'block';
+    },300)
+}
+// 渲染单位下拉列表
+function renderAddBaseUnitList(keyword){
+    const box = document.getElementById('addBaseUnitListBox');
+    box.innerHTML = '';
+    let list = baseUnitList;
+    if(keyword){
+        list = baseUnitList.filter(u=>u.unit_name.toLowerCase().includes(keyword))
+    }
+    if(list.length === 0){
+        box.innerHTML = '<div style="padding:6px 10px;color:#666;">无匹配单位</div>';
+        return;
+    }
+    list.forEach(item=>{
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerText = item.unit_name;
+        div.onclick = function(){
+            document.getElementById('addBaseUnitSearch').value = item.unit_name;
+            document.getElementById('add_base_unit_id').value = item.id;
+            document.getElementById('addBaseUnitListBox').style.display = 'none';
+        }
+        box.appendChild(div);
+    })
+}
+// 点击空白关闭单位下拉
+document.addEventListener('click',function(e){
+    const input = document.getElementById('addBaseUnitSearch');
+    const box = document.getElementById('addBaseUnitListBox');
+    if(input && box && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#addBaseUnitListBox')){
+        box.style.display = 'none';
+    }
+})
+
+// 打开商品弹窗时预加载单位数据（兼容原有openAddForm）
+const oldOpenAddForm = openAddForm;
+openAddForm = async function(){
+    await oldOpenAddForm();
+    await loadAddBaseUnit();
+    document.getElementById('addBaseUnitSearch').value = '';
+    document.getElementById('add_base_unit_id').value = '';
+}
+
+// 编辑商品回显基准单位（劫持原有openEditForm）
+const oldOpenEditForm = openEditForm;
+openEditForm = async function(id){
+    await oldOpenEditForm(id);
+    await loadAddBaseUnit();
+    const goodsItem = allGoods.find(g=>g.id == id);
+    if(goodsItem && goods.base_unit_id){
+        const unit = baseUnitList.find(u=>u.id == goodsItem.base_unit_id);
+        if(unit){
+            document.getElementById('addBaseUnitSearch').value = unit.unit_name;
+            document.getElementById('add_base_unit_id').value = unit.id;
+        }
+    }
+}
+
+// 商品提交时携带基准单位id（劫持submitForm）
+const oldSubmitForm = submitForm;
+submitForm = async function(){
+    const baseUnitId = document.getElementById('add_base_unit_id').value;
+    if(!baseUnitId){
+        alert('请选择商品基准最小单位');
+        return;
+    }
+    // 原有表单数据
+    const editId = document.getElementById('editId').value;
+    let supplier = document.getElementById('add_supplier').value;
+    let name = document.getElementById('add_name').value;
+    let spec = document.getElementById('add_spec').value;
+    let channel = document.getElementById('add_channel').value;
+    let taxRate = document.getElementById('add_tax_rate').value;
+    let salePrice = document.getElementById('add_sale_price').value;
+    let onlineCost = document.getElementById('add_online_cost').value;
+    let warnNum = document.getElementById('add_warn_num').value;
+    let shelfNum = document.getElementById('add_shelf_life_num').value;
+    let shelfUnit = document.getElementById('add_shelf_life_unit').value;
+    
+    if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
+    if (+salePrice <= 0) return alert('销售单价必须大于0');
+    if (isDuplicate(supplier, name, spec, editId)) return alert('该供应商下已存在同名同规格商品！');
+    
+    let oldSalePrice = null;
+    let priceChanged = false;
+    let newPrice = +salePrice;
+    
+    if (editId) {
+        const oldItem = allGoods.find(g => g.id == editId);
+        if (oldItem) {
+            oldSalePrice = Number(oldItem.sale_price);
+            if (newPrice !== oldSalePrice) {
+                priceChanged = true;
+            }
+        }
+    }
+    
+    // 新增：存入基准单位id+名称
+    let data = {
+        supplier: supplier.trim(),
+        name: name.trim(),
+        spec: spec.trim() || null,
+        channel: channel,
+        tax_rate: taxRate,
+        sale_price: newPrice,
+        online_cost: onlineCost ? +onlineCost : null,
+        warn_num: warnNum ? +warnNum : null,
+        shelf_life_num: shelfNum ? +shelfNum : null,
+        shelf_life_unit: shelfUnit || null,
+        last_sale_price: editId ? oldSalePrice : null,
+        base_unit_id: +baseUnitId,
+        base_unit_name: document.getElementById('addBaseUnitSearch').value
+    };
+    
+    try {
+        if (editId) {
+            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            showMsg('编辑成功');
+            
+            if (priceChanged) {
+                await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                showMsg('⚠️ 销售价变动，临时价格已清空');
+            }
+        } else {
+            data.last_sale_price = null;
+            await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+                method: 'POST',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(data)
+            });
+            showMsg('新增成功');
+        }
+        closeForm();
+        await loadGoods(true);
+        if (typeof loadAllGoods === 'function') {
+            await loadAllGoods();
+        }
     } catch (e) {
         showMsg('操作失败：' + e.message);
     }
 }
 
-// 删除换算规格
-async function deleteUnitSpec(id) {
-    if (!confirm('确定删除该换算规格？')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${id}`, {
-            method: 'DELETE',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        });
-        showMsg('删除成功');
-        await loadAllUnitSpec();
-        renderUnitSpecList();
-    } catch (e) {
-        showMsg('删除失败，已被商品绑定');
-    }
-}
-
-// 页面加载预加载单位数据
-const originDomLoad = document.DOMContentLoaded;
-document.addEventListener('DOMContentLoaded', async function() {
-    if (typeof originDomLoad === 'function') await originDomLoad();
+// 页面初始化预加载单位数据
+document.addEventListener('DOMContentLoaded',async ()=>{
     await loadAllBaseUnit();
     await loadAllUnitSpec();
-});
-// 暴露全局函数供页面onclick调用
+})
+
+// 全局暴露单位操作函数供onclick调用
 window.openBaseUnitForm = openBaseUnitForm;
-window.closeBaseUnitModal = closeBaseUnitModal;
+window.closeBaseUnitForm = closeBaseUnitForm;
 window.submitBaseUnit = submitBaseUnit;
 window.deleteBaseUnit = deleteBaseUnit;
 window.openUnitSpecForm = openUnitSpecForm;
-window.closeUnitSpecModal = closeUnitSpecModal;
+window.closeUnitSpecForm = closeUnitSpecForm;
 window.submitUnitSpec = submitUnitSpec;
 window.deleteUnitSpec = deleteUnitSpec;
 window.renderUnitSpecList = renderUnitSpecList;
+window.showAddBaseUnitList = showAddBaseUnitList;
+window.filterAddBaseUnitList = filterAddBaseUnit;
