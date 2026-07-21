@@ -76,7 +76,7 @@
         <h3>商品管理</h3>
         <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
-            <button class="finance-sub-btn" data-tab="unitSet" onclick="switchGoodsSubTab('sub-unitSet')">单位预设</button>
+            <button class="finance-sub-btn" data-tab="sub-unitSet" onclick="switchGoodsSubTab('sub-unitSet')">单位预设</button>
             <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
             <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">改日改价</button>
         </div>
@@ -1989,13 +1989,13 @@ document.addEventListener('DOMContentLoaded', async function(){
         <input type="hidden" id="unitEditId" value="">
         
         <div style="margin-bottom:14px;">
-            <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">最小计量单位</label>
+            <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">最小计量单位 <span style="color:red;">*</span></label>
             <input id="baseUnitName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="请输入单位名称（如：克）">
         </div>
         
-        <div id="specInputWrap" style="display:none;margin-bottom:14px;border-top:1px solid #eee;padding-top:14px;">
+        <div id="specInputWrap" style="display:block;margin-bottom:14px;border-top:1px solid #eee;padding-top:14px;">
             <div style="margin-bottom:12px;">
-                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">归属最小单位</label>
+                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">归属最小单位 <span style="color:red;">*</span></label>
                 <select id="specBaseUnitId" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;">
                     <option value="">请选择</option>
                 </select>
@@ -2016,6 +2016,5 @@ document.addEventListener('DOMContentLoaded', async function(){
         </div>
     </div>
 </div>
-
 </body>
 </html>
