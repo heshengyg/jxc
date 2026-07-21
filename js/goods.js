@@ -1,25 +1,25 @@
-let goodsUsedCache = new Map();
-// ========== HTML 转义函数 ==========
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+// 防抖工具
+function debounce(fn, delay = 300) {
+    let timer = null;
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    }
 }
-window.escapeHtml = escapeHtml;
+
+let goodsUsedCache = new Map();
 // ========== 商品筛选数据 ==========
 let goodsFilterData = {
     supplier: [],
     goodsName: [],
     channel: ['线上', '线下']  // 结算方式固定
 };
-let isLoadingGoods = false;
-let isGoodsLoaded = false;
+let isLoadingGoods = false;  // ✅ 添加这行
+let isGoodsLoaded = false;   // ✅ 添加这行，标记是否已加载
 
 // ========== 权限辅助函数 ==========
+function isFinanceOrAdmin() {
+// 改日改-更新按钮权限：管理员、APP部
 function canOperateDateUpdate() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -29,6 +29,7 @@ function canOperateDateUpdate() {
     if (!role) return false;
     return role.name === '管理员' || role.name === 'APP部';
 }
+// 改价按钮权限：管理员、商品部
 function canOperatePriceEdit() {
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
@@ -38,7 +39,12 @@ function canOperatePriceEdit() {
     if (!role) return false;
     return role.name === '管理员' || role.name === '商品部';
 }
-function isFinanceOrAdmin() {
+// 挂载全局
+window.canOperateDateUpdate = canOperateDateUpdate;
+window.canOperatePriceEdit = canOperateDateUpdate;
+window.isFinanceOrAdmin = isFinanceOrAdmin;
+
+
     if (typeof currentUserId === 'undefined' || !currentUserId) return false;
     if (typeof permissionData === 'undefined') return false;
     var user = permissionData.users.find(u => u.id === currentUserId);
@@ -47,10 +53,8 @@ function isFinanceOrAdmin() {
     if (!role) return false;
     return role.name === '管理员' || role.name === '财务部';
 }
-window.canOperateDateUpdate = canOperateDateUpdate;
-window.canOperatePriceEdit = canOperatePriceEdit;
-window.isFinanceOrAdmin = isFinanceOrAdmin;
 
+// 刷新商品列表
 function refreshGoods() {
     if(isLoadingGoods) return;
     loadGoods();
@@ -74,17 +78,26 @@ async function checkGoodsUsedByStockIn(supplier, goodsName, spec) {
         return await res.json();
     } catch (err) {
         console.error("校验状态失败", err);
-        return true;
+        return true; // 出错时默认返回true，防止误删
     }
 }
 // ========== 结算类型相关全局变量 ==========
-let settleData = [];
-let filteredSettle = [];
+let settleData = [];          // 所有结算类型数据
+let filteredSettle = [];      // 筛选后的结算类型
 let settleCurrentPage = 1;
 let settlePageSize = 10;
 let settleTotalPages = 1;
+// 供应商管理下拉缓存变量
 let settleSupplierList = [];
 let settleSearchTimer = null;
+
+allGoods = [];
+filteredGoods = [];
+currentPage = 1;
+pageSize = 10;
+totalPages = 1;
+sortField = '';
+sortAsc = true;
 
 function capitalize(str = '') {
     if(!str) return '';
@@ -92,6 +105,7 @@ function capitalize(str = '') {
 }
 
 // ========== 结算类型管理 ==========
+// 加载结算类型列表（从独立的settle_types表）
 async function loadSettleList() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.desc`, {
@@ -103,11 +117,13 @@ async function loadSettleList() {
         if (!res.ok) throw new Error('读取失败');
         let list = await res.json();
         
+        // 先加载商品数据用于计算数量
         let goodsRes = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         let goodsList = goodsRes.ok ? await goodsRes.json() : [];
         
+        // 计算每个供应商涉及的商品数
         for (let item of list) {
             let goodsCount = goodsList.filter(g => g.supplier === item.supplier).length;
             item.count = goodsCount;
@@ -115,9 +131,11 @@ async function loadSettleList() {
         
         settleData = list;
         
+        // 初始化供应商下拉数据
         const suppliers = settleData.map(s => s.supplier).sort();
         settleSupplierList = suppliers;
         
+        // 重置搜索框
         const searchInput = document.getElementById('settleSupplierSearchInput');
         if (searchInput) {
             searchInput.value = '';
@@ -142,6 +160,7 @@ async function loadSettleList() {
     }
 }
 
+// ========== 供应商管理 - 供应商搜索下拉 ==========
 function showSettleSupplierList() {
     renderSettleSupplierList(settleSupplierList);
     document.getElementById('settleSupplierListBox').style.display = 'block';
@@ -171,18 +190,23 @@ function renderSettleSupplierList(list) {
         div.onclick = function() {
             document.getElementById('settleSupplierSearchInput').value = s;
             document.getElementById('settleSupplierListBox').style.display = 'none';
+            // 输入即搜索
             filterSettleList();
         };
         box.appendChild(div);
     });
 }
 
+// ========== 供应商管理实时搜索（输入即搜索） ==========
 function onSettleFilterInput() {
+    // 清除之前的定时器
     if (settleSearchTimer) {
         clearTimeout(settleSearchTimer);
     }
+    // 防抖处理，300ms后执行搜索
     settleSearchTimer = setTimeout(() => {
         filterSettleList();
+        // 显示下拉列表
         const input = document.getElementById('settleSupplierSearchInput');
         if (document.activeElement === input) {
             const kw = input.value.toLowerCase().trim();
@@ -193,6 +217,7 @@ function onSettleFilterInput() {
     }, 300);
 }
 
+// ========== 供应商管理重置搜索 ==========
 function resetSettleSearch() {
     document.getElementById('settleSupplierSearchInput').value = '';
     document.getElementById('settleChannelSearch').value = '';
@@ -200,6 +225,7 @@ function resetSettleSearch() {
     filterSettleList();
 }
 
+// 筛选结算类型列表
 function filterSettleList() {
     let supplier = document.getElementById('settleSupplierSearchInput').value.trim();
     let channel = document.getElementById('settleChannelSearch').value;
@@ -208,6 +234,7 @@ function filterSettleList() {
         let matchSupplier = true;
         let matchChannel = !channel || item.channel === channel;
         
+        // 模糊匹配供应商
         if (supplier) {
             matchSupplier = (item.supplier || '').toLowerCase().includes(supplier.toLowerCase());
         }
@@ -223,6 +250,7 @@ function filterSettleList() {
     renderSettleList();
 }
 
+// 重置结算类型搜索（旧版本，保留兼容）
 function resetSettleSearchOld() {
     resetSettleSearch();
 }
@@ -242,12 +270,13 @@ function renderSettleList() {
         return;
     }
     pageData.forEach((item, idx) => {
+        // ✅ 根据结算方式设置颜色
         let channelColor = '';
         let channelDisplay = item.channel || '';
         if (channelDisplay === '线上') {
-            channelColor = 'style="color:#52c41a;font-weight:bold;"';
+            channelColor = 'style="color:#52c41a;font-weight:bold;"';  // 浅绿色
         } else if (channelDisplay === '线下') {
-            channelColor = 'style="color:#ff6b6b;font-weight:bold;"';
+            channelColor = 'style="color:#ff6b6b;font-weight:bold;"';  // 浅红色
         }
         
         let html = `
@@ -311,7 +340,8 @@ function changeSettlePageSize() {
     renderSettlePagination(); 
     renderSettleList(); 
 }
-
+// ========== 结算类型CRUD ==========
+// 新增结算类型 - 弹窗形式
 function openSettleForm() {
     document.getElementById('settleModalTitle').innerText = '新增结算类型';
     document.getElementById('settleEditId').value = '';
@@ -321,6 +351,7 @@ function openSettleForm() {
     document.getElementById('settleModal').style.display = 'flex';
 }
 
+// 编辑结算类型 - 弹窗形式
 function openSettleEditForm(id) {
     let item = settleData.find(s => s.id === id);
     if (!item) return;
@@ -333,6 +364,7 @@ function openSettleEditForm(id) {
     document.getElementById('settleModal').style.display = 'flex';
 }
 
+// 关闭结算类型弹窗
 function closeSettleModal() {
     document.getElementById('settleModal').style.display = 'none';
     document.getElementById('settleSupplierInput').disabled = false;
@@ -340,6 +372,7 @@ function closeSettleModal() {
     document.getElementById('settleEditId').value = '';
 }
 
+// 提交结算类型表单
 async function submitSettleForm() {
     let id = document.getElementById('settleEditId').value;
     let supplier = document.getElementById('settleSupplierInput').value.trim();
@@ -350,7 +383,9 @@ async function submitSettleForm() {
         return;
     }
     
+    // ✅ 检查供应商+结算方式是否重复
     let isDuplicate = settleData.some(item => {
+        // 如果是编辑模式，排除自身
         if (id && item.id == id) return false;
         return item.supplier === supplier && item.channel === channel;
     });
@@ -362,8 +397,10 @@ async function submitSettleForm() {
     
     try {
         if (id) {
+            // 编辑时也要检查：如果修改了结算方式，检查是否与其他记录重复
             let currentItem = settleData.find(s => s.id == id);
             if (currentItem && currentItem.channel !== channel) {
+                // 检查新的结算方式是否与其他记录重复
                 let conflict = settleData.some(item => {
                     return item.id != id && item.supplier === supplier && item.channel === channel;
                 });
@@ -398,6 +435,7 @@ async function submitSettleForm() {
         }
         
         closeSettleModal();
+        // 先重新加载商品数据，再加载结算类型
         loadGoods();
         loadSettleList();
         loadSupplierSelect();
@@ -407,6 +445,7 @@ async function submitSettleForm() {
     }
 }
 
+// 删除结算类型
 async function deleteSettleType(id) {
     let item = settleData.find(s => s.id === id);
     if (!item) return;
@@ -435,6 +474,7 @@ async function deleteSettleType(id) {
     }
 }
 
+// ========== 结算类型导入导出 ==========
 function downloadSettleTemplate() {
     let h = ["供应商", "结算方式"];
     let ws = XLSX.utils.aoa_to_sheet([h]);
@@ -525,17 +565,21 @@ function exportSettleExcel() {
     XLSX.writeFile(wb, "结算类型列表.xlsx");
 }
 
+// ========== 商品子Tab切换 ==========
 function switchGoodsSubTab(tab) {
+    // 1. 优先隐藏所有内容，不依赖按钮
     const contents = document.querySelectorAll('#goods .finance-sub-content');
     contents.forEach(div => div.style.display = 'none');
     const targetContent = document.getElementById('sub-' + tab);
     if (targetContent) targetContent.style.display = 'block';
 
+    // 2. 容错处理按钮，找不到不阻断流程
     const buttons = document.querySelectorAll('#goods .finance-sub-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     const targetBtn = document.querySelector(`#goods .finance-sub-btn[data-tab="${tab}"]`);
     if (targetBtn) targetBtn.classList.add('active');
 
+    // 3. 各Tab加载逻辑
     if (tab === 'settleType') {
         loadSettleList();
     } else if (tab === 'goodsInfo') {
@@ -545,21 +589,17 @@ function switchGoodsSubTab(tab) {
         loadGoods(true);
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
-    } else if (tab === 'unitPreset') {
-        setTimeout(function() {
-            if (typeof loadUnitList === 'function') {
-                loadUnitList();
-            }
-        }, 100);
     }
 }
 
+// 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
     let channel = document.getElementById('add_channel').value;
     let costInput = document.getElementById('add_online_cost');
     let shelfNumInput = document.getElementById('add_shelf_life_num');
     let shelfUnitSelect = document.getElementById('add_shelf_life_unit');
 
+    // 线上成本价：线上可填，线下禁用
     if (channel === '线下') {
         costInput.disabled = true;
         costInput.value = '';
@@ -567,6 +607,7 @@ function toggleOnlineCostInput() {
         costInput.disabled = false;
     }
 
+    // 保质期和单位始终可用（不再根据渠道禁用）
     if (shelfNumInput) shelfNumInput.disabled = false;
     if (shelfUnitSelect) shelfUnitSelect.disabled = false;
 }
@@ -578,7 +619,63 @@ function clearSort() {
     loadGoods();
 }
 
-// ========== 静默加载结算类型 ==========
+async function loadGoods(force) {
+    if (force) {
+        isLoadingGoods = false;
+        isGoodsLoaded = false;
+        allGoods = [];
+    } else {
+        if (isLoadingGoods) return;
+    }
+    try {
+        isLoadingGoods = true;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!res.ok) throw new Error('读取失败');
+        const list = await res.json();
+        allGoods = list.sort((a, b) => b.id - a.id);
+        window.allGoods = allGoods;
+        initGoodsFilterData();
+        isGoodsLoaded = true;
+        await filterGoodsWaitCache();
+        const totalCountEl = document.getElementById('totalCount');
+        if (totalCountEl) totalCountEl.textContent = allGoods.length;
+        renderPagination();
+        renderGoods();
+        loadSettleListSilently();
+    } catch (e) {
+        showMsg('加载商品失败：' + e.message);
+        console.error(e);
+    } finally {
+        isLoadingGoods = false;
+    }
+}
+
+// 等待缓存异步完成的筛选函数
+async function filterGoodsWaitCache() {
+    const supplier = document.getElementById('goodsFilterSupplierInput')?.value.trim() || '';
+    const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value.trim() || '';
+    const channel = document.getElementById('goodsFilterChannelInput')?.value.trim() || '';
+    filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
+        let match = true;
+        if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
+        if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
+        if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
+        return match;
+    }) : [];
+    const searchCount = document.getElementById('searchCount');
+    if (searchCount) searchCount.textContent = filteredGoods.length;
+    currentPage = 1;
+    goodsUsedCache.clear();
+    const start = (currentPage - 1) * pageSize;
+    const pageData = filteredGoods.slice(start, start + pageSize);
+    for (const item of pageData) {
+        const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
+        goodsUsedCache.set(item.id, used);
+    }
+}
+
 async function loadSettleListSilently() {
     try {
         let res = await fetch(`${SUPABASE_URL}/rest/v1/settle_types?order=id.asc`, {
@@ -592,124 +689,6 @@ async function loadSettleListSilently() {
         settleData = list;
     } catch (e) {
         console.error('静默加载结算类型失败：', e.message);
-    }
-}
-
-async function loadGoods(force) {
-    console.log('🔄 loadGoods 被调用, force:', force);
-    
-    if (force) {
-        isLoadingGoods = false;
-        isGoodsLoaded = false;
-        allGoods = [];
-    } else {
-        if (isLoadingGoods) {
-            console.log('⏳ 正在加载中，跳过...');
-            return;
-        }
-    }
-    
-    try {
-        isLoadingGoods = true;
-        
-        if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
-            console.error('❌ Supabase 配置未定义！请检查 config.js 是否加载');
-            showMsg('系统配置错误，请刷新页面重试');
-            return;
-        }
-        
-        console.log('📡 请求商品数据...');
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
-            headers: { 
-                apikey: SUPABASE_KEY, 
-                Authorization: `Bearer ${SUPABASE_KEY}` 
-            }
-        });
-        
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error('❌ API 请求失败:', res.status, errorText);
-            throw new Error(`HTTP ${res.status}: ${errorText}`);
-        }
-        
-        const list = await res.json();
-        console.log('✅ 获取到商品数据:', list.length, '条');
-        
-        allGoods = list.sort((a, b) => b.id - a.id);
-        window.allGoods = allGoods;
-        
-        initGoodsFilterData();
-        isGoodsLoaded = true;
-        
-        await filterGoodsWaitCache();
-        
-        const totalCountEl = document.getElementById('totalCount');
-        if (totalCountEl) totalCountEl.textContent = allGoods.length;
-        
-        renderPagination();
-        renderGoods();
-        loadSettleListSilently();
-        
-    } catch (e) {
-        console.error('❌ 加载商品失败:', e);
-        showMsg('加载商品失败：' + e.message);
-        
-        const tb = document.getElementById('goodsList');
-        if (tb) {
-            tb.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:30px;color:#ff6b6b;">
-                加载失败：${e.message}<br>
-                <small>请检查控制台错误信息</small>
-            </td></tr>`;
-        }
-    } finally {
-        isLoadingGoods = false;
-        console.log('🏁 loadGoods 执行完成');
-    }
-}
-
-async function filterGoodsWaitCache() {
-    console.log('🔄 filterGoodsWaitCache 开始执行...');
-    
-    try {
-        const supplier = document.getElementById('goodsFilterSupplierInput')?.value?.trim() || '';
-        const goodsName = document.getElementById('goodsFilterGoodsNameInput')?.value?.trim() || '';
-        const channel = document.getElementById('goodsFilterChannelInput')?.value?.trim() || '';
-        
-        console.log('🔍 筛选条件:', { supplier, goodsName, channel });
-        console.log('📦 allGoods 长度:', allGoods?.length || 0);
-        
-        filteredGoods = Array.isArray(allGoods) ? allGoods.filter(item => {
-            let match = true;
-            if (supplier && !(item.supplier || '').toLowerCase().includes(supplier.toLowerCase())) match = false;
-            if (goodsName && !(item.name || '').toLowerCase().includes(goodsName.toLowerCase())) match = false;
-            if (channel && !(item.channel || '').toLowerCase().includes(channel.toLowerCase())) match = false;
-            return match;
-        }) : [];
-        
-        console.log('✅ 筛选后数据量:', filteredGoods.length);
-        
-        const searchCount = document.getElementById('searchCount');
-        if (searchCount) searchCount.textContent = filteredGoods.length;
-        
-        currentPage = 1;
-        goodsUsedCache.clear();
-        
-        const start = (currentPage - 1) * pageSize;
-        const pageData = filteredGoods.slice(start, start + pageSize);
-        
-        await Promise.all(pageData.map(async (item) => {
-            try {
-                const used = await checkGoodsUsedByStockIn(item.supplier, item.name, item.spec);
-                goodsUsedCache.set(item.id, used);
-            } catch (e) {
-                console.warn('⚠️ 检查商品使用状态失败:', item.id, e);
-                goodsUsedCache.set(item.id, false);
-            }
-        }));
-        
-        console.log('✅ filterGoodsWaitCache 完成');
-    } catch (e) {
-        console.error('❌ filterGoodsWaitCache 执行失败:', e);
     }
 }
 
@@ -727,12 +706,14 @@ function loadSupplierSelect() {
     });
 }
 
+// ========== 商品弹窗供应商搜索下拉 ==========
 function showAddSupplierList() {
     const box = document.getElementById('addSupplierListBox');
     if (!box) return;
     const searchInput = document.getElementById('addSupplierSearch');
     if (!searchInput) return;
     
+    // ✅ 确保 settleData 已加载
     if (!settleData || settleData.length === 0) {
         loadSettleListSilently();
         box.innerHTML = '<div style="padding:6px 10px;color:#999;">加载中...</div>';
@@ -778,6 +759,14 @@ function filterAddSupplierList() {
     showAddSupplierList();
 }
 
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
+        const box = document.getElementById('addSupplierListBox');
+        if (box) box.style.display = 'none';
+    }
+});
+
 function onSupplierChange() {
     let supplier = document.getElementById('add_supplier').value;
     let channelInput = document.getElementById('add_channel');
@@ -794,7 +783,6 @@ function onSupplierChange() {
 
 function openAddForm() {
     try {
-        loadComboPackListData();
         document.getElementById('formTitle').innerText = '新增商品';
         document.getElementById('editId').value = '';
 
@@ -953,6 +941,7 @@ function filterGoods() {
     renderGoods();
 }
 
+// ========== 商品筛选下拉 ==========
 function initGoodsFilterData() {
     if (!allGoods || allGoods.length === 0) return;
     goodsFilterData.supplier = [...new Set(allGoods.map(item => item.supplier).filter(s => s))].sort();
@@ -1015,7 +1004,7 @@ function resetGoodsSearch() {
     document.querySelectorAll('[id^="goodsFilter"][id$="List"]').forEach(el => el.style.display = 'none');
     filterGoods();
 }
-
+// ========== 商品实时搜索（输入即搜索） ==========
 function onGoodsFilterInput() {
     filterGoods();
     
@@ -1211,6 +1200,7 @@ async function submitForm() {
         const oldItem = allGoods.find(g => g.id == editId);
         if (oldItem) {
             oldSalePrice = Number(oldItem.sale_price);
+            // 用户输入的新价格 != 数据库中的旧价格 → 价格变动
             if (newPrice !== oldSalePrice) {
                 priceChanged = true;
                 console.log('⚠️ 销售价变动:', oldSalePrice, '→', newPrice);
@@ -1229,6 +1219,7 @@ async function submitForm() {
         warn_num: warnNum ? +warnNum : null,
         shelf_life_num: shelfNum ? +shelfNum : null,
         shelf_life_unit: shelfUnit || null,
+        // ✅ last_sale_price 记录上一次的价格（即修改前的 sale_price）
         last_sale_price: editId ? oldSalePrice : null
     };
     
@@ -1257,6 +1248,7 @@ async function submitForm() {
                 showMsg('⚠️ 销售价已变动，所有状态价格已清空，请重新设置');
             }
         } else {
+            // 新增商品：last_sale_price 为 null
             data.last_sale_price = null;
             await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: 'POST',
@@ -1305,7 +1297,6 @@ async function deleteGoods(id) {
         showMsg('删除失败');
     }
 }
-
 async function batchDelete() {
     if (!isCurrentUserAdmin()) {
         showMsg('只有管理员可以批量删除商品');
@@ -1342,7 +1333,6 @@ async function batchDelete() {
             break;
         }
     }
-
     if (hasUsed) {
         showMsg('选中商品中存在已录入入库单据的数据，无法批量删除！');
         return;
@@ -1398,6 +1388,7 @@ function exportExcel() {
     XLSX.writeFile(wb, "商品列表.xlsx");
 }
 
+// ========== 商品批量导入 ==========
 function importGoodsExcel() {
     let fileInput = document.getElementById('goodsFileInput');
     let file = fileInput.files[0];
@@ -1516,26 +1507,13 @@ function importGoodsExcel() {
     };
     reader.readAsArrayBuffer(file);
 }
-
-// ============================================================
-// 提前暴露关键函数（确保 HTML onclick 能调用）
-// ============================================================
-window.switchGoodsSubTab = switchGoodsSubTab;
-window.loadGoods = loadGoods;
-window.refreshGoods = refreshGoods;
-window.filterGoods = filterGoods;
-window.renderGoods = renderGoods;
-window.renderPagination = renderPagination;
-window.loadUnitList = loadUnitList;
-window.openUnitForm = openUnitForm;
-window.closeUnitForm = closeUnitForm;
-window.saveUnitPreset = saveUnitPreset;
-window.editUnitPreset = editUnitPreset;
-window.deleteUnitPreset = deleteUnitPreset;
-window.addUnitSplitRow = addUnitSplitRow;
-window.updateSplitUnitRelations = updateSplitUnitRelations;
-window.updateUnitDescription = updateUnitDescription;
-
+// ========== 页面初始化 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    switchGoodsSubTab('goodsInfo');
+    if (typeof loadStockStock === 'function') {
+        loadStockStock();
+    }
+});
 // ============================================================
 // ========== 后台更换日期模块 ==========
 // ============================================================
@@ -1761,6 +1739,7 @@ async function getNeedUpdateGoodsList() {
         return result;
     }
     
+    // 批量加载所有 price_temp_state 数据
     let priceMap = {};
     try {
         const priceRes = await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?select=*`, {
@@ -1785,155 +1764,177 @@ async function getNeedUpdateGoodsList() {
     }
     
     for (const item of allGoods) {
+        // ========== 检查是否有库存批次 ==========
         const earliest = getEarliestBatchDate(item.supplier, item.name, item.spec || '-');
         if (!earliest || earliest.batchRemain <= 0) {
-            continue;
+            continue; // 没有库存，跳过
         }
         
-        const dateCheck = checkNeedDateUpdate(item);
-        const dateChanged = dateCheck.needUpdate;
+        // ========== 检查日期是否需要更新 ==========
+const dateCheck = checkNeedDateUpdate(item);
+const dateChanged = dateCheck.needUpdate;
 
-        const normalPrice = item.sale_price || 0;
-        const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
-            ? Number(item.last_sale_price) 
-            : normalPrice;
-        const priceChanged = (normalPrice !== lastPrice);
+// ========== 检查价格是否需要更新 ==========
+const normalPrice = item.sale_price || 0;
+const lastPrice = item.last_sale_price !== null && item.last_sale_price !== undefined 
+    ? Number(item.last_sale_price) 
+    : normalPrice;
+const priceChanged = (normalPrice !== lastPrice);
 
-        if (!dateChanged && !priceChanged) {
-            continue;
+// ========== 如果日期和价格都没有变化，跳过 ==========
+if (!dateChanged && !priceChanged) {
+    continue;
+}
+
+// ========== 获取保质期状态 ==========
+const bzStatus = earliest.bzStatusText || '';
+
+// ========== ✅ 新增：计算"需更新日期" ==========
+let needUpdateDate = '';
+let needUpdateDateColor = '';
+let showCopyDateBtn = false;
+
+if (dateChanged) {
+    needUpdateDate = dateCheck.displayValue || dateCheck.dateValue || '日期已变';
+    needUpdateDateColor = '#ff6b6b';
+    showCopyDateBtn = true;
+} else {
+    needUpdateDate = '无需改日';
+    needUpdateDateColor = '#52c41a';
+}
+
+// ========== 根据状态获取当前销售价 ==========
+let currentSalePrice = normalPrice;
+let newSalePrice = null;
+let priceStatus = 'pending';
+let statusPrice = null;
+
+const priceData = priceMap[item.id];
+const isNormalOrExpire = (bzStatus === '正常' || bzStatus === '过期');
+
+if (isNormalOrExpire) {
+    // 正常/过期状态：使用 normalPrice
+    currentSalePrice = normalPrice;
+    newSalePrice = null;
+    priceStatus = 'pending';
+} else {
+    // 折扣/临期状态：从 price_temp_state 获取
+    if (priceData) {
+        if (bzStatus === '临期') {
+            statusPrice = priceData.expirePrice;
+        } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
+            statusPrice = priceData.discount1Price;
+        } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
+            statusPrice = priceData.discount2Price;
+        } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
+            statusPrice = priceData.discount3Price;
+        } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
+            statusPrice = priceData.discount4Price;
         }
-
-        const bzStatus = earliest.bzStatusText || '';
-
-        let needUpdateDate = '';
-        let needUpdateDateColor = '';
-        let showCopyDateBtn = false;
-
-        if (dateChanged) {
-            needUpdateDate = dateCheck.displayValue || dateCheck.dateValue || '日期已变';
-            needUpdateDateColor = '#ff6b6b';
-            showCopyDateBtn = true;
+        
+        if (statusPrice !== null && statusPrice !== undefined) {
+            currentSalePrice = statusPrice;
+            newSalePrice = statusPrice;
+            priceStatus = 'updated';
         } else {
-            needUpdateDate = '无需改日';
-            needUpdateDateColor = '#52c41a';
-        }
-
-        let currentSalePrice = normalPrice;
-        let newSalePrice = null;
-        let priceStatus = 'pending';
-        let statusPrice = null;
-
-        const priceData = priceMap[item.id];
-        const isNormalOrExpire = (bzStatus === '正常' || bzStatus === '过期');
-
-        if (isNormalOrExpire) {
-            currentSalePrice = normalPrice;
+            // ✅ 折扣/临期状态但价格为空，设为 null
+            currentSalePrice = null;
             newSalePrice = null;
             priceStatus = 'pending';
-        } else {
-            if (priceData) {
-                if (bzStatus === '临期') {
-                    statusPrice = priceData.expirePrice;
-                } else if (bzStatus === 'discount_1' || bzStatus === '打6.5折') {
-                    statusPrice = priceData.discount1Price;
-                } else if (bzStatus === 'discount_2' || bzStatus === '打7折') {
-                    statusPrice = priceData.discount2Price;
-                } else if (bzStatus === 'discount_3' || bzStatus === '打8折') {
-                    statusPrice = priceData.discount3Price;
-                } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
-                    statusPrice = priceData.discount4Price;
-                }
-                
-                if (statusPrice !== null && statusPrice !== undefined) {
-                    currentSalePrice = statusPrice;
-                    newSalePrice = statusPrice;
-                    priceStatus = 'updated';
-                } else {
-                    currentSalePrice = null;
-                    newSalePrice = null;
-                    priceStatus = 'pending';
-                }
-            } else {
-                currentSalePrice = null;
-                newSalePrice = null;
-                priceStatus = 'pending';
-            }
         }
-        const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
+    } else {
+        // 没有 price_temp_state 数据
+        currentSalePrice = null;
+        newSalePrice = null;
+        priceStatus = 'pending';
+    }
+}
+// ========== 判断是否为折扣/临期状态 ==========
+const isDiscountOrExpire = (bzStatus !== '正常' && bzStatus !== '过期');
 
-        let needUpdatePrice = '';
-        let needUpdatePriceColor = '';
-        let showPriceBtn = false;
-        let showCopyPriceBtn = false;
+// ========== 计算"需更新销售价" ==========
+let needUpdatePrice = '';
+let needUpdatePriceColor = '';
+let showPriceBtn = false;
+let showCopyPriceBtn = false;
 
-        if (!isDiscountOrExpire) {
-            if (priceChanged) {
-                needUpdatePrice = formatMoney(normalPrice);
-                needUpdatePriceColor = '#ff6b6b';
-                newSalePrice = normalPrice;
-                showCopyPriceBtn = true;
-            } else {
-                needUpdatePrice = '无需改价';
-                needUpdatePriceColor = '#52c41a';
-                newSalePrice = null;
-            }
-            showPriceBtn = false;
-        } else {
-            showPriceBtn = true;
-            if (statusPrice !== null && statusPrice !== undefined) {
-                needUpdatePrice = formatMoney(statusPrice);
-                needUpdatePriceColor = '#ff6b6b';
-                showCopyPriceBtn = true;
-            } else {
-                needUpdatePrice = '待改价';
-                needUpdatePriceColor = '#ff9800';
-                showCopyPriceBtn = false;
-            }
-        }
+if (!isDiscountOrExpire) {
+    // 正常/过期状态：价格变化时更新 goods.sale_price
+    if (priceChanged) {
+        needUpdatePrice = formatMoney(normalPrice);
+        needUpdatePriceColor = '#ff6b6b';
+        // ✅ 正常状态：newSalePrice = normalPrice，用于更新 goods.sale_price
+        newSalePrice = normalPrice;
+        showCopyPriceBtn = true;
+    } else {
+        needUpdatePrice = '无需改价';
+        needUpdatePriceColor = '#52c41a';
+        // ✅ 正常状态没有价格变化时，newSalePrice 为 null
+        newSalePrice = null;
+    }
+    showPriceBtn = false;
+} else {
+    // 折扣/临期状态：价格存储在 price_temp_state，不修改 goods.sale_price
+    showPriceBtn = true;
+    if (statusPrice !== null && statusPrice !== undefined) {
+        needUpdatePrice = formatMoney(statusPrice);
+        needUpdatePriceColor = '#ff6b6b';
+        // ✅ 折扣/临期状态：newSalePrice 只用于显示"复制新价"，不更新 goods.sale_price
+        // 注意：这里 newSalePrice 保持 statusPrice 用于复制，但更新时不会写入 sale_price
+        showCopyPriceBtn = true;
+    } else {
+        needUpdatePrice = '待改价';
+        needUpdatePriceColor = '#ff9800';
+        showCopyPriceBtn = false;
+    }
+}
 
-        const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPrice === undefined);
+// ========== 判断更新按钮是否可用 ==========
+// 折扣/临期状态 + 没有状态价格 = 不可用
+const isUpdateDisabled = isDiscountOrExpire && (statusPrice === null || statusPrice === undefined);
 
-        result.push({
-            id: item.id,
-            supplier: item.supplier || '',
-            name: item.name || '',
-            spec: item.spec || '-',
-            channel: item.channel || '',
-            settleType: item.channel || '',
-            sale_price: item.sale_price || 0,
-            currentSalePrice: currentSalePrice,
-            normalPrice: normalPrice,
-            lastSalePrice: lastPrice,
-            online_cost: item.online_cost || 0,
-            tax_rate: item.tax_rate || '',
-            warn_num: item.warn_num || 0,
-            shelf_life_num: item.shelf_life_num || '',
-            shelf_life_unit: item.shelf_life_unit || '',
-            saved_produce_date: item.saved_produce_date || null,
-            saved_expire_date: item.saved_expire_date || null,
-            saved_date_updated_at: item.saved_date_updated_at || null,
-            earliestBatch: earliest,
-            dateType: dateCheck.dateType || '',
-            dateValue: dateCheck.dateValue || null,
-            displayValue: dateCheck.displayValue || '',
-            batchRemain: earliest.batchRemain || 0,
-            recordDate: earliest.recordDate || null,
-            newSalePrice: newSalePrice,
-            priceStatus: priceStatus,
-            bzStatus: bzStatus,
-            dateChanged: dateChanged,
-            priceChanged: priceChanged,
-            needUpdateDate: needUpdateDate,
-            needUpdateDateColor: needUpdateDateColor,
-            needUpdatePrice: needUpdatePrice,
-            needUpdatePriceColor: needUpdatePriceColor,
-            showPriceBtn: showPriceBtn,
-            showCopyPriceBtn: showCopyPriceBtn,
-            showCopyDateBtn: showCopyDateBtn,
-            statusPrice: statusPrice,
-            isDiscountOrExpire: isDiscountOrExpire,
-            isUpdateDisabled: isUpdateDisabled
-        });
+result.push({
+    id: item.id,
+    supplier: item.supplier || '',
+    name: item.name || '',
+    spec: item.spec || '-',
+    channel: item.channel || '',
+    settleType: item.channel || '',
+    sale_price: item.sale_price || 0,
+    currentSalePrice: currentSalePrice,
+    normalPrice: normalPrice,
+    lastSalePrice: lastPrice,
+    online_cost: item.online_cost || 0,
+    tax_rate: item.tax_rate || '',
+    warn_num: item.warn_num || 0,
+    shelf_life_num: item.shelf_life_num || '',
+    shelf_life_unit: item.shelf_life_unit || '',
+    saved_produce_date: item.saved_produce_date || null,
+    saved_expire_date: item.saved_expire_date || null,
+    saved_date_updated_at: item.saved_date_updated_at || null,
+    earliestBatch: earliest,
+    dateType: dateCheck.dateType || '',
+    dateValue: dateCheck.dateValue || null,
+    displayValue: dateCheck.displayValue || '',
+    batchRemain: earliest.batchRemain || 0,
+    recordDate: earliest.recordDate || null,
+    newSalePrice: newSalePrice,
+    priceStatus: priceStatus,
+    bzStatus: bzStatus,
+    dateChanged: dateChanged,
+    priceChanged: priceChanged,
+    needUpdateDate: needUpdateDate,          // ✅ 现在已定义
+    needUpdateDateColor: needUpdateDateColor, // ✅ 现在已定义
+    needUpdatePrice: needUpdatePrice,
+    needUpdatePriceColor: needUpdatePriceColor,
+    showPriceBtn: showPriceBtn,
+    showCopyPriceBtn: showCopyPriceBtn,
+    showCopyDateBtn: showCopyDateBtn,        // ✅ 现在已定义
+    statusPrice: statusPrice,
+    isDiscountOrExpire: isDiscountOrExpire,
+    isUpdateDisabled: isUpdateDisabled
+});
+
     }
     
     console.log('需要更新的商品总数:', result.length);
@@ -1956,6 +1957,7 @@ async function loadDateChangeTab() {
             allStockBatchList = [];
             await loadStockStock();
         }
+// ========== 新增：如果 allStockBatchList 为空，手动构建 ==========
         if ((!allStockBatchList || allStockBatchList.length === 0) && allStockIn && allStockIn.length > 0) {
             console.log('🔄 allStockBatchList 为空，手动构建...');
             const groupMap = {};
@@ -1990,61 +1992,62 @@ async function loadDateChangeTab() {
     }
     
     async function doLoadDateChange() {
-        try {
-            dateChangeData = await getNeedUpdateGoodsList();
-            dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
-            if (dateChangeFilteredList.length === 0 && allStockBatchList && allStockBatchList.length > 0) {
-                console.log('🔄 getNeedUpdateGoodsList 返回空，手动构建改日改价数据...');
-                dateChangeData = [];
-                for (const item of allGoods || []) {
-                    const batches = (allStockBatchList || []).filter(b => 
-                        b.supplier === item.supplier && 
-                        b.goodsName === item.name &&
-                        (b.spec || '-') === (item.spec || '-')
-                    );
-                    if (batches.length > 0) {
-                        const earliest = batches[0];
-                        const dateType = (earliest.produce_date && earliest.produce_date !== '-') ? '生产日期' : 
-                                         (earliest.expire_date && earliest.expire_date !== '-') ? '到期日期' : '';
-                        const dateValue = (earliest.produce_date && earliest.produce_date !== '-') ? earliest.produce_date : 
-                                          (earliest.expire_date || null);
-                        dateChangeData.push({
-                            id: item.id,
-                            supplier: item.supplier || '',
-                            name: item.name || '',
-                            spec: item.spec || '-',
-                            settleType: item.channel || '',
-                            currentSalePrice: item.sale_price || 0,
-                            batchRemain: earliest.batchRemain || 0,
-                            earliestBatch: earliest,
-                            dateType: dateType,
-                            dateValue: dateValue,
-                            displayValue: dateValue || '',
-                            recordDate: earliest.recordDate || null,
-                            newSalePrice: null,
-                            priceStatus: 'pending'
-                        });
-                    }
-                }
-                dateChangeFilteredList = [...dateChangeData];
-                console.log('✅ 手动构建改日改价数据:', dateChangeFilteredList.length, '条');
-            }
-            initDateChangeFilterData();
-            console.log('需要更新的商品数量:', dateChangeFilteredList.length);
-            updateDateChangeButton();
-            updateDateChangeStatus();
-            dateChangeCurrentPage = 1;
-            renderDateChangePagination();
-            renderDateChangeList();
-        } catch (e) {
-            console.error('加载后台更换日期失败:', e);
-            dateChangeFilteredList = [];
+    try {
+        dateChangeData = await getNeedUpdateGoodsList();
+        dateChangeFilteredList = Array.isArray(dateChangeData) ? [...dateChangeData] : [];
+// ========== 新增：如果 getNeedUpdateGoodsList 返回空，手动构建 ==========
+        if (dateChangeFilteredList.length === 0 && allStockBatchList && allStockBatchList.length > 0) {
+            console.log('🔄 getNeedUpdateGoodsList 返回空，手动构建改日改价数据...');
             dateChangeData = [];
-            initDateChangeFilterData();
-            renderDateChangeList();
-            showMsg('加载数据失败，请刷新重试');
+            for (const item of allGoods || []) {
+                const batches = (allStockBatchList || []).filter(b => 
+                    b.supplier === item.supplier && 
+                    b.goodsName === item.name &&
+                    (b.spec || '-') === (item.spec || '-')
+                );
+                if (batches.length > 0) {
+                    const earliest = batches[0];
+                    const dateType = (earliest.produce_date && earliest.produce_date !== '-') ? '生产日期' : 
+                                     (earliest.expire_date && earliest.expire_date !== '-') ? '到期日期' : '';
+                    const dateValue = (earliest.produce_date && earliest.produce_date !== '-') ? earliest.produce_date : 
+                                      (earliest.expire_date || null);
+                    dateChangeData.push({
+                        id: item.id,
+                        supplier: item.supplier || '',
+                        name: item.name || '',
+                        spec: item.spec || '-',
+                        settleType: item.channel || '',
+                        currentSalePrice: item.sale_price || 0,
+                        batchRemain: earliest.batchRemain || 0,
+                        earliestBatch: earliest,
+                        dateType: dateType,
+                        dateValue: dateValue,
+                        displayValue: dateValue || '',
+                        recordDate: earliest.recordDate || null,
+                        newSalePrice: null,
+                        priceStatus: 'pending'
+                    });
+                }
+            }
+            dateChangeFilteredList = [...dateChangeData];
+            console.log('✅ 手动构建改日改价数据:', dateChangeFilteredList.length, '条');
         }
+        initDateChangeFilterData();
+        console.log('需要更新的商品数量:', dateChangeFilteredList.length);
+        updateDateChangeButton();
+        updateDateChangeStatus();
+        dateChangeCurrentPage = 1;
+        renderDateChangePagination();
+        renderDateChangeList();
+    } catch (e) {
+        console.error('加载后台更换日期失败:', e);
+        dateChangeFilteredList = [];
+        dateChangeData = [];
+        initDateChangeFilterData();
+        renderDateChangeList();
+        showMsg('加载数据失败，请刷新重试');
     }
+}
     
     checkAndLoad();
 }
@@ -2286,7 +2289,6 @@ function updateDateChangeButton() {
         btn.disabled = true;
     }
 }
-
 function copyDateText(text, btnElement) {
     if (!text) {
         showMsg('没有可复制的内容');
@@ -2301,7 +2303,7 @@ function copyDateText(text, btnElement) {
             btnElement.style.color = '#ffffff';
             
             setTimeout(function() {
-                btnElement.textContent = '复制日期';
+                btnElement.textContent = '复制日期';  // 恢复为"复制日期"
                 btnElement.style.background = '';
                 btnElement.style.color = '';
             }, 2000);
@@ -2335,8 +2337,8 @@ function fallbackCopyDate(text, btnElement) {
     }
     document.body.removeChild(textarea);
 }
-
 async function updateSingleGoodsDateWithPrice(id) {
+// 权限拦截
     if (!canOperateDateUpdate()) {
         showMsg('当前角色无更新商品日期权限（仅管理员、APP部可操作）');
         return;
@@ -2347,6 +2349,7 @@ async function updateSingleGoodsDateWithPrice(id) {
     const statusText = item.earliestBatch?.bzStatusText || '';
     const isDiscountOrExpire = (statusText !== '正常' && statusText !== '过期');
     
+    // 折扣/临期状态，如果没有状态价格且不是跳过状态，阻止更新
     if (isDiscountOrExpire && item.newSalePrice === null && item.priceStatus !== 'skipped') {
         showMsg('请先设置新销售价或点击"无需修改"');
         return;
@@ -2377,6 +2380,8 @@ async function updateSingleGoodsDateWithPrice(id) {
         body: JSON.stringify(updateData)
     });
     
+    // ✅ 关键修改：只有价格发生变化的商品，才清空 price_temp_state
+    // 如果只是更新日期（priceChanged = false），保留状态价格
     if (item.priceChanged) {
         clearPriceTempState(item.id);
         console.log('✅ 价格已变动，清空状态价格');
@@ -2390,10 +2395,12 @@ async function updateSingleGoodsDateWithPrice(id) {
 }
 
 async function batchUpdateGoodsDate() {
+// 权限拦截
     if (!canOperateDateUpdate()) {
         showMsg('当前角色无批量更新权限（仅管理员、APP部可操作）');
         return;
     }
+    // ✅ 修改：统计更新按钮未置灰的行（即 isUpdateDisabled === false）
     const canUpdateList = dateChangeFilteredList.filter(item => {
         return item.isUpdateDisabled === false;
     });
@@ -2558,7 +2565,9 @@ function updateDateChangeSortIcon() {
 }
 
 function renderDateChangeList() {
+    // 排序规则：如果用户点击了表头排序，则优先使用表头排序；无表头排序时默认「待改价」置顶
     dateChangeFilteredList.sort((a, b) => {
+        // 1. 优先判断是否有手动点击的排序列
         if(dateChangeSortField) {
             let valA = a[dateChangeSortField];
             let valB = b[dateChangeSortField];
@@ -2576,10 +2585,12 @@ function renderDateChangeList() {
             if (valA < valB) return dateChangeSortAsc ? -1 : 1;
             return 0;
         }
+        // 2. 无表头排序时，默认规则：待改价 置顶
         const aIsNeedPrice = a.needUpdatePrice === '待改价';
         const bIsNeedPrice = b.needUpdatePrice === '待改价';
         if(aIsNeedPrice && !bIsNeedPrice) return -1;
         if(!aIsNeedPrice && bIsNeedPrice) return 1;
+        // 同为待改价 / 同为无需改价，保持原有加载顺序不变
         return 0;
     });
     const tb = document.getElementById('dateChangeList');
@@ -2635,41 +2646,46 @@ function renderDateChangeList() {
             statusColor = '#999';
         }
         
-        let dateStr = '-';
-        if (item.dateValue) {
-            dateStr = new Date(item.dateValue).toISOString().split('T')[0];
-        } else if (item.earliestBatch && item.earliestBatch.dateValue) {
-            dateStr = new Date(item.earliestBatch.dateValue).toISOString().split('T')[0];
-        } else if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
-            dateStr = new Date(item.earliestBatch.produce_date).toISOString().split('T')[0];
-        } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
-            dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
-        }
-        let dateTypeDisplay = '';
-        let dateTypeColor = '';
-        if (item.dateType === '生产日期') {
-            dateTypeDisplay = '生产';
-            dateTypeColor = '#d4edda';
-        } else if (item.dateType === '到期日期') {
-            dateTypeDisplay = '到期';
-            dateTypeColor = '#f8d7da';
-        } else if (item.earliestBatch && item.earliestBatch.dateType) {
-            if (item.earliestBatch.dateType === '生产日期') {
-                dateTypeDisplay = '生产';
-                dateTypeColor = '#d4edda';
-            } else if (item.earliestBatch.dateType === '到期日期') {
-                dateTypeDisplay = '到期';
-                dateTypeColor = '#f8d7da';
-            }
-        } else {
-            if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
-                dateTypeDisplay = '生产';
-                dateTypeColor = '#d4edda';
-            } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
-                dateTypeDisplay = '到期';
-                dateTypeColor = '#f8d7da';
-            }
-        }
+        // 日期显示：始终显示批次日期
+let dateStr = '-';
+if (item.dateValue) {
+    dateStr = new Date(item.dateValue).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.dateValue) {
+    dateStr = new Date(item.earliestBatch.dateValue).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+    dateStr = new Date(item.earliestBatch.produce_date).toISOString().split('T')[0];
+} else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+    dateStr = new Date(item.earliestBatch.expire_date).toISOString().split('T')[0];
+}
+        // 生产/到期列显示
+let dateTypeDisplay = '';
+let dateTypeColor = '';
+// 优先从 item.dateType 获取
+if (item.dateType === '生产日期') {
+    dateTypeDisplay = '生产';
+    dateTypeColor = '#d4edda';
+} else if (item.dateType === '到期日期') {
+    dateTypeDisplay = '到期';
+    dateTypeColor = '#f8d7da';
+} else if (item.earliestBatch && item.earliestBatch.dateType) {
+    // 如果 item.dateType 为空，从 earliestBatch 获取
+    if (item.earliestBatch.dateType === '生产日期') {
+        dateTypeDisplay = '生产';
+        dateTypeColor = '#d4edda';
+    } else if (item.earliestBatch.dateType === '到期日期') {
+        dateTypeDisplay = '到期';
+        dateTypeColor = '#f8d7da';
+    }
+} else {
+    // 从 earliestBatch 的日期字段判断
+    if (item.earliestBatch && item.earliestBatch.produce_date && item.earliestBatch.produce_date !== '-') {
+        dateTypeDisplay = '生产';
+        dateTypeColor = '#d4edda';
+    } else if (item.earliestBatch && item.earliestBatch.expire_date && item.earliestBatch.expire_date !== '-') {
+        dateTypeDisplay = '到期';
+        dateTypeColor = '#f8d7da';
+    }
+}
         
         let settleColor = '';
         if (item.settleType === '线上') {
@@ -2684,63 +2700,71 @@ function renderDateChangeList() {
             ? new Date(item.earliestBatch.recordDate).toISOString().split('T')[0] 
             : '-';
         
+        // ========== 原销售价（灰色显示 lastSalePrice） ==========
         const lastPriceDisplay = formatMoney(item.lastSalePrice || 0);
         const lastPriceStyle = 'style="color:#999;font-size:13px;"';
         
+        // ========== 需更新日期（带颜色） ==========
         const needUpdateDateDisplay = item.needUpdateDate || '';
         const needUpdateDateColor = item.needUpdateDateColor || '#333';
         const needUpdateDateStyle = 'style="color:' + needUpdateDateColor + ';"';
         
+        // ========== 需更新销售价（带颜色） ==========
         const needUpdatePriceDisplay = item.needUpdatePrice || '';
         const needUpdatePriceColor = item.needUpdatePriceColor || '#333';
         const needUpdatePriceStyle = 'style="color:' + needUpdatePriceColor + ';"';
         
-        let actionButtons = '';
-        actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
+       // ========== 构建操作按钮 ==========
+let actionButtons = '';
+actionButtons += '<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center; justify-content:center;">';
 
-        if (item.showPriceBtn) {
-            const priceBtnDisabled = !canOperatePriceEdit();
-            if (priceBtnDisabled) {
-                actionButtons += `
-                    <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">改价</button>
-                `;
-            } else {
-                actionButtons += `
-                    <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">改价</button>
-                `;
-            }
-        }
+// 改价按钮：仅折扣/临期状态显示 + 角色权限校验
+if (item.showPriceBtn) {
+    const priceBtnDisabled = !canOperatePriceEdit();
+    if (priceBtnDisabled) {
+        actionButtons += `
+            <button class="btn btn-warning" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+        `;
+    } else {
+        actionButtons += `
+            <button class="btn btn-warning" onclick="openPriceModal(${item.id})" style="padding:4px 10px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">改价</button>
+        `;
+    }
+}
 
-        if (item.showCopyPriceBtn) {
-            actionButtons += `
-                <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#7030A0;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制新价</button>
-            `;
-        }
+// 复制新价按钮：有 newSalePrice 且 priceChanged 为 true 时才显示（无权限限制）
+if (item.showCopyPriceBtn) {
+    actionButtons += `
+        <button class="btn btn-success" onclick="copyNewPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#7030A0;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制新价</button>
+    `;
+}
 
-        if (item.showCopyDateBtn) {
-            const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
-                ? `${item.displayValue}生产` 
-                : (item.dateType === '到期日期' && item.displayValue) 
-                    ? `${item.displayValue}到期` 
-                    : '';
-            actionButtons += `
-                <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px;font-size:12px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制日期</button>
-            `;
-        }
+// 复制日期按钮：仅日期变动时显示（无权限限制）
+if (item.showCopyDateBtn) {
+    const copyDateTextVal = (item.dateType === '生产日期' && item.displayValue) 
+        ? `${item.displayValue}生产` 
+        : (item.dateType === '到期日期' && item.displayValue) 
+            ? `${item.displayValue}到期` 
+            : '';
+    actionButtons += `
+        <button class="btn btn-success" onclick="copyDateText('${copyDateTextVal.replace(/'/g, "\\'")}', this)" style="padding:4px 10px;font-size:12px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">复制日期</button>
+    `;
+}
 
-        const dateUpdatePerm = canOperateDateUpdate();
-        const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
-        if (updateBtnRealDisabled) {
-            actionButtons += `
-                <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">更新</button>
-            `;
-        } else {
-            actionButtons += `
-                <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">更新</button>
-            `;
-        }
+// 更新按钮：原有业务禁用 + 角色权限双重判断
+const dateUpdatePerm = canOperateDateUpdate();
+const updateBtnRealDisabled = item.isUpdateDisabled || !dateUpdatePerm;
+if (updateBtnRealDisabled) {
+    actionButtons += `
+        <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;background:#d9d9d9;color:#999;padding:4px 10px;font-size:12px;border:none;border-radius:3px;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+    `;
+} else {
+    actionButtons += `
+        <button class="btn btn-primary" onclick="updateSingleGoodsDateWithPrice(${item.id})" style="padding:4px 10px;font-size:12px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;height:28px;line-height:20px;">更新</button>
+    `;
+}
 
-        actionButtons += '</div>';        
+actionButtons += '</div>';        
         const html = `
             <tr>
                 <td>${rowNum}</td>
@@ -2763,7 +2787,6 @@ function renderDateChangeList() {
         tb.innerHTML += html;
     });
 }
-
 function exportDateChangeExcel() {
     if (dateChangeFilteredList.length === 0) {
         showMsg('暂无数据可导出');
@@ -2816,11 +2839,41 @@ function exportDateChangeExcel() {
     XLSX.writeFile(wb, `改日改价明细_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+document.addEventListener('click', function(e) {
+    const listIds = [
+        'goodsFilterSupplierList',
+        'goodsFilterGoodsNameList',
+        'goodsFilterChannelList'
+    ];
+    listIds.forEach(id => {
+        const box = document.getElementById(id);
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${id.replace('List', 'Input')}`)) {
+            box.style.display = 'none';
+        }
+    });
+
+    const dateChangeListIds = [
+        'dateChangeFilterSupplierList',
+        'dateChangeFilterGoodsList',
+        'dateChangeFilterSpecList',
+        'dateChangeFilterSettleList',
+        'dateChangeFilterBzStatusList'
+    ];
+    dateChangeListIds.forEach(id => {
+        const box = document.getElementById(id);
+        const inputId = id.replace('List', '');
+        if (box && !e.target.closest(`#${id}`) && !e.target.closest(`#${inputId}`)) {
+            box.style.display = 'none';
+        }
+    });
+});
+
 // ============================================================
-// ========== 改价弹窗相关函数 ==========
+// ========== 改价弹窗相关函数（新改价逻辑） ==========
 // ============================================================
 
 function openPriceModal(id) {
+// 权限拦截
     if (!canOperatePriceEdit()) {
         showMsg('当前角色无改价权限（仅管理员、商品部可操作）');
         return;
@@ -2835,14 +2888,18 @@ function openPriceModal(id) {
     const normalPrice = item.normalPrice || item.sale_price || 0;
     const lastPrice = item.lastSalePrice || normalPrice;
     
+    // ✅ 修复：获取当前状态销售价
     let currentPrice = null;
+    // 直接使用 item.currentSalePrice，即使是 null 也保留
     if (item.currentSalePrice !== undefined) {
         currentPrice = item.currentSalePrice;
     } else {
         currentPrice = normalPrice;
     }
     
+    // ✅ 判断是否为折扣/临期状态（非正常/过期状态）
     const isSpecialStatus = (statusText !== '正常' && statusText !== '过期');
+    // 如果是特殊状态且价格为 null，显示"未录入"
     let displayPrice;
     if (isSpecialStatus && (currentPrice === null || currentPrice === undefined)) {
         displayPrice = '未录入';
@@ -2939,6 +2996,7 @@ async function confirmPriceChange(id) {
     console.log('确认改价:', item.name, '状态:', bzStatus, '新价格:', newPrice);
     
     if (bzStatus === '正常') {
+        // 正常状态 → 更新 goods 表
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${item.id}`, {
                 method: 'PATCH',
@@ -2955,16 +3013,19 @@ async function confirmPriceChange(id) {
             return;
         }
     } else {
+        // 其他状态 → 存入 price_temp_state 表
         await savePriceTempStateByStatus(item.id, bzStatus, newPrice);
         showMsg('✅ 已保存 ' + bzStatus + ' 状态销售价：' + formatMoney(newPrice));
     }
     
     closePriceModal();
+    // ========== 重新加载改日改价 ==========
     await loadDateChangeTab();
 }
 
 async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
     try {
+        // 先检查是否存在
         const checkRes = await fetch(
             `${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${goodsId}&select=id`,
             {
@@ -2976,6 +3037,7 @@ async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
         );
         const existData = await checkRes.json();
         
+        // 根据状态决定更新哪个字段
         let updateField = {};
         if (bzStatus === '临期') {
             updateField = { expire_price: newSalePrice };
@@ -2988,6 +3050,7 @@ async function savePriceTempStateByStatus(goodsId, bzStatus, newSalePrice) {
         } else if (bzStatus === 'discount_4' || bzStatus === '打9.5折') {
             updateField = { discount_4_price: newSalePrice };
         } else {
+            // 其他状态（如正常）不存储
             return;
         }
         
@@ -3046,6 +3109,7 @@ function copyNewPrice(id) {
     
     const text = String(item.newSalePrice);
     
+    // 获取所有匹配的按钮
     const buttons = document.querySelectorAll('button[onclick*="copyNewPrice(' + id + ')"]');
     
     const doCopy = function() {
@@ -3243,1085 +3307,517 @@ function clearPriceTempStateLocal(id) {
 }
 
 // ============================================================
-// ========== 单位预设管理 ==========
+// 暴露所有核心函数到全局（确保 HTML onclick 能调用）
 // ============================================================
 
-let unitList = [];
-let unitFilteredList = [];
-let unitCurrentPage = 1;
-let unitPageSize = 10;
+// 商品信息相关
+window.switchGoodsSubTab = switchGoodsSubTab;
+window.loadGoods = loadGoods;
+window.filterGoods = filterGoods;
+window.renderGoods = renderGoods;
+window.renderPagination = renderPagination;
+window.goToPage = goToPage;
+window.prevPage = prevPage;
+window.nextPage = nextPage;
+window.changePageSize = changePageSize;
+window.deleteGoods = deleteGoods;
+window.batchDelete = batchDelete;
+window.openEditForm = openEditForm;
+window.openAddForm = openAddForm;
+window.closeForm = closeForm;
+window.toggleSelectAll = toggleSelectAll;
+window.resetGoodsSearch = resetGoodsSearch;
+window.onGoodsFilterInput = onGoodsFilterInput;
+window.exportExcel = exportExcel;
+window.downloadTemplate = downloadTemplate;
+window.importGoodsExcel = importGoodsExcel;
+window.refreshGoods = refreshGoods;
+window.clearSort = clearSort;
 
-async function loadUnitList() {
+// 供应商管理相关
+window.loadSettleList = loadSettleList;
+window.renderSettleList = renderSettleList;
+window.renderSettlePagination = renderSettlePagination;
+window.settleGoToPage = settleGoToPage;
+window.settlePrevPage = settlePrevPage;
+window.settleNextPage = settleNextPage;
+window.changeSettlePageSize = changeSettlePageSize;
+window.filterSettleList = filterSettleList;
+window.resetSettleSearch = resetSettleSearch;
+window.showSettleSupplierList = showSettleSupplierList;
+window.filterSettleSupplierList = filterSettleSupplierList;
+window.onSettleFilterInput = onSettleFilterInput;
+window.openSettleForm = openSettleForm;
+window.openSettleEditForm = openSettleEditForm;
+window.closeSettleModal = closeSettleModal;
+window.submitSettleForm = submitSettleForm;
+window.deleteSettleType = deleteSettleType;
+window.downloadSettleTemplate = downloadSettleTemplate;
+window.importSettleExcel = importSettleExcel;
+window.exportSettleExcel = exportSettleExcel;
+window.refreshSettleList = refreshSettleList;
+window.resetSettleSearchOld = resetSettleSearchOld;
+
+// 改日改价相关
+window.loadDateChangeTab = loadDateChangeTab;
+window.renderDateChangeList = renderDateChangeList;
+window.renderDateChangePagination = renderDateChangePagination;
+window.dateChangeGoToPage = dateChangeGoToPage;
+window.dateChangePrevPage = dateChangePrevPage;
+window.dateChangeNextPage = dateChangeNextPage;
+window.changeDateChangePageSize = changeDateChangePageSize;
+window.refreshDateChangeList = refreshDateChangeList;
+window.clearDateChangeSort = clearDateChangeSort;
+window.dateChangeSortTable = dateChangeSortTable;
+window.exportDateChangeExcel = exportDateChangeExcel;
+window.filterDateChangeList = filterDateChangeList;
+window.resetDateChangeFilter = resetDateChangeFilter;
+window.showDateChangeFilterList = showDateChangeFilterList;
+window.onDateChangeFilterInput = onDateChangeFilterInput;
+window.batchUpdateGoodsDate = batchUpdateGoodsDate;
+window.copyDateText = copyDateText;
+
+// 改价弹窗相关（已有，但确保完整）
+window.openPriceModal = openPriceModal;
+window.closePriceModal = closePriceModal;
+window.confirmPriceChange = confirmPriceChange;
+window.skipPriceChange = skipPriceChange;
+window.copyNewPrice = copyNewPrice;
+window.updateSingleGoodsDateWithPrice = updateSingleGoodsDateWithPrice;
+window.savePriceTempState = savePriceTempState;
+window.loadPriceTempState = loadPriceTempState;
+window.clearPriceTempState = clearPriceTempState;
+window.clearAllPriceTempState = clearAllPriceTempState;
+window.savePriceTempStateByStatus = savePriceTempStateByStatus;
+window.switchGodsSubTab = window.switchGoodsSubTab;
+
+console.log('✅ 所有 goods.js 函数已暴露到 window');
+console.log('goods.js 加载完成');
+
+// ===================== 【文件最末尾唯一单位代码，前置原生函数已加载，无语法报错】 =====================
+// 全局缓存（仅此处声明，无重复）
+let baseUnitList = [];
+let unitSpecList = [];
+let baseUnitPage = 1;
+let baseUnitPageSize = 10;
+let specPage = 1;
+let specPageSize = 10;
+let currentSelectBaseId = null;
+let baseUnitSearchTimer = null;
+
+// 防重复劫持（后置执行，原生函数已存在，不会报未定义）
+if (!window._originSwitchGoodsSubTab) {
+    window._originSwitchGoodsSubTab = switchGoodsSubTab;
+    switchGoodsSubTab = async function (tab) {
+        await window._originSwitchGoodsSubTab(tab);
+        if (tab === 'unitSet') {
+            await loadAllBaseUnit();
+            await loadAllUnitSpec();
+            renderAllUnitTable();
+        }
+    }
+}
+
+
+// 加载二级换算规格
+async function loadAllUnitSpec() {
     try {
-        const { data, error } = await supabase
-            .from('combo_packs')
-            .select(`
-                *,
-                categories(name),
-                unit_presets(unit_name)
-            `)
-            .order('name');
-        if (error) throw error;
-        unitList = data || [];
-        applyUnitFilter();
-        renderUnitTable();
-    } catch (e) {
-        console.error('加载单位列表失败:', e);
-        showMsg('加载数据失败: ' + e.message);
-    }
-}
-
-function renderUnitTable() {
-    const tbody = document.getElementById('unitPresetList');
-    if (!tbody) return;
-    
-    const start = (unitCurrentPage - 1) * unitPageSize;
-    const end = Math.min(start + unitPageSize, unitFilteredList.length);
-    const pageData = unitFilteredList.slice(start, end);
-    
-    if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">暂无数据</td></tr>`;
-    } else {
-        tbody.innerHTML = pageData.map((item, index) => `
-            <tr>
-                <td>${start + index + 1}</td>
-                <td>${escapeHtml(item.name || '')}</td>
-                <td>${escapeHtml(item.categories?.name || '-')}</td>
-                <td>${escapeHtml(item.description || '-')}</td>
-                <td>${escapeHtml(item.unit_presets?.unit_name || '-')}</td>
-                <td>${item.is_locked ? '🔒 已锁定' : '✅ 可用'}</td>
-                <td>
-                    <button class="btn btn-primary btn-sm" onclick="editUnitPreset('${item.id}')">编辑</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteUnitPreset('${item.id}')">删除</button>
-                </td>
-            </tr>
-        `).join('');
-    }
-    
-    document.getElementById('comboTotalCount').textContent = unitList.length;
-    document.getElementById('unitCurrentPage').textContent = unitCurrentPage;
-    document.getElementById('unitTotalPages').textContent = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
-    
-    renderUnitPagination();
-}
-
-function renderUnitPagination() {
-    const container = document.getElementById('unitPageNumbers');
-    if (!container) return;
-    const total = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
-    let html = '';
-    const startPage = Math.max(1, unitCurrentPage - 2);
-    const endPage = Math.min(total, unitCurrentPage + 2);
-    for (let i = startPage; i <= endPage; i++) {
-        html += `<button class="page-btn ${i === unitCurrentPage ? 'active' : ''}" onclick="unitGoToPage(${i})">${i}</button>`;
-    }
-    container.innerHTML = html;
-}
-
-function applyUnitFilter() {
-    const category = document.getElementById('unitFilterCategory')?.value?.trim() || '';
-    const name = document.getElementById('unitFilterName')?.value?.trim() || '';
-    
-    unitFilteredList = unitList.filter(item => {
-        let match = true;
-        if (category) {
-            const catName = item.categories?.name || '';
-            if (!catName.toLowerCase().includes(category.toLowerCase())) match = false;
-        }
-        if (name) {
-            if (!(item.name || '').toLowerCase().includes(name.toLowerCase())) match = false;
-        }
-        return match;
-    });
-    if (unitFilteredList.length === 0) unitCurrentPage = 1;
-    if (unitCurrentPage > Math.ceil(unitFilteredList.length / unitPageSize)) {
-        unitCurrentPage = Math.max(1, Math.ceil(unitFilteredList.length / unitPageSize));
-    }
-}
-
-function filterUnitList() {
-    applyUnitFilter();
-    renderUnitTable();
-}
-
-function unitGoToPage(page) {
-    const total = Math.ceil(unitFilteredList.length / unitPageSize) || 1;
-    if (page < 1 || page > total) return;
-    unitCurrentPage = page;
-    renderUnitTable();
-}
-
-function unitPrevPage() { unitGoToPage(unitCurrentPage - 1); }
-function unitNextPage() { unitGoToPage(unitCurrentPage + 1); }
-
-function changeUnitPageSize() {
-    const el = document.getElementById('unitPageSize');
-    if (el) unitPageSize = parseInt(el.value) || 10;
-    unitCurrentPage = 1;
-    renderUnitTable();
-}
-
-function resetUnitSearch() {
-    document.getElementById('unitFilterCategory').value = '';
-    document.getElementById('unitFilterName').value = '';
-    applyUnitFilter();
-    renderUnitTable();
-}
-
-let unitCategoryList = [];
-let unitBaseUnitList = [];
-
-async function loadUnitSelectData() {
-    try {
-        const { data: catData, error: catError } = await supabase
-            .from('categories')
-            .select('name')
-            .order('name');
-        if (!catError) {
-            unitCategoryList = catData.map(c => c.name);
-        }
-        
-        const { data: unitData, error: unitError } = await supabase
-            .from('unit_presets')
-            .select('unit_name')
-            .order('unit_name');
-        if (!unitError) {
-            unitBaseUnitList = unitData.map(u => u.unit_name);
-        }
-    } catch (e) {
-        console.error('加载下拉数据失败:', e);
-    }
-}
-
-function showUnitCategoryList() {
-    renderUnitCategoryList(unitCategoryList);
-    document.getElementById('unitCategoryListBox').style.display = 'block';
-}
-
-function filterUnitCategoryList() {
-    const input = document.getElementById('unitCategoryInput');
-    const kw = input.value.toLowerCase().trim();
-    const filtered = unitCategoryList.filter(s => s.toLowerCase().includes(kw));
-    renderUnitCategoryList(filtered);
-    document.getElementById('unitCategoryListBox').style.display = 'block';
-}
-
-function renderUnitCategoryList(list) {
-    const box = document.getElementById('unitCategoryListBox');
-    box.innerHTML = '';
-    if (list.length === 0) {
-        const input = document.getElementById('unitCategoryInput').value.trim();
-        if (input) {
-            box.innerHTML = `<div style="padding:6px 10px;color:#666;cursor:pointer;" onclick="selectUnitCategory('${input.replace(/'/g, "\\'")}')">➕ 创建 "${input}"</div>`;
-        } else {
-            box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配分类</div>';
-        }
-        return;
-    }
-    list.forEach(item => {
-        const div = document.createElement('div');
-        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
-        div.textContent = item;
-        div.onclick = function() { selectUnitCategory(item); };
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        box.appendChild(div);
-    });
-}
-
-function selectUnitCategory(value) {
-    document.getElementById('unitCategoryInput').value = value;
-    document.getElementById('unitCategoryValue').value = value;
-    document.getElementById('unitCategoryListBox').style.display = 'none';
-    checkUnitCategoryDuplicate(value);
-}
-
-function checkUnitCategoryDuplicate(value) {
-    if (!value) return;
-    if (unitCategoryList.includes(value)) {
-        document.getElementById('unitCategoryInput').style.borderColor = '';
-    } else {
-        document.getElementById('unitCategoryInput').style.borderColor = '#52c41a';
-    }
-}
-
-function showUnitBaseUnitList() {
-    renderUnitBaseUnitList(unitBaseUnitList);
-    document.getElementById('unitBaseUnitListBox').style.display = 'block';
-}
-
-function filterUnitBaseUnitList() {
-    const input = document.getElementById('unitBaseUnitInput');
-    const kw = input.value.toLowerCase().trim();
-    const filtered = unitBaseUnitList.filter(s => s.toLowerCase().includes(kw));
-    renderUnitBaseUnitList(filtered);
-    document.getElementById('unitBaseUnitListBox').style.display = 'block';
-}
-
-function renderUnitBaseUnitList(list) {
-    const box = document.getElementById('unitBaseUnitListBox');
-    box.innerHTML = '';
-    if (list.length === 0) {
-        const input = document.getElementById('unitBaseUnitInput').value.trim();
-        if (input) {
-            box.innerHTML = `<div style="padding:6px 10px;color:#666;cursor:pointer;" onclick="selectUnitBaseUnit('${input.replace(/'/g, "\\'")}')">➕ 创建 "${input}"</div>`;
-        } else {
-            box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配单位</div>';
-        }
-        return;
-    }
-    list.forEach(item => {
-        const div = document.createElement('div');
-        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
-        div.textContent = item;
-        div.onclick = function() { selectUnitBaseUnit(item); };
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        box.appendChild(div);
-    });
-}
-
-function selectUnitBaseUnit(value) {
-    document.getElementById('unitBaseUnitInput').value = value;
-    document.getElementById('unitBaseUnitValue').value = value;
-    document.getElementById('unitBaseUnitListBox').style.display = 'none';
-    checkUnitBaseUnitDuplicate(value);
-}
-
-function checkUnitBaseUnitDuplicate(value) {
-    if (!value) return;
-    if (unitBaseUnitList.includes(value)) {
-        document.getElementById('unitBaseUnitInput').style.borderColor = '';
-    } else {
-        document.getElementById('unitBaseUnitInput').style.borderColor = '#52c41a';
-    }
-}
-
-let unitSplitUnitList = [];
-
-async function loadSplitUnitData() {
-    try {
-        const { data, error } = await supabase
-            .from('unit_presets')
-            .select('unit_name')
-            .order('unit_name');
-        if (!error) {
-            unitSplitUnitList = data.map(u => u.unit_name);
-        }
-    } catch (e) {
-        console.error('加载拆分单位数据失败:', e);
-    }
-}
-
-function addUnitSplitRow(data) {
-    const container = document.getElementById('unitSplitUnitsContainer');
-    const rowIndex = container.querySelectorAll('.split-unit-row').length;
-    
-    const row = document.createElement('div');
-    row.className = 'split-unit-row';
-    row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
-    row.dataset.index = rowIndex;
-    row.innerHTML = `
-        <div style="position:relative;flex:2;">
-            <input type="text" placeholder="拆分单位（如：提）" 
-                   class="split-unit-name-input" 
-                   value="${data ? escapeHtml(data.unit_name || '') : ''}"
-                   onfocus="showSplitUnitList(this)" 
-                   oninput="filterSplitUnitList(this)"
-                   style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;">
-            <div class="split-unit-list-box" style="position:absolute;top:100%;left:0;width:100%;max-height:150px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-        </div>
-        <div style="flex:1;">
-            <input type="number" class="split-unit-quantity" placeholder="数量" 
-                   value="${data ? data.quantity || '' : ''}"
-                   min="1" oninput="updateUnitDescription()"
-                   style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;">
-        </div>
-        <div style="flex:1;font-size:13px;color:#999;text-align:center;">
-    <span class="split-unit-preview">层级${rowIndex + 1}</span>
-    <span class="split-unit-relation" style="display:block;font-size:12px;color:#ff6b6b;font-weight:bold;"></span>
-</div>
-        <button class="btn btn-danger btn-sm" onclick="removeSplitUnitRow(this)" style="padding:2px 10px;">×</button>
-    `;
-    container.appendChild(row);
-    
-    if (data && data.unit_name) {
-        const input = row.querySelector('.split-unit-name-input');
-        input.value = data.unit_name;
-    }
-    updateUnitDescription();
-    updateSplitUnitRelations();
-}
-
-function removeSplitUnitRow(btn) {
-    const container = document.getElementById('unitSplitUnitsContainer');
-    if (container.children.length <= 1) {
-        showMsg('至少保留一个拆分单位');
-        return;
-    }
-    btn.closest('.split-unit-row').remove();
-    updateUnitDescription();
-    updateSplitUnitRelations();
-    document.querySelectorAll('.split-unit-row').forEach((row, idx) => {
-        row.dataset.index = idx;
-        const preview = row.querySelector('.split-unit-preview');
-        if (preview) preview.textContent = '层级' + (idx + 1);
-    });
-}
-
-function showSplitUnitList(input) {
-    const parent = input.closest('.split-unit-row');
-    const box = parent.querySelector('.split-unit-list-box');
-    const kw = input.value.toLowerCase().trim();
-    const filtered = unitSplitUnitList.filter(s => s.toLowerCase().includes(kw));
-    renderSplitUnitList(box, filtered, input);
-    box.style.display = 'block';
-}
-
-function filterSplitUnitList(input) {
-    const parent = input.closest('.split-unit-row');
-    const box = parent.querySelector('.split-unit-list-box');
-    const kw = input.value.toLowerCase().trim();
-    const filtered = unitSplitUnitList.filter(s => s.toLowerCase().includes(kw));
-    renderSplitUnitList(box, filtered, input);
-    box.style.display = 'block';
-}
-
-function renderSplitUnitList(box, list, input) {
-    box.innerHTML = '';
-    if (list.length === 0) {
-        const val = input.value.trim();
-        if (val) {
-            box.innerHTML = `<div style="padding:6px 10px;color:#666;cursor:pointer;" onclick="selectSplitUnit(this, '${val.replace(/'/g, "\\'")}')">➕ 创建 "${val}"</div>`;
-        } else {
-            box.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配单位</div>';
-        }
-        return;
-    }
-    list.forEach(item => {
-        const div = document.createElement('div');
-        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
-        div.textContent = item;
-        div.onclick = function() { selectSplitUnit(this, item); };
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        box.appendChild(div);
-    });
-}
-
-function selectSplitUnit(el, value) {
-    const parent = el.closest('.split-unit-row');
-    const input = parent.querySelector('.split-unit-name-input');
-    input.value = value;
-    const box = parent.querySelector('.split-unit-list-box');
-    box.style.display = 'none';
-    const baseUnit = document.getElementById('unitBaseUnitValue').value.trim() || document.getElementById('unitBaseUnitInput').value.trim();
-    if (value === baseUnit) {
-        input.style.borderColor = '#ff6b6b';
-        showMsg('拆分单位不能与基准单位相同');
-    } else {
-        input.style.borderColor = '';
-    }
-    updateUnitDescription();
-}
-
-function updateUnitDescription() {
-    const baseUnit = document.getElementById('unitBaseUnitInput').value.trim() || document.getElementById('unitBaseUnitValue').value.trim();
-    if (!baseUnit) {
-        document.getElementById('unitDescription').value = '';
-        updateSplitUnitRelations();
-        return;
-    }
-    
-    const rows = document.querySelectorAll('.split-unit-row');
-    let parts = ['1' + baseUnit];
-    let hasValid = false;
-    let allUnits = [];
-    
-    rows.forEach((row, idx) => {
-        const nameInput = row.querySelector('.split-unit-name-input');
-        const qtyInput = row.querySelector('.split-unit-quantity');
-        const name = nameInput ? nameInput.value.trim() : '';
-        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
-        if (name && qty > 0 && name !== baseUnit) {
-            let isDuplicate = false;
-            for (let i = 0; i < idx; i++) {
-                const prevRow = rows[i];
-                const prevName = prevRow.querySelector('.split-unit-name-input');
-                if (prevName && prevName.value.trim() === name) {
-                    isDuplicate = true;
-                    break;
-                }
-            }
-            if (!isDuplicate) {
-                parts.push(qty + name);
-                allUnits.push({ name: name, qty: qty, row: row });
-                hasValid = true;
-            }
-        }
-    });
-    
-    let mainDesc = parts.join('=');
-    
-    if (hasValid) {
-        document.getElementById('unitDescription').value = mainDesc;
-    } else {
-        document.getElementById('unitDescription').value = '1' + baseUnit + '=...（请添加拆分单位并填写数量）';
-    }
-    
-    updateSplitUnitRelations();
-}
-
-function updateSplitUnitRelations() {
-    const rows = document.querySelectorAll('.split-unit-row');
-    const allUnits = [];
-    
-    rows.forEach((row) => {
-        const nameInput = row.querySelector('.split-unit-name-input');
-        const qtyInput = row.querySelector('.split-unit-quantity');
-        const name = nameInput ? nameInput.value.trim() : '';
-        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
-        if (name && qty > 0) {
-            allUnits.push({ name: name, qty: qty, row: row });
-        }
-    });
-    
-    if (allUnits.length <= 1) {
-        rows.forEach(row => {
-            const relationEl = row.querySelector('.split-unit-relation');
-            if (relationEl) relationEl.textContent = '';
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?order=base_unit_id,id.asc`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
-        return;
-    }
-    
-    for (let i = 0; i < allUnits.length; i++) {
-        const relationEl = allUnits[i].row.querySelector('.split-unit-relation');
-        if (!relationEl) continue;
-        
-        if (i === allUnits.length - 1) {
-            relationEl.textContent = '';
-            continue;
-        }
-        
-        let ratio = 1;
-        for (let j = i + 1; j < allUnits.length; j++) {
-            ratio = ratio * allUnits[j].qty;
-        }
-        const resultRatio = ratio / allUnits[i].qty;
-        const currentUnit = allUnits[i].name;
-        const smallestUnit = allUnits[allUnits.length - 1].name;
-        relationEl.textContent = '1' + currentUnit + '=' + resultRatio + smallestUnit;
-        relationEl.style.color = '#ff6b6b';
-        relationEl.style.fontWeight = 'bold';
-        relationEl.style.fontSize = '12px';
-    }
-}
-
-function editUnitPreset(id) {
-    if (!id) {
-        showMsg('无效的单位ID');
-        return;
-    }
-    const item = unitList.find(u => u.id === id);
-    if (!item) {
-        showMsg('找不到该单位数据');
-        return;
-    }
-    openUnitForm(item);
-}
-
-async function deleteUnitPreset(id) {
-    if (!id) {
-        showMsg('无效的单位ID');
-        return;
-    }
-    
-    const item = unitList.find(u => u.id === id);
-    if (!item) {
-        showMsg('找不到该单位数据');
-        return;
-    }
-    
-    if (item.is_locked) {
-        showMsg('🔒 该单位已被锁定，无法删除');
-        return;
-    }
-    
-    try {
-        const { data: refData, error: refError } = await supabase
-            .from('goods_combo_pack')
-            .select('goods_id')
-            .eq('combo_pack_id', id)
-            .limit(1);
-        if (!refError && refData && refData.length > 0) {
-            showMsg('该单位已被商品引用，无法删除');
-            return;
-        }
+        unitSpecList = await res.json() || [];
     } catch (e) {
-        console.warn('检查引用失败:', e);
-    }
-    
-    if (!confirm(`确定要删除单位"${item.name}"吗？`)) return;
-    
-    try {
-        await supabase
-            .from('combo_pack_details')
-            .delete()
-            .eq('combo_pack_id', id);
-        
-        const { error } = await supabase
-            .from('combo_packs')
-            .delete()
-            .eq('id', id);
-        
-        if (error) throw error;
-        
-        showMsg('✅ 单位已删除');
-        await loadUnitList();
-        loadComboPackSelect();
-    } catch (e) {
-        console.error('删除单位失败:', e);
-        showMsg('删除失败: ' + e.message);
+        showMsg('加载规格失败：' + e.message);
     }
 }
 
-function openUnitForm(data) {
-    const modal = document.getElementById('unitModal');
+// 单位预设统一一张总列表（删除一级、两张分开表格，只一张表）
+function renderAllUnitTable() {
+    const tb = document.getElementById('allUnitTable');
+    if (!tb) return;
+    tb.innerHTML = '';
+    // 合并一级+二级数据展示
+    baseUnitList.forEach(baseItem => {
+        // 一级单位行
+        const tr1 = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${baseItem.id}</td>
+            <td style="font-weight:bold;">【一级单位】${baseItem.unit_name}</td>
+            <td>-</td>
+            <td>-</td>
+            <td>${baseItem.is_locked ? '锁定' : '可编辑'}</td>
+            <td>
+                <button onclick="openUnitEdit(${baseItem.id},1)" class="btn btn-sm btn-primary">编辑一级</button>
+                ${baseItem.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteBaseUnit(${baseItem.id})" class="btn btn-sm btn-danger">删除</button>`}
+                <button onclick="openUnitEdit(${baseItem.id},2)" class="btn btn-sm btn-success">新增该规格</button>
+            </td>
+        `;
+        tb.appendChild(tr1);
+        // 该一级下所有二级规格
+        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
+        childSpecs.forEach(spec => {
+            const tr2 = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${spec.id}</td>
+                <td>&nbsp;&nbsp;&nbsp;└ 换算规格</td>
+                <td>${spec.show_name}</td>
+                <td>${spec.convert_rate}${baseItem.unit_name}</td>
+                <td>${spec.is_locked ? '锁定' : '正常'}</td>
+                <td>
+                    <button onclick="openUnitEdit(${spec.id},2)" class="btn btn-sm btn-primary">编辑规格</button>
+                    ${spec.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${spec.id})" class="btn btn-sm btn-danger">删除</button>`}
+                </td>
+            `;
+            tb.appendChild(tr2);
+        })
+    })
+}
+
+// 统一弹窗入口：type=1编辑一级 / type=2新增/编辑二级
+function openUnitEdit(editId = null, editType = 1, fillName = '') {
+    const modal = document.getElementById('unitAllModal');
     const title = document.getElementById('unitModalTitle');
-    const idField = document.getElementById('unitEditId');
-    const nameField = document.getElementById('unitName');
-    const categoryInput = document.getElementById('unitCategoryInput');
-    const categoryValue = document.getElementById('unitCategoryValue');
-    const baseUnitInput = document.getElementById('unitBaseUnitInput');
-    const baseUnitValue = document.getElementById('unitBaseUnitValue');
-    const descField = document.getElementById('unitDescription');
-    const container = document.getElementById('unitSplitUnitsContainer');
-    
-    loadUnitSelectData();
-    loadSplitUnitData();
-    
-    if (data) {
-        title.textContent = data.is_locked ? '🔒 编辑单位（已锁定）' : '编辑单位';
-        idField.value = data.id;
-        nameField.value = data.name || '';
-        categoryInput.value = data.categories?.name || '';
-        categoryValue.value = data.categories?.name || '';
-        baseUnitInput.value = data.unit_presets?.unit_name || '';
-        baseUnitValue.value = data.unit_presets?.unit_name || '';
-        loadSplitUnits(data.id);
+    const editTypeInput = document.getElementById('unitEditType');
+    const hidId = document.getElementById('unitEditId');
+    const baseNameInput = document.getElementById('baseUnitName');
+    const specWrap = document.getElementById('specInputWrap');
+    const specBaseSel = document.getElementById('specBaseUnitId');
+    const specShow = document.getElementById('specShowName');
+    const specRate = document.getElementById('specRate');
+
+    // 重置弹窗
+    hidId.value = editId || '';
+    editTypeInput.value = editType;
+    specWrap.style.display = 'none';
+    baseNameInput.value = '';
+    specShow.value = '';
+    specRate.value = '';
+
+    if (editType === 1) {
+        // 一级单位编辑
+        title.textContent = editId ? '编辑最小计量单位' : '新增最小计量单位';
+        baseNameInput.value = fillName;
+        if (editId) {
+            const item = baseUnitList.find(u => u.id == editId);
+            baseNameInput.value = item.unit_name;
+        }
     } else {
-        title.textContent = '新增单位';
-        idField.value = '';
-        nameField.value = '';
-        categoryInput.value = '';
-        categoryValue.value = '';
-        baseUnitInput.value = '';
-        baseUnitValue.value = '';
-        descField.value = '';
-        container.innerHTML = '';
-        addSplitUnitRowWithDefault();
+        // 二级换算规格，显示规格输入区域
+        title.textContent = editId ? '编辑换算规格' : '新增换算规格';
+        specWrap.style.display = 'block';
+        specBaseSel.value = editId ? (unitSpecList.find(s=>s.id==editId).base_unit_id) : editId;
+        if (editId) {
+            const spec = unitSpecList.find(s => s.id == editId);
+            specShow.value = spec.show_name;
+            specRate.value = spec.convert_rate;
+        } else {
+            specBaseSel.value = editId; // 传入一级ID，默认选中父单位
+        }
     }
     modal.style.display = 'flex';
 }
-
-function addSplitUnitRowWithDefault() {
-    const container = document.getElementById('unitSplitUnitsContainer');
-    container.innerHTML = '';
-    addUnitSplitRow();
-    addUnitSplitRow();
-    const btnDiv = document.createElement('div');
-    btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
-    btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
-    container.appendChild(btnDiv);
-    setTimeout(function() {
-        updateSplitUnitRelations();
-    }, 50);
+// 关闭统一弹窗
+function closeUnitAllModal() {
+    document.getElementById('unitAllModal').style.display = 'none';
 }
 
-function closeUnitForm() {
-    document.getElementById('unitModal').style.display = 'none';
-    document.getElementById('unitCategoryListBox').style.display = 'none';
-    document.getElementById('unitBaseUnitListBox').style.display = 'none';
-    document.querySelectorAll('.split-unit-list-box').forEach(box => box.style.display = 'none');
-}
+// 统一保存提交（带前端判重）
+async function submitAllUnit() {
+    const editType = document.getElementById('unitEditType').value;
+    const editId = document.getElementById('unitEditId').value;
+    const unitName = document.getElementById('baseUnitName').value.trim();
+    if (!unitName) return showMsg('最小计量单位不能为空');
 
-async function loadSplitUnits(comboId) {
-    try {
-        const { data, error } = await supabase
-            .from('combo_pack_details')
-            .select('*')
-            .eq('combo_pack_id', comboId)
-            .order('display_order');
-        if (error) throw error;
-        const container = document.getElementById('unitSplitUnitsContainer');
-        container.innerHTML = '';
-        if (data && data.length > 0) {
-            data.forEach(item => {
-                addUnitSplitRow({
-                    unit_name: item.unit_name,
-                    quantity: item.conversion_ratio ? parseInt(item.conversion_ratio) : null
-                });
-            });
-        } else {
-            addUnitSplitRow();
-            addUnitSplitRow();
+    // 1、保存一级单位，全局名称判重
+    if (editType == 1) {
+        const repeatCheck = baseUnitList.some(item => item.unit_name === unitName && item.id != editId);
+        if (repeatCheck) return showMsg('该最小计量单位已存在，不可重复创建');
+        const payload = { unit_name: unitName, is_locked: false };
+        try {
+            if (editId) {
+                await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
+                    method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+                    method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            }
+            showMsg('保存成功');
+            closeUnitAllModal();
+            await loadAllBaseUnit();
+            await loadAllUnitSpec();
+            renderAllUnitTable();
+            renderBaseUnitSelectOpt();
+        } catch (e) {
+            showMsg('操作失败：' + e.message);
         }
-        const btnDiv = document.createElement('div');
-        btnDiv.style.cssText = 'text-align:center; padding:8px 0; border-top:1px dashed #eee; margin-top:6px;';
-        btnDiv.innerHTML = '<button class="btn btn-default btn-sm" onclick="addUnitSplitRow()" style="padding:4px 20px;">＋ 添加拆分单位</button>';
-        container.appendChild(btnDiv);
-        setTimeout(function() {
-            updateUnitDescription();
-            updateSplitUnitRelations();
-        }, 100);
-    } catch (e) {
-        console.error('加载拆分单位失败:', e);
-    }
-}
-
-async function saveUnitPreset() {
-    const id = document.getElementById('unitEditId').value;
-    const name = document.getElementById('unitName').value.trim();
-    const category = document.getElementById('unitCategoryValue').value.trim() || document.getElementById('unitCategoryInput').value.trim();
-    const baseUnit = document.getElementById('unitBaseUnitValue').value.trim() || document.getElementById('unitBaseUnitInput').value.trim();
-    const description = document.getElementById('unitDescription').value.trim();
-    
-    if (!name) { showMsg('请输入单位名称'); return; }
-    if (!category) { showMsg('请输入或选择分类'); return; }
-    if (!baseUnit) { showMsg('请输入或选择基准单位'); return; }
-    
-    const rows = document.querySelectorAll('.split-unit-row');
-    const splitUnits = [];
-    let hasError = false;
-    const unitNames = new Set();
-    
-    let prevQty = 0;
-    rows.forEach((row, idx) => {
-        const nameInput = row.querySelector('.split-unit-name-input');
-        const qtyInput = row.querySelector('.split-unit-quantity');
-        const name = nameInput ? nameInput.value.trim() : '';
-        const qty = qtyInput ? parseInt(qtyInput.value) : 0;
-        if (name && qty > 0) {
-            if (name === baseUnit) {
-                showMsg('拆分单位"' + name + '"不能与基准单位相同');
-                hasError = true;
-                return;
-            }
-            if (unitNames.has(name)) {
-                showMsg('拆分单位"' + name + '"重复，请勿重复添加');
-                hasError = true;
-                return;
-            }
-            if (idx > 0 && qty <= prevQty) {
-                showMsg('第' + (idx + 1) + '行的数量(' + qty + ')必须大于上一行(' + prevQty + ')，请调整层级顺序');
-                hasError = true;
-                return;
-            }
-            prevQty = qty;
-            unitNames.add(name);
-            splitUnits.push({ unit_name: name, quantity: qty });
-        }
-    });
-    
-    if (hasError) return;
-    if (splitUnits.length === 0) {
-        showMsg('请至少添加一个有效的拆分单位');
         return;
     }
-    
+
+    // 2、保存二级换算规格，同单位下名称+系数判重
+    const baseId = document.getElementById('specBaseUnitId').value;
+    const showName = document.getElementById('specShowName').value.trim();
+    const rate = parseFloat(document.getElementById('specRate').value);
+    if (!baseId) return showMsg('请选择归属最小单位');
+    if (!showName) return showMsg('请填写单位名称');
+    if (isNaN(rate) || rate <= 0) return showMsg('换算系数必须大于0');
+    const repeatSpec = unitSpecList.find(s => s.base_unit_id == baseId && s.show_name == showName && s.convert_rate == rate && s.id != editId);
+    if (repeatSpec) return showMsg('该单位下同名同换算规格已存在');
+    const payload = { base_unit_id: baseId, show_name: showName, convert_rate: rate, is_locked: false };
     try {
-        let categoryId = null;
-        const { data: catData, error: catError } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('name', category)
-            .maybeSingle();
-        if (catError) throw catError;
-        if (catData) {
-            categoryId = catData.id;
+        if (editId) {
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
+                method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
         } else {
-            const { data: newCat, error: newCatError } = await supabase
-                .from('categories')
-                .insert([{ name: category }])
-                .select('id')
-                .single();
-            if (newCatError) throw newCatError;
-            categoryId = newCat.id;
-            unitCategoryList.push(category);
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+                method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
         }
-        
-        let baseUnitId = null;
-        const { data: unitData, error: unitError } = await supabase
-            .from('unit_presets')
-            .select('id')
-            .eq('unit_name', baseUnit)
-            .maybeSingle();
-        if (unitError) throw unitError;
-        if (unitData) {
-            baseUnitId = unitData.id;
-        } else {
-            const { data: newUnit, error: newUnitError } = await supabase
-                .from('unit_presets')
-                .insert([{ unit_name: baseUnit, unit_code: baseUnit.toUpperCase(), is_default: false }])
-                .select('id')
-                .single();
-            if (newUnitError) throw newUnitError;
-            baseUnitId = newUnit.id;
-            unitBaseUnitList.push(baseUnit);
-        }
-        
-        for (const su of splitUnits) {
-            const { data: existUnit, error: existError } = await supabase
-                .from('unit_presets')
-                .select('id')
-                .eq('unit_name', su.unit_name)
-                .maybeSingle();
-            if (existError) throw existError;
-            if (!existUnit) {
-                await supabase
-                    .from('unit_presets')
-                    .insert([{ unit_name: su.unit_name, unit_code: su.unit_name.toUpperCase(), is_default: false }]);
-            }
-        }
-        
-        const comboData = {
-            name: name,
-            category_id: categoryId,
-            base_unit_id: baseUnitId,
-            description: description,
-            is_locked: false
-        };
-        
-        let comboId = id;
-        if (id) {
-            const existing = unitList.find(c => c.id === id);
-            if (existing?.is_locked) {
-                const { error } = await supabase
-                    .from('combo_packs')
-                    .update({ name })
-                    .eq('id', id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase
-                    .from('combo_packs')
-                    .update(comboData)
-                    .eq('id', id);
-                if (error) throw error;
-            }
-        } else {
-            const { data, error } = await supabase
-                .from('combo_packs')
-                .insert([comboData])
-                .select('id')
-                .single();
-            if (error) throw error;
-            comboId = data.id;
-        }
-        
-        if (comboId) {
-            await supabase.from('combo_pack_details').delete().eq('combo_pack_id', comboId);
-            
-            const details = splitUnits.map((su, index) => ({
-                combo_pack_id: comboId,
-                unit_name: su.unit_name,
-                conversion_ratio: String(su.quantity),
-                display_order: index + 1,
-                is_base: index === 0
-            }));
-            
-            const { error } = await supabase
-                .from('combo_pack_details')
-                .insert(details);
-            if (error) throw error;
-        }
-        
-        closeUnitForm();
-        showMsg(id ? '单位更新成功' : '单位添加成功');
-        await loadUnitList();
-        loadComboPackSelect();
+        showMsg('规格保存成功');
+        closeUnitAllModal();
+        await loadAllBaseUnit();
+        await loadAllUnitSpec();
+        renderAllUnitTable();
+        renderBaseUnitSelectOpt();
     } catch (e) {
-        console.error('保存单位失败:', e);
-        showMsg('保存失败: ' + e.message);
+        showMsg('规格保存失败：' + e.message);
     }
 }
 
-async function loadComboPackSelect(goodsId) {
-    const sel = document.getElementById('add_combo_pack');
-    if (!sel) return;
-    try {
-        const { data, error } = await supabase
-            .from('combo_packs')
-            .select('*, categories(name), unit_presets(unit_name)')
-            .order('name');
-        if (error) throw error;
-        
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">请选择组合包</option>';
-        (data || []).forEach(item => {
+// 渲染下拉公用选项（弹窗归属单位、筛选下拉）
+function renderBaseUnitSelectOpt() {
+    const specSel = document.getElementById('specBaseUnitId');
+    const filterSel = document.getElementById('filterBaseUnit');
+    if (specSel) {
+        spec.innerHTML = '';
+        baseUnitList.forEach(u => {
             const opt = document.createElement('option');
-            opt.value = item.id;
-            const catName = item.categories?.name || '未分类';
-            const baseUnit = item.unit_presets?.unit_name || '';
-            opt.textContent = `${item.name} (${catName} | 基准: ${baseUnit})`;
-            sel.appendChild(opt);
-        });
-        
-        if (goodsId) {
-            const { data: relData, error: relError } = await supabase
-                .from('goods_combo_pack')
-                .select('combo_pack_id')
-                .eq('goods_id', goodsId)
-                .maybeSingle();
-            if (!relError && relData) {
-                sel.value = relData.combo_pack_id;
-            }
-        }
-        if (currentVal) sel.value = currentVal;
-    } catch (e) {
-        console.error('加载组合包下拉失败:', e);
+            opt.value = u.id;
+            opt.textContent = u.unit_name;
+            specSel.appendChild(opt);
+        })
+    }
+    if (filterSel) {
+        filterSel.innerHTML = '<option value="">全部单位</option>';
+        baseUnitList.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.unit_name;
+            filterSel.appendChild(opt);
+        })
     }
 }
 
-let comboPackListData = [];
 
-async function loadComboPackListData() {
-    try {
-        const { data, error } = await supabase
-            .from('combo_packs')
-            .select(`
-                id,
-                name,
-                categories(name),
-                unit_presets(unit_name),
-                description
-            `)
-            .order('name');
-        if (error) throw error;
-        comboPackListData = data || [];
-    } catch (e) {
-        console.error('加载单位下拉数据失败:', e);
+// 防抖复用页面原有debounce
+const filterBaseFunc = function () {
+    const input = document.getElementById('addBaseUnitSearch');
+    const box = document.getElementById('addBaseUnitListBox');
+    const kw = input.value.trim().toLowerCase();
+    box.innerHTML = '';
+    if (!kw) { box.style.display = 'none'; return; }
+    const filterArr = baseUnitList.filter(u => u.unit_name.toLowerCase().includes(kw));
+    filterArr.forEach(item => {
+        const div = document.createElement('div');
+        div.style.padding = '8px';
+        div.style.cursor = 'pointer';
+        div.innerText = item.unit_name;
+        div.onclick = () => selectGoodsBaseUnit(item);
+        box.appendChild(div);
+    })
+    // 无匹配显示新增按钮
+    const hasExist = baseUnitList.some(u => u.unit_name.toLowerCase() === kw);
+    if (!hasExist) {
+        const addDiv = document.createElement('div');
+        addDiv.style.padding = '8px';
+        addDiv.style.background = '#e6f7ff';
+        addDiv.innerText = `新增：${input.value}`;
+        addDiv.onclick = () => { openUnitEdit(null, 1, input.value); box.style.display = 'none'; }
+        box.appendChild(addDiv);
     }
-}
-
-function showComboPackList() {
-    const box = document.getElementById('addComboPackListBox');
-    if (!box) return;
-    const input = document.getElementById('addComboPackSearch');
-    const kw = input ? input.value.toLowerCase().trim() : '';
-    renderComboPackList(kw);
     box.style.display = 'block';
 }
-
-function filterComboPackList() {
-    const input = document.getElementById('addComboPackSearch');
-    const kw = input ? input.value.toLowerCase().trim() : '';
-    renderComboPackList(kw);
-    const box = document.getElementById('addComboPackListBox');
-    if (box) box.style.display = 'block';
+function debounceFilterBase() {
+    clearTimeout(baseUnitSearchTimer);
+    baseUnitSearchTimer = setTimeout(filterBaseFunc, 300);
 }
 
-function renderComboPackList(keyword) {
-    const box = document.getElementById('addComboPackListBox');
-    if (!box) return;
-    
-    let list = comboPackListData;
-    if (keyword) {
-        list = list.filter(item => 
-            (item.name || '').toLowerCase().includes(keyword) ||
-            (item.categories?.name || '').toLowerCase().includes(keyword) ||
-            (item.unit_presets?.unit_name || '').toLowerCase().includes(keyword)
-        );
-    }
-    
-    box.innerHTML = '';
-    if (list.length === 0) {
-        box.innerHTML = '<div style="padding:8px 12px;color:#999;text-align:center;">暂无匹配单位</div>';
-        return;
-    }
-    
-    list.forEach(item => {
+// 选中一级，渲染下方二级规格多选框
+function selectGoodsBaseUnit(item) {
+    currentSelectBaseId = item.id;
+    document.getElementById('addBaseUnitSearch').value = item.unit_name;
+    document.getElementById('add_base_unit_id').value = item.id;
+    document.getElementById('addBaseUnitListBox').style.display = 'none';
+    const wrap = document.getElementById('specMultiWrap');
+    const checkBox = document.getElementById('specCheckWrap');
+    wrap.style.display = 'block';
+    checkBox.innerHTML = '';
+    const childSpec = unitSpecList.filter(s => s.base_unit_id == item.id);
+    childSpec.forEach(spec => {
         const div = document.createElement('div');
-        div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;';
-        
-        const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = 'flex:0 0 auto;';
-        nameSpan.textContent = item.name || '';
-        
-        const baseUnit = item.unit_presets?.unit_name || '';
-        const baseSpan = document.createElement('span');
-        baseSpan.style.cssText = 'color:#ff4d4f;font-weight:bold;font-size:15px;margin:0 6px;';
-        baseSpan.textContent = '【' + baseUnit + '】';
-        
-        const descSpan = document.createElement('span');
-        descSpan.style.cssText = 'color:#333;font-size:14px;';
-        descSpan.textContent = item.description || '';
-        
-        div.appendChild(nameSpan);
-        div.appendChild(baseSpan);
-        if (item.description) {
-            div.appendChild(descSpan);
-        }
-        
-        div.onmouseover = function() { this.style.background = '#e5efff'; };
-        div.onmouseout = function() { this.style.background = 'transparent'; };
-        div.onclick = function() {
-            document.getElementById('addComboPackSearch').value = item.name;
-            document.getElementById('add_combo_pack').value = item.id;
-            box.style.display = 'none';
-        };
-        box.appendChild(div);
-    });
+        div.style.display = 'flex';
+        div.style.gap = '6px';
+        div.innerHTML = `
+            <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" id="sp_${spec.id}">
+            <label for="sp_${spec.id}">${spec.show_name}(${spec.convert_rate}${item.unit_name})</label>
+        `;
+        checkBox.appendChild(div);
+    })
 }
 
-// ============================================================
-// 暴露单位相关函数到全局
-// ============================================================
-window.loadUnitList = loadUnitList;
-window.renderUnitTable = renderUnitTable;
-window.applyUnitFilter = applyUnitFilter;
-window.filterUnitList = filterUnitList;
-window.unitGoToPage = unitGoToPage;
-window.unitPrevPage = unitPrevPage;
-window.unitNextPage = unitNextPage;
-window.changeUnitPageSize = changeUnitPageSize;
-window.resetUnitSearch = resetUnitSearch;
-window.openUnitForm = openUnitForm;
-window.closeUnitForm = closeUnitForm;
-window.saveUnitPreset = saveUnitPreset;
-window.editUnitPreset = editUnitPreset;
-window.deleteUnitPreset = deleteUnitPreset;
-window.showUnitCategoryList = showUnitCategoryList;
-window.filterUnitCategoryList = filterUnitCategoryList;
-window.selectUnitCategory = selectUnitCategory;
-window.showUnitBaseUnitList = showUnitBaseUnitList;
-window.filterUnitBaseUnitList = filterUnitBaseUnitList;
-window.selectUnitBaseUnit = selectUnitBaseUnit;
-window.openComboForm = openUnitForm;
-window.addSplitUnitRow = addUnitSplitRow;
-window.removeSplitUnitRow = removeSplitUnitRow;
-window.showSplitUnitList = showSplitUnitList;
-window.filterSplitUnitList = filterSplitUnitList;
-window.selectSplitUnit = selectSplitUnit;
-window.updateUnitDescription = updateUnitDescription;
-window.loadComboPackSelect = loadComboPackSelect;
-window.updateSplitUnitRelations = updateSplitUnitRelations;
+// 劫持新增商品弹窗，重置单位区域
+const oldOpenAddForm = openAddForm;
+openAddForm = async function () {
+    await oldOpenAddForm();
+    await loadAllBaseUnit();
+    await loadAllUnitSpec();
+    currentSelectBaseId = null;
+    document.getElementById('addBaseUnitSearch').value = '';
+    document.getElementById('add_base_unit_id').value = '';
+    document.getElementById('specMultiWrap').style.display = 'none';
+    document.getElementById('specCheckWrap').innerHTML = '';
+    document.getElementById('bindSpecIds').value = '';
+}
 
-// ============================================================
-// ✅ 调试辅助
-// ============================================================
-window.__debug = {
-    allGoods: () => allGoods,
-    filteredGoods: () => filteredGoods,
-    settleData: () => settleData,
-    unitList: () => unitList,
-    supabaseUrl: SUPABASE_URL,
-    hasSupabaseKey: typeof SUPABASE_KEY !== 'undefined'
-};
+// 劫持编辑商品，回显一级+自动勾选已绑定二级规格
+const oldOpenEditForm = openEditForm;
+openEditForm = async function (goodsId) {
+    await oldOpenEditForm(goodsId);
+    await loadAllBaseUnit();
+    await loadAllUnitSpec();
+    const goodsItem = allGoods.find(g => g.id == goodsId);
+    if (!goodsItem || !goodsItem.base_unit_id) return;
+    const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
+    if (!baseItem) return;
+    selectGoodsBaseUnit(baseItem);
+    // 拉取已绑定规格自动勾选
+    const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    })
+    const bindList = await bindRes.json() || [];
+    bindList.forEach(bind => {
+        const ck = document.querySelector(`.specCheck[data-spec-id="${bind.spec_id}"]`);
+        if (ck) ck.checked = true;
+    })
+}
 
-console.log('✅ goods.js 加载完成');
-console.log('🔍 调试: window.__debug.allGoods() 查看商品数据');
+// 劫持商品保存，同步存储一级、多规格绑定关系
+const oldSubmitForm = submitForm;
+submitForm = async function () {
+    const baseId = document.getElementById('add_base_unit_id').value;
+    if (!baseId) { alert('请选择基准最小计量单位'); return; }
+    // 获取所有勾选规格ID
+    const checkedSpecs = Array.from(document.querySelectorAll('.specCheck:checked')).map(el => el.dataset.specId);
+    const editId = document.getElementById('editId').value;
+    // 原有表单校验完全保留不动
+    let supplier = document.getElementById('add_supplier').value;
+    let name = document.getElementById('add_name').value;
+    let spec = document.getElementById('add_spec').value;
+    let channel = document.getElementById('add_channel').value;
+    let taxRate = document.getElementById('add_tax_rate');
+    let salePrice = document.getElementById('add_sale_price');
+    let onlineCost = document.getElementById('add_online_cost');
+    let warnNum = document.getElementById('add_warn_num');
+    let shelfNum = document.getElementById('add_shelf_life_num');
+    let shelfUnit = document.getElementById('add_shelf_life_unit');
+    if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
+    if (+salePrice <= 0) return alert('销售单价必须大于0');
+    if (isDuplicate(supplier, name, editId)) return alert('同供应商同名商品已存在');
 
-// ============================================================
-// ✅ 页面初始化 - 所有 DOM 事件监听放在最后
-// ============================================================
-
-// 点击空白关闭下拉
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#addSupplierSearch') && !e.target.closest('#addSupplierListBox')) {
-        const box = document.getElementById('addSupplierListBox');
-        if (box) box.style.display = 'none';
-    }
-});
-
-document.addEventListener('click', function(e) {
-    const listIds = [
-        'goodsFilterSupplierList',
-        'goodsFilterGoodsNameList',
-        'goodsFilterChannelList'
-    ];
-    listIds.forEach(id => {
-        const box = document.getElementById(id);
-        if (!box) return;
-        const inputId = id.replace('List', 'Input');
-        const input = document.getElementById(inputId);
-        if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
-            box.style.display = 'none';
+    let oldSalePrice = null;
+    let priceChange = false;
+    const newSale = +salePrice;
+    if (editId) {
+        const oldGoods = allGoods.find(g => g.id == editId);
+        if (oldGoods) {
+            oldSalePrice = Number(oldGoods.sale_price);
+            if (newSale !== oldSalePrice) priceChange = true;
         }
-    });
-
-    const dateChangeListIds = [
-        'dateChangeFilterSupplierList',
-        'dateChangeFilterGoodsList',
-        'dateChangeFilterSpecList',
-        'dateChangeFilterSettleList',
-        'dateChangeFilterBzStatusList'
-    ];
-    dateChangeListIds.forEach(id => {
-        const box = document.getElementById(id);
-        if (!box) return;
-        const inputId = id.replace('List', '');
-        const input = document.getElementById(inputId);
-        if (!e.target.closest(`#${id}`) && (!input || !e.target.closest(`#${inputId}`))) {
-            box.style.display = 'none';
-        }
-    });
-});
-
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#unitCategoryInput') && !e.target.closest('#unitCategoryListBox')) {
-        document.getElementById('unitCategoryListBox').style.display = 'none';
     }
-    if (!e.target.closest('#unitBaseUnitInput') && !e.target.closest('#unitBaseUnitListBox')) {
-        document.getElementById('unitBaseUnitListBox').style.display = 'none';
+    // 商品主表携带基准单位
+    const goodsData = {
+        supplier: supplier.trim(),
+        name: name.trim(),
+        spec: spec.trim() || null,
+        channel: channel,
+        tax_rate: taxRate?.value || null,
+        sale_price: newSale,
+        online_cost: onlineCost ? +onlineCost : null,
+        warn_num: warnNum ? +warnNum : null,
+        shelf_life_num: shelfNum ? +shelfNum : null,
+        shelf_life_unit: shelfUnit?.value || null,
+        last_sale_price: editId ? oldSalePrice : null,
+        base_unit_id: +baseId,
+        base_unit_name: document.getElementById('addBaseUnitSearch').value
     }
-});
-
-document.addEventListener('click', function(e) {
-    document.querySelectorAll('.split-unit-list-box').forEach(box => {
-        const parent = box.closest('.split-unit-row');
-        if (parent && !e.target.closest(parent)) {
-            box.style.display = 'none';
-        }
-    });
-});
-
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#addComboPackSearch') && !e.target.closest('#addComboPackListBox')) {
-        const box = document.getElementById('addComboPackListBox');
-        if (box) box.style.display = 'none';
-    }
-});
-
-// DOMContentLoaded 初始化
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOMContentLoaded 触发');
-    
-    if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
-        console.error('❌ Supabase 配置未加载！');
-        showMsg('系统配置错误，请检查网络连接');
-        return;
-    }
-    
-    setTimeout(function() {
-        console.log('🔄 开始初始化商品模块...');
-        
-        if (typeof loadGoods === 'function') {
-            loadGoods(true);
+    try {
+        let goodsRealId = editId;
+        // 更新/新增商品主表
+        if (editId) {
+            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
+                method: 'PATCH',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(goodsData)
+            })
+            if (priceChange) {
+                await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } })
+                showMsg('价格变更，临时价格已清空');
+            }
         } else {
-            console.error('❌ loadGoods 函数未定义！');
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
+                method: 'POST',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify(goodsData)
+            })
+            const newArr = await res.json();
+            goodsRealId = newArr[0]?.id;
         }
-        
-        if (typeof loadSettleList === 'function') {
-            setTimeout(function() {
-                loadSettleList();
-            }, 500);
+        // 同步更新多对多绑定表
+        if (goodsRealId) {
+            // 先清空旧绑定
+            await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
+                method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+            })
+            // 批量插入新勾选规格
+            for (const sid of checkedSpecs) {
+                await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
+                    method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goods_id: goodsRealId, spec_id: sid })
+                })
+            }
         }
-        
-        if (typeof loadUnitList === 'function') {
-            setTimeout(function() {
-                loadUnitList();
-            }, 800);
-        }
-        
-    }, 100);
-});
+        showMsg(editId ? '商品编辑成功' : '商品新增成功');
+        closeForm();
+        await loadGoods(true);
+        if (typeof loadAllGoods === 'function') await loadAllGoods();
+    } catch (err) {
+        showMsg('保存失败：' + err.message);
+    }
+}
+
+// 空白点击关闭单位下拉
+document.addEventListener('click', function (e) {
+    const input = document.getElementById('addBaseUnitSearch');
+    const box = document.getElementById('addBaseUnitListBox');
+    if (input && box && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#addBaseUnitListBox')) {
+        box.style.display = 'none';
+    }
+})
+
+// 全局暴露页面所有onclick依赖函数
+window.openUnitEdit = openUnitEdit;
+window.closeUnitAllModal = closeUnitAllModal;
+window.submitAllUnit = submitAllUnit;
+window.deleteBaseUnit = deleteBaseUnit;
+window.deleteUnitSpec = deleteUnitSpec;
+window.showAddBaseUnitList = function () {
+    loadAllBaseUnit();
+    filterBaseFunc();
+}
+window.filterAddBaseUnitList = debounceFilterBase;
