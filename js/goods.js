@@ -1,6 +1,4 @@
 // 单位全局缓存
-let baseUnitList = [];
-let unitSpecList = [];
 let currentSelectBaseId = null;
 let baseUnitSearchTimer = null;
 // 防抖工具
