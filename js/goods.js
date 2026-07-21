@@ -3595,7 +3595,7 @@ function renderBaseUnitSelectOpt() {
     const specSel = document.getElementById('specBaseUnitId');
     const filterSel = document.getElementById('filterBaseUnit');
     if (specSel) {
-        spec.innerHTML = '';
+        specSel.innerHTML = '';
         baseUnitList.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.id;
