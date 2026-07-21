@@ -3639,7 +3639,7 @@ async function deleteUnitSpec(id) {
     } catch (e) {
         showMsg('删除失败，已绑定商品');
     }
-
+}
 // ========== 商品弹窗一级搜索+二级多选逻辑 ==========
 
 // 防抖复用页面原有debounce
