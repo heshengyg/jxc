@@ -3418,6 +3418,20 @@ if (!window._originSwitchGoodsSubTab) {
     }
 }
 
+// ===================== 加载数据函数 =====================
+
+// 加载所有一级单位
+async function loadAllBaseUnit() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit?order=id.asc`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        baseUnitList = await res.json() || [];
+        renderBaseUnitSelectOpt();
+    } catch (e) {
+        showMsg('加载单位失败：' + e.message);
+    }
+}
 
 // 加载二级换算规格
 async function loadAllUnitSpec() {
@@ -3431,7 +3445,9 @@ async function loadAllUnitSpec() {
     }
 }
 
-// 单位预设统一一张总列表（删除一级、两张分开表格，只一张表）
+// ===================== 渲染表格函数 =====================
+
+// 单位预设统一一张总列表
 function renderAllUnitTable() {
     const tb = document.getElementById('allUnitTable');
     if (!tb) return;
@@ -3440,7 +3456,7 @@ function renderAllUnitTable() {
     baseUnitList.forEach(baseItem => {
         // 一级单位行
         const tr1 = document.createElement('tr');
-        tr.innerHTML = `
+        tr1.innerHTML = `
             <td>${baseItem.id}</td>
             <td style="font-weight:bold;">【一级单位】${baseItem.unit_name}</td>
             <td>-</td>
@@ -3457,7 +3473,7 @@ function renderAllUnitTable() {
         const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
         childSpecs.forEach(spec => {
             const tr2 = document.createElement('tr');
-            tr.innerHTML = `
+            tr2.innerHTML = `
                 <td>${spec.id}</td>
                 <td>&nbsp;&nbsp;&nbsp;└ 换算规格</td>
                 <td>${spec.show_name}</td>
@@ -3469,125 +3485,8 @@ function renderAllUnitTable() {
                 </td>
             `;
             tb.appendChild(tr2);
-        })
-    })
-}
-
-// 统一弹窗入口：type=1编辑一级 / type=2新增/编辑二级
-function openUnitEdit(editId = null, editType = 1, fillName = '') {
-    const modal = document.getElementById('unitAllModal');
-    const title = document.getElementById('unitModalTitle');
-    const editTypeInput = document.getElementById('unitEditType');
-    const hidId = document.getElementById('unitEditId');
-    const baseNameInput = document.getElementById('baseUnitName');
-    const specWrap = document.getElementById('specInputWrap');
-    const specBaseSel = document.getElementById('specBaseUnitId');
-    const specShow = document.getElementById('specShowName');
-    const specRate = document.getElementById('specRate');
-
-    // 重置弹窗
-    hidId.value = editId || '';
-    editTypeInput.value = editType;
-    specWrap.style.display = 'none';
-    baseNameInput.value = '';
-    specShow.value = '';
-    specRate.value = '';
-
-    if (editType === 1) {
-        // 一级单位编辑
-        title.textContent = editId ? '编辑最小计量单位' : '新增最小计量单位';
-        baseNameInput.value = fillName;
-        if (editId) {
-            const item = baseUnitList.find(u => u.id == editId);
-            baseNameInput.value = item.unit_name;
-        }
-    } else {
-        // 二级换算规格，显示规格输入区域
-        title.textContent = editId ? '编辑换算规格' : '新增换算规格';
-        specWrap.style.display = 'block';
-        specBaseSel.value = editId ? (unitSpecList.find(s=>s.id==editId).base_unit_id) : editId;
-        if (editId) {
-            const spec = unitSpecList.find(s => s.id == editId);
-            specShow.value = spec.show_name;
-            specRate.value = spec.convert_rate;
-        } else {
-            specBaseSel.value = editId; // 传入一级ID，默认选中父单位
-        }
-    }
-    modal.style.display = 'flex';
-}
-// 关闭统一弹窗
-function closeUnitAllModal() {
-    document.getElementById('unitAllModal').style.display = 'none';
-}
-
-// 统一保存提交（带前端判重）
-async function submitAllUnit() {
-    const editType = document.getElementById('unitEditType').value;
-    const editId = document.getElementById('unitEditId').value;
-    const unitName = document.getElementById('baseUnitName').value.trim();
-    if (!unitName) return showMsg('最小计量单位不能为空');
-
-    // 1、保存一级单位，全局名称判重
-    if (editType == 1) {
-        const repeatCheck = baseUnitList.some(item => item.unit_name === unitName && item.id != editId);
-        if (repeatCheck) return showMsg('该最小计量单位已存在，不可重复创建');
-        const payload = { unit_name: unitName, is_locked: false };
-        try {
-            if (editId) {
-                await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
-                    method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-            } else {
-                await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                    method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-            }
-            showMsg('保存成功');
-            closeUnitAllModal();
-            await loadAllBaseUnit();
-            await loadAllUnitSpec();
-            renderAllUnitTable();
-            renderBaseUnitSelectOpt();
-        } catch (e) {
-            showMsg('操作失败：' + e.message);
-        }
-        return;
-    }
-
-    // 2、保存二级换算规格，同单位下名称+系数判重
-    const baseId = document.getElementById('specBaseUnitId').value;
-    const showName = document.getElementById('specShowName').value.trim();
-    const rate = parseFloat(document.getElementById('specRate').value);
-    if (!baseId) return showMsg('请选择归属最小单位');
-    if (!showName) return showMsg('请填写单位名称');
-    if (isNaN(rate) || rate <= 0) return showMsg('换算系数必须大于0');
-    const repeatSpec = unitSpecList.find(s => s.base_unit_id == baseId && s.show_name == showName && s.convert_rate == rate && s.id != editId);
-    if (repeatSpec) return showMsg('该单位下同名同换算规格已存在');
-    const payload = { base_unit_id: baseId, show_name: showName, convert_rate: rate, is_locked: false };
-    try {
-        if (editId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
-                method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-        } else {
-            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
-                method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-        }
-        showMsg('规格保存成功');
-        closeUnitAllModal();
-        await loadAllBaseUnit();
-        await loadAllUnitSpec();
-        renderAllUnitTable();
-        renderBaseUnitSelectOpt();
-    } catch (e) {
-        showMsg('规格保存失败：' + e.message);
-    }
+        });
+    });
 }
 
 // 渲染下拉公用选项（弹窗归属单位、筛选下拉）
@@ -3614,11 +3513,200 @@ function renderBaseUnitSelectOpt() {
     }
 }
 
+// ===================== 弹窗相关函数 =====================
 
-// 防抖复用页面原有debounce
+// 统一弹窗入口：type=1编辑一级 / type=2新增/编辑二级
+function openUnitEdit(editId = null, editType = 1, fillName = '') {
+    const modal = document.getElementById('unitAllModal');
+    const title = document.getElementById('unitModalTitle');
+    const editTypeInput = document.getElementById('unitEditType');
+    const hidId = document.getElementById('unitEditId');
+    const baseNameInput = document.getElementById('baseUnitName');
+    const specWrap = document.getElementById('specInputWrap');
+    const specBaseSel = document.getElementById('specBaseUnitId');
+    const specShow = document.getElementById('specShowName');
+    const specRate = document.getElementById('specRate');
+
+    // 先重置弹窗
+    hidId.value = editId || '';
+    editTypeInput.value = editType;
+    specWrap.style.display = 'none';
+    baseNameInput.value = '';
+    specShow.value = '';
+    specRate.value = '';
+
+    // 渲染下拉选项
+    renderBaseUnitSelectOpt();
+
+    if (editType === 1) {
+        title.textContent = editId ? '编辑最小计量单位' : '新增最小计量单位';
+        baseNameInput.value = fillName || '';
+        if (editId) {
+            const item = baseUnitList.find(u => u.id == editId);
+            if (item) baseNameInput.value = item.unit_name;
+        }
+        // 隐藏规格输入区域
+        specWrap.style.display = 'none';
+    } else {
+        title.textContent = editId ? '编辑换算规格' : '新增换算规格';
+        specWrap.style.display = 'block';
+        // 如果是新增规格，且传入了父级ID，自动选中
+        if (!editId && editId !== null && editId !== undefined) {
+            specBaseSel.value = editId;
+        }
+        if (editId) {
+            const spec = unitSpecList.find(s => s.id == editId);
+            if (spec) {
+                specShow.value = spec.show_name;
+                specRate.value = spec.convert_rate;
+                specBaseSel.value = spec.base_unit_id;
+            }
+        }
+    }
+    modal.style.display = 'flex';
+}
+
+// 关闭统一弹窗
+function closeUnitAllModal() {
+    document.getElementById('unitAllModal').style.display = 'none';
+}
+
+// ===================== 保存提交函数 =====================
+
+// 统一保存提交（带前端判重）
+async function submitAllUnit() {
+    const editType = document.getElementById('unitEditType').value;
+    const editId = document.getElementById('unitEditId').value;
+    const unitName = document.getElementById('baseUnitName').value.trim();
+    
+    if (!unitName && editType == 1) {
+        showMsg('最小计量单位不能为空');
+        return;
+    }
+
+    // 1、保存一级单位
+    if (editType == 1) {
+        if (!unitName) { showMsg('请输入单位名称'); return; }
+        const repeatCheck = baseUnitList.some(item => item.unit_name === unitName && item.id != editId);
+        if (repeatCheck) { showMsg('该最小计量单位已存在'); return; }
+        const payload = { unit_name: unitName, is_locked: false };
+        try {
+            if (editId) {
+                await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
+                    method: 'PATCH',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+                    method: 'POST',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            showMsg('保存成功');
+            closeUnitAllModal();
+            await loadAllBaseUnit();
+            await loadAllUnitSpec();
+            renderAllUnitTable();
+            renderBaseUnitSelectOpt();
+        } catch (e) {
+            showMsg('操作失败：' + e.message);
+        }
+        return;
+    }
+
+    // 2、保存二级换算规格
+    const baseId = document.getElementById('specBaseUnitId').value;
+    const showName = document.getElementById('specShowName').value.trim();
+    const rate = parseFloat(document.getElementById('specRate').value);
+    
+    if (!baseId) { showMsg('请选择归属最小单位'); return; }
+    if (!showName) { showMsg('请填写单位名称'); return; }
+    if (isNaN(rate) || rate <= 0) { showMsg('换算系数必须大于0'); return; }
+    
+    const repeatSpec = unitSpecList.some(s => 
+        s.base_unit_id == baseId && s.show_name == showName && s.convert_rate == rate && s.id != editId
+    );
+    if (repeatSpec) { showMsg('该单位下同名同换算规格已存在'); return; }
+    
+    const payload = { base_unit_id: baseId, show_name: showName, convert_rate: rate, is_locked: false };
+    try {
+        if (editId) {
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
+                method: 'PATCH',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+                method: 'POST',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+        showMsg('规格保存成功');
+        closeUnitAllModal();
+        await loadAllBaseUnit();
+        await loadAllUnitSpec();
+        renderAllUnitTable();
+        renderBaseUnitSelectOpt();
+    } catch (e) {
+        showMsg('规格保存失败：' + e.message);
+    }
+}
+
+// ===================== 删除函数 =====================
+
+// 删除一级单位
+async function deleteBaseUnit(id) {
+    if (!confirm('确认删除该最小计量单位？')) return;
+    try {
+        // 检查是否有二级规格依赖
+        const hasSpec = unitSpecList.some(s => s.base_unit_id == id);
+        if (hasSpec) {
+            showMsg('该单位下存在换算规格，请先删除规格再删除单位');
+            return;
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        showMsg('删除成功');
+        await loadAllBaseUnit();
+        await loadAllUnitSpec();
+        renderAllUnitTable();
+        renderBaseUnitSelectOpt();
+    } catch (e) {
+        showMsg('删除失败：' + e.message);
+    }
+}
+
+// 删除二级规格
+async function deleteUnitSpec(id) {
+    if (!confirm('确认删除该换算规格？')) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        showMsg('删除成功');
+        await loadAllBaseUnit();
+        await loadAllUnitSpec();
+        renderAllUnitTable();
+        renderBaseUnitSelectOpt();
+    } catch (e) {
+        showMsg('删除失败：' + e.message);
+    }
+}
+
+// ===================== 商品弹窗单位下拉相关 =====================
+
+// 防抖函数（防抖复用页面原有debounce）
 const filterBaseFunc = function () {
     const input = document.getElementById('addBaseUnitSearch');
     const box = document.getElementById('addBaseUnitListBox');
+    if (!input || !box) return;
     const kw = input.value.trim().toLowerCase();
     box.innerHTML = '';
     if (!kw) { box.style.display = 'none'; return; }
@@ -3643,9 +3731,26 @@ const filterBaseFunc = function () {
     }
     box.style.display = 'block';
 }
+
 function debounceFilterBase() {
     clearTimeout(baseUnitSearchTimer);
     baseUnitSearchTimer = setTimeout(filterBaseFunc, 300);
+}
+
+// 显示单位下拉列表（供HTML onfocus调用）
+function showAddBaseUnitList() {
+    if (!baseUnitList || baseUnitList.length === 0) {
+        loadAllBaseUnit().then(() => {
+            filterBaseFunc();
+        });
+    } else {
+        filterBaseFunc();
+    }
+}
+
+// 过滤单位下拉列表（供HTML oninput调用）
+function filterAddBaseUnitList() {
+    debounceFilterBase();
 }
 
 // 选中一级，渲染下方二级规格多选框
@@ -3670,6 +3775,8 @@ function selectGoodsBaseUnit(item) {
         checkBox.appendChild(div);
     })
 }
+
+// ===================== 劫持商品表单函数 =====================
 
 // 劫持新增商品弹窗，重置单位区域
 const oldOpenAddForm = openAddForm;
@@ -3728,7 +3835,7 @@ submitForm = async function () {
     let shelfUnit = document.getElementById('add_shelf_life_unit');
     if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
     if (+salePrice <= 0) return alert('销售单价必须大于0');
-    if (isDuplicate(supplier, name, editId)) return alert('同供应商同名商品已存在');
+    if (isDuplicate(supplier, name, spec, editId)) return alert('同供应商同名同规格商品已存在');
 
     let oldSalePrice = null;
     let priceChange = false;
@@ -3801,7 +3908,8 @@ submitForm = async function () {
     }
 }
 
-// 空白点击关闭单位下拉
+// ===================== 空白点击关闭下拉 =====================
+
 document.addEventListener('click', function (e) {
     const input = document.getElementById('addBaseUnitSearch');
     const box = document.getElementById('addBaseUnitListBox');
@@ -3810,14 +3918,17 @@ document.addEventListener('click', function (e) {
     }
 })
 
-// 全局暴露页面所有onclick依赖函数
+// ===================== 全局暴露页面所有onclick依赖函数 =====================
+
 window.openUnitEdit = openUnitEdit;
 window.closeUnitAllModal = closeUnitAllModal;
 window.submitAllUnit = submitAllUnit;
 window.deleteBaseUnit = deleteBaseUnit;
 window.deleteUnitSpec = deleteUnitSpec;
-window.showAddBaseUnitList = function () {
-    loadAllBaseUnit();
-    filterBaseFunc();
-}
-window.filterAddBaseUnitList = debounceFilterBase;
+window.showAddBaseUnitList = showAddBaseUnitList;
+window.filterAddBaseUnitList = filterAddBaseUnitList;
+window.loadAllBaseUnit = loadAllBaseUnit;
+window.loadAllUnitSpec = loadAllUnitSpec;
+window.renderAllUnitTable = renderAllUnitTable;
+window.selectGoodsBaseUnit = selectGoodsBaseUnit;
+window.renderBaseUnitSelectOpt = renderBaseUnitSelectOpt;
