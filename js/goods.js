@@ -3485,7 +3485,8 @@ function openBaseUnitForm(editId=null){
     }
     modal.style.display = 'flex';
 }
-function closeBaseUnitForm(){
+// 【修复】匹配页面onclick="closeBaseUnitModal"
+function closeBaseUnitModal(){
     document.getElementById('baseUnitModal').style.display = 'none';
 }
 
@@ -3511,7 +3512,7 @@ async function submitBaseUnit(){
             })
             showMsg('新增成功');
         }
-        closeBaseUnitForm();
+        closeBaseUnitModal();
         await loadAllBaseUnit();
         renderBaseUnitSelect();
         renderBaseUnitList();
@@ -3583,7 +3584,7 @@ function renderUnitSpecList(){
     })
 }
 
-// 换算规格弹窗
+// 换算规格弹窗打开
 function openUnitSpecForm(editId=null){
     const modal = document.getElementById('unitSpecModal');
     const title = document.getElementById('unitSpecTitle');
@@ -3605,11 +3606,12 @@ function openUnitSpecForm(editId=null){
     }
     modal.style.display = 'flex';
 }
-function closeUnitSpecForm(){
+// 【新增】换算规格关闭函数，匹配页面onclick
+function closeUnitSpecModal(){
     document.getElementById('unitSpecModal').style.display = 'none';
 }
 
-// 提交换算规格
+// 提交换算规格（修复POST表名错误）
 async function submitUnitSpec(){
     const editId = document.getElementById('unitSpecEditId').value;
     const baseId = document.getElementById('specBaseUnitId').value;
@@ -3633,14 +3635,15 @@ async function submitUnitSpec(){
             })
             showMsg('规格编辑成功');
         }else{
-            await fetch(`${SUPABASE_URL}/rest/v1/base_unit`,{
+            // 修复：新增提交到unit_spec表
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`,{
                 method:'POST',
                 headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
                 body:JSON.stringify(payload)
             })
             showMsg('规格新增成功');
         }
-        closeUnitSpecForm();
+        closeUnitSpecModal();
         await loadAllBaseUnit();
         await loadAllUnitSpec();
         renderBaseUnitSelect();
@@ -3726,18 +3729,18 @@ document.addEventListener('click',function(e){
 const oldOpenAddForm = openAddForm;
 openAddForm = async function(){
     await oldOpenAddForm();
-    await loadAddBaseUnit();
+    await loadAddBaseUnitList();
     document.getElementById('addBaseUnitSearch').value = '';
     document.getElementById('add_base_unit_id').value = '';
 }
 
-// 编辑商品回显基准单位（劫持原有openEditForm）
+// 编辑商品回显基准单位【修复变量goodsItem】
 const oldOpenEditForm = openEditForm;
 openEditForm = async function(id){
     await oldOpenEditForm(id);
-    await loadAddBaseUnit();
+    await loadAddBaseUnitList();
     const goodsItem = allGoods.find(g=>g.id == id);
-    if(goodsItem && goods.base_unit_id){
+    if(goodsItem && goodsItem.base_unit_id){
         const unit = baseUnitList.find(u=>u.id == goodsItem.base_unit_id);
         if(unit){
             document.getElementById('addBaseUnitSearch').value = unit.unit_name;
@@ -3769,7 +3772,7 @@ submitForm = async function(){
     
     if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
     if (+salePrice <= 0) return alert('销售单价必须大于0');
-    if (isDuplicate(supplier, name, spec, editId)) return alert('该供应商下已存在同名同规格商品！');
+    if (isDuplicate(supplier, name, editId)) return alert('该供应商下已存在同名同规格商品！');
     
     let oldSalePrice = null;
     let priceChanged = false;
@@ -3849,19 +3852,13 @@ submitForm = async function(){
     }
 }
 
-// 页面初始化预加载单位数据
-document.addEventListener('DOMContentLoaded',async ()=>{
-    await loadAllBaseUnit();
-    await loadAllUnitSpec();
-})
-
-// 全局暴露单位操作函数供onclick调用
+// 全局暴露所有需要onclick调用函数（补齐closeUnitSpecModal）
 window.openBaseUnitForm = openBaseUnitForm;
-window.closeBaseUnitForm = closeBaseUnitForm;
+window.closeBaseUnitModal = closeBaseUnitModal;
 window.submitBaseUnit = submitBaseUnit;
 window.deleteBaseUnit = deleteBaseUnit;
 window.openUnitSpecForm = openUnitSpecForm;
-window.closeUnitSpecForm = closeUnitSpecForm;
+window.closeUnitSpecModal = closeUnitSpecModal;
 window.submitUnitSpec = submitUnitSpec;
 window.deleteUnitSpec = deleteUnitSpec;
 window.renderUnitSpecList = renderUnitSpecList;
