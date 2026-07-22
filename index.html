@@ -167,12 +167,11 @@
 <!-- 单位预设 -->
 <div id="sub-unitSet" class="finance-sub-content" style="display:none;">
     <h4>单位预设管理</h4>
-    <div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增最小计量单位</button>
-        <button class="btn btn-success" onclick="openUnitEdit(null, 2)">➕ 新增换算规格</button>
-        <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
-        <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
-    </div>
+<div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增单位</button>
+    <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
+    <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
+</div>
     <div class="table-container">
         <table border="1" cellpadding="6" cellspacing="0" width="100%">
             <thead>
@@ -1479,7 +1478,7 @@
         <div id="addBaseUnitListBox" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:9999;display:none;"></div>
     </div>
     <!-- 右侧新增按钮，和单位预设共用弹窗 -->
-    <button type="button" class="btn btn-primary btn-sm" onclick="openUnitEdit()">新增</button>
+    <button type="button" class="btn btn-primary btn-sm" onclick="openUnitEdit(null, 1)">新增</button>
     <input type="hidden" id="add_base_unit_id">
 </div>
 <!-- 选中一级自动展示二级规格多选 -->
@@ -1982,31 +1981,37 @@ document.addEventListener('DOMContentLoaded', async function(){
 });
 </script>
 <!-- 全局唯一单位弹窗（一级+二级共用） -->
-<div id="unitAllModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+<div id="unitAllModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:center;justify-content:center;">
     <div style="width:580px;max-width:90%;background:#fff;padding:24px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
         <h4 id="unitModalTitle" style="margin:0 0 16px;font-size:18px;">新增最小计量单位</h4>
         <input type="hidden" id="unitEditType" value="1">
         <input type="hidden" id="unitEditId" value="">
         
-        <div style="margin-bottom:14px;">
+        <!-- 一级单位：搜索下拉 -->
+        <div style="margin-bottom:14px;position:relative;">
             <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">最小计量单位 <span style="color:red;">*</span></label>
-            <input id="baseUnitName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="请输入单位名称（如：克）">
+            <input id="baseUnitName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="请输入单位名称（如：克）" oninput="filterBaseUnitInModal()" onfocus="showBaseUnitInModal()">
+            <div id="baseUnitModalList" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:10000;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
         </div>
         
         <div id="specInputWrap" style="display:block;margin-bottom:14px;border-top:1px solid #eee;padding-top:14px;">
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:12px;position:relative;">
                 <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">归属最小单位 <span style="color:red;">*</span></label>
-                <select id="specBaseUnitId" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;">
+                <select id="specBaseUnitId" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" onchange="onModalBaseUnitChange()">
                     <option value="">请选择</option>
                 </select>
             </div>
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:12px;position:relative;">
                 <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">换算单位名称</label>
-                <input id="specShowName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：份">
+                <input id="specShowName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：份" oninput="filterSpecInModal()" onfocus="showSpecInModal()">
+                <div id="specModalList" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:10000;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
             </div>
             <div>
                 <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">换算系数（1规格 = ? 最小单位）</label>
-                <input type="number" min="0.01" step="0.01" id="specRate" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：200">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="number" min="0.01" step="0.01" id="specRate" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="如：200">
+                    <span id="specRateUnit" style="font-size:15px;font-weight:bold;min-width:40px;">克</span>
+                </div>
             </div>
         </div>
         

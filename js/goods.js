@@ -596,13 +596,13 @@ function switchGoodsSubTab(tab) {
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
     } else if (tab === 'sub-unitSet' || tab === 'unitSet') {
-        // ✅ 加载单位预设数据
-        setTimeout(() => {
-            loadAllBaseUnit();
-            loadAllUnitSpec();
-            renderAllUnitTable();
-        }, 100);
-    }
+    // ✅ 加载单位预设数据
+    setTimeout(async () => {
+        await loadAllBaseUnit();
+        await loadAllUnitSpec();
+        renderAllUnitTable();
+    }, 100);
+}
 }
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
 function toggleOnlineCostInput() {
@@ -3525,6 +3525,217 @@ function renderBaseUnitSelectOpt() {
     }
 }
 
+// ===================== 二合一弹窗内部下拉搜索 =====================
+
+// 弹窗内一级单位下拉搜索
+function showBaseUnitInModal() {
+    const input = document.getElementById('baseUnitName');
+    const list = document.getElementById('baseUnitModalList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderBaseUnitModalList(kw);
+    list.style.display = 'block';
+}
+
+function filterBaseUnitInModal() {
+    const input = document.getElementById('baseUnitName');
+    const list = document.getElementById('baseUnitModalList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderBaseUnitModalList(kw);
+    list.style.display = 'block';
+}
+
+function renderBaseUnitModalList(keyword) {
+    const list = document.getElementById('baseUnitModalList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    let data = [...baseUnitList];
+    if (keyword) {
+        data = data.filter(item => item.unit_name.toLowerCase().includes(keyword));
+    }
+    
+    // 检查是否有完全匹配
+    const exactMatch = baseUnitList.some(item => item.unit_name.toLowerCase() === keyword);
+    
+    data.forEach(item => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = item.unit_name;
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('baseUnitName').value = item.unit_name;
+            list.style.display = 'none';
+            // 如果编辑类型是1（一级），自动填充归属单位
+            const editType = document.getElementById('unitEditType').value;
+            if (editType == 1) {
+                document.getElementById('specBaseUnitId').value = item.id;
+                document.getElementById('specRateUnit').textContent = item.unit_name;
+            }
+        };
+        list.appendChild(div);
+    });
+    
+    // 无匹配且有关键词时显示"新增"
+    if (!exactMatch && keyword) {
+        const addDiv = document.createElement('div');
+        addDiv.style.padding = '6px 10px';
+        addDiv.style.cursor = 'pointer';
+        addDiv.style.background = '#e6f7ff';
+        addDiv.style.color = '#1890ff';
+        addDiv.textContent = `➕ 新增 "${keyword}"`;
+        addDiv.onclick = function() {
+            document.getElementById('baseUnitName').value = keyword;
+            list.style.display = 'none';
+            // 自动填充到归属单位下拉
+            const editType = document.getElementById('unitEditType').value;
+            if (editType == 1) {
+                // 新增一级单位时，同时填充归属单位
+                document.getElementById('specBaseUnitId').value = '';
+                document.getElementById('specRateUnit').textContent = keyword;
+            } else {
+                // 新增二级单位时，先创建一级单位
+                createBaseUnitAndSelect(keyword);
+            }
+        };
+        list.appendChild(addDiv);
+    }
+}
+
+// 弹窗内二级单位下拉搜索
+function showSpecInModal() {
+    const input = document.getElementById('specShowName');
+    const list = document.getElementById('specModalList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderSpecModalList(kw);
+    list.style.display = 'block';
+}
+
+function filterSpecInModal() {
+    const input = document.getElementById('specShowName');
+    const list = document.getElementById('specModalList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderSpecModalList(kw);
+    list.style.display = 'block';
+}
+
+function renderSpecModalList(keyword) {
+    const list = document.getElementById('specModalList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    const baseId = document.getElementById('specBaseUnitId').value;
+    if (!baseId) {
+        list.innerHTML = '<div style="padding:6px 10px;color:#999;">请先选择归属最小单位</div>';
+        return;
+    }
+    
+    let data = unitSpecList.filter(s => s.base_unit_id == baseId);
+    if (keyword) {
+        data = data.filter(item => item.show_name.toLowerCase().includes(keyword));
+    }
+    
+    const exactMatch = data.some(item => item.show_name.toLowerCase() === keyword);
+    
+    data.forEach(item => {
+        const base = baseUnitList.find(u => u.id == item.base_unit_id);
+        const div = document.createElement('div');
+        div.style.padding = '6px 10px';
+        div.style.cursor = 'pointer';
+        div.style.borderBottom = '1px solid #eee';
+        div.textContent = `${item.show_name} (${item.convert_rate}${base ? base.unit_name : ''})`;
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('specShowName').value = item.show_name;
+            document.getElementById('specRate').value = item.convert_rate;
+            list.style.display = 'none';
+        };
+        list.appendChild(div);
+    });
+    
+    // 无匹配且有关键词时显示"新增"
+    if (!exactMatch && keyword) {
+        const addDiv = document.createElement('div');
+        addDiv.style.padding = '6px 10px';
+        addDiv.style.cursor = 'pointer';
+        addDiv.style.background = '#e6f7ff';
+        addDiv.style.color = '#1890ff';
+        const base = baseUnitList.find(u => u.id == baseId);
+        addDiv.textContent = `➕ 新增 "${keyword}" (归属: ${base ? base.unit_name : ''})`;
+        addDiv.onclick = function() {
+            document.getElementById('specShowName').value = keyword;
+            list.style.display = 'none';
+        };
+        list.appendChild(addDiv);
+    }
+}
+
+// 归属单位变更时更新单位显示
+function onModalBaseUnitChange() {
+    const baseId = document.getElementById('specBaseUnitId').value;
+    const base = baseUnitList.find(u => u.id == baseId);
+    if (base) {
+        document.getElementById('specRateUnit').textContent = base.unit_name;
+        // 如果一级单位输入框为空，自动填充
+        const baseNameInput = document.getElementById('baseUnitName');
+        if (!baseNameInput.value) {
+            baseNameInput.value = base.unit_name;
+        }
+    }
+    // 清空二级单位相关
+    document.getElementById('specShowName').value = '';
+    document.getElementById('specRate').value = '';
+    document.getElementById('specModalList').style.display = 'none';
+}
+
+// 创建一级单位并选中（供二级新增时使用）
+async function createBaseUnitAndSelect(unitName) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ unit_name: unitName, is_locked: false })
+        });
+        const newData = await res.json();
+        const newId = newData[0]?.id;
+        if (newId) {
+            await loadAllBaseUnit();
+            document.getElementById('specBaseUnitId').value = newId;
+            document.getElementById('baseUnitName').value = unitName;
+            document.getElementById('specRateUnit').textContent = unitName;
+            showMsg(`已创建一级单位 "${unitName}"`);
+        }
+    } catch (e) {
+        showMsg('创建一级单位失败：' + e.message);
+    }
+}
+
+// 点击空白关闭弹窗内下拉
+document.addEventListener('click', function(e) {
+    const baseInput = document.getElementById('baseUnitName');
+    const baseList = document.getElementById('baseUnitModalList');
+    if (baseInput && baseList && !e.target.closest('#baseUnitName') && !e.target.closest('#baseUnitModalList')) {
+        baseList.style.display = 'none';
+    }
+    const specInput = document.getElementById('specShowName');
+    const specList = document.getElementById('specModalList');
+    if (specInput && specList && !e.target.closest('#specShowName') && !e.target.closest('#specModalList')) {
+        specList.style.display = 'none';
+    }
+});
+
 // ===================== 弹窗相关函数 =====================
 
 // 统一弹窗入口：始终显示完整的二合一弹窗（一级+二级同时可填）
@@ -3659,17 +3870,17 @@ async function submitAllUnit() {
 
         // ========== 第二步：如果有二级规格信息，保存/更新二级规格 ==========
         if (showName && rate > 0) {
-            // 检查二级规格重名（同一一级单位下，同名且同换算系数）
-            const repeatSpec = unitSpecList.some(s => 
-                s.base_unit_id == savedBaseId && 
-                s.show_name == showName && 
-                s.convert_rate == rate && 
-                s.id != editId
-            );
-            if (repeatSpec) {
-                showMsg('该单位下同名同换算规格已存在，一级单位已保存');
-                // 不阻断，继续刷新
-            } else {
+    // 检查二级规格重名（同一级单位下，show_name + convert_rate 组合不能重复）
+    const repeatSpec = unitSpecList.some(s => 
+        s.base_unit_id == savedBaseId && 
+        s.show_name == showName && 
+        s.convert_rate == rate && 
+        s.id != editId
+    );
+    if (repeatSpec) {
+        showMsg('该单位下同名同换算规格已存在，一级单位已保存');
+        // 不阻断，继续刷新
+    } else {
                 const specPayload = { 
                     base_unit_id: savedBaseId, 
                     show_name: showName, 
@@ -3803,32 +4014,101 @@ function filterAddBaseUnitList() {
     debounceFilterBase();
 }
 
-// 选中一级，渲染下方二级规格多选框
+// ===================== 商品新增弹窗单位下拉（树形结构） =====================
+
+// 重写 selectGoodsBaseUnit - 选中一级，渲染树形二级规格
 function selectGoodsBaseUnit(item) {
     currentSelectBaseId = item.id;
     document.getElementById('addBaseUnitSearch').value = item.unit_name;
     document.getElementById('add_base_unit_id').value = item.id;
     document.getElementById('addBaseUnitListBox').style.display = 'none';
-    const wrap = document.getElementById('specMultiWrap');
-    const checkBox = document.getElementById('specCheckWrap');
-    wrap.style.display = 'block';
-    checkBox.innerHTML = '';
-    const childSpec = unitSpecList.filter(s => s.base_unit_id == item.id);
-    childSpec.forEach(spec => {
-        const div = document.createElement('div');
-        div.style.display = 'flex';
-        div.style.gap = '6px';
-        div.innerHTML = `
-            <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" id="sp_${spec.id}">
-            <label for="sp_${spec.id}">${spec.show_name}(${spec.convert_rate}${item.unit_name})</label>
-        `;
-        checkBox.appendChild(div);
-    })
+    
+    // 渲染树形结构
+    renderGoodsUnitTree(item.id);
 }
 
-// ===================== 劫持商品表单函数 =====================
+// 渲染商品单位树形结构（一级radio + 二级checkbox）
+function renderGoodsUnitTree(selectedBaseId) {
+    const wrap = document.getElementById('specMultiWrap');
+    const checkBox = document.getElementById('specCheckWrap');
+    if (!wrap || !checkBox) return;
+    
+    wrap.style.display = 'block';
+    checkBox.innerHTML = '';
+    
+    // 获取当前商品已绑定的规格ID（编辑时回显）
+    const goodsId = document.getElementById('editId').value;
+    let boundSpecIds = [];
+    if (goodsId) {
+        // 从全局缓存或DOM中获取
+        const bindInput = document.getElementById('bindSpecIds');
+        if (bindInput && bindInput.value) {
+            boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
+        }
+    }
+    
+    // 遍历所有一级单位
+    baseUnitList.forEach(baseItem => {
+        const isSelected = (baseItem.id == selectedBaseId);
+        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
+        
+        // 一级单位行（radio）
+        const rowDiv = document.createElement('div');
+        rowDiv.style.cssText = 'padding:6px 8px;border-bottom:1px solid #f0f0f0;';
+        rowDiv.innerHTML = `
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:${isSelected ? 'bold' : 'normal'};">
+                <input type="radio" name="baseUnitRadio" value="${baseItem.id}" 
+                    ${isSelected ? 'checked' : ''}
+                    onchange="onGoodsBaseUnitRadioChange(${baseItem.id})">
+                ${isSelected ? '✅' : '⏹️'} ${baseItem.unit_name}
+                ${isSelected ? '<span style="color:#52c41a;font-size:12px;margin-left:6px;">（已选中）</span>' : ''}
+            </label>
+        `;
+        checkBox.appendChild(rowDiv);
+        
+        // 二级规格（checkbox）- 仅当该一级被选中时显示
+        if (isSelected && childSpecs.length > 0) {
+            const specContainer = document.createElement('div');
+            specContainer.style.cssText = 'padding-left:28px;padding-bottom:6px;';
+            
+            childSpecs.forEach(spec => {
+                const isChecked = boundSpecIds.includes(spec.id);
+                const specDiv = document.createElement('div');
+                specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;';
+                specDiv.innerHTML = `
+                    <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" 
+                        ${isChecked ? 'checked' : ''}
+                        id="sp_${spec.id}">
+                    <label for="sp_${spec.id}" style="font-size:13px;color:#333;cursor:pointer;">
+                        ⏹️ ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
+                        ${isChecked ? '<span style="color:#52c41a;"> ☑</span>' : ''}
+                    </label>
+                `;
+                specContainer.appendChild(specDiv);
+            });
+            checkBox.appendChild(specContainer);
+        } else if (isSelected && childSpecs.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.cssText = 'padding-left:28px;color:#999;font-size:13px;padding-bottom:6px;';
+            emptyDiv.textContent = '（该单位下暂无换算规格）';
+            checkBox.appendChild(emptyDiv);
+        }
+    });
+}
 
-// 劫持新增商品弹窗，重置单位区域
+// 一级单位radio切换
+function onGoodsBaseUnitRadioChange(baseId) {
+    // 更新隐藏域
+    document.getElementById('add_base_unit_id').value = baseId;
+    const baseItem = baseUnitList.find(u => u.id == baseId);
+    if (baseItem) {
+        document.getElementById('addBaseUnitSearch').value = baseItem.unit_name;
+    }
+    // 重新渲染树形结构
+    renderGoodsUnitTree(baseId);
+}
+
+// 劫持新增商品弹窗，重置单位区域（已有，确保调用）
 const oldOpenAddForm = openAddForm;
 openAddForm = async function () {
     await oldOpenAddForm();
@@ -3848,31 +4128,43 @@ openEditForm = async function (goodsId) {
     await oldOpenEditForm(goodsId);
     await loadAllBaseUnit();
     await loadAllUnitSpec();
+    
     const goodsItem = allGoods.find(g => g.id == goodsId);
-    if (!goodsItem || !goodsItem.base_unit_id) return;
-    const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
-    if (!baseItem) return;
-    selectGoodsBaseUnit(baseItem);
-    // 拉取已绑定规格自动勾选
-    const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-    })
-    const bindList = await bindRes.json() || [];
-    bindList.forEach(bind => {
-        const ck = document.querySelector(`.specCheck[data-spec-id="${bind.spec_id}"]`);
-        if (ck) ck.checked = true;
-    })
+    if (!goodsItem) return;
+    
+    // 回显一级单位
+    if (goodsItem.base_unit_id) {
+        const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
+        if (baseItem) {
+            // 先设置选中状态
+            document.getElementById('addBaseUnitSearch').value = baseItem.unit_name;
+            document.getElementById('add_base_unit_id').value = baseItem.id;
+            
+            // 拉取已绑定规格
+            const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+            });
+            const bindList = await bindRes.json() || [];
+            const boundIds = bindList.map(b => b.spec_id);
+            document.getElementById('bindSpecIds').value = boundIds.join(',');
+            
+            // 渲染树形结构
+            renderGoodsUnitTree(baseItem.id);
+        }
+    }
 }
 
-// 劫持商品保存，同步存储一级、多规格绑定关系
+// 劫持商品保存，同步存储一级、多规格绑定关系（已有，确保完整）
 const oldSubmitForm = submitForm;
 submitForm = async function () {
     const baseId = document.getElementById('add_base_unit_id').value;
     if (!baseId) { alert('请选择基准最小计量单位'); return; }
+    
     // 获取所有勾选规格ID
     const checkedSpecs = Array.from(document.querySelectorAll('.specCheck:checked')).map(el => el.dataset.specId);
     const editId = document.getElementById('editId').value;
-    // 原有表单校验完全保留不动
+    
+    // 原有表单校验
     let supplier = document.getElementById('add_supplier').value;
     let name = document.getElementById('add_name').value;
     let spec = document.getElementById('add_spec').value;
@@ -3897,6 +4189,7 @@ submitForm = async function () {
             if (newSale !== oldSalePrice) priceChange = true;
         }
     }
+    
     // 商品主表携带基准单位
     const goodsData = {
         supplier: supplier.trim(),
@@ -3913,17 +4206,20 @@ submitForm = async function () {
         base_unit_id: +baseId,
         base_unit_name: document.getElementById('addBaseUnitSearch').value
     }
+    
     try {
         let goodsRealId = editId;
-        // 更新/新增商品主表
         if (editId) {
             await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
                 method: 'PATCH',
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(goodsData)
-            })
+            });
             if (priceChange) {
-                await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } })
+                await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, { 
+                    method: 'DELETE', 
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } 
+                });
                 showMsg('价格变更，临时价格已清空');
             }
         } else {
@@ -3931,22 +4227,23 @@ submitForm = async function () {
                 method: 'POST',
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                 body: JSON.stringify(goodsData)
-            })
+            });
             const newArr = await res.json();
             goodsRealId = newArr[0]?.id;
         }
+        
         // 同步更新多对多绑定表
         if (goodsRealId) {
-            // 先清空旧绑定
             await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
-                method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-            })
-            // 批量插入新勾选规格
+                method: 'DELETE', 
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+            });
             for (const sid of checkedSpecs) {
                 await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
-                    method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    method: 'POST', 
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ goods_id: goodsRealId, spec_id: sid })
-                })
+                });
             }
         }
         showMsg(editId ? '商品编辑成功' : '商品新增成功');
@@ -3957,7 +4254,6 @@ submitForm = async function () {
         showMsg('保存失败：' + err.message);
     }
 }
-
 // ===================== 空白点击关闭下拉 =====================
 
 document.addEventListener('click', function (e) {
