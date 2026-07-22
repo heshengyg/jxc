@@ -596,12 +596,13 @@ function switchGoodsSubTab(tab) {
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
     } else if (tab === 'sub-unitSet' || tab === 'unitSet') {
-    // ✅ 加载单位预设数据
-    setTimeout(async () => {
-        await loadAllBaseUnit();
-        await loadAllUnitSpec();
+    // ✅ 加载单位预设数据 - 直接调用，不用setTimeout
+    loadAllBaseUnit();
+    loadAllUnitSpec();
+    // 延迟一点渲染表格，等待数据加载完成
+    setTimeout(function() {
         renderAllUnitTable();
-    }, 100);
+    }, 300);
 }
 }
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
@@ -3440,6 +3441,11 @@ async function loadAllBaseUnit() {
         });
         baseUnitList = await res.json() || [];
         renderBaseUnitSelectOpt();
+        // ✅ 如果当前显示的是单位预设页面，自动渲染表格
+        const unitSetContent = document.getElementById('sub-unitSet');
+        if (unitSetContent && unitSetContent.style.display !== 'none') {
+            renderAllUnitTable();
+        }
     } catch (e) {
         showMsg('加载单位失败：' + e.message);
     }
@@ -3452,11 +3458,15 @@ async function loadAllUnitSpec() {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         unitSpecList = await res.json() || [];
+        // ✅ 如果当前显示的是单位预设页面，自动渲染表格
+        const unitSetContent = document.getElementById('sub-unitSet');
+        if (unitSetContent && unitSetContent.style.display !== 'none') {
+            renderAllUnitTable();
+        }
     } catch (e) {
         showMsg('加载规格失败：' + e.message);
     }
 }
-
 // ===================== 渲染表格函数 =====================
 
 // 单位预设统一一张总列表
@@ -3464,7 +3474,19 @@ function renderAllUnitTable() {
     const tb = document.getElementById('allUnitTable');
     if (!tb) return;
     tb.innerHTML = '';
+    
+    // ✅ 如果两个列表都为空，显示提示
+    if (baseUnitList.length === 0 && unitSpecList.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请点击"新增单位"添加</td></tr>';
+        return;
+    }
+    
     // 合并一级+二级数据展示
+    if (baseUnitList.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无一级单位，请点击"新增单位"添加</td></tr>';
+        return;
+    }
+    
     baseUnitList.forEach(baseItem => {
         // 一级单位行
         const tr1 = document.createElement('tr');
@@ -3483,24 +3505,33 @@ function renderAllUnitTable() {
         tb.appendChild(tr1);
         // 该一级下所有二级规格
         const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
-        childSpecs.forEach(spec => {
-            const tr2 = document.createElement('tr');
-            tr2.innerHTML = `
-                <td>${spec.id}</td>
-                <td>&nbsp;&nbsp;&nbsp;└ 换算规格</td>
-                <td>${spec.show_name}</td>
-                <td>${spec.convert_rate}${baseItem.unit_name}</td>
-                <td>${spec.is_locked ? '锁定' : '正常'}</td>
-                <td>
-                    <button onclick="openUnitEdit(${spec.id},2)" class="btn btn-sm btn-primary">编辑规格</button>
-                    ${spec.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${spec.id})" class="btn btn-sm btn-danger">删除</button>`}
+        if (childSpecs.length === 0) {
+            const trEmpty = document.createElement('tr');
+            trEmpty.innerHTML = `
+                <td colspan="6" style="padding:4px 10px;color:#999;text-align:center;font-size:13px;">
+                    └ （该单位下暂无换算规格，点击"新增该规格"添加）
                 </td>
             `;
-            tb.appendChild(tr2);
-        });
+            tb.appendChild(trEmpty);
+        } else {
+            childSpecs.forEach(spec => {
+                const tr2 = document.createElement('tr');
+                tr2.innerHTML = `
+                    <td>${spec.id}</td>
+                    <td>&nbsp;&nbsp;&nbsp;└ 换算规格</td>
+                    <td>${spec.show_name}</td>
+                    <td>${spec.convert_rate}${baseItem.unit_name}</td>
+                    <td>${spec.is_locked ? '锁定' : '正常'}</td>
+                    <td>
+                        <button onclick="openUnitEdit(${spec.id},2)" class="btn btn-sm btn-primary">编辑规格</button>
+                        ${spec.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${spec.id})" class="btn btn-sm btn-danger">删除</button>`}
+                    </td>
+                `;
+                tb.appendChild(tr2);
+            });
+        }
     });
 }
-
 // 渲染下拉公用选项（弹窗归属单位、筛选下拉）
 function renderBaseUnitSelectOpt() {
     const specSel = document.getElementById('specBaseUnitId');
