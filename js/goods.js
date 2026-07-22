@@ -3473,7 +3473,8 @@ function renderAllUnitTable() {
             <td>${baseItem.is_locked ? '锁定' : '可编辑'}</td>
             <td>
                 ${baseItem.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteBaseUnit(${baseItem.id})" class="btn btn-sm btn-danger">删除</button>`}
-                <button onclick="openUnitEdit(${baseItem.id},2)" class="btn btn-sm btn-success">新增规格</button>
+                <!-- 🔥 关键修复：新增规格传入 source='base' -->
+                <button onclick="openUnitEdit(${baseItem.id},2,'','base')" class="btn btn-sm btn-success">新增规格</button>
             </td>
         `;
         tb.appendChild(tr1);
@@ -3493,6 +3494,7 @@ function renderAllUnitTable() {
                     <td>${spec.convert_rate}${baseItem.unit_name}</td>
                     <td>${spec.is_locked ? '锁定' : '正常'}</td>
                     <td>
+                        <!-- 🔥 编辑规格不传 source，默认按编辑处理 -->
                         <button onclick="openUnitEdit(${spec.id},2)" class="btn btn-sm btn-primary">编辑</button>
                         ${spec.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${spec.id})" class="btn btn-sm btn-danger">删除</button>`}
                     </td>
@@ -3502,7 +3504,6 @@ function renderAllUnitTable() {
         }
     });
 }
-
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
     const filterSel = $('filterBaseUnit');
@@ -3677,7 +3678,8 @@ function renderExistingSpecs(baseId) {
 }
 
 // ===================== 🔥 openUnitEdit（核心修复：用表名区分ID） =====================
-function openUnitEdit(editId = null, editType = 1, fillName = '') {
+// ===================== 🔥 openUnitEdit（核心修复：用source区分ID来源） =====================
+function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
     const modal = $('unitAllModal');
     const title = $('unitModalTitle');
     const editTypeInput = $('unitEditType');
@@ -3758,15 +3760,14 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
         }
     } else {
         // ===== 二级规格操作 =====
-        // 🔥 核心修复：用表名区分ID来源
-        // 先检查 editId 是否在 baseUnitList 中（一级单位ID）
-        const isBaseExist = editId ? baseUnitList.some(b => b.id == editId) : false;
-        // 再检查 editId 是否在 unitSpecList 中（二级规格ID）
-        const isSpecExist = editId ? unitSpecList.some(s => s.id == editId) : false;
+        // 🔥 核心修复：通过 source 参数明确区分ID来源
+        // source='base' 表示从一级行点击"新增规格"，editId 是一级单位ID
+        // source='spec' 或空 表示编辑规格，editId 是二级规格ID
         
-        if (editId && isBaseExist && !isSpecExist) {
+        if (source === 'base') {
             // ===== 新增规格（从一级行点击"新增规格"） =====
             if (title) title.textContent = '新增换算规格';
+            // 直接查找 baseUnitList
             const baseItem = baseUnitList.find(u => u.id == editId);
             if (baseItem && baseNameInput) {
                 baseNameInput.value = baseItem.unit_name;
@@ -3787,11 +3788,13 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
                 saveBtn.textContent = '保存'; 
                 saveBtn.onclick = submitAllUnit; 
             }
-        } else if (editId && isSpecExist && !isBaseExist) {
-            // ===== 编辑规格 =====
-            if (title) title.textContent = '编辑换算规格';
+        } else {
+            // ===== 编辑规格（从二级行点击"编辑"） =====
+            // 或者 source 为空，默认按编辑处理
+            // 查找 unitSpecList
             const spec = unitSpecList.find(s => s.id == editId);
             if (spec) {
+                if (title) title.textContent = '编辑换算规格';
                 const baseItem = baseUnitList.find(u => u.id == spec.base_unit_id);
                 if (baseItem && baseNameInput) {
                     baseNameInput.value = baseItem.unit_name;
@@ -3813,27 +3816,26 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
                     saveBtn.onclick = function() { doUpdateSpec(editId); };
                 }
                 if (hidId) hidId.value = editId;
-            }
-        } else {
-            // ===== 纯新增规格（无editId或无法识别） =====
-            if (title) title.textContent = '新增换算规格';
-            if (baseNameInput) { baseNameInput.disabled = false; baseNameInput.style.background = '#fff'; }
-            if (rateUnitSpan) rateUnitSpan.textContent = '单位';
-            if (existingContainer) existingContainer.innerHTML = '';
-            if (hidId) hidId.value = '';
-            if (addSpecBtn) { 
-                addSpecBtn.textContent = '+ 添加'; 
-                addSpecBtn.style.display = '';
-                addSpecBtn.onclick = addSpecToList; 
-            }
-            if (saveBtn) { 
-                saveBtn.textContent = '保存'; 
-                saveBtn.onclick = submitAllUnit; 
+            } else {
+                // ===== 纯新增规格（无editId或找不到） =====
+                if (title) title.textContent = '新增换算规格';
+                if (baseNameInput) { baseNameInput.disabled = false; baseNameInput.style.background = '#fff'; }
+                if (rateUnitSpan) rateUnitSpan.textContent = '单位';
+                if (existingContainer) existingContainer.innerHTML = '';
+                if (hidId) hidId.value = '';
+                if (addSpecBtn) { 
+                    addSpecBtn.textContent = '+ 添加'; 
+                    addSpecBtn.style.display = '';
+                    addSpecBtn.onclick = addSpecToList; 
+                }
+                if (saveBtn) { 
+                    saveBtn.textContent = '保存'; 
+                    saveBtn.onclick = submitAllUnit; 
+                }
             }
         }
     }
 }
-
 async function doUpdateSpec(editId) {
     const showNameInput = $('specShowName');
     const rateInput = $('specRate');
