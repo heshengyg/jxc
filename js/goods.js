@@ -4004,7 +4004,7 @@ openUnitEdit = function(editId = null, editType = 1, fillName = '') {
 };
 
 // 修改 submitAllUnit 保存规格列表
-const originalSubmitAllUnit = submitAllUnit;
+
 submitAllUnit = async function() {
     const editType = document.getElementById('unitEditType').value;
     const editId = document.getElementById('unitEditId').value;
