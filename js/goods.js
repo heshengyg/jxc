@@ -3484,7 +3484,7 @@ function renderAllUnitTable() {
     
     baseUnitList.forEach(baseItem => {
         const tr1 = document.createElement('tr');
-        // ✅ 去掉【一级单位】前缀，直接显示单位名称
+        // ✅ 一级单位：去掉"编辑"，只保留"删除"和"新增规格"
         tr1.innerHTML = `
             <td>${baseItem.id}</td>
             <td style="font-weight:bold;">${baseItem.unit_name}</td>
@@ -3492,7 +3492,6 @@ function renderAllUnitTable() {
             <td>-</td>
             <td>${baseItem.is_locked ? '锁定' : '可编辑'}</td>
             <td>
-                <button onclick="openUnitEdit(${baseItem.id},1)" class="btn btn-sm btn-primary">编辑</button>
                 ${baseItem.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteBaseUnit(${baseItem.id})" class="btn btn-sm btn-danger">删除</button>`}
                 <button onclick="openUnitEdit(${baseItem.id},2)" class="btn btn-sm btn-success">新增规格</button>
             </td>
@@ -3527,6 +3526,7 @@ function renderAllUnitTable() {
         }
     });
 }
+
 // 渲染下拉公用选项（弹窗归属单位、筛选下拉）
 function renderBaseUnitSelectOpt() {
     const specSel = document.getElementById('specBaseUnitId');
@@ -4021,46 +4021,41 @@ submitAllUnit = async function() {
         
         // ========== 如果是编辑二级规格 ==========
         if (editType == 2 && editId) {
-            // 编辑二级规格：找到所属的一级单位ID
             const existingSpec = unitSpecList.find(s => s.id == editId);
-            if (existingSpec) {
-                savedBaseId = existingSpec.base_unit_id;
-            } else {
+            if (!existingSpec) {
                 showMsg('找不到该规格');
                 return;
             }
+            savedBaseId = existingSpec.base_unit_id;
             
-            // 检查新规格是否与已有规格重复（排除自身）
-            if (tempSpecList.length > 0) {
-                const spec = tempSpecList[0];
-                const duplicate = unitSpecList.some(s => 
-                    s.base_unit_id == savedBaseId && 
-                    s.show_name == spec.show_name && 
-                    s.convert_rate == spec.convert_rate &&
-                    s.id != editId
-                );
-                if (duplicate) {
-                    showMsg('该单位下已存在同名同系数的换算规格');
-                    return;
-                }
-                
-                // 更新规格（先删除旧的，再插入新的）
-                await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
-                    method: 'DELETE',
-                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-                });
-                
-                await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
-                    method: 'POST',
-                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        base_unit_id: savedBaseId, 
-                        show_name: spec.show_name, 
-                        convert_rate: spec.convert_rate, 
-                        is_locked: false 
-                    })
-                });
+            if (tempSpecList.length === 0) {
+                showMsg('请填写换算规格');
+                return;
             }
+            
+            const spec = tempSpecList[0];
+            
+            // 检查是否与已有规格重复（排除自身）
+            const duplicate = unitSpecList.some(s => 
+                s.base_unit_id == savedBaseId && 
+                s.show_name == spec.show_name && 
+                s.convert_rate == spec.convert_rate &&
+                s.id != editId
+            );
+            if (duplicate) {
+                showMsg('该单位下已存在同名同系数的换算规格');
+                return;
+            }
+            
+            // 直接更新规格
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
+                method: 'PATCH',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    show_name: spec.show_name, 
+                    convert_rate: spec.convert_rate
+                })
+            });
             
             showMsg('规格更新成功！');
             closeUnitAllModal();
@@ -4079,7 +4074,6 @@ submitAllUnit = async function() {
             if (baseItem) {
                 savedBaseId = baseItem.id;
             } else {
-                // 如果一级单位不存在，先创建
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
                     method: 'POST',
                     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
@@ -4093,25 +4087,31 @@ submitAllUnit = async function() {
                 }
             }
             
-            // 保存所有规格
+            // 检查规格重复
             for (const spec of tempSpecList) {
                 const exists = unitSpecList.some(s => 
                     s.base_unit_id == savedBaseId && 
                     s.show_name == spec.show_name && 
                     s.convert_rate == spec.convert_rate
                 );
-                if (!exists) {
-                    await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
-                        method: 'POST',
-                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            base_unit_id: savedBaseId, 
-                            show_name: spec.show_name, 
-                            convert_rate: spec.convert_rate, 
-                            is_locked: false 
-                        })
-                    });
+                if (exists) {
+                    showMsg(`换算规格 "${spec.show_name}（${spec.convert_rate}${unitName}）" 已存在`);
+                    return;
                 }
+            }
+            
+            // 保存所有规格
+            for (const spec of tempSpecList) {
+                await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+                    method: 'POST',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        base_unit_id: savedBaseId, 
+                        show_name: spec.show_name, 
+                        convert_rate: spec.convert_rate, 
+                        is_locked: false 
+                    })
+                });
             }
             
             showMsg('规格添加成功！');
@@ -4157,25 +4157,31 @@ submitAllUnit = async function() {
             return;
         }
 
-        // 保存所有规格
+        // 检查规格重复
         for (const spec of tempSpecList) {
             const exists = unitSpecList.some(s => 
                 s.base_unit_id == savedBaseId && 
                 s.show_name == spec.show_name && 
                 s.convert_rate == spec.convert_rate
             );
-            if (!exists) {
-                await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
-                    method: 'POST',
-                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        base_unit_id: savedBaseId, 
-                        show_name: spec.show_name, 
-                        convert_rate: spec.convert_rate, 
-                        is_locked: false 
-                    })
-                });
+            if (exists) {
+                showMsg(`换算规格 "${spec.show_name}（${spec.convert_rate}${unitName}）" 已存在`);
+                return;
             }
+        }
+
+        // 保存所有规格
+        for (const spec of tempSpecList) {
+            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+                method: 'POST',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    base_unit_id: savedBaseId, 
+                    show_name: spec.show_name, 
+                    convert_rate: spec.convert_rate, 
+                    is_locked: false 
+                })
+            });
         }
 
         showMsg('保存成功！');
