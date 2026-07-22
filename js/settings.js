@@ -476,11 +476,13 @@ function applySubTabPermissions() {
 
     var firstVisible = null;
     subBtns.forEach(function(btn) {
-        var tabKey = btn.dataset.tab;
-        var hasPerm = perms.view.includes(tabKey);
-        btn.style.display = hasPerm ? '' : 'none';
-        if (hasPerm && !firstVisible) firstVisible = btn;
-    });
+    var tabKey = btn.dataset.tab;
+    // 将 sub-unitSet 映射为 unitSet（权限系统中存的是 unitSet）
+    var permKey = tabKey === 'sub-unitSet' ? 'unitSet' : tabKey;
+    var hasPerm = perms.view.includes(permKey);
+    btn.style.display = hasPerm ? '' : 'none';
+    if (hasPerm && !firstVisible) firstVisible = btn;
+});
 
     var activeSub = document.querySelector('#' + moduleKey + ' .finance-sub-btn.active') ||
                     document.querySelector('#' + moduleKey + ' .settings-sub-btn.active');
