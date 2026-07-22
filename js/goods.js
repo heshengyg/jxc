@@ -3743,7 +3743,7 @@ function closeUnitAllModal() {
     document.getElementById('unitAllModal').style.display = 'none';
 }
 
-// ===================== 保存提交函数 =====================
+// ===================== 🔥 修复：保存提交函数 =====================
 async function submitAllUnit() {
     const editType = document.getElementById('unitEditType').value;
     const editId = document.getElementById('unitEditId').value;
@@ -3757,8 +3757,11 @@ async function submitAllUnit() {
     try {
         let savedBaseId = null;
         
-        // ========== 编辑二级规格 ==========
+        // ============================================================
+        // 🔥 情况1：编辑二级规格
+        // ============================================================
         if (editType == 2 && editId) {
+            // 检查 editId 是否真的是规格ID
             const existingSpec = unitSpecList.find(s => s.id == editId);
             if (!existingSpec) {
                 showMsg('找不到该规格');
@@ -3773,6 +3776,7 @@ async function submitAllUnit() {
             
             const spec = tempSpecList[0];
             
+            // 🔥 判重：检查同一一级单位下，二级名称+系数组合是否重复（排除自身）
             const duplicate = unitSpecList.some(s => 
                 s.base_unit_id == savedBaseId && 
                 s.show_name == spec.show_name && 
@@ -3784,7 +3788,8 @@ async function submitAllUnit() {
                 return;
             }
             
-            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
+            // 🔥 使用 PATCH 更新
+            const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec?id=eq.${editId}`, {
                 method: 'PATCH',
                 headers: { 
                     apikey: SUPABASE_KEY, 
@@ -3797,9 +3802,16 @@ async function submitAllUnit() {
                 })
             });
             
+            if (!updateRes.ok) {
+                const errText = await updateRes.text();
+                showMsg('更新失败：' + errText);
+                return;
+            }
+            
             showMsg('规格更新成功！');
             closeUnitAllModal();
             clearTempSpecList();
+            // 🔥 重新加载数据并刷新表格
             await loadAllBaseUnit();
             await loadAllUnitSpec();
             renderAllUnitTable();
@@ -3807,12 +3819,16 @@ async function submitAllUnit() {
             return;
         }
         
-        // ========== 新增二级规格 ==========
+        // ============================================================
+        // 🔥 情况2：新增二级规格（从一级行点击"新增规格"）
+        // ============================================================
         if (editType == 2 && !editId) {
+            // 查找或创建一级单位
             let baseItem = baseUnitList.find(u => u.unit_name === unitName);
             if (baseItem) {
                 savedBaseId = baseItem.id;
             } else {
+                // 一级单位不存在，先创建
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
                     method: 'POST',
                     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
@@ -3824,8 +3840,11 @@ async function submitAllUnit() {
                     showMsg('创建一级单位失败');
                     return;
                 }
+                // 🔥 重新加载一级单位列表
+                await loadAllBaseUnit();
             }
             
+            // 🔥 检查规格组合是否重复
             for (const spec of tempSpecList) {
                 const exists = unitSpecList.some(s => 
                     s.base_unit_id == savedBaseId && 
@@ -3836,8 +3855,11 @@ async function submitAllUnit() {
                     showMsg(`换算规格"${spec.show_name}（${spec.convert_rate}${unitName}）"已存在`);
                     return;
                 }
-                
-                await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+            }
+            
+            // 保存所有规格
+            for (const spec of tempSpecList) {
+                const postRes = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
                     method: 'POST',
                     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -3847,11 +3869,17 @@ async function submitAllUnit() {
                         is_locked: false 
                     })
                 });
+                if (!postRes.ok) {
+                    const errText = await postRes.text();
+                    showMsg('保存规格失败：' + errText);
+                    return;
+                }
             }
             
             showMsg('规格添加成功！');
             closeUnitAllModal();
             clearTempSpecList();
+            // 🔥 重新加载数据并刷新表格
             await loadAllBaseUnit();
             await loadAllUnitSpec();
             renderAllUnitTable();
@@ -3859,67 +3887,115 @@ async function submitAllUnit() {
             return;
         }
         
-        // ========== 一级单位操作 ==========
-        const repeatBase = baseUnitList.some(item => 
-            item.unit_name === unitName && item.id != editId
-        );
-        if (repeatBase) {
-            showMsg('该最小计量单位已存在');
-            return;
-        }
+        // ============================================================
+        // 🔥 情况3：一级单位操作（新增/编辑最小计量单位）
+        // ============================================================
+        if (editType == 1) {
+            let baseId = null;
+            
+            if (editId) {
+                // 🔥 编辑一级单位：检查一级单位名称是否重复（排除自身）
+                const repeatBase = baseUnitList.some(item => 
+                    item.unit_name === unitName && item.id != editId
+                );
+                if (repeatBase) {
+                    showMsg('该最小计量单位已存在');
+                    return;
+                }
+                
+                // 更新一级单位
+                const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
+                    method: 'PATCH',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ unit_name: unitName, is_locked: false })
+                });
+                if (!updateRes.ok) {
+                    const errText = await updateRes.text();
+                    showMsg('更新一级单位失败：' + errText);
+                    return;
+                }
+                baseId = editId;
+            } else {
+                // 🔥 新增一级单位：检查一级单位名称是否已存在
+                const repeatBase = baseUnitList.some(item => 
+                    item.unit_name === unitName
+                );
+                if (repeatBase) {
+                    // 🔥 关键修复：如果一级单位已存在，不报错，而是直接使用该一级单位继续保存规格
+                    const existBase = baseUnitList.find(item => item.unit_name === unitName);
+                    if (existBase) {
+                        baseId = existBase.id;
+                        showMsg(`一级单位"${unitName}"已存在，将在该单位下新增规格`);
+                    } else {
+                        showMsg('该最小计量单位已存在');
+                        return;
+                    }
+                } else {
+                    // 一级单位不存在，创建新的一级单位
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+                        method: 'POST',
+                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify({ unit_name: unitName, is_locked: false })
+                    });
+                    const newData = await res.json();
+                    baseId = newData[0]?.id;
+                    if (!baseId) {
+                        showMsg('创建一级单位失败');
+                        return;
+                    }
+                    // 重新加载一级单位列表
+                    await loadAllBaseUnit();
+                }
+            }
 
-        if (editId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/base_unit?id=eq.${editId}`, {
-                method: 'PATCH',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ unit_name: unitName, is_locked: false })
-            });
-            savedBaseId = editId;
-        } else {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                body: JSON.stringify({ unit_name: unitName, is_locked: false })
-            });
-            const newData = await res.json();
-            savedBaseId = newData[0]?.id;
-        }
-
-        if (!savedBaseId) {
-            showMsg('保存一级单位失败');
-            return;
-        }
-
-        for (const spec of tempSpecList) {
-            const exists = unitSpecList.some(s => 
-                s.base_unit_id == savedBaseId && 
-                s.show_name == spec.show_name && 
-                s.convert_rate == spec.convert_rate
-            );
-            if (exists) {
-                showMsg(`换算规格"${spec.show_name}（${spec.convert_rate}${unitName}）"已存在`);
+            if (!baseId) {
+                showMsg('获取一级单位ID失败');
                 return;
             }
             
-            await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
-                method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    base_unit_id: savedBaseId, 
-                    show_name: spec.show_name, 
-                    convert_rate: spec.convert_rate, 
-                    is_locked: false 
-                })
-            });
-        }
+            // 🔥 检查规格组合是否重复（同一一级单位下）
+            for (const spec of tempSpecList) {
+                const exists = unitSpecList.some(s => 
+                    s.base_unit_id == baseId && 
+                    s.show_name == spec.show_name && 
+                    s.convert_rate == spec.convert_rate
+                );
+                if (exists) {
+                    showMsg(`换算规格"${spec.show_name}（${spec.convert_rate}${unitName}）"已存在`);
+                    return;
+                }
+            }
+            
+            // 保存所有规格
+            for (const spec of tempSpecList) {
+                const postRes = await fetch(`${SUPABASE_URL}/rest/v1/unit_spec`, {
+                    method: 'POST',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        base_unit_id: baseId, 
+                        show_name: spec.show_name, 
+                        convert_rate: spec.convert_rate, 
+                        is_locked: false 
+                    })
+                });
+                if (!postRes.ok) {
+                    const errText = await postRes.text();
+                    showMsg('保存规格失败：' + errText);
+                    return;
+                }
+            }
 
-        showMsg('保存成功！');
-        closeUnitAllModal();
-        clearTempSpecList();
-        await loadAllBaseUnit();
-        await loadAllUnitSpec();
-        renderAllUnitTable();
-        renderBaseUnitSelectOpt();
+            showMsg(editId ? '保存成功！' : '新增成功！');
+            closeUnitAllModal();
+            clearTempSpecList();
+            // 🔥 重新加载数据并刷新表格
+            await loadAllBaseUnit();
+            await loadAllUnitSpec();
+            renderAllUnitTable();
+            renderBaseUnitSelectOpt();
+            return;
+        }
+        
     } catch (e) {
         showMsg('操作失败：' + e.message);
         console.error(e);
