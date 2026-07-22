@@ -596,13 +596,18 @@ function switchGoodsSubTab(tab) {
     } else if (tab === 'dateChange') {
         loadDateChangeTab();
     } else if (tab === 'sub-unitSet' || tab === 'unitSet') {
-    // ✅ 加载单位预设数据 - 直接调用，不用setTimeout
+    // ✅ 先显示内容，再加载数据
+    const unitSetContent = document.getElementById('sub-unitSet');
+    if (unitSetContent) {
+        unitSetContent.style.display = 'block';
+    }
+    // 加载数据并渲染表格
     loadAllBaseUnit();
     loadAllUnitSpec();
-    // 延迟一点渲染表格，等待数据加载完成
+    // 延迟渲染表格（等待数据加载完成）
     setTimeout(function() {
         renderAllUnitTable();
-    }, 300);
+    }, 500);
 }
 }
 // 渠道切换：控制线上成本价、税率、保质期时长、保质期单位输入框禁用/启用
@@ -3434,6 +3439,7 @@ if (!window._originSwitchGoodsSubTab) {
 // ===================== 加载数据函数 =====================
 
 // 加载所有一级单位
+// 加载所有一级单位
 async function loadAllBaseUnit() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit?order=id.asc`, {
@@ -3441,11 +3447,6 @@ async function loadAllBaseUnit() {
         });
         baseUnitList = await res.json() || [];
         renderBaseUnitSelectOpt();
-        // ✅ 如果当前显示的是单位预设页面，自动渲染表格
-        const unitSetContent = document.getElementById('sub-unitSet');
-        if (unitSetContent && unitSetContent.style.display !== 'none') {
-            renderAllUnitTable();
-        }
     } catch (e) {
         showMsg('加载单位失败：' + e.message);
     }
@@ -3458,37 +3459,30 @@ async function loadAllUnitSpec() {
             headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         });
         unitSpecList = await res.json() || [];
-        // ✅ 如果当前显示的是单位预设页面，自动渲染表格
-        const unitSetContent = document.getElementById('sub-unitSet');
-        if (unitSetContent && unitSetContent.style.display !== 'none') {
-            renderAllUnitTable();
-        }
     } catch (e) {
         showMsg('加载规格失败：' + e.message);
     }
 }
+
 // ===================== 渲染表格函数 =====================
 
 // 单位预设统一一张总列表
 function renderAllUnitTable() {
     const tb = document.getElementById('allUnitTable');
-    if (!tb) return;
+    if (!tb) {
+        console.warn('allUnitTable 元素不存在');
+        return;
+    }
     tb.innerHTML = '';
     
-    // ✅ 如果两个列表都为空，显示提示
-    if (baseUnitList.length === 0 && unitSpecList.length === 0) {
+    console.log('渲染单位表格，baseUnitList:', baseUnitList.length, 'unitSpecList:', unitSpecList.length);
+    
+    if (baseUnitList.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请点击"新增单位"添加</td></tr>';
         return;
     }
     
-    // 合并一级+二级数据展示
-    if (baseUnitList.length === 0) {
-        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无一级单位，请点击"新增单位"添加</td></tr>';
-        return;
-    }
-    
     baseUnitList.forEach(baseItem => {
-        // 一级单位行
         const tr1 = document.createElement('tr');
         tr1.innerHTML = `
             <td>${baseItem.id}</td>
@@ -3503,13 +3497,13 @@ function renderAllUnitTable() {
             </td>
         `;
         tb.appendChild(tr1);
-        // 该一级下所有二级规格
+        
         const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
         if (childSpecs.length === 0) {
             const trEmpty = document.createElement('tr');
             trEmpty.innerHTML = `
                 <td colspan="6" style="padding:4px 10px;color:#999;text-align:center;font-size:13px;">
-                    └ （该单位下暂无换算规格，点击"新增该规格"添加）
+                    └ （该单位下暂无换算规格）
                 </td>
             `;
             tb.appendChild(trEmpty);
@@ -3532,6 +3526,7 @@ function renderAllUnitTable() {
         }
     });
 }
+
 // 渲染下拉公用选项（弹窗归属单位、筛选下拉）
 function renderBaseUnitSelectOpt() {
     const specSel = document.getElementById('specBaseUnitId');
@@ -3781,20 +3776,24 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
     const specShow = document.getElementById('specShowName');
     const specRate = document.getElementById('specRate');
 
-    // 先重置弹窗
+    // ✅ 1. 先显示弹窗
+    modal.style.display = 'flex';
+
+    // 2. 重置弹窗
     hidId.value = editId || '';
     editTypeInput.value = editType;
     baseNameInput.value = '';
     specShow.value = '';
     specRate.value = '';
 
-    // ✅ 始终显示完整的二合一弹窗（一级+二级同时显示）
+    // ✅ 3. 始终显示完整的二合一弹窗（一级+二级同时显示）
     specWrap.style.display = 'block';
+    specWrap.style.visibility = 'visible';
 
-    // 渲染下拉选项
+    // 4. 渲染下拉选项
     renderBaseUnitSelectOpt();
 
-    // 根据编辑类型设置标题和回显数据
+    // 5. 根据编辑类型设置标题和回显数据
     if (editType === 1) {
         // 新增/编辑一级单位
         if (editId) {
@@ -3807,7 +3806,6 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
         } else {
             title.textContent = '新增最小计量单位';
             baseNameInput.value = fillName || '';
-            // 如果有填充名称，尝试在现有单位中查找并自动选中
             if (fillName) {
                 const existItem = baseUnitList.find(u => u.unit_name === fillName);
                 if (existItem) {
@@ -3824,13 +3822,11 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
                 specShow.value = spec.show_name;
                 specRate.value = spec.convert_rate;
                 specBaseSel.value = spec.base_unit_id;
-                // 回显一级单位名称
                 const baseItem = baseUnitList.find(u => u.id == spec.base_unit_id);
                 if (baseItem) baseNameInput.value = baseItem.unit_name;
             }
         } else {
             title.textContent = '新增换算规格';
-            // 如果传入了父级ID，自动选中
             if (editId !== null && editId !== undefined && editId !== '') {
                 specBaseSel.value = editId;
                 const baseItem = baseUnitList.find(u => u.id == editId);
@@ -3839,13 +3835,15 @@ function openUnitEdit(editId = null, editType = 1, fillName = '') {
         }
     }
 
-    modal.style.display = 'flex';
+    // ✅ 6. 再次确保二级区域显示（防止被重置）
+    specWrap.style.display = 'block';
+    specWrap.style.visibility = 'visible';
 }
+
 // 关闭统一弹窗
 function closeUnitAllModal() {
     document.getElementById('unitAllModal').style.display = 'none';
 }
-
 // ===================== 保存提交函数 =====================
 
 // 统一保存提交（二合一：同时保存一级+二级）
