@@ -1986,6 +1986,7 @@ document.addEventListener('DOMContentLoaded', async function(){
         <h4 id="unitModalTitle" style="margin:0 0 16px;font-size:18px;">新增最小计量单位</h4>
         <input type="hidden" id="unitEditType" value="1">
         <input type="hidden" id="unitEditId" value="">
+        <input type="hidden" id="specBaseUnitId" value="">
         
         <!-- 一级单位：搜索下拉 -->
         <div style="margin-bottom:14px;position:relative;">
@@ -2020,6 +2021,8 @@ document.addEventListener('DOMContentLoaded', async function(){
             <div id="specListContainer" style="border:1px solid #e8e8e8;border-radius:4px;padding:8px;min-height:50px;background:#fafafa;">
                 <div id="specListItems" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
                 <div id="specListEmpty" style="color:#bbb;text-align:center;padding:12px 0;font-size:13px;">暂无换算规格，请在上方添加</div>
+                <!-- 已有规格列表 -->
+<div id="existingSpecList" style="margin-top:8px; padding:8px; background:#f9f9f9; border-radius:4px; min-height:20px;"></div>
             </div>
         </div>
         
