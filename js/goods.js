@@ -3425,6 +3425,10 @@ let baseUnitSearchTimer = null;
 let tempSpecList = [];
 let currentModalBaseId = null;
 
+// 商品弹窗单位树形下拉临时变量
+let tempSelectedBaseId = null;
+let tempSelectedSpecIds = new Set();
+
 // 安全获取元素
 function $(id) { return document.getElementById(id); }
 
@@ -3881,6 +3885,11 @@ document.addEventListener('click', function(e) {
     if (rateInput && rateList && !e.target.closest('#unitFilterRate') && !e.target.closest('#unitFilterRateList')) {
         rateList.style.display = 'none';
     }
+    // 商品弹窗单位下拉
+    const goodsDropdown = document.getElementById('goodsUnitDropdown');
+    if (goodsDropdown && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#goodsUnitDropdown')) {
+        goodsDropdown.style.display = 'none';
+    }
 });
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
@@ -4055,8 +4064,7 @@ function renderExistingSpecs(baseId) {
     container.innerHTML = html;
 }
 
-// ===================== 🔥 openUnitEdit（核心修复：用表名区分ID） =====================
-// ===================== 🔥 openUnitEdit（核心修复：用source区分ID来源） =====================
+// ===================== 🔥 openUnitEdit =====================
 function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
     const modal = $('unitAllModal');
     const title = $('unitModalTitle');
@@ -4138,14 +4146,9 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
         }
     } else {
         // ===== 二级规格操作 =====
-        // 🔥 核心修复：通过 source 参数明确区分ID来源
-        // source='base' 表示从一级行点击"新增规格"，editId 是一级单位ID
-        // source='spec' 或空 表示编辑规格，editId 是二级规格ID
-        
         if (source === 'base') {
             // ===== 新增规格（从一级行点击"新增规格"） =====
             if (title) title.textContent = '新增换算规格';
-            // 直接查找 baseUnitList
             const baseItem = baseUnitList.find(u => u.id == editId);
             if (baseItem && baseNameInput) {
                 baseNameInput.value = baseItem.unit_name;
@@ -4167,9 +4170,7 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
                 saveBtn.onclick = submitAllUnit; 
             }
         } else {
-            // ===== 编辑规格（从二级行点击"编辑"） =====
-            // 或者 source 为空，默认按编辑处理
-            // 查找 unitSpecList
+            // ===== 编辑规格 =====
             const spec = unitSpecList.find(s => s.id == editId);
             if (spec) {
                 if (title) title.textContent = '编辑换算规格';
@@ -4195,7 +4196,7 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
                 }
                 if (hidId) hidId.value = editId;
             } else {
-                // ===== 纯新增规格（无editId或找不到） =====
+                // ===== 纯新增规格 =====
                 if (title) title.textContent = '新增换算规格';
                 if (baseNameInput) { baseNameInput.disabled = false; baseNameInput.style.background = '#fff'; }
                 if (rateUnitSpan) rateUnitSpan.textContent = '单位';
@@ -4317,7 +4318,7 @@ async function deleteUnitSpec(id) {
     } catch (e) { showMsg('删除失败：' + e.message); }
 }
 
-// ===================== 🔥 submitAllUnit（必须定义在 openUnitEdit 之前或之后，但要在调用前定义） =====================
+// ===================== 🔥 submitAllUnit =====================
 async function submitAllUnit() {
     const editTypeInput = $('unitEditType');
     const editIdInput = $('unitEditId');
@@ -4655,31 +4656,233 @@ async function createBaseUnitAndSelect(unitName) {
     } catch (e) { showMsg('创建一级单位失败：' + e.message); }
 }
 
-// ===================== 商品弹窗单位下拉相关 =====================
-const filterBaseFunc = function () {
-    const input = $('addBaseUnitSearch');
-    const box = $('addBaseUnitListBox');
-    if (!input || !box) return;
-    const kw = input.value.trim().toLowerCase();
-    box.innerHTML = '';
-    if (!kw) { box.style.display = 'none'; return; }
-    const filterArr = baseUnitList.filter(u => u.unit_name.toLowerCase().includes(kw));
-    filterArr.forEach(item => {
-        const div = document.createElement('div');
-        div.style.cssText = 'padding:8px;cursor:pointer;';
-        div.innerText = item.unit_name;
-        div.onclick = () => selectGoodsBaseUnit(item);
-        box.appendChild(div);
-    });
-    const hasExist = baseUnitList.some(u => u.unit_name.toLowerCase() === kw);
-    if (!hasExist) {
-        const addDiv = document.createElement('div');
-        addDiv.style.cssText = 'padding:8px;background:#e6f7ff;';
-        addDiv.innerText = `新增：${input.value}`;
-        addDiv.onclick = () => { openUnitEdit(null, 1, input.value); box.style.display = 'none'; };
-        box.appendChild(addDiv);
+// ===================== 商品弹窗单位树形下拉（新增） =====================
+
+// 显示商品单位树形下拉
+function showGoodsUnitTreeDropdown() {
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    if (!dropdown || !searchInput) return;
+    
+    // 如果下拉已经显示，切换显示状态
+    if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        return;
     }
-    box.style.display = 'block';
+    
+    // 初始化临时选中状态（从已保存的数据加载）
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const bindSpecInput = document.getElementById('bindSpecIds');
+    tempSelectedBaseId = baseIdInput && baseIdInput.value ? baseIdInput.value : null;
+    tempSelectedSpecIds = new Set();
+    if (bindSpecInput && bindSpecInput.value) {
+        bindSpecInput.value.split(',').filter(id => id).forEach(id => tempSelectedSpecIds.add(id));
+    }
+    
+    // 清空弹窗内搜索框
+    const filterInput = document.getElementById('goodsUnitSearchInput');
+    if (filterInput) filterInput.value = '';
+    
+    renderGoodsUnitTreeDropdown();
+    dropdown.style.display = 'block';
+    setTimeout(() => { if (filterInput) filterInput.focus(); }, 100);
+}
+
+// 关闭商品单位树形下拉（不保存）
+function closeGoodsUnitDropdown() {
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    // 恢复显示已保存的值
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    if (baseIdInput && baseIdInput.value) {
+        const baseItem = baseUnitList.find(u => u.id == parseInt(baseIdInput.value));
+        if (baseItem && searchInput) searchInput.value = baseItem.unit_name;
+    } else {
+        if (searchInput) searchInput.value = '';
+    }
+}
+
+// 确认选择（保存临时选择到正式字段）
+function confirmGoodsUnitSelection() {
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const bindSpecInput = document.getElementById('bindSpecIds');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    
+    // 保存一级单位ID
+    if (baseIdInput) baseIdInput.value = tempSelectedBaseId || '';
+    // 保存规格ID列表
+    if (bindSpecInput) bindSpecInput.value = Array.from(tempSelectedSpecIds).join(',');
+    // 显示选中的一级单位名称
+    if (searchInput && tempSelectedBaseId) {
+        const baseItem = baseUnitList.find(u => u.id == parseInt(tempSelectedBaseId));
+        if (baseItem) searchInput.value = baseItem.unit_name;
+    } else if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    // 更新已选规格展示
+    if (tempSelectedBaseId) {
+        renderGoodsUnitTree(parseInt(tempSelectedBaseId));
+    } else {
+        const wrap = $('specMultiWrap');
+        if (wrap) wrap.style.display = 'none';
+    }
+    
+    closeGoodsUnitDropdown();
+}
+
+// 过滤树形下拉（从外部搜索框触发）
+function filterGoodsUnitTreeDropdown() {
+    const input = document.getElementById('addBaseUnitSearch');
+    const filterInput = document.getElementById('goodsUnitSearchInput');
+    if (filterInput) {
+        filterInput.value = input ? input.value : '';
+    }
+    renderGoodsUnitTreeDropdown();
+}
+
+// 弹窗内搜索过滤
+function filterGoodsUnitTree() {
+    renderGoodsUnitTreeDropdown();
+}
+
+// 渲染商品单位树形下拉
+function renderGoodsUnitTreeDropdown() {
+    const container = document.getElementById('goodsUnitTreeContainer');
+    const filterInput = document.getElementById('goodsUnitSearchInput');
+    if (!container) return;
+    
+    const keyword = filterInput ? filterInput.value.trim().toLowerCase() : '';
+    container.innerHTML = '';
+    
+    if (baseUnitList.length === 0) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无单位数据</div>';
+        return;
+    }
+    
+    let hasMatch = false;
+    const sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+    
+    sortedBaseList.forEach(baseItem => {
+        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
+        childSpecs.sort((a, b) => a.convert_rate - b.convert_rate);
+        
+        const baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
+        const specMatch = childSpecs.some(s => 
+            s.show_name.toLowerCase().includes(keyword) || 
+            String(s.convert_rate).includes(keyword)
+        );
+        const isVisible = baseMatch || specMatch;
+        
+        if (!isVisible) return;
+        hasMatch = true;
+        
+        const isSelected = tempSelectedBaseId == baseItem.id;
+        const hasSelectedSpec = tempSelectedSpecIds.size > 0;
+        const isDisabled = !isSelected && tempSelectedBaseId !== null && tempSelectedBaseId !== '';
+        
+        // 一级单位行（radio）
+        const rowDiv = document.createElement('div');
+        rowDiv.style.cssText = 'padding:4px 0; border-bottom:1px solid #f0f0f0;';
+        rowDiv.innerHTML = `
+            <label style="display:flex;align-items:center;gap:6px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};font-weight:${isSelected ? 'bold' : 'normal'};">
+                <input type="radio" name="goodsBaseUnitRadio" value="${baseItem.id}" 
+                    ${isSelected ? 'checked' : ''}
+                    ${isDisabled ? 'disabled' : ''}
+                    onchange="onGoodsUnitBaseChange(${baseItem.id})">
+                <span style="${isSelected ? 'color:#1890ff;' : ''}">${isSelected ? '✅' : '⏹️'} ${baseItem.unit_name}</span>
+                ${isSelected ? '<span style="color:#52c41a;font-size:12px;margin-left:4px;">（当前选中）</span>' : ''}
+                ${isDisabled ? '<span style="color:#999;font-size:12px;margin-left:4px;">（请先取消当前选中）</span>' : ''}
+                <span style="color:#999;font-size:12px;margin-left:4px;">(${childSpecs.length}个规格)</span>
+            </label>
+        `;
+        container.appendChild(rowDiv);
+        
+        // 二级规格（checkbox）
+        if (childSpecs.length > 0) {
+            const specContainer = document.createElement('div');
+            specContainer.style.cssText = `padding-left:28px;padding-bottom:4px;${isDisabled ? 'opacity:0.5;' : ''}`;
+            
+            childSpecs.forEach(spec => {
+                const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
+                const specDiv = document.createElement('div');
+                specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;';
+                specDiv.innerHTML = `
+                    <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
+                        ${isSpecChecked ? 'checked' : ''}
+                        ${isDisabled ? 'disabled' : ''}
+                        onchange="onGoodsUnitSpecChange(${spec.id}, this.checked)">
+                    <span style="font-size:13px;color:#333;">
+                        ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
+                        ${isSpecChecked ? '<span style="color:#52c41a;"> ☑</span>' : ''}
+                    </span>
+                `;
+                specContainer.appendChild(specDiv);
+            });
+            container.appendChild(specContainer);
+        } else {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.cssText = `padding-left:28px;color:#999;font-size:13px;padding-bottom:4px;${isDisabled ? 'opacity:0.5;' : ''}`;
+            emptyDiv.textContent = '（暂无换算规格）';
+            container.appendChild(emptyDiv);
+        }
+    });
+    
+    if (!hasMatch) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
+    }
+}
+
+// 一级单位变更
+function onGoodsUnitBaseChange(baseId) {
+    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseId) {
+        if (tempSelectedSpecIds.size > 0) {
+            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+                const radios = document.querySelectorAll('input[name="goodsBaseUnitRadio"]');
+                radios.forEach(r => {
+                    r.checked = r.value == tempSelectedBaseId;
+                });
+                return;
+            }
+            tempSelectedSpecIds.clear();
+        }
+    }
+    tempSelectedBaseId = baseId;
+    renderGoodsUnitTreeDropdown();
+    // 清空已选规格展示
+    const wrap = $('specMultiWrap');
+    if (wrap) wrap.style.display = 'none';
+}
+
+// 规格变更
+function onGoodsUnitSpecChange(specId, checked) {
+    if (checked) {
+        tempSelectedSpecIds.add(String(specId));
+    } else {
+        tempSelectedSpecIds.delete(String(specId));
+    }
+    renderGoodsUnitTreeDropdown();
+}
+
+// 清空单位选择
+function clearGoodsUnitSelection() {
+    tempSelectedBaseId = null;
+    tempSelectedSpecIds = new Set();
+    document.getElementById('addBaseUnitSearch').value = '';
+    document.getElementById('add_base_unit_id').value = '';
+    document.getElementById('bindSpecIds').value = '';
+    const wrap = $('specMultiWrap');
+    if (wrap) wrap.style.display = 'none';
+    const checkBox = $('specCheckWrap');
+    if (checkBox) checkBox.innerHTML = '';
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// ===================== 商品弹窗单位下拉原有函数（修改后） =====================
+const filterBaseFunc = function () {
+    // 此函数已被新的树形下拉替代，保留空函数以防报错
 };
 
 function debounceFilterBase() {
@@ -4688,12 +4891,13 @@ function debounceFilterBase() {
 }
 
 function showAddBaseUnitList() {
-    if (!baseUnitList || baseUnitList.length === 0) {
-        loadAllBaseUnit().then(() => filterBaseFunc());
-    } else { filterBaseFunc(); }
+    // 已被 showGoodsUnitTreeDropdown 替代
+    showGoodsUnitTreeDropdown();
 }
 
-function filterAddBaseUnitList() { debounceFilterBase(); }
+function filterAddBaseUnitList() {
+    filterGoodsUnitTreeDropdown();
+}
 
 // ===================== 商品新增弹窗单位下拉（树形结构） =====================
 function selectGoodsBaseUnit(item) {
@@ -4707,70 +4911,58 @@ function selectGoodsBaseUnit(item) {
     renderGoodsUnitTree(item.id);
 }
 
+// 🔥 修改：renderGoodsUnitTree 改为显示已选规格展示
 function renderGoodsUnitTree(selectedBaseId) {
     const wrap = $('specMultiWrap');
     const checkBox = $('specCheckWrap');
     if (!wrap || !checkBox) return;
+    
+    // 获取已绑定的规格ID
+    const bindInput = $('bindSpecIds');
+    let boundSpecIds = [];
+    if (bindInput && bindInput.value) {
+        boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
+    }
+    
+    // 如果没有选中任何规格，隐藏区域
+    if (!selectedBaseId || boundSpecIds.length === 0) {
+        wrap.style.display = 'none';
+        checkBox.innerHTML = '';
+        return;
+    }
+    
+    // 显示已选规格
     wrap.style.display = 'block';
     checkBox.innerHTML = '';
     
-    const goodsId = $('editId') ? $('editId').value : '';
-    let boundSpecIds = [];
-    if (goodsId) {
-        const bindInput = $('bindSpecIds');
-        if (bindInput && bindInput.value) {
-            boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
-        }
+    const baseItem = baseUnitList.find(u => u.id == selectedBaseId);
+    if (!baseItem) {
+        wrap.style.display = 'none';
+        return;
     }
     
-    baseUnitList.forEach(baseItem => {
-        const isSelected = (baseItem.id == selectedBaseId);
-        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
-        const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = 'padding:6px 8px;border-bottom:1px solid #f0f0f0;';
-        rowDiv.innerHTML = `
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:${isSelected ? 'bold' : 'normal'};">
-                <input type="radio" name="baseUnitRadio" value="${baseItem.id}" ${isSelected ? 'checked' : ''} onchange="onGoodsBaseUnitRadioChange(${baseItem.id})">
-                ${isSelected ? '✅' : '⏹️'} ${baseItem.unit_name}
-                ${isSelected ? '<span style="color:#52c41a;font-size:12px;margin-left:6px;">（已选中）</span>' : ''}
-            </label>
-        `;
-        checkBox.appendChild(rowDiv);
-        if (isSelected && childSpecs.length > 0) {
-            const specContainer = document.createElement('div');
-            specContainer.style.cssText = 'padding-left:28px;padding-bottom:6px;';
-            childSpecs.forEach(spec => {
-                const isChecked = boundSpecIds.includes(spec.id);
-                const specDiv = document.createElement('div');
-                specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;';
-                specDiv.innerHTML = `
-                    <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" ${isChecked ? 'checked' : ''} id="sp_${spec.id}">
-                    <label for="sp_${spec.id}" style="font-size:13px;color:#333;cursor:pointer;">
-                        ⏹️ ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
-                        ${isChecked ? '<span style="color:#52c41a;"> ☑</span>' : ''}
-                    </label>
-                `;
-                specContainer.appendChild(specDiv);
-            });
-            checkBox.appendChild(specContainer);
-        } else if (isSelected && childSpecs.length === 0) {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.style.cssText = 'padding-left:28px;color:#999;font-size:13px;padding-bottom:6px;';
-            emptyDiv.textContent = '（该单位下暂无换算规格）';
-            checkBox.appendChild(emptyDiv);
-        }
+    // 获取已选中的规格详情
+    const selectedSpecs = unitSpecList.filter(s => boundSpecIds.includes(s.id));
+    if (selectedSpecs.length === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+    
+    // 显示已选规格标签
+    let html = `<div style="font-size:13px;color:#333;font-weight:bold;margin-bottom:6px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+    selectedSpecs.forEach(spec => {
+        html += `<span style="padding:4px 10px;background:#e8f5e9;border-radius:4px;font-size:13px;border:1px solid #c8e6c9;">
+            ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
+        </span>`;
     });
+    html += `</div>`;
+    checkBox.innerHTML = html;
 }
 
 function onGoodsBaseUnitRadioChange(baseId) {
-    const hiddenInput = $('add_base_unit_id');
-    if (hiddenInput) hiddenInput.value = baseId;
-    const baseItem = baseUnitList.find(u => u.id == baseId);
-    if (baseItem) {
-        const searchInput = $('addBaseUnitSearch');
-        if (searchInput) searchInput.value = baseItem.unit_name;
-    }
-    renderGoodsUnitTree(baseId);
+    // 已被 onGoodsUnitBaseChange 替代
+    onGoodsUnitBaseChange(baseId);
 }
 
 // ===================== 劫持函数 =====================
@@ -4779,6 +4971,8 @@ openAddForm = async function () {
     await oldOpenAddForm();
     await loadAllBaseUnit(); await loadAllUnitSpec();
     currentSelectBaseId = null;
+    // 清空单位相关字段
+    clearGoodsUnitSelection();
     const search = $('addBaseUnitSearch');
     const hidden = $('add_base_unit_id');
     const wrap = $('specMultiWrap');
@@ -4789,6 +4983,8 @@ openAddForm = async function () {
     if (wrap) wrap.style.display = 'none';
     if (checkBox) checkBox.innerHTML = '';
     if (bindInput) bindInput.value = '';
+    tempSelectedBaseId = null;
+    tempSelectedSpecIds = new Set();
 };
 
 const oldOpenEditForm = openEditForm;
@@ -4805,12 +5001,17 @@ openEditForm = async function (goodsId) {
             const bindInput = $('bindSpecIds');
             if (search) search.value = baseItem.unit_name;
             if (hidden) hidden.value = baseItem.id;
+            tempSelectedBaseId = baseItem.id;
+            
             const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
             const bindList = await bindRes.json() || [];
             const boundIds = bindList.map(b => b.spec_id);
+            tempSelectedSpecIds = new Set(boundIds.map(String));
             if (bindInput) bindInput.value = boundIds.join(',');
+            
+            // 调用修改后的 renderGoodsUnitTree 显示已选规格
             renderGoodsUnitTree(baseItem.id);
         }
     }
@@ -4925,6 +5126,11 @@ document.addEventListener('click', function (e) {
     if (specInput && specList && !e.target.closest('#specShowName') && !e.target.closest('#specModalList')) {
         specList.style.display = 'none';
     }
+    // 商品弹窗单位下拉
+    const goodsDropdown = document.getElementById('goodsUnitDropdown');
+    if (goodsDropdown && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#goodsUnitDropdown')) {
+        goodsDropdown.style.display = 'none';
+    }
 });
 
 // ===================== 🔥 关键修复：确保 switchGoodsSubTab 存在 =====================
@@ -4984,4 +5190,14 @@ window.renderUnitPagination = renderUnitPagination;
 window.showUnitBaseList = showUnitBaseList;
 window.showUnitSpecList = showUnitSpecList;
 window.showUnitRateList = showUnitRateList;
+// 新增树形下拉函数
+window.showGoodsUnitTreeDropdown = showGoodsUnitTreeDropdown;
+window.closeGoodsUnitDropdown = closeGoodsUnitDropdown;
+window.confirmGoodsUnitSelection = confirmGoodsUnitSelection;
+window.filterGoodsUnitTreeDropdown = filterGoodsUnitTreeDropdown;
+window.filterGoodsUnitTree = filterGoodsUnitTree;
+window.onGoodsUnitBaseChange = onGoodsUnitBaseChange;
+window.onGoodsUnitSpecChange = onGoodsUnitSpecChange;
+window.clearGoodsUnitSelection = clearGoodsUnitSelection;
+
 console.log('✅ 单位管理模块加载完成');
