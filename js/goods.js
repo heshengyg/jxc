@@ -5326,7 +5326,7 @@ openEditForm = async function (goodsId) {
     }
 };
 
-// 🔥 劫持 submitForm - 保存单位数据到 goods_unit_bind
+// 🔥 劫持 submitForm - 保存单位数据到 goods_unit_bind（只保留这一份！！！）
 const oldSubmitForm = submitForm;
 submitForm = async function () {
     const baseIdInput = $('add_base_unit_id');
@@ -5407,7 +5407,6 @@ submitForm = async function () {
         }
         
         // 🔥 保存单位绑定关系到 goods_unit_bind 表
-        // 字段名：goods_id, spec_id
         if (goodsRealId) {
             // 先删除旧的绑定
             await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
@@ -5436,114 +5435,6 @@ submitForm = async function () {
     } catch (err) { showMsg('保存失败：' + err.message); }
 };
 
-const oldSubmitForm = submitForm;
-submitForm = async function () {
-    const baseIdInput = $('add_base_unit_id');
-    if (!baseIdInput) { alert('页面元素不完整'); return; }
-    const baseId = baseIdInput.value;
-    if (!baseId) { alert('请选择基准最小计量单位'); return; }
-    
-    // 🔥 从 bindSpecIds 获取选中的规格ID列表
-    const bindSpecInput = $('bindSpecIds');
-    const specIds = bindSpecInput && bindSpecInput.value 
-        ? bindSpecInput.value.split(',').filter(id => id).map(Number) 
-        : [];
-    
-    const editId = $('editId') ? $('editId').value : '';
-    
-    const supplier = $('add_supplier') ? $('add_supplier').value : '';
-    const name = $('add_name') ? $('add_name').value : '';
-    const spec = $('add_spec') ? $('add_spec').value : '';
-    const channel = $('add_channel') ? $('add_channel').value : '';
-    const taxRate = $('add_tax_rate');
-    const salePrice = $('add_sale_price');
-    const onlineCost = $('add_online_cost');
-    const warnNum = $('add_warn_num');
-    const shelfNum = $('add_shelf_life_num');
-    const shelfUnit = $('add_shelf_life_unit');
-    if (!supplier || !name || !channel || !salePrice) return alert('必填项不能为空');
-    if (+salePrice.value <= 0) return alert('销售单价必须大于0');
-    if (isDuplicate(supplier, name, spec, editId)) return alert('同供应商同名同规格商品已存在');
-
-    let oldSalePrice = null;
-    let priceChange = false;
-    const newSale = +salePrice.value;
-    if (editId) {
-        const oldGoods = allGoods.find(g => g.id == editId);
-        if (oldGoods) {
-            oldSalePrice = Number(oldGoods.sale_price);
-            if (newSale !== oldSalePrice) priceChange = true;
-        }
-    }
-    
-    const goodsData = {
-        supplier: supplier.trim(), name: name.trim(), spec: spec.trim() || null, channel: channel,
-        tax_rate: taxRate ? taxRate.value || null : null,
-        sale_price: newSale,
-        online_cost: onlineCost ? +onlineCost.value || null : null,
-        warn_num: warnNum ? +warnNum.value || null : null,
-        shelf_life_num: shelfNum ? +shelfNum.value || null : null,
-        shelf_life_unit: shelfUnit ? shelfUnit.value || null : null,
-        last_sale_price: editId ? oldSalePrice : null,
-        base_unit_id: +baseId,
-        base_unit_name: $('addBaseUnitSearch') ? $('addBaseUnitSearch').value : ''
-    };
-    
-    try {
-        let goodsRealId = editId;
-        if (editId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/goods?id=eq.${editId}`, {
-                method: 'PATCH',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(goodsData)
-            });
-            if (priceChange) {
-                await fetch(`${SUPABASE_URL}/rest/v1/price_temp_state?goods_id=eq.${editId}`, {
-                    method: 'DELETE',
-                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-                });
-                showMsg('价格变更，临时价格已清空');
-            }
-            goodsRealId = editId;
-        } else {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
-                method: 'POST',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                body: JSON.stringify(goodsData)
-            });
-            const newArr = await res.json();
-            goodsRealId = newArr[0]?.id;
-        }
-        
-        // 🔥 保存单位绑定关系到 goods_unit_bind 表
-        // 字段名：goods_id, spec_id
-        if (goodsRealId) {
-            // 先删除旧的绑定
-            await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
-                method: 'DELETE',
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-            });
-            
-            // 插入新的绑定（每个规格一条记录）
-            for (const sid of specIds) {
-                if (sid) {
-                    await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
-                        method: 'POST',
-                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            goods_id: goodsRealId, 
-                            spec_id: sid 
-                        })
-                    });
-                }
-            }
-        }
-        showMsg(editId ? '商品编辑成功' : '商品新增成功');
-        closeForm();
-        await loadGoods(true);
-        if (typeof loadAllGoods === 'function') await loadAllGoods();
-    } catch (err) { showMsg('保存失败：' + err.message); }
-};
 
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
