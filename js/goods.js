@@ -3685,10 +3685,32 @@ function changeUnitPageSize() {
 function onUnitFilterInput() {
     if (unitFilterTimer) clearTimeout(unitFilterTimer);
     unitFilterTimer = setTimeout(() => {
+        // 先过滤表格数据
         filterUnitData();
+        
+        // 然后根据当前输入框更新对应的下拉列表
+        const activeElement = document.activeElement;
+        if (activeElement) {
+            const id = activeElement.id;
+            if (id === 'unitFilterBaseName') {
+                const kw = activeElement.value.trim().toLowerCase();
+                renderUnitBaseList(kw);
+                const list = document.getElementById('unitFilterBaseNameList');
+                if (list) list.style.display = 'block';
+            } else if (id === 'unitFilterSpecName') {
+                const kw = activeElement.value.trim().toLowerCase();
+                renderUnitSpecList(kw);
+                const list = document.getElementById('unitFilterSpecNameList');
+                if (list) list.style.display = 'block';
+            } else if (id === 'unitFilterRate') {
+                const kw = activeElement.value.trim().toLowerCase();
+                renderUnitRateList(kw);
+                const list = document.getElementById('unitFilterRateList');
+                if (list) list.style.display = 'block';
+            }
+        }
     }, 300);
 }
-
 // 重置搜索
 function resetUnitSearch() {
     document.getElementById('unitFilterBaseName').value = '';
