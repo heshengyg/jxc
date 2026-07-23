@@ -4851,20 +4851,17 @@ function confirmGoodsUnitSelection() {
     const bindSpecInput = document.getElementById('bindSpecIds');
     const searchInput = document.getElementById('addBaseUnitSearch');
     
-    // 如果没有选中一级单位但有选中的规格，自动定位
     if (!tempSelectedBaseId && tempSelectedSpecIds.size > 0) {
         const firstSpecId = Array.from(tempSelectedSpecIds)[0];
-        const spec = unitSpecList.find(s => s.id == firstSpecId);
+        const spec = unitSpecList.find(s => s.id == parseInt(firstSpecId));
         if (spec) {
-            tempSelectedBaseId = spec.base_unit_id;
+            tempSelectedBaseId = String(spec.base_unit_id);
         }
     }
     
-    // 保存到正式字段
     if (baseIdInput) baseIdInput.value = tempSelectedBaseId || '';
     if (bindSpecInput) bindSpecInput.value = Array.from(tempSelectedSpecIds).join(',');
     
-    // 更新搜索框显示
     if (searchInput && tempSelectedBaseId) {
         const baseItem = baseUnitList.find(u => u.id == parseInt(tempSelectedBaseId));
         if (baseItem) searchInput.value = baseItem.unit_name;
@@ -4872,12 +4869,15 @@ function confirmGoodsUnitSelection() {
         searchInput.value = '';
     }
     
-    // 刷新已选规格展示
     if (tempSelectedBaseId) {
         renderGoodsUnitTree(parseInt(tempSelectedBaseId));
+        const wrap = document.getElementById('specMultiWrap');
+        if (wrap) wrap.style.display = 'block';
     } else {
         const wrap = document.getElementById('specMultiWrap');
         if (wrap) wrap.style.display = 'none';
+        const checkBox = document.getElementById('specCheckWrap');
+        if (checkBox) checkBox.innerHTML = '';
     }
     
     closeGoodsUnitDropdown();
@@ -5268,7 +5268,25 @@ submitForm = async function () {
     const baseId = baseIdInput.value;
     if (!baseId) { alert('请选择基准最小计量单位'); return; }
     
-    const checkedSpecs = Array.from(document.querySelectorAll('.specCheck:checked')).map(el => el.dataset.specId);
+    // 🔥 修复：从树形下拉中获取选中的规格ID
+    let specIds = [];
+    // 方法1：从树形下拉的 checkbox 获取
+    const checkedBoxes = document.querySelectorAll('.goodsUnitSpecCheck:checked');
+    if (checkedBoxes.length > 0) {
+        specIds = Array.from(checkedBoxes).map(el => el.dataset.specId);
+    }
+    // 方法2：从隐藏字段获取（兼容）
+    if (specIds.length === 0) {
+        const bindSpecInput = $('bindSpecIds');
+        if (bindSpecInput && bindSpecInput.value) {
+            specIds = bindSpecInput.value.split(',').filter(id => id);
+        }
+    }
+    // 方法3：从临时选中状态获取
+    if (specIds.length === 0 && tempSelectedSpecIds.size > 0) {
+        specIds = Array.from(tempSelectedSpecIds);
+    }
+    
     const editId = $('editId') ? $('editId').value : '';
     
     const supplier = $('add_supplier') ? $('add_supplier').value : '';
@@ -5338,26 +5356,28 @@ submitForm = async function () {
                 method: 'DELETE',
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
-            for (const sid of checkedSpecs) {
-                await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
-                    method: 'POST',
-                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ goods_id: goodsRealId, spec_id: sid })
-                });
+            // 使用 specIds
+            for (const sid of specIds) {
+                if (sid) {
+                    await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
+                        method: 'POST',
+                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ goods_id: goodsRealId, spec_id: sid })
+                    });
+                }
             }
         }
         showMsg(editId ? '商品编辑成功' : '商品新增成功');
         closeForm();
+        // 清空临时数据
+        tempSelectedBaseId = null;
+        tempSelectedSpecIds = new Set();
+        window._unitExpandState = {};
+        window._shouldPinSelected = false;
         await loadGoods(true);
         if (typeof loadAllGoods === 'function') await loadAllGoods();
     } catch (err) { showMsg('保存失败：' + err.message); }
 };
-
-tempSelectedBaseId = null;
-tempSelectedSpecIds = new Set();
-window._unitExpandState = {};
-window._shouldPinSelected = false;
-
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
     const searchInput = $('addBaseUnitSearch');
