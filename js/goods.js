@@ -4719,7 +4719,6 @@ function renderGoodsUnitTree(selectedBaseId) {
         boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
     }
     
-    // 如果没有选中一级单位或没有绑定的规格，隐藏
     if (!selectedBaseId || boundSpecIds.length === 0) {
         wrap.style.display = 'none';
         checkBox.innerHTML = '';
@@ -4741,7 +4740,7 @@ function renderGoodsUnitTree(selectedBaseId) {
         return;
     }
     
-    // 按二级单位（show_name）分组
+    // 按二级单位分组
     const grouped = {};
     selectedSpecs.forEach(spec => {
         if (!grouped[spec.show_name]) {
@@ -4750,26 +4749,25 @@ function renderGoodsUnitTree(selectedBaseId) {
         grouped[spec.show_name].push(spec);
     });
     
-    // 对二级单位名称排序
     const sortedNames = Object.keys(grouped).sort();
     
-    // 🔥 标题单独占一行，加底部大间距，与内容分隔
-    let html = `<div style="font-size:14px;color:#333;font-weight:bold;margin-bottom:16px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）</div>`;
+    // 🔥 标题单独占一行（块级元素自动换行）
+    let html = `<div style="font-size:14px;color:#333;font-weight:bold;margin-bottom:8px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）</div>`;
     
-    // 🔥 内容从下一行开始，加一个空行效果
+    // 🔥 数据从下一行开始（没有任何内联元素阻止换行）
     sortedNames.forEach(name => {
         const specs = grouped[name];
         specs.sort((a, b) => a.convert_rate - b.convert_rate);
         
-        html += `<div style="padding:8px 12px;margin-bottom:8px;background:#fafafa;border-radius:4px;border:1px solid #f0f0f0;">`;
-        html += `<div style="font-weight:bold;color:#ff4d4f;font-size:14px;margin-bottom:6px;">📦 ${name} <span style="color:#999;font-size:12px;font-weight:normal;">（${specs.length}个规格）</span></div>`;
-        html += `<div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:4px;">`;
+        html += `<div style="padding:6px 10px;margin-bottom:6px;background:#fafafa;border-radius:4px;border:1px solid #f0f0f0;">`;
+        html += `<span style="font-weight:bold;color:#ff4d4f;font-size:14px;">📦 ${name} <span style="color:#999;font-size:12px;font-weight:normal;">（${specs.length}个规格）</span></span>`;
+        html += `<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">`;
         specs.forEach(spec => {
-            html += `<span style="padding:2px 12px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:12px;font-size:13px;color:#1890ff;">
+            html += `<span style="padding:2px 10px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:12px;font-size:12px;color:#1890ff;">
                 ${spec.convert_rate}${baseItem.unit_name}
             </span>`;
         });
-        html += `</div>`;
+        html += `</span>`;
         html += `</div>`;
     });
     
