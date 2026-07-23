@@ -5155,15 +5155,6 @@ function renderGoodsUnitTreeDropdownContent() {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
     }
 }    
-    // ===== 底部：保存和取消按钮 =====
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = 'padding:10px 0 0 0; border-top:1px solid #eee; display:flex; gap:10px; justify-content:flex-end; margin-top:8px;';
-    btnContainer.innerHTML = `
-        <button onclick="closeGoodsUnitDropdown()" style="padding:6px 20px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:13px;">取消</button>
-        <button onclick="confirmGoodsUnitSelection()" style="padding:6px 20px; border:none; border-radius:4px; background:#1890ff; color:#fff; cursor:pointer; font-size:13px;">保存</button>
-    `;
-    container.appendChild(btnContainer);
-}
 
 function onGoodsBaseUnitRadioChange(baseId) {
     const hiddenInput = $('add_base_unit_id');
