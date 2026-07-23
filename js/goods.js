@@ -4677,10 +4677,14 @@ function showGoodsUnitTreeDropdown() {
     const baseIdInput = document.getElementById('add_base_unit_id');
     const bindSpecInput = document.getElementById('bindSpecIds');
     
-    // 🔥 关键修复：如果 tempSelectedSpecIds 已经有值，不要重新从 bindSpecIds 覆盖
-    // 只有在 tempSelectedSpecIds 为空时才从 bindSpecIds 加载
-    if (tempSelectedSpecIds.size === 0 && bindSpecInput && bindSpecInput.value) {
-        bindSpecInput.value.split(',').filter(id => id).forEach(id => tempSelectedSpecIds.add(id));
+    // 🔥 关键修复：从 bindSpecIds 加载已保存的规格ID，确保回显勾选
+    // 但不要覆盖用户在当前会话中已经做的临时选择
+    if (bindSpecInput && bindSpecInput.value) {
+        const savedIds = bindSpecInput.value.split(',').filter(id => id);
+        // 如果 tempSelectedSpecIds 为空，或者当前没有选中任何规格，从保存的数据加载
+        if (tempSelectedSpecIds.size === 0) {
+            savedIds.forEach(id => tempSelectedSpecIds.add(String(id)));
+        }
     }
     
     // 如果 tempSelectedBaseId 为空，从已保存的数据加载
@@ -4768,7 +4772,7 @@ function filterGoodsUnitTree() {
     renderGoodsUnitTreeDropdown();
 }
 
-// 渲染商品单位树形下拉（带展开/收缩，加大缩进）
+// 渲染商品单位树形下拉（加大缩进，修复勾选状态）
 function renderGoodsUnitTreeDropdown() {
     const container = document.getElementById('goodsUnitTreeContainer');
     const filterInput = document.getElementById('goodsUnitSearchInput');
@@ -4793,6 +4797,7 @@ function renderGoodsUnitTreeDropdown() {
         const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
         childSpecs.sort((a, b) => a.convert_rate - b.convert_rate);
         
+        // 🔥 检查是否有规格被选中（使用 String 比较确保类型一致）
         const hasCheckedSpec = childSpecs.some(s => tempSelectedSpecIds.has(String(s.id)));
         
         const baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
@@ -4895,9 +4900,9 @@ function renderGoodsUnitTreeDropdown() {
                 }
                 const isGroupExpanded = window._unitExpandState[groupKey] !== false;
                 
-                // 🔥 二级缩进：20px（加大层次感）
+                // 🔥 二级缩进：30px（明显层次感）
                 const groupDiv = document.createElement('div');
-                groupDiv.style.cssText = `padding-left:20px;padding:4px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
+                groupDiv.style.cssText = `padding-left:30px;padding:4px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
                 
                 const groupCheckbox = document.createElement('div');
                 groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
@@ -4958,10 +4963,10 @@ function renderGoodsUnitTreeDropdown() {
                 }
                 groupDiv.appendChild(groupCheckbox);
                 
-                // ===== 三级：换算关系（缩进 36px） =====
+                // ===== 三级：换算关系（缩进 50px） =====
                 if (isGroupExpanded) {
                     const specContainer = document.createElement('div');
-                    specContainer.style.cssText = `padding-left:36px;padding-bottom:2px;`;
+                    specContainer.style.cssText = `padding-left:50px;padding-bottom:2px;`;
                     
                     // 🔥 同一二级下的规格显示在一行
                     const specRow = document.createElement('div');
@@ -5014,7 +5019,7 @@ function renderGoodsUnitTreeDropdown() {
             });
         } else if (childSpecs.length > 0 && !isBaseExpanded) {
             const tipDiv = document.createElement('div');
-            tipDiv.style.cssText = `padding-left:20px;color:#999;font-size:12px;padding:2px 0;`;
+            tipDiv.style.cssText = `padding-left:30px;color:#999;font-size:12px;padding:2px 0;`;
             tipDiv.textContent = `└ 点击 ▶ 展开 ${childSpecs.length} 个规格`;
             container.appendChild(tipDiv);
         }
@@ -5114,7 +5119,7 @@ function selectGoodsBaseUnit(item) {
     renderGoodsUnitTree(item.id);
 }
 
-// 🔥 修改：renderGoodsUnitTree 改为显示已选规格展示（二级用红色标明）
+// 🔥 修改：renderGoodsUnitTree 显示已选规格（一个二级一行）
 function renderGoodsUnitTree(selectedBaseId) {
     const wrap = $('specMultiWrap');
     const checkBox = $('specCheckWrap');
@@ -5147,7 +5152,7 @@ function renderGoodsUnitTree(selectedBaseId) {
         return;
     }
     
-    // 🔥 按换算单位名称分组显示，二级用红色标明
+    // 🔥 按二级名称分组，一个二级显示一行
     const grouped = {};
     selectedSpecs.forEach(spec => {
         if (!grouped[spec.show_name]) {
@@ -5157,20 +5162,23 @@ function renderGoodsUnitTree(selectedBaseId) {
     });
     const sortedNames = Object.keys(grouped).sort();
     
-    let html = `<div style="font-size:13px;color:#333;font-weight:bold;margin-bottom:6px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
-    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+    let html = `<div style="font-size:13px;color:#333;font-weight:bold;margin-bottom:8px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
+    
     sortedNames.forEach(name => {
         const specs = grouped[name];
         specs.sort((a, b) => a.convert_rate - b.convert_rate);
-        // 🔥 二级名称用红色显示
-        html += `<div style="width:100%;margin-bottom:2px;color:#ff4d4f;font-weight:bold;font-size:13px;">📌 ${name}</div>`;
+        // 🔥 二级名称用红色显示，占一行
+        html += `<div style="color:#ff4d4f;font-weight:bold;font-size:14px;margin:4px 0 2px 0;">📌 ${name}</div>`;
+        // 🔥 该二级下的所有规格在同一行显示
+        html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-left:16px;">`;
         specs.forEach(spec => {
-            html += `<span style="padding:4px 10px;background:#e8f5e9;border-radius:4px;font-size:13px;border:1px solid #c8e6c9;margin:2px 4px 2px 18px;display:inline-block;">
+            html += `<span style="padding:4px 10px;background:#e8f5e9;border-radius:4px;font-size:13px;border:1px solid #c8e6c9;">
                 ${spec.convert_rate}${baseItem.unit_name}
             </span>`;
         });
+        html += `</div>`;
     });
-    html += `</div>`;
+    
     checkBox.innerHTML = html;
 }
 
