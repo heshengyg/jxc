@@ -4905,6 +4905,7 @@ function filterGoodsUnitTreeDropdown() {
 }
 
 // 渲染商品单位树形下拉内容（三级层级）- 不含按钮
+// 渲染商品单位树形下拉内容（三级层级）- 不含按钮
 function renderGoodsUnitTreeDropdownContent() {
     const container = document.getElementById('goodsUnitTreeContainer');
     const filterInput = document.getElementById('goodsUnitSearchInput');
@@ -4927,15 +4928,17 @@ function renderGoodsUnitTreeDropdownContent() {
     // 按名称排序
     let sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
     
-    // 🔥 关键修复：只在初始化回显时置顶，点击切换时不重新置顶
-    // 使用一个标志来控制是否置顶
+    // 🔥 只在回显时置顶（_shouldPinSelected === true），且存在选中的一级单位
+    // 🔥 修复：在函数作用域顶层定义 didPin
+    let didPin = false;
     if (window._shouldPinSelected && tempSelectedBaseId) {
         const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
         if (selectedBase) {
             const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
             sortedBaseList = [selectedBase, ...remaining];
+            didPin = true;
         }
-        // 置顶后立即清除标志，避免后续点击重新排序
+        // 置顶后立即清除标志，避免后续操作重新排序
         window._shouldPinSelected = false;
     }
     
@@ -5168,10 +5171,10 @@ function renderGoodsUnitTreeDropdownContent() {
     if (!hasMatch) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
     }
-// 🔥 如果执行了置顶，滚动到顶部
+    
+    // 🔥 如果执行了置顶，滚动到顶部
     if (didPin) {
         container.scrollTop = 0;
-        // 同时滚动外层容器
         const dropdown = document.getElementById('goodsUnitDropdown');
         if (dropdown) dropdown.scrollTop = 0;
     }
