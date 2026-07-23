@@ -4707,59 +4707,410 @@ function selectGoodsBaseUnit(item) {
     renderGoodsUnitTree(item.id);
 }
 
-function renderGoodsUnitTree(selectedBaseId) {
-    const wrap = $('specMultiWrap');
-    const checkBox = $('specCheckWrap');
-    if (!wrap || !checkBox) return;
-    wrap.style.display = 'block';
-    checkBox.innerHTML = '';
+// ===================== 商品弹窗单位树形下拉（完整树形结构） =====================
+
+// 全局临时存储选中的单位数据（仅在单位下拉弹窗内使用）
+let tempSelectedBaseId = null;      // 临时选中的一级单位ID
+let tempSelectedSpecIds = new Set(); // 临时选中的规格ID集合
+
+// 显示商品单位树形下拉
+function showGoodsUnitTreeDropdown() {
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    if (!dropdown || !searchInput) return;
     
-    const goodsId = $('editId') ? $('editId').value : '';
-    let boundSpecIds = [];
-    if (goodsId) {
-        const bindInput = $('bindSpecIds');
-        if (bindInput && bindInput.value) {
-            boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
+    // 如果已显示则关闭
+    if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        return;
+    }
+    
+    // 从已保存的数据加载临时状态
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const bindSpecInput = document.getElementById('bindSpecIds');
+    
+    // 加载已保存的一级单位
+    if (baseIdInput && baseIdInput.value) {
+        tempSelectedBaseId = baseIdInput.value;
+    }
+    
+    // 加载已保存的规格ID
+    if (bindSpecInput && bindSpecInput.value) {
+        const savedIds = bindSpecInput.value.split(',').filter(id => id);
+        savedIds.forEach(id => tempSelectedSpecIds.add(String(id)));
+    }
+    
+    // 如果有一级单位但没有选中规格，自动展开
+    if (tempSelectedBaseId && tempSelectedSpecIds.size === 0) {
+        // 展开当前一级单位下的所有规格（默认全选？还是只展开？这里只展开不勾选）
+    }
+    
+    renderGoodsUnitTreeDropdownContent();
+    dropdown.style.display = 'block';
+    
+    // 聚焦搜索框
+    setTimeout(() => {
+        const filterInput = document.getElementById('goodsUnitSearchInput');
+        if (filterInput) filterInput.focus();
+    }, 100);
+}
+
+// 关闭单位下拉（不保存）
+function closeGoodsUnitDropdown() {
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    // 恢复显示已保存的值
+    restoreGoodsUnitDisplay();
+}
+
+// 恢复已保存的单位显示
+function restoreGoodsUnitDisplay() {
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    const bindSpecInput = document.getElementById('bindSpecIds');
+    
+    if (baseIdInput && baseIdInput.value) {
+        const baseItem = baseUnitList.find(u => u.id == parseInt(baseIdInput.value));
+        if (baseItem && searchInput) {
+            searchInput.value = baseItem.unit_name;
+        }
+    } else {
+        if (searchInput) searchInput.value = '';
+    }
+    
+    // 刷新已选规格展示
+    if (baseIdInput && baseIdInput.value) {
+        renderGoodsUnitTree(parseInt(baseIdInput.value));
+    } else {
+        const wrap = document.getElementById('specMultiWrap');
+        if (wrap) wrap.style.display = 'none';
+    }
+}
+
+// 确认选择（保存临时选择到正式字段）
+function confirmGoodsUnitSelection() {
+    const baseIdInput = document.getElementById('add_base_unit_id');
+    const bindSpecInput = document.getElementById('bindSpecIds');
+    const searchInput = document.getElementById('addBaseUnitSearch');
+    
+    // 如果没有选中一级单位但有选中的规格，自动定位
+    if (!tempSelectedBaseId && tempSelectedSpecIds.size > 0) {
+        const firstSpecId = Array.from(tempSelectedSpecIds)[0];
+        const spec = unitSpecList.find(s => s.id == firstSpecId);
+        if (spec) {
+            tempSelectedBaseId = spec.base_unit_id;
         }
     }
     
-    baseUnitList.forEach(baseItem => {
-        const isSelected = (baseItem.id == selectedBaseId);
-        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
-        const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = 'padding:6px 8px;border-bottom:1px solid #f0f0f0;';
-        rowDiv.innerHTML = `
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:${isSelected ? 'bold' : 'normal'};">
-                <input type="radio" name="baseUnitRadio" value="${baseItem.id}" ${isSelected ? 'checked' : ''} onchange="onGoodsBaseUnitRadioChange(${baseItem.id})">
-                ${isSelected ? '✅' : '⏹️'} ${baseItem.unit_name}
-                ${isSelected ? '<span style="color:#52c41a;font-size:12px;margin-left:6px;">（已选中）</span>' : ''}
-            </label>
-        `;
-        checkBox.appendChild(rowDiv);
-        if (isSelected && childSpecs.length > 0) {
-            const specContainer = document.createElement('div');
-            specContainer.style.cssText = 'padding-left:28px;padding-bottom:6px;';
-            childSpecs.forEach(spec => {
-                const isChecked = boundSpecIds.includes(spec.id);
-                const specDiv = document.createElement('div');
-                specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;';
-                specDiv.innerHTML = `
-                    <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" ${isChecked ? 'checked' : ''} id="sp_${spec.id}">
-                    <label for="sp_${spec.id}" style="font-size:13px;color:#333;cursor:pointer;">
-                        ⏹️ ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
-                        ${isChecked ? '<span style="color:#52c41a;"> ☑</span>' : ''}
-                    </label>
-                `;
-                specContainer.appendChild(specDiv);
+    // 保存到正式字段
+    if (baseIdInput) baseIdInput.value = tempSelectedBaseId || '';
+    if (bindSpecInput) bindSpecInput.value = Array.from(tempSelectedSpecIds).join(',');
+    
+    // 更新搜索框显示
+    if (searchInput && tempSelectedBaseId) {
+        const baseItem = baseUnitList.find(u => u.id == parseInt(tempSelectedBaseId));
+        if (baseItem) searchInput.value = baseItem.unit_name;
+    } else if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    // 刷新已选规格展示
+    if (tempSelectedBaseId) {
+        renderGoodsUnitTree(parseInt(tempSelectedBaseId));
+    } else {
+        const wrap = document.getElementById('specMultiWrap');
+        if (wrap) wrap.style.display = 'none';
+    }
+    
+    closeGoodsUnitDropdown();
+}
+
+// 过滤树形下拉
+function filterGoodsUnitTreeDropdown() {
+    renderGoodsUnitTreeDropdownContent();
+}
+
+// 渲染商品单位树形下拉内容（三级层级）
+function renderGoodsUnitTreeDropdownContent() {
+    const container = document.getElementById('goodsUnitTreeContainer');
+    const filterInput = document.getElementById('goodsUnitSearchInput');
+    if (!container) return;
+    
+    const keyword = filterInput ? filterInput.value.trim().toLowerCase() : '';
+    container.innerHTML = '';
+    
+    if (baseUnitList.length === 0) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无单位数据</div>';
+        return;
+    }
+    
+    // 展开状态管理
+    if (!window._unitExpandState) {
+        window._unitExpandState = {};
+    }
+    
+    let hasMatch = false;
+    // 按名称排序
+    const sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+    
+    // 如果有选中的一级单位，将其置顶
+    let sortedWithSelected = [];
+    if (tempSelectedBaseId) {
+        const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
+        if (selectedBase) {
+            sortedWithSelected.push(selectedBase);
+            sortedBaseList.forEach(b => {
+                if (b.id != tempSelectedBaseId) sortedWithSelected.push(b);
             });
-            checkBox.appendChild(specContainer);
-        } else if (isSelected && childSpecs.length === 0) {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.style.cssText = 'padding-left:28px;color:#999;font-size:13px;padding-bottom:6px;';
-            emptyDiv.textContent = '（该单位下暂无换算规格）';
-            checkBox.appendChild(emptyDiv);
+        } else {
+            sortedWithSelected = sortedBaseList;
+        }
+    } else {
+        sortedWithSelected = sortedBaseList;
+    }
+    
+    sortedWithSelected.forEach(baseItem => {
+        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
+        childSpecs.sort((a, b) => a.convert_rate - b.convert_rate);
+        
+        // 搜索匹配
+        const baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
+        const specMatch = childSpecs.some(s => 
+            s.show_name.toLowerCase().includes(keyword) || 
+            String(s.convert_rate).includes(keyword)
+        );
+        const isVisible = baseMatch || specMatch;
+        if (!isVisible) return;
+        hasMatch = true;
+        
+        const isBaseSelected = tempSelectedBaseId == baseItem.id;
+        const hasCheckedSpec = childSpecs.some(s => tempSelectedSpecIds.has(String(s.id)));
+        const isBaseActive = isBaseSelected || hasCheckedSpec;
+        
+        // 一级单位展开状态
+        const baseKey = 'base_' + baseItem.id;
+        if (keyword) {
+            window._unitExpandState[baseKey] = true;
+        }
+        const isBaseExpanded = window._unitExpandState[baseKey] !== false;
+        
+        const checkedCount = childSpecs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
+        
+        // ===== 一级单位行 =====
+        const rowDiv = document.createElement('div');
+        rowDiv.style.cssText = 'padding:6px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;';
+        rowDiv.onclick = function(e) {
+            e.stopPropagation();
+            if (e.target.tagName === 'INPUT') return;
+            const expandIcon = e.target.closest('.unit-expand-icon');
+            if (expandIcon) {
+                window._unitExpandState[baseKey] = !window._unitExpandState[baseKey];
+                renderGoodsUnitTreeDropdownContent();
+                return;
+            }
+            // 点击一级单位：切换选中状态
+            if (tempSelectedBaseId == baseItem.id) {
+                // 如果已有选中的规格，提示确认取消
+                if (tempSelectedSpecIds.size > 0) {
+                    if (confirm('取消选中将清空已选换算规格，确定？')) {
+                        tempSelectedSpecIds.clear();
+                        tempSelectedBaseId = null;
+                    }
+                } else {
+                    tempSelectedBaseId = null;
+                }
+            } else {
+                // 切换一级单位，清空之前选中的规格
+                if (tempSelectedBaseId !== null && tempSelectedSpecIds.size > 0) {
+                    if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+                        renderGoodsUnitTreeDropdownContent();
+                        return;
+                    }
+                    tempSelectedSpecIds.clear();
+                }
+                tempSelectedBaseId = baseItem.id;
+            }
+            renderGoodsUnitTreeDropdownContent();
+        };
+        
+        const expandIconHtml = childSpecs.length > 0 ? 
+            `<span class="unit-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:4px;user-select:none;">${isBaseExpanded ? '▼' : '▶'}</span>` : 
+            `<span style="font-size:12px;color:#ccc;margin-right:4px;">·</span>`;
+        
+        const highlightColor = isBaseActive ? 'color:#1890ff;font-weight:bold;' : '';
+        
+        rowDiv.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;padding:2px 0; ${isBaseActive ? 'background:#e6f7ff;border-radius:4px;' : ''}">
+                ${expandIconHtml}
+                <span style="font-size:16px;">${isBaseActive ? '✅' : '⏹️'}</span>
+                <span style="font-size:14px; ${highlightColor}">${baseItem.unit_name}</span>
+                ${isBaseSelected ? '<span style="color:#52c41a;font-size:12px;font-weight:bold;">（已选）</span>' : ''}
+                ${hasCheckedSpec && !isBaseSelected ? `<span style="color:#ff6b6b;font-size:12px;">（${checkedCount}个规格已选）</span>` : ''}
+                <span style="color:#999;font-size:12px;">(${childSpecs.length}个规格)</span>
+            </div>
+        `;
+        container.appendChild(rowDiv);
+        
+        // ===== 二级和三级内容 =====
+        if (childSpecs.length > 0 && isBaseExpanded) {
+            // 按 show_name 分组
+            const grouped = {};
+            childSpecs.forEach(spec => {
+                if (!grouped[spec.show_name]) {
+                    grouped[spec.show_name] = [];
+                }
+                grouped[spec.show_name].push(spec);
+            });
+            
+            const sortedGroupNames = Object.keys(grouped).sort();
+            
+            sortedGroupNames.forEach(groupName => {
+                const specs = grouped[groupName];
+                specs.sort((a, b) => a.convert_rate - b.convert_rate);
+                
+                const hasCheckedInGroup = specs.some(s => tempSelectedSpecIds.has(String(s.id)));
+                const isGroupDisabled = tempSelectedBaseId !== null && tempSelectedBaseId != baseItem.id;
+                
+                const groupKey = 'group_' + baseItem.id + '_' + groupName;
+                if (keyword) {
+                    window._unitExpandState[groupKey] = true;
+                }
+                const isGroupExpanded = window._unitExpandState[groupKey] !== false;
+                
+                // ===== 二级（包装单位）：可多选 =====
+                const groupDiv = document.createElement('div');
+                groupDiv.style.cssText = `padding-left:32px;padding:4px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
+                
+                const groupCheckbox = document.createElement('div');
+                groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;';
+                groupCheckbox.onclick = function(e) {
+                    e.stopPropagation();
+                    if (e.target.tagName === 'INPUT') return;
+                    const expandIcon = e.target.closest('.group-expand-icon');
+                    if (expandIcon) {
+                        window._unitExpandState[groupKey] = !window._unitExpandState[groupKey];
+                        renderGoodsUnitTreeDropdownContent();
+                        return;
+                    }
+                    if (isGroupDisabled) return;
+                    // 切换该组所有规格的选中状态
+                    const allChecked = specs.every(s => tempSelectedSpecIds.has(String(s.id)));
+                    specs.forEach(s => {
+                        if (allChecked) {
+                            tempSelectedSpecIds.delete(String(s.id));
+                        } else {
+                            tempSelectedSpecIds.add(String(s.id));
+                        }
+                    });
+                    renderGoodsUnitTreeDropdownContent();
+                };
+                
+                const groupExpandIcon = specs.length > 0 ? 
+                    `<span class="group-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:4px;user-select:none;">${isGroupExpanded ? '▼' : '▶'}</span>` : 
+                    `<span style="font-size:12px;color:#ccc;margin-right:4px;">·</span>`;
+                
+                const groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
+                const checkedInGroupCount = specs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
+                
+                groupCheckbox.innerHTML = `
+                    ${groupExpandIcon}
+                    <input type="checkbox" class="goodsUnitGroupCheck" 
+                        ${hasCheckedInGroup ? 'checked' : ''}
+                        ${isGroupDisabled ? 'disabled' : ''}
+                        style="width:16px;height:16px;cursor:pointer;">
+                    <span style="font-size:13px;font-weight:${hasCheckedInGroup ? 'bold' : 'normal'};color:${groupNameColor};">
+                        📦 ${groupName}
+                        ${hasCheckedInGroup ? `<span style="color:#ff4d4f;"> ☑（${checkedInGroupCount}/${specs.length}）</span>` : ''}
+                    </span>
+                `;
+                const cb = groupCheckbox.querySelector('input');
+                if (cb) {
+                    cb.onchange = function(e) {
+                        e.stopPropagation();
+                        if (isGroupDisabled) return;
+                        const checked = this.checked;
+                        specs.forEach(s => {
+                            if (checked) {
+                                tempSelectedSpecIds.add(String(s.id));
+                            } else {
+                                tempSelectedSpecIds.delete(String(s.id));
+                            }
+                        });
+                        renderGoodsUnitTreeDropdownContent();
+                    };
+                }
+                groupDiv.appendChild(groupCheckbox);
+                
+                // ===== 三级：换算关系（每个规格单独一行，可多选） =====
+                if (isGroupExpanded) {
+                    const specContainer = document.createElement('div');
+                    specContainer.style.cssText = `padding-left:32px;padding-bottom:2px;`;
+                    
+                    specs.forEach(spec => {
+                        const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
+                        const specDiv = document.createElement('div');
+                        specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;';
+                        specDiv.onclick = function(e) {
+                            e.stopPropagation();
+                            if (e.target.tagName === 'INPUT') return;
+                            if (isGroupDisabled) return;
+                            if (isSpecChecked) {
+                                tempSelectedSpecIds.delete(String(spec.id));
+                            } else {
+                                tempSelectedSpecIds.add(String(spec.id));
+                            }
+                            renderGoodsUnitTreeDropdownContent();
+                        };
+                        specDiv.innerHTML = `
+                            <span style="width:24px;"></span>
+                            <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
+                                ${isSpecChecked ? 'checked' : ''}
+                                ${isGroupDisabled ? 'disabled' : ''}
+                                style="width:14px;height:14px;cursor:pointer;">
+                            <span style="font-size:13px;color:#333;${isSpecChecked ? 'font-weight:bold;color:#ff4d4f;' : ''}">
+                                ${spec.convert_rate}${baseItem.unit_name}
+                                ${isSpecChecked ? ' ☑' : ''}
+                            </span>
+                        `;
+                        const cb2 = specDiv.querySelector('input');
+                        if (cb2) {
+                            cb2.onchange = function(e) {
+                                e.stopPropagation();
+                                if (isGroupDisabled) return;
+                                if (this.checked) {
+                                    tempSelectedSpecIds.add(String(spec.id));
+                                } else {
+                                    tempSelectedSpecIds.delete(String(spec.id));
+                                }
+                                renderGoodsUnitTreeDropdownContent();
+                            };
+                        }
+                        specContainer.appendChild(specDiv);
+                    });
+                    groupDiv.appendChild(specContainer);
+                }
+                container.appendChild(groupDiv);
+            });
+        } else if (childSpecs.length > 0 && !isBaseExpanded) {
+            const tipDiv = document.createElement('div');
+            tipDiv.style.cssText = `padding-left:32px;color:#999;font-size:12px;padding:2px 0;`;
+            tipDiv.textContent = `└ 点击 ▶ 展开 ${childSpecs.length} 个规格`;
+            container.appendChild(tipDiv);
         }
     });
+    
+    if (!hasMatch) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
+    }
+    
+    // ===== 底部：保存和取消按钮 =====
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'padding:10px 0 0 0; border-top:1px solid #eee; display:flex; gap:10px; justify-content:flex-end; margin-top:8px;';
+    btnContainer.innerHTML = `
+        <button onclick="closeGoodsUnitDropdown()" style="padding:6px 20px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:13px;">取消</button>
+        <button onclick="confirmGoodsUnitSelection()" style="padding:6px 20px; border:none; border-radius:4px; background:#1890ff; color:#fff; cursor:pointer; font-size:13px;">保存</button>
+    `;
+    container.appendChild(btnContainer);
 }
 
 function onGoodsBaseUnitRadioChange(baseId) {
@@ -4773,44 +5124,84 @@ function onGoodsBaseUnitRadioChange(baseId) {
     renderGoodsUnitTree(baseId);
 }
 
-// ===================== 劫持函数 =====================
+// 🔥 劫持 openAddForm - 新增商品时清空单位数据
 const oldOpenAddForm = openAddForm;
 openAddForm = async function () {
     await oldOpenAddForm();
     await loadAllBaseUnit(); await loadAllUnitSpec();
     currentSelectBaseId = null;
+    
+    // 清空临时选择状态
+    tempSelectedBaseId = null;
+    tempSelectedSpecIds = new Set();
+    window._unitExpandState = {};
+    
     const search = $('addBaseUnitSearch');
     const hidden = $('add_base_unit_id');
     const wrap = $('specMultiWrap');
     const checkBox = $('specCheckWrap');
     const bindInput = $('bindSpecIds');
+    const dropdown = document.getElementById('goodsUnitDropdown');
+    
     if (search) search.value = '';
     if (hidden) hidden.value = '';
     if (wrap) wrap.style.display = 'none';
     if (checkBox) checkBox.innerHTML = '';
     if (bindInput) bindInput.value = '';
+    if (dropdown) dropdown.style.display = 'none';
 };
 
+// 🔥 劫持 openEditForm - 编辑商品时回显单位数据
 const oldOpenEditForm = openEditForm;
 openEditForm = async function (goodsId) {
     await oldOpenEditForm(goodsId);
     await loadAllBaseUnit(); await loadAllUnitSpec();
     const goodsItem = allGoods.find(g => g.id == goodsId);
     if (!goodsItem) return;
+    
+    // 清空临时选择状态
+    tempSelectedBaseId = null;
+    tempSelectedSpecIds = new Set();
+    window._unitExpandState = {};
+    
     if (goodsItem.base_unit_id) {
         const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
         if (baseItem) {
             const search = $('addBaseUnitSearch');
             const hidden = $('add_base_unit_id');
             const bindInput = $('bindSpecIds');
+            
             if (search) search.value = baseItem.unit_name;
             if (hidden) hidden.value = baseItem.id;
+            
+            // 设置临时选中的一级单位（用于置顶）
+            tempSelectedBaseId = baseItem.id;
+            
+            // 从 goods_unit_bind 表加载已绑定的规格
             const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
             const bindList = await bindRes.json() || [];
             const boundIds = bindList.map(b => b.spec_id);
+            boundIds.forEach(id => tempSelectedSpecIds.add(String(id)));
             if (bindInput) bindInput.value = boundIds.join(',');
+            
+            // 展开当前选中的一级单位和二级规格
+            if (boundIds.length > 0 && tempSelectedBaseId) {
+                window._unitExpandState['base_' + tempSelectedBaseId] = true;
+                const childSpecs = unitSpecList.filter(s => s.base_unit_id == tempSelectedBaseId);
+                const grouped = {};
+                childSpecs.forEach(spec => {
+                    if (!grouped[spec.show_name]) {
+                        grouped[spec.show_name] = [];
+                    }
+                    grouped[spec.show_name].push(spec);
+                });
+                Object.keys(grouped).forEach(name => {
+                    window._unitExpandState['group_' + tempSelectedBaseId + '_' + name] = true;
+                });
+            }
+            
             renderGoodsUnitTree(baseItem.id);
         }
     }
@@ -4907,6 +5298,10 @@ submitForm = async function () {
         if (typeof loadAllGoods === 'function') await loadAllGoods();
     } catch (err) { showMsg('保存失败：' + err.message); }
 };
+
+tempSelectedBaseId = null;
+tempSelectedSpecIds = new Set();
+window._unitExpandState = {};
 
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
