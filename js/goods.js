@@ -3723,6 +3723,7 @@ function renderUnitBaseList(keyword) {
     
     if (data.length === 0) {
         list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        list.style.display = 'block';
         return;
     }
     
@@ -3732,6 +3733,9 @@ function renderUnitBaseList(keyword) {
         div.textContent = item;
         div.onmouseover = function() { this.style.background = '#f0f0f0'; };
         div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onmousedown = function(e) {
+            e.preventDefault();  // 防止点击时输入框失去焦点
+        };
         div.onclick = function() {
             document.getElementById('unitFilterBaseName').value = item;
             list.style.display = 'none';
@@ -3739,6 +3743,7 @@ function renderUnitBaseList(keyword) {
         };
         list.appendChild(div);
     });
+    list.style.display = 'block';
 }
 
 // 显示包装单位下拉列表
@@ -3765,6 +3770,7 @@ function renderUnitSpecList(keyword) {
     
     if (data.length === 0) {
         list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        list.style.display = 'block';
         return;
     }
     
@@ -3774,6 +3780,9 @@ function renderUnitSpecList(keyword) {
         div.textContent = item;
         div.onmouseover = function() { this.style.background = '#f0f0f0'; };
         div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onmousedown = function(e) {
+            e.preventDefault();  // 防止点击时输入框失去焦点
+        };
         div.onclick = function() {
             document.getElementById('unitFilterSpecName').value = item;
             list.style.display = 'none';
@@ -3781,6 +3790,7 @@ function renderUnitSpecList(keyword) {
         };
         list.appendChild(div);
     });
+    list.style.display = 'block';
 }
 
 // 显示换算比例下拉列表
@@ -3807,6 +3817,7 @@ function renderUnitRateList(keyword) {
     
     if (data.length === 0) {
         list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        list.style.display = 'block';
         return;
     }
     
@@ -3816,6 +3827,9 @@ function renderUnitRateList(keyword) {
         div.textContent = item;
         div.onmouseover = function() { this.style.background = '#f0f0f0'; };
         div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onmousedown = function(e) {
+            e.preventDefault();  // 防止点击时输入框失去焦点
+        };
         div.onclick = function() {
             document.getElementById('unitFilterRate').value = item;
             list.style.display = 'none';
@@ -3823,26 +3837,29 @@ function renderUnitRateList(keyword) {
         };
         list.appendChild(div);
     });
+    list.style.display = 'block';
 }
-
 // 点击空白关闭下拉
 document.addEventListener('click', function(e) {
-    const ids = [
-        'unitFilterBaseName', 'unitFilterBaseNameList',
-        'unitFilterSpecName', 'unitFilterSpecNameList',
-        'unitFilterRate', 'unitFilterRateList'
-    ];
-    const target = e.target;
-    ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && !target.closest('#' + id)) {
-            if (id.includes('List')) {
-                el.style.display = 'none';
-            }
-        }
-    });
+    // 基础单位下拉
+    const baseInput = document.getElementById('unitFilterBaseName');
+    const baseList = document.getElementById('unitFilterBaseNameList');
+    if (baseInput && baseList && !e.target.closest('#unitFilterBaseName') && !e.target.closest('#unitFilterBaseNameList')) {
+        baseList.style.display = 'none';
+    }
+    // 包装单位下拉
+    const specInput = document.getElementById('unitFilterSpecName');
+    const specList = document.getElementById('unitFilterSpecNameList');
+    if (specInput && specList && !e.target.closest('#unitFilterSpecName') && !e.target.closest('#unitFilterSpecNameList')) {
+        specList.style.display = 'none';
+    }
+    // 换算比例下拉
+    const rateInput = document.getElementById('unitFilterRate');
+    const rateList = document.getElementById('unitFilterRateList');
+    if (rateInput && rateList && !e.target.closest('#unitFilterRate') && !e.target.closest('#unitFilterRateList')) {
+        rateList.style.display = 'none';
+    }
 });
-
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
     const filterSel = $('filterBaseUnit');
