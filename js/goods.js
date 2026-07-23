@@ -4753,18 +4753,19 @@ function renderGoodsUnitTree(selectedBaseId) {
     // 对二级单位名称排序
     const sortedNames = Object.keys(grouped).sort();
     
-    let html = `<div style="font-size:14px;color:#333;font-weight:bold;margin-bottom:10px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
+    // 🔥 标题单独占一行，后面内容从下一行开始
+    let html = `<div style="font-size:14px;color:#333;font-weight:bold;margin-bottom:10px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）</div>`;
     
     sortedNames.forEach(name => {
         const specs = grouped[name];
         // 按换算比例排序
         specs.sort((a, b) => a.convert_rate - b.convert_rate);
         
-        // 🔥 每个二级单位独立成行：二级单位名称红色 + 换行显示规格
+        // 🔥 每个二级单位独立成行
         html += `<div style="padding:6px 10px;margin-bottom:8px;background:#fafafa;border-radius:4px;border:1px solid #f0f0f0;">`;
-        // 二级单位名称：红色字体，加粗，独立一行
-        html += `<div style="font-weight:bold;color:#ff4d4f;font-size:15px;margin-bottom:6px;">📦 ${name} <span style="color:#999;font-size:12px;font-weight:normal;">（${specs.length}个规格）</span></div>`;
-        // 规格：在下一行显示
+        // 二级单位名称：红色字体，加粗
+        html += `<div style="font-weight:bold;color:#ff4d4f;font-size:14px;margin-bottom:4px;">📦 ${name} <span style="color:#999;font-size:12px;font-weight:normal;">（${specs.length}个规格）</span></div>`;
+        // 规格在下一行显示
         html += `<div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:6px;">`;
         specs.forEach(spec => {
             html += `<span style="padding:2px 12px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:12px;font-size:13px;color:#1890ff;">
@@ -4777,7 +4778,6 @@ function renderGoodsUnitTree(selectedBaseId) {
     
     checkBox.innerHTML = html;
 }
-
 // ===================== 商品弹窗单位树形下拉（完整树形结构） =====================
 
 // 全局临时存储选中的单位数据（仅在单位下拉弹窗内使用）
