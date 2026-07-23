@@ -4779,8 +4779,7 @@ function renderGoodsUnitTree(selectedBaseId) {
 let tempSelectedBaseId = null;      // 临时选中的一级单位ID
 let tempSelectedSpecIds = new Set(); // 临时选中的规格ID集合
 
-// 显示商品单位树形下拉
-// 显示商品单位树形下拉
+// 显示商品单位树形下拉// 显示商品单位树形下拉
 function showGoodsUnitTreeDropdown() {
     const dropdown = document.getElementById('goodsUnitDropdown');
     const searchInput = document.getElementById('addBaseUnitSearch');
@@ -4802,30 +4801,46 @@ function showGoodsUnitTreeDropdown() {
     const baseIdInput = document.getElementById('add_base_unit_id');
     const bindSpecInput = document.getElementById('bindSpecIds');
     
-    // 加载已保存的一级单位
     if (baseIdInput && baseIdInput.value) {
         tempSelectedBaseId = baseIdInput.value;
+    } else {
+        tempSelectedBaseId = null;
     }
     
-    // 加载已保存的规格ID
     if (bindSpecInput && bindSpecInput.value) {
         const savedIds = bindSpecInput.value.split(',').filter(id => id);
-        savedIds.forEach(id => tempSelectedSpecIds.add(String(id)));
+        tempSelectedSpecIds = new Set(savedIds);
+    } else {
+        tempSelectedSpecIds = new Set();
     }
     
-    // 🔥 设置置顶标志：只在打开下拉时置顶（回显场景）
+    // 🔥 使用 fixed 定位，脱离父容器限制
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = 'auto';
+    dropdown.style.left = 'auto';
+    dropdown.style.width = Math.max(searchInput.offsetWidth, 380) + 'px';
+    dropdown.style.maxHeight = '400px';  // 固定最大高度
+    
+    // 计算位置：在搜索框下方
+    const rect = searchInput.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 10;
+    const spaceAbove = rect.top - 10;
+    
+    // 如果下方空间不足，显示在上方
+    if (spaceBelow < 300 && spaceAbove > 300) {
+        dropdown.style.top = (rect.top - Math.min(400, spaceAbove)) + 'px';
+        dropdown.style.bottom = 'auto';
+    } else {
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.bottom = 'auto';
+    }
+    dropdown.style.left = rect.left + 'px';
+    
+    // 设置置顶标志
     window._shouldPinSelected = true;
     
     renderGoodsUnitTreeDropdownContent();
     dropdown.style.display = 'block';
-    
-    // 🔥 关键修复：回显置顶后，将下拉容器滚动到顶部
-    const container = document.getElementById('goodsUnitTreeContainer');
-    if (container) {
-        container.scrollTop = 0;
-    }
-    // 同时将整个下拉弹窗滚动到顶部
-    dropdown.scrollTop = 0;
     
     // 聚焦搜索框
     setTimeout(() => {
