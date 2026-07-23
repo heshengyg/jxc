@@ -4775,6 +4775,7 @@ let tempSelectedBaseId = null;      // 临时选中的一级单位ID
 let tempSelectedSpecIds = new Set(); // 临时选中的规格ID集合
 
 // 显示商品单位树形下拉
+// 显示商品单位树形下拉
 function showGoodsUnitTreeDropdown() {
     const dropdown = document.getElementById('goodsUnitDropdown');
     const searchInput = document.getElementById('addBaseUnitSearch');
@@ -4784,6 +4785,12 @@ function showGoodsUnitTreeDropdown() {
     if (dropdown.style.display === 'block') {
         dropdown.style.display = 'none';
         return;
+    }
+    
+    // 清空弹窗内的搜索框
+    const filterInput = document.getElementById('goodsUnitSearchInput');
+    if (filterInput) {
+        filterInput.value = '';
     }
     
     // 从已保存的数据加载临时状态
@@ -4801,15 +4808,22 @@ function showGoodsUnitTreeDropdown() {
         savedIds.forEach(id => tempSelectedSpecIds.add(String(id)));
     }
     
-    // 🔥 设置置顶标志：只在打开下拉时置顶
+    // 🔥 设置置顶标志：只在打开下拉时置顶（回显场景）
     window._shouldPinSelected = true;
     
     renderGoodsUnitTreeDropdownContent();
     dropdown.style.display = 'block';
     
+    // 🔥 关键修复：回显置顶后，将下拉容器滚动到顶部
+    const container = document.getElementById('goodsUnitTreeContainer');
+    if (container) {
+        container.scrollTop = 0;
+    }
+    // 同时将整个下拉弹窗滚动到顶部
+    dropdown.scrollTop = 0;
+    
     // 聚焦搜索框
     setTimeout(() => {
-        const filterInput = document.getElementById('goodsUnitSearchInput');
         if (filterInput) filterInput.focus();
     }, 100);
 }
@@ -5154,7 +5168,14 @@ function renderGoodsUnitTreeDropdownContent() {
     if (!hasMatch) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
     }
-}    
+// 🔥 如果执行了置顶，滚动到顶部
+    if (didPin) {
+        container.scrollTop = 0;
+        // 同时滚动外层容器
+        const dropdown = document.getElementById('goodsUnitDropdown');
+        if (dropdown) dropdown.scrollTop = 0;
+    }
+}
 
 function onGoodsBaseUnitRadioChange(baseId) {
     const hiddenInput = $('add_base_unit_id');
@@ -5447,6 +5468,7 @@ submitForm = async function () {
 
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
+    // 原有的关闭逻辑
     const searchInput = $('addBaseUnitSearch');
     const searchBox = $('addBaseUnitListBox');
     if (searchInput && searchBox && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#addBaseUnitListBox')) {
@@ -5461,6 +5483,16 @@ document.addEventListener('click', function (e) {
     const specList = $('specModalList');
     if (specInput && specList && !e.target.closest('#specShowName') && !e.target.closest('#specModalList')) {
         specList.style.display = 'none';
+    }
+    
+    // 🔥 修复问题2：点击空白关闭单位下拉弹窗
+    const goodsDropdown = document.getElementById('goodsUnitDropdown');
+    const addBaseUnitSearch = document.getElementById('addBaseUnitSearch');
+    if (goodsDropdown && goodsDropdown.style.display === 'block') {
+        // 如果点击的不是下拉框内部，也不是搜索框，则关闭
+        if (!e.target.closest('#goodsUnitDropdown') && !e.target.closest('#addBaseUnitSearch')) {
+            closeGoodsUnitDropdown();
+        }
     }
 });
 
