@@ -4779,7 +4779,7 @@ function renderGoodsUnitTree(selectedBaseId) {
 let tempSelectedBaseId = null;      // 临时选中的一级单位ID
 let tempSelectedSpecIds = new Set(); // 临时选中的规格ID集合
 
-// 显示商品单位树形下拉// 显示商品单位树形下拉
+// 显示商品单位树形下拉
 function showGoodsUnitTreeDropdown() {
     const dropdown = document.getElementById('goodsUnitDropdown');
     const searchInput = document.getElementById('addBaseUnitSearch');
@@ -4814,27 +4814,21 @@ function showGoodsUnitTreeDropdown() {
         tempSelectedSpecIds = new Set();
     }
     
-    // 🔥 使用 fixed 定位，脱离父容器限制
-    dropdown.style.position = 'fixed';
-    dropdown.style.top = 'auto';
-    dropdown.style.left = 'auto';
-    dropdown.style.width = Math.max(searchInput.offsetWidth, 380) + 'px';
-    dropdown.style.maxHeight = '400px';  // 固定最大高度
-    
-    // 计算位置：在搜索框下方
+    // 🔥 使用 getBoundingClientRect 精确定位
     const rect = searchInput.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - 10;
-    const spaceAbove = rect.top - 10;
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.width = Math.max(rect.width, 380) + 'px';
+    dropdown.style.maxHeight = '400px';
     
-    // 如果下方空间不足，显示在上方
-    if (spaceBelow < 300 && spaceAbove > 300) {
-        dropdown.style.top = (rect.top - Math.min(400, spaceAbove)) + 'px';
-        dropdown.style.bottom = 'auto';
-    } else {
-        dropdown.style.top = (rect.bottom + 2) + 'px';
+    // 检查下方空间是否足够
+    const spaceBelow = window.innerHeight - rect.bottom - 10;
+    if (spaceBelow < 350) {
+        // 下方空间不足，显示在上方
+        dropdown.style.top = (rect.top - 400) + 'px';
         dropdown.style.bottom = 'auto';
     }
-    dropdown.style.left = rect.left + 'px';
     
     // 设置置顶标志
     window._shouldPinSelected = true;
@@ -4847,6 +4841,7 @@ function showGoodsUnitTreeDropdown() {
         if (filterInput) filterInput.focus();
     }, 100);
 }
+
 // 关闭单位下拉（不保存）
 function closeGoodsUnitDropdown() {
     const dropdown = document.getElementById('goodsUnitDropdown');

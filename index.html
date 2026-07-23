@@ -1537,21 +1537,22 @@
                style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:15px; cursor:pointer;">
         
         <!-- 下拉树形弹窗 -->
-<div id="goodsUnitDropdown" style="display:none; z-index:99999; background:#fff; border:1px solid #ddd; border-radius:4px; box-shadow:0 4px 20px rgba(0,0,0,0.2); padding:12px; min-width:320px; max-height:400px; overflow-y:auto;">
-    <!-- 弹窗内搜索框 -->
-    <div style="margin-bottom:10px;">
-        <input type="text" id="goodsUnitSearchInput" placeholder="搜索单位、包装、换算比例..." 
-               oninput="filterGoodsUnitTreeDropdown()"
-               style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; box-sizing:border-box;">
+        <div id="goodsUnitDropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; min-width:380px; max-height:420px; overflow-y:auto; background:#fff; border:1px solid #ddd; border-radius:4px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:12px;">
+            <!-- 弹窗内搜索框 -->
+            <div style="margin-bottom:10px;">
+                <input type="text" id="goodsUnitSearchInput" placeholder="搜索单位、包装、换算比例..." 
+                       oninput="filterGoodsUnitTreeDropdown()"
+                       style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; box-sizing:border-box;">
+            </div>
+            <!-- 树形列表容器 -->
+            <div id="goodsUnitTreeContainer" style="max-height:280px; overflow-y:auto;"></div>
+            <!-- 按钮区域 -->
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid #eee;">
+                <button class="btn btn-default btn-sm" onclick="closeGoodsUnitDropdown()" style="padding:4px 16px; cursor:pointer;">取消</button>
+                <button class="btn btn-primary btn-sm" onclick="confirmGoodsUnitSelection()" style="padding:4px 16px; cursor:pointer;">确定</button>
+            </div>
+        </div>
     </div>
-    <!-- 树形列表容器 -->
-    <div id="goodsUnitTreeContainer" style="max-height:280px; overflow-y:auto;"></div>
-    <!-- 按钮区域 -->
-    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid #eee;">
-        <button class="btn btn-default btn-sm" onclick="closeGoodsUnitDropdown()" style="padding:4px 16px; cursor:pointer;">取消</button>
-        <button class="btn btn-primary btn-sm" onclick="confirmGoodsUnitSelection()" style="padding:4px 16px; cursor:pointer;">确定</button>
-    </div>
-</div>
     
     <!-- 右侧新增按钮，和单位预设共用弹窗 -->
     <button type="button" class="btn btn-primary btn-sm" onclick="openUnitEdit(null, 1)">新增</button>
