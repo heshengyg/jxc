@@ -3453,57 +3453,251 @@ async function loadAllUnitSpec() {
 }
 
 // ===================== 渲染表格函数 =====================
+// 修改 renderAllUnitTable 函数
 function renderAllUnitTable() {
-    const tb = $('allUnitTable');
-    if (!tb) return;
-    tb.innerHTML = '';
-    
-    if (baseUnitList.length === 0) {
-        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请点击"新增单位"添加</td></tr>';
-        return;
-    }
-    
+    // 构建扁平数据
+    unitAllData = buildUnitFlatData();
+    unitFilteredData = [...unitAllData];
+    filterUnitData();
+}
+// ===================== 单位预设分页和搜索相关 =====================
+let unitCurrentPage = 1;
+let unitPageSize = 10;
+let unitTotalPages = 1;
+let unitFilteredData = [];
+let unitAllData = [];
+let unitFilterTimer = null;
+
+// 构建扁平数据（用于搜索和分页）
+function buildUnitFlatData() {
+    const result = [];
+    let seq = 0;
     baseUnitList.forEach(baseItem => {
-        const tr1 = document.createElement('tr');
-        tr1.innerHTML = `
-            <td>${baseItem.id}</td>
-            <td style="font-weight:bold;">${baseItem.unit_name}</td>
-            <td>-</td>
-            <td>-</td>
-            <td>${baseItem.is_locked ? '锁定' : '可编辑'}</td>
-            <td>
-                ${baseItem.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteBaseUnit(${baseItem.id})" class="btn btn-sm btn-danger">删除</button>`}
-                <!-- 🔥 关键修复：新增规格传入 source='base' -->
-                <button onclick="openUnitEdit(${baseItem.id},2,'','base')" class="btn btn-sm btn-success">新增规格</button>
-            </td>
-        `;
-        tb.appendChild(tr1);
-        
+        // 一级单位行
+        seq++;
+        result.push({
+            seq: seq,
+            type: 'base',
+            id: baseItem.id,
+            baseName: baseItem.unit_name,
+            specName: '-',
+            rate: '-',
+            status: baseItem.is_locked ? '锁定' : '可编辑',
+            baseItem: baseItem,
+            isLocked: baseItem.is_locked,
+            isBase: true
+        });
+        // 二级规格行
         const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
         if (childSpecs.length === 0) {
-            const trEmpty = document.createElement('tr');
-            trEmpty.innerHTML = `<td colspan="6" style="padding:4px 10px;color:#999;text-align:center;font-size:13px;">└ （暂无换算规格）</td>`;
-            tb.appendChild(trEmpty);
+            result.push({
+                seq: seq,
+                type: 'empty',
+                id: null,
+                baseName: baseItem.unit_name,
+                specName: '（暂无换算规格）',
+                rate: '',
+                status: '',
+                baseItem: baseItem,
+                isLocked: false,
+                isBase: false,
+                isEmpty: true
+            });
         } else {
             childSpecs.forEach(spec => {
-                const tr2 = document.createElement('tr');
-                tr2.innerHTML = `
-                    <td>${spec.id}</td>
-                    <td>&nbsp;&nbsp;&nbsp;└ ${spec.show_name}</td>
-                    <td>${spec.show_name}</td>
-                    <td>${spec.convert_rate}${baseItem.unit_name}</td>
-                    <td>${spec.is_locked ? '锁定' : '正常'}</td>
-                    <td>
-                        <!-- 🔥 编辑规格不传 source，默认按编辑处理 -->
-                        <button onclick="openUnitEdit(${spec.id},2)" class="btn btn-sm btn-primary">编辑</button>
-                        ${spec.is_locked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${spec.id})" class="btn btn-sm btn-danger">删除</button>`}
-                    </td>
-                `;
-                tb.appendChild(tr2);
+                seq++;
+                result.push({
+                    seq: seq,
+                    type: 'spec',
+                    id: spec.id,
+                    baseName: baseItem.unit_name,
+                    specName: spec.show_name,
+                    rate: `${spec.convert_rate}${baseItem.unit_name}`,
+                    status: spec.is_locked ? '锁定' : '正常',
+                    baseItem: baseItem,
+                    spec: spec,
+                    isLocked: spec.is_locked,
+                    isBase: false,
+                    isEmpty: false
+                });
             });
         }
     });
+    return result;
 }
+
+// 过滤单位数据
+function filterUnitData() {
+    const baseKeyword = document.getElementById('unitFilterBaseName')?.value.trim().toLowerCase() || '';
+    const specKeyword = document.getElementById('unitFilterSpecName')?.value.trim().toLowerCase() || '';
+    const rateKeyword = document.getElementById('unitFilterRate')?.value.trim().toLowerCase() || '';
+    
+    let filtered = unitAllData.filter(item => {
+        let match = true;
+        if (baseKeyword) {
+            const baseName = (item.baseName || '').toLowerCase();
+            match = match && baseName.includes(baseKeyword);
+        }
+        if (specKeyword) {
+            const specName = (item.specName || '').toLowerCase();
+            match = match && specName.includes(specKeyword);
+        }
+        if (rateKeyword) {
+            const rate = (item.rate || '').toLowerCase();
+            match = match && rate.includes(rateKeyword);
+        }
+        return match;
+    });
+    
+    unitFilteredData = filtered;
+    
+    // 更新统计
+    const totalBaseCount = baseUnitList.length;
+    const totalSpecCount = unitSpecList.length;
+    const searchBaseCount = new Set(filtered.filter(item => item.isBase).map(item => item.id)).size;
+    const searchSpecCount = filtered.filter(item => item.type === 'spec').length;
+    
+    const totalBaseEl = document.getElementById('unitTotalBaseCount');
+    const totalSpecEl = document.getElementById('unitTotalSpecCount');
+    const searchBaseEl = document.getElementById('unitSearchBaseCount');
+    const searchSpecEl = document.getElementById('unitSearchSpecCount');
+    if (totalBaseEl) totalBaseEl.textContent = totalBaseCount;
+    if (totalSpecEl) totalSpecEl.textContent = totalSpecCount;
+    if (searchBaseEl) searchBaseEl.textContent = searchBaseCount;
+    if (searchSpecEl) searchSpecEl.textContent = searchSpecCount;
+    
+    unitCurrentPage = 1;
+    renderUnitPagination();
+    renderUnitTable();
+}
+
+// 渲染单位表格（支持分页）
+function renderUnitTable() {
+    const tb = document.getElementById('allUnitTable');
+    if (!tb) return;
+    
+    const start = (unitCurrentPage - 1) * unitPageSize;
+    const pageData = unitFilteredData.slice(start, start + unitPageSize);
+    
+    tb.innerHTML = '';
+    
+    if (unitFilteredData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无匹配数据</td></tr>';
+        return;
+    }
+    
+    let rowNum = start;
+    pageData.forEach(item => {
+        rowNum++;
+        const tr = document.createElement('tr');
+        let html = '';
+        
+        if (item.isBase) {
+            // 一级单位行
+            html = `
+                <td>${rowNum}</td>
+                <td style="font-weight:bold;">${item.baseName}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>${item.isLocked ? '锁定' : '可编辑'}</td>
+                <td>
+                    ${item.isLocked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteBaseUnit(${item.id})" class="btn btn-sm btn-danger">删除</button>`}
+                    <button onclick="openUnitEdit(${item.id},2,'','base')" class="btn btn-sm btn-success">新增规格</button>
+                </td>
+            `;
+        } else if (item.isEmpty) {
+            // 空规格提示行
+            html = `
+                <td>${rowNum}</td>
+                <td>&nbsp;&nbsp;&nbsp;<span style="color:#999;">${item.baseName}</span></td>
+                <td colspan="4" style="color:#999;text-align:center;">└ （暂无换算规格）</td>
+            `;
+        } else {
+            // 二级规格行
+            html = `
+                <td>${rowNum}</td>
+                <td>&nbsp;&nbsp;&nbsp;${item.baseName}</td>
+                <td>${item.specName}</td>
+                <td>${item.rate}</td>
+                <td>${item.isLocked ? '锁定' : '正常'}</td>
+                <td>
+                    <button onclick="openUnitEdit(${item.id},2)" class="btn btn-sm btn-primary">编辑</button>
+                    ${item.isLocked ? '<button disabled class="btn btn-sm btn-danger">删除</button>' : `<button onclick="deleteUnitSpec(${item.id})" class="btn btn-sm btn-danger">删除</button>`}
+                </td>
+            `;
+        }
+        tr.innerHTML = html;
+        tb.appendChild(tr);
+    });
+}
+
+// 分页相关函数
+function renderUnitPagination() {
+    unitTotalPages = Math.ceil(unitFilteredData.length / unitPageSize) || 1;
+    if (unitCurrentPage > unitTotalPages) unitCurrentPage = unitTotalPages;
+    
+    const currentPageEl = document.getElementById('unitCurrentPage');
+    const totalPagesEl = document.getElementById('unitTotalPages');
+    if (currentPageEl) currentPageEl.textContent = unitCurrentPage;
+    if (totalPagesEl) totalPagesEl.textContent = unitTotalPages;
+    
+    const pgBox = document.getElementById('unitPageNumbers');
+    if (!pgBox) return;
+    pgBox.innerHTML = '';
+    
+    let s = Math.max(1, unitCurrentPage - 2);
+    let e = Math.min(unitTotalPages, s + 4);
+    for (let i = s; i <= e; i++) {
+        let btn = document.createElement('button');
+        btn.className = 'page-btn ' + (i === unitCurrentPage ? 'active' : '');
+        btn.innerText = i;
+        btn.onclick = () => unitGoToPage(i);
+        pgBox.appendChild(btn);
+    }
+    
+    // 更新按钮状态
+    const btns = document.querySelectorAll('#sub-unitSet .page-controls .page-btn');
+    if (btns.length >= 4) {
+        btns[0].disabled = (unitCurrentPage === 1);
+        btns[1].disabled = (unitCurrentPage === 1);
+        btns[btns.length - 2].disabled = (unitCurrentPage === unitTotalPages);
+        btns[btns.length - 1].disabled = (unitCurrentPage === unitTotalPages);
+    }
+}
+
+function unitGoToPage(p) {
+    if (p < 1 || p > unitTotalPages) return;
+    unitCurrentPage = p;
+    renderUnitPagination();
+    renderUnitTable();
+}
+
+function unitPrevPage() { unitGoToPage(unitCurrentPage - 1); }
+function unitNextPage() { unitGoToPage(unitCurrentPage + 1); }
+
+function changeUnitPageSize() {
+    unitPageSize = +document.getElementById('unitPageSize').value;
+    unitCurrentPage = 1;
+    renderUnitPagination();
+    renderUnitTable();
+}
+
+// 搜索输入防抖
+function onUnitFilterInput() {
+    if (unitFilterTimer) clearTimeout(unitFilterTimer);
+    unitFilterTimer = setTimeout(() => {
+        filterUnitData();
+    }, 300);
+}
+
+// 重置搜索
+function resetUnitSearch() {
+    document.getElementById('unitFilterBaseName').value = '';
+    document.getElementById('unitFilterSpecName').value = '';
+    document.getElementById('unitFilterRate').value = '';
+    filterUnitData();
+}
+
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
     const filterSel = $('filterBaseUnit');
@@ -4594,5 +4788,13 @@ window.renderGoodsUnitTree = renderGoodsUnitTree;
 window.renderExistingSpecs = renderExistingSpecs;
 window.updateSpecFromEdit = updateSpecFromEdit;
 window.doUpdateSpec = doUpdateSpec;
-
+window.resetUnitSearch = resetUnitSearch;
+window.onUnitFilterInput = onUnitFilterInput;
+window.unitGoToPage = unitGoToPage;
+window.unitPrevPage = unitPrevPage;
+window.unitNextPage = unitNextPage;
+window.changeUnitPageSize = changeUnitPageSize;
+window.filterUnitData = filterUnitData;
+window.renderUnitTable = renderUnitTable;
+window.renderUnitPagination = renderUnitPagination;
 console.log('✅ 单位管理模块加载完成');

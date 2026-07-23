@@ -167,16 +167,53 @@
 <!-- 单位预设 -->
 <div id="sub-unitSet" class="finance-sub-content" style="display:none;">
     <h4>单位预设管理</h4>
-<div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增单位</button>
-    <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
-    <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
-</div>
+    <div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增单位</button>
+        <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
+        <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
+        <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
+    </div>
+    
+    <!-- 搜索栏 -->
+    <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;">
+        <!-- 搜索基础单位 -->
+        <div style="position:relative; display:inline-block;">
+            <input type="text" id="unitFilterBaseName" placeholder="搜索基础单位" 
+                   oninput="onUnitFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="unitFilterBaseNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+        </div>
+        
+        <!-- 搜索包装单位 -->
+        <div style="position:relative; display:inline-block;">
+            <input type="text" id="unitFilterSpecName" placeholder="搜索包装单位" 
+                   oninput="onUnitFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="unitFilterSpecNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+        </div>
+        
+        <!-- 搜索换算比例 -->
+        <div style="position:relative; display:inline-block;">
+            <input type="text" id="unitFilterRate" placeholder="搜索换算比例" 
+                   oninput="onUnitFilterInput()"
+                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+            <div id="unitFilterRateList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
+        </div>
+        
+        <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div class="stat-bar">
+        共有 <span id="unitTotalBaseCount">0</span> 条基础单位，<span id="unitTotalSpecCount">0</span> 条包装单位，
+        当前搜索结果 <span id="unitSearchBaseCount">0</span> 条基础单位，<span id="unitSearchSpecCount">0</span> 条包装单位
+    </div>
+    
     <div class="table-container">
         <table border="1" cellpadding="6" cellspacing="0" width="100%">
             <thead>
                 <tr>
-                    <th style="width:60px;">ID</th>
+                    <th style="width:60px;">序号</th>
                     <th style="min-width:150px;">单位名称</th>
                     <th style="min-width:120px;">换算名称</th>
                     <th style="min-width:100px;">换算比例</th>
@@ -188,6 +225,25 @@
                 <tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请新增单位</td></tr>
             </tbody>
         </table>
+    </div>
+    
+    <!-- 分页 -->
+    <div class="pagination">
+        <div class="page-info">
+            每页显示 <select id="unitPageSize" onchange="changeUnitPageSize()">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select> 条，当前第 <span id="unitCurrentPage">1</span> / <span id="unitTotalPages">1</span> 页
+        </div>
+        <div class="page-controls">
+            <button class="page-btn" onclick="unitGoToPage(1)">首页</button>
+            <button class="page-btn" onclick="unitPrevPage()">上一页</button>
+            <span id="unitPageNumbers"></span>
+            <button class="page-btn" onclick="unitNextPage()">下一页</button>
+            <button class="page-btn" onclick="unitGoToPage(unitTotalPages)">末页</button>
+        </div>
     </div>
 </div>
 
