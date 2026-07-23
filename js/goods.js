@@ -4707,7 +4707,7 @@ function selectGoodsBaseUnit(item) {
     renderGoodsUnitTree(item.id);
 }
 
-// 渲染已选规格展示（无按钮，只读展示）
+// 渲染已选规格展示（按二级单位分组，每个二级占一行）
 function renderGoodsUnitTree(selectedBaseId) {
     const wrap = $('specMultiWrap');
     const checkBox = $('specCheckWrap');
@@ -4729,7 +4729,7 @@ function renderGoodsUnitTree(selectedBaseId) {
     wrap.style.display = 'block';
     checkBox.innerHTML = '';
     
-    const baseItem = baseUnitList.find(u => u.id == selectedBaseId);
+    const baseItem = baseUnitList.find(u => u.id == parseInt(selectedBaseId));
     if (!baseItem) {
         wrap.style.display = 'none';
         return;
@@ -4741,7 +4741,7 @@ function renderGoodsUnitTree(selectedBaseId) {
         return;
     }
     
-    // 按二级名称分组
+    // 🔥 按二级单位（show_name）分组
     const grouped = {};
     selectedSpecs.forEach(spec => {
         if (!grouped[spec.show_name]) {
@@ -4749,20 +4749,28 @@ function renderGoodsUnitTree(selectedBaseId) {
         }
         grouped[spec.show_name].push(spec);
     });
+    
+    // 对二级单位名称排序
     const sortedNames = Object.keys(grouped).sort();
     
-    let html = `<div style="font-size:13px;color:#333;font-weight:bold;margin-bottom:8px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
+    let html = `<div style="font-size:14px;color:#333;font-weight:bold;margin-bottom:10px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
     
     sortedNames.forEach(name => {
         const specs = grouped[name];
+        // 按换算比例排序
         specs.sort((a, b) => a.convert_rate - b.convert_rate);
-        html += `<div style="color:#ff4d4f;font-weight:bold;font-size:14px;margin:4px 0 2px 0;">📌 ${name}</div>`;
-        html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-left:16px;">`;
+        
+        // 🔥 每个二级单位占一行：显示二级单位名称 + 该单位下所有换算比例
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:6px;background:#f0f8ff;border-radius:4px;border-left:3px solid #1890ff;">`;
+        html += `<span style="font-weight:bold;color:#1890ff;font-size:14px;min-width:60px;">📦 ${name}</span>`;
+        html += `<span style="color:#999;font-size:12px;">（${specs.length}个规格）</span>`;
+        html += `<span style="display:flex;flex-wrap:wrap;gap:4px;">`;
         specs.forEach(spec => {
-            html += `<span style="padding:4px 10px;background:#e8f5e9;border-radius:4px;font-size:13px;border:1px solid #c8e6c9;">
+            html += `<span style="padding:2px 10px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:12px;font-size:12px;color:#1890ff;">
                 ${spec.convert_rate}${baseItem.unit_name}
             </span>`;
         });
+        html += `</span>`;
         html += `</div>`;
     });
     
