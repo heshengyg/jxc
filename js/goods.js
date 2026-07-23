@@ -5244,6 +5244,7 @@ openEditForm = async function (goodsId) {
 };
 
 // ===================== 劫持函数 =====================
+
 // 🔥 劫持 openAddForm - 新增商品时清空单位数据
 const oldOpenAddForm = openAddForm;
 openAddForm = async function () {
@@ -5251,7 +5252,6 @@ openAddForm = async function () {
     await loadAllBaseUnit(); await loadAllUnitSpec();
     currentSelectBaseId = null;
     
-    // 清空单位相关字段
     const search = $('addBaseUnitSearch');
     const hidden = $('add_base_unit_id');
     const wrap = $('specMultiWrap');
@@ -5266,21 +5266,19 @@ openAddForm = async function () {
     if (bindInput) bindInput.value = '';
     if (dropdown) dropdown.style.display = 'none';
     
-    // 重置临时变量
     tempSelectedBaseId = null;
     tempSelectedSpecIds = new Set();
     window._unitExpandState = {};
 };
 
-// 🔥 劫持 openEditForm - 编辑商品时回显单位数据
-const oldOpenEditForm = openEditForm;
+// 🔥 劫持 openEditForm - 编辑商品时回显单位数据（只保留这一份！！！）
+const oldOpenEditForm = openEditForm;   // ← 只声明一次
 openEditForm = async function (goodsId) {
     await oldOpenEditForm(goodsId);
     await loadAllBaseUnit(); await loadAllUnitSpec();
     const goodsItem = allGoods.find(g => g.id == goodsId);
     if (!goodsItem) return;
     
-    // 清空之前的临时数据
     tempSelectedBaseId = null;
     tempSelectedSpecIds = new Set();
     window._unitExpandState = {};
@@ -5297,7 +5295,6 @@ openEditForm = async function (goodsId) {
             
             tempSelectedBaseId = baseItem.id;
             
-            // 🔥 从 goods_unit_bind 表加载已绑定的规格
             const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
@@ -5306,7 +5303,6 @@ openEditForm = async function (goodsId) {
             boundIds.forEach(id => tempSelectedSpecIds.add(String(id)));
             if (bindInput) bindInput.value = boundIds.join(',');
             
-            // 展开当前选中的一级单位和二级规格
             if (boundIds.length > 0 && tempSelectedBaseId) {
                 window._unitExpandState['base_' + tempSelectedBaseId] = true;
                 const childSpecs = unitSpecList.filter(s => s.base_unit_id == tempSelectedBaseId);
@@ -5327,14 +5323,13 @@ openEditForm = async function (goodsId) {
 };
 
 // 🔥 劫持 submitForm - 保存单位数据到 goods_unit_bind（只保留这一份！！！）
-const oldSubmitForm = submitForm;
+const oldSubmitForm = submitForm;   // ← 只声明一次
 submitForm = async function () {
     const baseIdInput = $('add_base_unit_id');
     if (!baseIdInput) { alert('页面元素不完整'); return; }
     const baseId = baseIdInput.value;
     if (!baseId) { alert('请选择基准最小计量单位'); return; }
     
-    // 从 bindSpecIds 获取选中的规格ID列表
     const bindSpecInput = $('bindSpecIds');
     const specIds = bindSpecInput && bindSpecInput.value 
         ? bindSpecInput.value.split(',').filter(id => id).map(Number) 
@@ -5406,15 +5401,12 @@ submitForm = async function () {
             goodsRealId = newArr[0]?.id;
         }
         
-        // 🔥 保存单位绑定关系到 goods_unit_bind 表
         if (goodsRealId) {
-            // 先删除旧的绑定
             await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
                 method: 'DELETE',
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
             
-            // 插入新的绑定（每个规格一条记录）
             for (const sid of specIds) {
                 if (sid) {
                     await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
@@ -5434,7 +5426,6 @@ submitForm = async function () {
         if (typeof loadAllGoods === 'function') await loadAllGoods();
     } catch (err) { showMsg('保存失败：' + err.message); }
 };
-
 
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
