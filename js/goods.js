@@ -3425,10 +3425,6 @@ let baseUnitSearchTimer = null;
 let tempSpecList = [];
 let currentModalBaseId = null;
 
-// 商品弹窗单位树形下拉临时变量
-let tempSelectedBaseId = null;
-let tempSelectedSpecIds = new Set();
-
 // 安全获取元素
 function $(id) { return document.getElementById(id); }
 
@@ -3885,11 +3881,6 @@ document.addEventListener('click', function(e) {
     if (rateInput && rateList && !e.target.closest('#unitFilterRate') && !e.target.closest('#unitFilterRateList')) {
         rateList.style.display = 'none';
     }
-    // 商品弹窗单位下拉
-    const goodsDropdown = document.getElementById('goodsUnitDropdown');
-    if (goodsDropdown && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#goodsUnitDropdown')) {
-        goodsDropdown.style.display = 'none';
-    }
 });
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
@@ -4064,7 +4055,8 @@ function renderExistingSpecs(baseId) {
     container.innerHTML = html;
 }
 
-// ===================== 🔥 openUnitEdit =====================
+// ===================== 🔥 openUnitEdit（核心修复：用表名区分ID） =====================
+// ===================== 🔥 openUnitEdit（核心修复：用source区分ID来源） =====================
 function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
     const modal = $('unitAllModal');
     const title = $('unitModalTitle');
@@ -4146,9 +4138,14 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
         }
     } else {
         // ===== 二级规格操作 =====
+        // 🔥 核心修复：通过 source 参数明确区分ID来源
+        // source='base' 表示从一级行点击"新增规格"，editId 是一级单位ID
+        // source='spec' 或空 表示编辑规格，editId 是二级规格ID
+        
         if (source === 'base') {
             // ===== 新增规格（从一级行点击"新增规格"） =====
             if (title) title.textContent = '新增换算规格';
+            // 直接查找 baseUnitList
             const baseItem = baseUnitList.find(u => u.id == editId);
             if (baseItem && baseNameInput) {
                 baseNameInput.value = baseItem.unit_name;
@@ -4170,7 +4167,9 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
                 saveBtn.onclick = submitAllUnit; 
             }
         } else {
-            // ===== 编辑规格 =====
+            // ===== 编辑规格（从二级行点击"编辑"） =====
+            // 或者 source 为空，默认按编辑处理
+            // 查找 unitSpecList
             const spec = unitSpecList.find(s => s.id == editId);
             if (spec) {
                 if (title) title.textContent = '编辑换算规格';
@@ -4196,7 +4195,7 @@ function openUnitEdit(editId = null, editType = 1, fillName = '', source = '') {
                 }
                 if (hidId) hidId.value = editId;
             } else {
-                // ===== 纯新增规格 =====
+                // ===== 纯新增规格（无editId或找不到） =====
                 if (title) title.textContent = '新增换算规格';
                 if (baseNameInput) { baseNameInput.disabled = false; baseNameInput.style.background = '#fff'; }
                 if (rateUnitSpan) rateUnitSpan.textContent = '单位';
@@ -4318,7 +4317,7 @@ async function deleteUnitSpec(id) {
     } catch (e) { showMsg('删除失败：' + e.message); }
 }
 
-// ===================== 🔥 submitAllUnit =====================
+// ===================== 🔥 submitAllUnit（必须定义在 openUnitEdit 之前或之后，但要在调用前定义） =====================
 async function submitAllUnit() {
     const editTypeInput = $('unitEditType');
     const editIdInput = $('unitEditId');
@@ -4656,441 +4655,31 @@ async function createBaseUnitAndSelect(unitName) {
     } catch (e) { showMsg('创建一级单位失败：' + e.message); }
 }
 
-// ===================== 商品弹窗单位树形下拉（新增） =====================
-
-// 显示商品单位树形下拉
-function showGoodsUnitTreeDropdown() {
-    const dropdown = document.getElementById('goodsUnitDropdown');
-    const searchInput = document.getElementById('addBaseUnitSearch');
-    if (!dropdown || !searchInput) return;
-    
-    if (dropdown.style.display === 'block') {
-        dropdown.style.display = 'none';
-        return;
-    }
-    
-    const rect = searchInput.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - 20;
-    const maxHeight = Math.min(500, Math.max(300, spaceBelow - 80));
-    dropdown.style.maxHeight = maxHeight + 'px';
-    
-    const baseIdInput = document.getElementById('add_base_unit_id');
-    const bindSpecInput = document.getElementById('bindSpecIds');
-    
-    // 🔥 关键修复：从 bindSpecIds 加载已保存的规格ID，确保回显勾选
-    // 但不要覆盖用户在当前会话中已经做的临时选择
-    if (bindSpecInput && bindSpecInput.value) {
-        const savedIds = bindSpecInput.value.split(',').filter(id => id);
-        // 如果 tempSelectedSpecIds 为空，或者当前没有选中任何规格，从保存的数据加载
-        if (tempSelectedSpecIds.size === 0) {
-            savedIds.forEach(id => tempSelectedSpecIds.add(String(id)));
-        }
-    }
-    
-    // 如果 tempSelectedBaseId 为空，从已保存的数据加载
-    if (!tempSelectedBaseId && baseIdInput && baseIdInput.value) {
-        tempSelectedBaseId = baseIdInput.value;
-    }
-    
-    // 如果没有选中一级单位但有选中的规格，自动定位
-    if (!tempSelectedBaseId && tempSelectedSpecIds.size > 0) {
-        const firstSpecId = Array.from(tempSelectedSpecIds)[0];
-        const spec = unitSpecList.find(s => s.id == firstSpecId);
-        if (spec) {
-            tempSelectedBaseId = spec.base_unit_id;
-        }
-    }
-    
-    const filterInput = document.getElementById('goodsUnitSearchInput');
-    if (filterInput) filterInput.value = '';
-    
-    renderGoodsUnitTreeDropdown();
-    dropdown.style.display = 'block';
-    setTimeout(() => { if (filterInput) filterInput.focus(); }, 100);
-}
-
-// 关闭商品单位树形下拉（不保存）
-function closeGoodsUnitDropdown() {
-    const dropdown = document.getElementById('goodsUnitDropdown');
-    if (dropdown) dropdown.style.display = 'none';
-    // 恢复显示已保存的值
-    const baseIdInput = document.getElementById('add_base_unit_id');
-    const searchInput = document.getElementById('addBaseUnitSearch');
-    if (baseIdInput && baseIdInput.value) {
-        const baseItem = baseUnitList.find(u => u.id == parseInt(baseIdInput.value));
-        if (baseItem && searchInput) searchInput.value = baseItem.unit_name;
-    } else {
-        if (searchInput) searchInput.value = '';
-    }
-}
-
-// 确认选择（保存临时选择到正式字段）
-function confirmGoodsUnitSelection() {
-    const baseIdInput = document.getElementById('add_base_unit_id');
-    const bindSpecInput = document.getElementById('bindSpecIds');
-    const searchInput = document.getElementById('addBaseUnitSearch');
-    
-    if (!tempSelectedBaseId && tempSelectedSpecIds.size > 0) {
-        const firstSpecId = Array.from(tempSelectedSpecIds)[0];
-        const spec = unitSpecList.find(s => s.id == firstSpecId);
-        if (spec) {
-            tempSelectedBaseId = spec.base_unit_id;
-        }
-    }
-    
-    if (baseIdInput) baseIdInput.value = tempSelectedBaseId || '';
-    if (bindSpecInput) bindSpecInput.value = Array.from(tempSelectedSpecIds).join(',');
-    
-    if (searchInput && tempSelectedBaseId) {
-        const baseItem = baseUnitList.find(u => u.id == parseInt(tempSelectedBaseId));
-        if (baseItem) searchInput.value = baseItem.unit_name;
-    } else if (searchInput) {
-        searchInput.value = '';
-    }
-    
-    if (tempSelectedBaseId) {
-        renderGoodsUnitTree(parseInt(tempSelectedBaseId));
-    } else {
-        const wrap = $('specMultiWrap');
-        if (wrap) wrap.style.display = 'none';
-    }
-    
-    closeGoodsUnitDropdown();
-}
-// 过滤树形下拉（从外部搜索框触发）
-function filterGoodsUnitTreeDropdown() {
-    const input = document.getElementById('addBaseUnitSearch');
-    const filterInput = document.getElementById('goodsUnitSearchInput');
-    if (filterInput) {
-        filterInput.value = input ? input.value : '';
-    }
-    renderGoodsUnitTreeDropdown();
-}
-
-// 弹窗内搜索过滤
-function filterGoodsUnitTree() {
-    renderGoodsUnitTreeDropdown();
-}
-
-// 渲染商品单位树形下拉（加大缩进，修复勾选状态）
-function renderGoodsUnitTreeDropdown() {
-    const container = document.getElementById('goodsUnitTreeContainer');
-    const filterInput = document.getElementById('goodsUnitSearchInput');
-    if (!container) return;
-    
-    const keyword = filterInput ? filterInput.value.trim().toLowerCase() : '';
-    container.innerHTML = '';
-    
-    if (baseUnitList.length === 0) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无单位数据</div>';
-        return;
-    }
-    
-    if (!window._unitExpandState) {
-        window._unitExpandState = {};
-    }
-    
-    let hasMatch = false;
-    const sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
-    
-    sortedBaseList.forEach(baseItem => {
-        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
-        childSpecs.sort((a, b) => a.convert_rate - b.convert_rate);
-        
-        // 🔥 检查是否有规格被选中（使用 String 比较确保类型一致）
-        const hasCheckedSpec = childSpecs.some(s => tempSelectedSpecIds.has(String(s.id)));
-        
-        const baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
-        const specMatch = childSpecs.some(s => 
-            s.show_name.toLowerCase().includes(keyword) || 
-            String(s.convert_rate).includes(keyword)
-        );
-        const isVisible = baseMatch || specMatch;
-        
-        if (!isVisible) return;
-        hasMatch = true;
-        
-        const isRadioSelected = tempSelectedBaseId == baseItem.id;
-        const isBaseActive = isRadioSelected || hasCheckedSpec;
-        const isDisabled = tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id;
-        
-        const baseKey = 'base_' + baseItem.id;
-        if (keyword) {
-            window._unitExpandState[baseKey] = true;
-        }
-        const isBaseExpanded = window._unitExpandState[baseKey] !== false;
-        
-        const checkedCount = childSpecs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
-        
-        // ===== 一级单位行 =====
-        const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = 'padding:6px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;';
-        rowDiv.onclick = function(e) {
-            e.stopPropagation();
-            if (e.target.tagName === 'INPUT') return;
-            const expandIcon = e.target.closest('.unit-expand-icon');
-            if (expandIcon) {
-                window._unitExpandState[baseKey] = !window._unitExpandState[baseKey];
-                renderGoodsUnitTreeDropdown();
-                return;
-            }
-            if (tempSelectedBaseId == baseItem.id) {
-                if (tempSelectedSpecIds.size > 0) {
-                    if (confirm('取消选中将清空已选换算规格，确定？')) {
-                        tempSelectedSpecIds.clear();
-                        tempSelectedBaseId = null;
-                    }
-                } else {
-                    tempSelectedBaseId = null;
-                }
-            } else {
-                if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedSpecIds.size > 0) {
-                    if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-                        renderGoodsUnitTreeDropdown();
-                        return;
-                    }
-                    tempSelectedSpecIds.clear();
-                }
-                tempSelectedBaseId = baseItem.id;
-            }
-            renderGoodsUnitTreeDropdown();
-        };
-        
-        const expandIconHtml = childSpecs.length > 0 ? 
-            `<span class="unit-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:2px;user-select:none;">${isBaseExpanded ? '▼' : '▶'}</span>` : 
-            `<span style="font-size:12px;color:#ccc;margin-right:2px;">·</span>`;
-        
-        const highlightColor = hasCheckedSpec ? 'color:#ff4d4f;' : (isBaseActive ? 'color:#1890ff;' : '');
-        
-        rowDiv.innerHTML = `
-            <div style="display:flex;align-items:center;gap:4px;padding:2px 0; ${isBaseActive ? 'font-weight:bold;' : ''}">
-                ${expandIconHtml}
-                <span style="font-size:16px; ${isBaseActive ? 'color:#1890ff;' : 'color:#999;'}">${isBaseActive ? '✅' : '⏹️'}</span>
-                <span style="font-size:14px; ${highlightColor}">${baseItem.unit_name}</span>
-                ${hasCheckedSpec ? `<span style="color:#ff4d4f;font-size:12px;margin-left:4px;font-weight:bold;">（${checkedCount}个规格已选）</span>` : ''}
-                ${isBaseActive && !hasCheckedSpec ? `<span style="color:#52c41a;font-size:12px;margin-left:4px;">（${checkedCount}个规格已选）</span>` : ''}
-                ${isDisabled && !isBaseActive ? '<span style="color:#999;font-size:12px;margin-left:4px;">（请先取消当前选中）</span>' : ''}
-                <span style="color:#999;font-size:12px;margin-left:4px;">(${childSpecs.length}个规格)</span>
-            </div>
-        `;
-        container.appendChild(rowDiv);
-        
-        // ===== 二级和三级内容 =====
-        if (childSpecs.length > 0 && isBaseExpanded) {
-            const grouped = {};
-            childSpecs.forEach(spec => {
-                if (!grouped[spec.show_name]) {
-                    grouped[spec.show_name] = [];
-                }
-                grouped[spec.show_name].push(spec);
-            });
-            
-            const sortedGroupNames = Object.keys(grouped).sort();
-            
-            sortedGroupNames.forEach(groupName => {
-                const specs = grouped[groupName];
-                specs.sort((a, b) => a.convert_rate - b.convert_rate);
-                
-                const hasCheckedInGroup = specs.some(s => tempSelectedSpecIds.has(String(s.id)));
-                const isGroupDisabled = tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id;
-                
-                const groupKey = 'group_' + baseItem.id + '_' + groupName;
-                if (keyword) {
-                    window._unitExpandState[groupKey] = true;
-                }
-                const isGroupExpanded = window._unitExpandState[groupKey] !== false;
-                
-                // 🔥 二级缩进：30px（明显层次感）
-                const groupDiv = document.createElement('div');
-                groupDiv.style.cssText = `padding-left:50px;padding:4px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
-                
-                const groupCheckbox = document.createElement('div');
-                groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
-                groupCheckbox.onclick = function(e) {
-                    e.stopPropagation();
-                    if (e.target.tagName === 'INPUT') return;
-                    const expandIcon = e.target.closest('.group-expand-icon');
-                    if (expandIcon) {
-                        window._unitExpandState[groupKey] = !window._unitExpandState[groupKey];
-                        renderGoodsUnitTreeDropdown();
-                        return;
-                    }
-                    if (isGroupDisabled) return;
-                    const allChecked = specs.every(s => tempSelectedSpecIds.has(String(s.id)));
-                    specs.forEach(s => {
-                        if (allChecked) {
-                            tempSelectedSpecIds.delete(String(s.id));
-                        } else {
-                            tempSelectedSpecIds.add(String(s.id));
-                        }
-                    });
-                    renderGoodsUnitTreeDropdown();
-                };
-                
-                const groupExpandIcon = specs.length > 0 ? 
-                    `<span class="group-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:2px;user-select:none;">${isGroupExpanded ? '▼' : '▶'}</span>` : 
-                    `<span style="font-size:12px;color:#ccc;margin-right:2px;">·</span>`;
-                
-                const groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
-                
-                groupCheckbox.innerHTML = `
-                    ${groupExpandIcon}
-                    <input type="checkbox" class="goodsUnitGroupCheck" 
-                        ${hasCheckedInGroup ? 'checked' : ''}
-                        ${isGroupDisabled ? 'disabled' : ''}
-                        style="width:16px;height:16px;cursor:pointer;">
-                    <span style="font-size:13px;font-weight:${hasCheckedInGroup ? 'bold' : 'normal'};color:${groupNameColor};">
-                        ${groupName}
-                        ${hasCheckedInGroup ? `<span style="color:#ff4d4f;"> ☑</span>` : ''}
-                        <span style="color:#999;font-size:11px;">(${specs.filter(s => tempSelectedSpecIds.has(String(s.id))).length}/${specs.length})</span>
-                    </span>
-                `;
-                const cb = groupCheckbox.querySelector('input');
-                if (cb) {
-                    cb.onchange = function(e) {
-                        e.stopPropagation();
-                        if (isGroupDisabled) return;
-                        const checked = this.checked;
-                        specs.forEach(s => {
-                            if (checked) {
-                                tempSelectedSpecIds.add(String(s.id));
-                            } else {
-                                tempSelectedSpecIds.delete(String(s.id));
-                            }
-                        });
-                        renderGoodsUnitTreeDropdown();
-                    };
-                }
-                groupDiv.appendChild(groupCheckbox);
-                
-                // ===== 三级：换算关系（缩进 50px） =====
-                if (isGroupExpanded) {
-                    const specContainer = document.createElement('div');
-                    specContainer.style.cssText = `padding-left:50px;padding-bottom:2px;`;
-                    
-                    // 🔥 同一二级下的规格显示在一行
-                    const specRow = document.createElement('div');
-                    specRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 12px;padding:2px 0;';
-                    
-                    specs.forEach(spec => {
-                        const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
-                        const specDiv = document.createElement('div');
-                        specDiv.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;';
-                        specDiv.onclick = function(e) {
-                            e.stopPropagation();
-                            if (e.target.tagName === 'INPUT') return;
-                            if (isGroupDisabled) return;
-                            if (isSpecChecked) {
-                                tempSelectedSpecIds.delete(String(spec.id));
-                            } else {
-                                tempSelectedSpecIds.add(String(spec.id));
-                            }
-                            renderGoodsUnitTreeDropdown();
-                        };
-                        specDiv.innerHTML = `
-                            <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
-                                ${isSpecChecked ? 'checked' : ''}
-                                ${isGroupDisabled ? 'disabled' : ''}
-                                style="width:14px;height:14px;cursor:pointer;">
-                            <span style="font-size:13px;color:#333;${isSpecChecked ? 'font-weight:bold;' : ''}">
-                                ${spec.convert_rate}${baseItem.unit_name}
-                                ${isSpecChecked ? '<span style="color:#ff4d4f;"> ☑</span>' : ''}
-                            </span>
-                        `;
-                        const cb2 = specDiv.querySelector('input');
-                        if (cb2) {
-                            cb2.onchange = function(e) {
-                                e.stopPropagation();
-                                if (isGroupDisabled) return;
-                                if (this.checked) {
-                                    tempSelectedSpecIds.add(String(spec.id));
-                                } else {
-                                    tempSelectedSpecIds.delete(String(spec.id));
-                                }
-                                renderGoodsUnitTreeDropdown();
-                            };
-                        }
-                        specRow.appendChild(specDiv);
-                    });
-                    specContainer.appendChild(specRow);
-                    groupDiv.appendChild(specContainer);
-                }
-                container.appendChild(groupDiv);
-            });
-        } else if (childSpecs.length > 0 && !isBaseExpanded) {
-            const tipDiv = document.createElement('div');
-            tipDiv.style.cssText = `padding-left:30px;color:#999;font-size:12px;padding:2px 0;`;
-            tipDiv.textContent = `└ 点击 ▶ 展开 ${childSpecs.length} 个规格`;
-            container.appendChild(tipDiv);
-        }
-    });
-    
-    if (!hasMatch) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
-    }
-}
-
-// 一级单位变更（点击时切换选中状态）
-function onGoodsUnitBaseChange(baseId) {
-    // 如果点击的是当前已选中的一级单位，取消选中
-    if (tempSelectedBaseId == baseId) {
-        if (tempSelectedSpecIds.size > 0) {
-            if (confirm('取消选中将清空已选换算规格，确定？')) {
-                tempSelectedSpecIds.clear();
-                tempSelectedBaseId = null;
-            } else {
-                renderGoodsUnitTreeDropdown();
-                return;
-            }
-        } else {
-            tempSelectedBaseId = null;
-        }
-        renderGoodsUnitTreeDropdown();
-        return;
-    }
-    
-    // 切换一级单位
-    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedSpecIds.size > 0) {
-        if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-            renderGoodsUnitTreeDropdown();
-            return;
-        }
-        tempSelectedSpecIds.clear();
-    }
-    tempSelectedBaseId = baseId;
-    renderGoodsUnitTreeDropdown();
-    // 清空已选规格展示
-    const wrap = $('specMultiWrap');
-    if (wrap) wrap.style.display = 'none';
-}
-
-// 规格变更
-function onGoodsUnitSpecChange(specId, checked) {
-    if (checked) {
-        tempSelectedSpecIds.add(String(specId));
-    } else {
-        tempSelectedSpecIds.delete(String(specId));
-    }
-    renderGoodsUnitTreeDropdown();
-}
-// 清空单位选择
-function clearGoodsUnitSelection() {
-    tempSelectedBaseId = null;
-    tempSelectedSpecIds = new Set();
-    window._unitExpandState = {};
-    document.getElementById('addBaseUnitSearch').value = '';
-    document.getElementById('add_base_unit_id').value = '';
-    document.getElementById('bindSpecIds').value = '';
-    const wrap = $('specMultiWrap');
-    if (wrap) wrap.style.display = 'none';
-    const checkBox = $('specCheckWrap');
-    if (checkBox) checkBox.innerHTML = '';
-    const dropdown = document.getElementById('goodsUnitDropdown');
-    if (dropdown) dropdown.style.display = 'none';
-}
-// ===================== 商品弹窗单位下拉原有函数（修改后） =====================
+// ===================== 商品弹窗单位下拉相关 =====================
 const filterBaseFunc = function () {
-    // 此函数已被新的树形下拉替代，保留空函数以防报错
+    const input = $('addBaseUnitSearch');
+    const box = $('addBaseUnitListBox');
+    if (!input || !box) return;
+    const kw = input.value.trim().toLowerCase();
+    box.innerHTML = '';
+    if (!kw) { box.style.display = 'none'; return; }
+    const filterArr = baseUnitList.filter(u => u.unit_name.toLowerCase().includes(kw));
+    filterArr.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:8px;cursor:pointer;';
+        div.innerText = item.unit_name;
+        div.onclick = () => selectGoodsBaseUnit(item);
+        box.appendChild(div);
+    });
+    const hasExist = baseUnitList.some(u => u.unit_name.toLowerCase() === kw);
+    if (!hasExist) {
+        const addDiv = document.createElement('div');
+        addDiv.style.cssText = 'padding:8px;background:#e6f7ff;';
+        addDiv.innerText = `新增：${input.value}`;
+        addDiv.onclick = () => { openUnitEdit(null, 1, input.value); box.style.display = 'none'; };
+        box.appendChild(addDiv);
+    }
+    box.style.display = 'block';
 };
 
 function debounceFilterBase() {
@@ -5099,13 +4688,12 @@ function debounceFilterBase() {
 }
 
 function showAddBaseUnitList() {
-    // 已被 showGoodsUnitTreeDropdown 替代
-    showGoodsUnitTreeDropdown();
+    if (!baseUnitList || baseUnitList.length === 0) {
+        loadAllBaseUnit().then(() => filterBaseFunc());
+    } else { filterBaseFunc(); }
 }
 
-function filterAddBaseUnitList() {
-    filterGoodsUnitTreeDropdown();
-}
+function filterAddBaseUnitList() { debounceFilterBase(); }
 
 // ===================== 商品新增弹窗单位下拉（树形结构） =====================
 function selectGoodsBaseUnit(item) {
@@ -5119,222 +4707,123 @@ function selectGoodsBaseUnit(item) {
     renderGoodsUnitTree(item.id);
 }
 
-// 🔥 修改：renderGoodsUnitTree 显示已选规格（一个二级一行）
 function renderGoodsUnitTree(selectedBaseId) {
     const wrap = $('specMultiWrap');
     const checkBox = $('specCheckWrap');
     if (!wrap || !checkBox) return;
-    
-    const bindInput = $('bindSpecIds');
-    let boundSpecIds = [];
-    if (bindInput && bindInput.value) {
-        boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
-    }
-    
-    if (!selectedBaseId || boundSpecIds.length === 0) {
-        wrap.style.display = 'none';
-        checkBox.innerHTML = '';
-        return;
-    }
-    
     wrap.style.display = 'block';
     checkBox.innerHTML = '';
     
-    const baseItem = baseUnitList.find(u => u.id == selectedBaseId);
-    if (!baseItem) {
-        wrap.style.display = 'none';
-        return;
-    }
-    
-    const selectedSpecs = unitSpecList.filter(s => boundSpecIds.includes(s.id));
-    if (selectedSpecs.length === 0) {
-        wrap.style.display = 'none';
-        return;
-    }
-    
-    // 🔥 按二级名称分组，一个二级显示一行
-    const grouped = {};
-    selectedSpecs.forEach(spec => {
-        if (!grouped[spec.show_name]) {
-            grouped[spec.show_name] = [];
+    const goodsId = $('editId') ? $('editId').value : '';
+    let boundSpecIds = [];
+    if (goodsId) {
+        const bindInput = $('bindSpecIds');
+        if (bindInput && bindInput.value) {
+            boundSpecIds = bindInput.value.split(',').filter(id => id).map(Number);
         }
-        grouped[spec.show_name].push(spec);
+    }
+    
+    baseUnitList.forEach(baseItem => {
+        const isSelected = (baseItem.id == selectedBaseId);
+        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
+        const rowDiv = document.createElement('div');
+        rowDiv.style.cssText = 'padding:6px 8px;border-bottom:1px solid #f0f0f0;';
+        rowDiv.innerHTML = `
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:${isSelected ? 'bold' : 'normal'};">
+                <input type="radio" name="baseUnitRadio" value="${baseItem.id}" ${isSelected ? 'checked' : ''} onchange="onGoodsBaseUnitRadioChange(${baseItem.id})">
+                ${isSelected ? '✅' : '⏹️'} ${baseItem.unit_name}
+                ${isSelected ? '<span style="color:#52c41a;font-size:12px;margin-left:6px;">（已选中）</span>' : ''}
+            </label>
+        `;
+        checkBox.appendChild(rowDiv);
+        if (isSelected && childSpecs.length > 0) {
+            const specContainer = document.createElement('div');
+            specContainer.style.cssText = 'padding-left:28px;padding-bottom:6px;';
+            childSpecs.forEach(spec => {
+                const isChecked = boundSpecIds.includes(spec.id);
+                const specDiv = document.createElement('div');
+                specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;';
+                specDiv.innerHTML = `
+                    <input type="checkbox" class="specCheck" data-spec-id="${spec.id}" ${isChecked ? 'checked' : ''} id="sp_${spec.id}">
+                    <label for="sp_${spec.id}" style="font-size:13px;color:#333;cursor:pointer;">
+                        ⏹️ ${spec.show_name}（${spec.convert_rate}${baseItem.unit_name}）
+                        ${isChecked ? '<span style="color:#52c41a;"> ☑</span>' : ''}
+                    </label>
+                `;
+                specContainer.appendChild(specDiv);
+            });
+            checkBox.appendChild(specContainer);
+        } else if (isSelected && childSpecs.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.cssText = 'padding-left:28px;color:#999;font-size:13px;padding-bottom:6px;';
+            emptyDiv.textContent = '（该单位下暂无换算规格）';
+            checkBox.appendChild(emptyDiv);
+        }
     });
-    const sortedNames = Object.keys(grouped).sort();
-    
-    let html = `<div style="font-size:13px;color:#333;font-weight:bold;margin-bottom:8px;">✅ 已选换算规格（共 ${selectedSpecs.length} 个）：</div>`;
-    
-    sortedNames.forEach(name => {
-        const specs = grouped[name];
-        specs.sort((a, b) => a.convert_rate - b.convert_rate);
-        // 🔥 二级名称用红色显示，占一行
-        html += `<div style="color:#ff4d4f;font-weight:bold;font-size:14px;margin:4px 0 2px 0;">📌 ${name}</div>`;
-        // 🔥 该二级下的所有规格在同一行显示
-        html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-left:16px;">`;
-        specs.forEach(spec => {
-            html += `<span style="padding:4px 10px;background:#e8f5e9;border-radius:4px;font-size:13px;border:1px solid #c8e6c9;">
-                ${spec.convert_rate}${baseItem.unit_name}
-            </span>`;
-        });
-        html += `</div>`;
-    });
-    
-    checkBox.innerHTML = html;
 }
 
 function onGoodsBaseUnitRadioChange(baseId) {
-    // 已被 onGoodsUnitBaseChange 替代
-    onGoodsUnitBaseChange(baseId);
+    const hiddenInput = $('add_base_unit_id');
+    if (hiddenInput) hiddenInput.value = baseId;
+    const baseItem = baseUnitList.find(u => u.id == baseId);
+    if (baseItem) {
+        const searchInput = $('addBaseUnitSearch');
+        if (searchInput) searchInput.value = baseItem.unit_name;
+    }
+    renderGoodsUnitTree(baseId);
 }
 
 // ===================== 劫持函数 =====================
+const oldOpenAddForm = openAddForm;
+openAddForm = async function () {
+    await oldOpenAddForm();
+    await loadAllBaseUnit(); await loadAllUnitSpec();
+    currentSelectBaseId = null;
+    const search = $('addBaseUnitSearch');
+    const hidden = $('add_base_unit_id');
+    const wrap = $('specMultiWrap');
+    const checkBox = $('specCheckWrap');
+    const bindInput = $('bindSpecIds');
+    if (search) search.value = '';
+    if (hidden) hidden.value = '';
+    if (wrap) wrap.style.display = 'none';
+    if (checkBox) checkBox.innerHTML = '';
+    if (bindInput) bindInput.value = '';
+};
+
 const oldOpenEditForm = openEditForm;
 openEditForm = async function (goodsId) {
     await oldOpenEditForm(goodsId);
     await loadAllBaseUnit(); await loadAllUnitSpec();
     const goodsItem = allGoods.find(g => g.id == goodsId);
     if (!goodsItem) return;
-    
-    // 清空之前的临时数据
-    tempSelectedBaseId = null;
-    tempSelectedSpecIds = new Set();
-    window._unitExpandState = {};
-    
     if (goodsItem.base_unit_id) {
         const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
         if (baseItem) {
             const search = $('addBaseUnitSearch');
             const hidden = $('add_base_unit_id');
             const bindInput = $('bindSpecIds');
-            
             if (search) search.value = baseItem.unit_name;
             if (hidden) hidden.value = baseItem.id;
-            
-            tempSelectedBaseId = baseItem.id;
-            
-            // 🔥 从 goods_unit_bind 表加载已绑定的规格
-            // 字段名：goods_id, spec_id
-            const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
-                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-            });
-            const bindList = await bindRes.json() || [];
-            // 🔥 注意：字段名是 spec_id，不是 specId
-            const boundIds = bindList.map(b => b.spec_id);
-            boundIds.forEach(id => tempSelectedSpecIds.add(String(id)));
-            if (bindInput) bindInput.value = boundIds.join(',');
-            
-            // 展开当前选中的一级单位和二级规格
-            if (boundIds.length > 0 && tempSelectedBaseId) {
-                window._unitExpandState['base_' + tempSelectedBaseId] = true;
-                const childSpecs = unitSpecList.filter(s => s.base_unit_id == tempSelectedBaseId);
-                const grouped = {};
-                childSpecs.forEach(spec => {
-                    if (!grouped[spec.show_name]) {
-                        grouped[spec.show_name] = [];
-                    }
-                    grouped[spec.show_name].push(spec);
-                });
-                Object.keys(grouped).forEach(name => {
-                    window._unitExpandState['group_' + tempSelectedBaseId + '_' + name] = true;
-                });
-                renderGoodsUnitTree(baseItem.id);
-            }
-        }
-    }
-};
-
-// ===================== 劫持函数 =====================
-
-// 🔥 劫持 openAddForm - 新增商品时清空单位数据
-const oldOpenAddForm = openAddForm;
-openAddForm = async function () {
-    await oldOpenAddForm();
-    await loadAllBaseUnit(); await loadAllUnitSpec();
-    currentSelectBaseId = null;
-    
-    const search = $('addBaseUnitSearch');
-    const hidden = $('add_base_unit_id');
-    const wrap = $('specMultiWrap');
-    const checkBox = $('specCheckWrap');
-    const bindInput = $('bindSpecIds');
-    const dropdown = document.getElementById('goodsUnitDropdown');
-    
-    if (search) search.value = '';
-    if (hidden) hidden.value = '';
-    if (wrap) wrap.style.display = 'none';
-    if (checkBox) checkBox.innerHTML = '';
-    if (bindInput) bindInput.value = '';
-    if (dropdown) dropdown.style.display = 'none';
-    
-    tempSelectedBaseId = null;
-    tempSelectedSpecIds = new Set();
-    window._unitExpandState = {};
-};
-
-// 🔥 劫持 openEditForm - 编辑商品时回显单位数据（只保留这一份！！！）
-const oldOpenEditForm = openEditForm;   // ← 只声明一次
-openEditForm = async function (goodsId) {
-    await oldOpenEditForm(goodsId);
-    await loadAllBaseUnit(); await loadAllUnitSpec();
-    const goodsItem = allGoods.find(g => g.id == goodsId);
-    if (!goodsItem) return;
-    
-    tempSelectedBaseId = null;
-    tempSelectedSpecIds = new Set();
-    window._unitExpandState = {};
-    
-    if (goodsItem.base_unit_id) {
-        const baseItem = baseUnitList.find(u => u.id == goodsItem.base_unit_id);
-        if (baseItem) {
-            const search = $('addBaseUnitSearch');
-            const hidden = $('add_base_unit_id');
-            const bindInput = $('bindSpecIds');
-            
-            if (search) search.value = baseItem.unit_name;
-            if (hidden) hidden.value = baseItem.id;
-            
-            tempSelectedBaseId = baseItem.id;
-            
             const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
             const bindList = await bindRes.json() || [];
             const boundIds = bindList.map(b => b.spec_id);
-            boundIds.forEach(id => tempSelectedSpecIds.add(String(id)));
             if (bindInput) bindInput.value = boundIds.join(',');
-            
-            if (boundIds.length > 0 && tempSelectedBaseId) {
-                window._unitExpandState['base_' + tempSelectedBaseId] = true;
-                const childSpecs = unitSpecList.filter(s => s.base_unit_id == tempSelectedBaseId);
-                const grouped = {};
-                childSpecs.forEach(spec => {
-                    if (!grouped[spec.show_name]) {
-                        grouped[spec.show_name] = [];
-                    }
-                    grouped[spec.show_name].push(spec);
-                });
-                Object.keys(grouped).forEach(name => {
-                    window._unitExpandState['group_' + tempSelectedBaseId + '_' + name] = true;
-                });
-                renderGoodsUnitTree(baseItem.id);
-            }
+            renderGoodsUnitTree(baseItem.id);
         }
     }
 };
 
-// 🔥 劫持 submitForm - 保存单位数据到 goods_unit_bind（只保留这一份！！！）
-const oldSubmitForm = submitForm;   // ← 只声明一次
+const oldSubmitForm = submitForm;
 submitForm = async function () {
     const baseIdInput = $('add_base_unit_id');
     if (!baseIdInput) { alert('页面元素不完整'); return; }
     const baseId = baseIdInput.value;
     if (!baseId) { alert('请选择基准最小计量单位'); return; }
     
-    const bindSpecInput = $('bindSpecIds');
-    const specIds = bindSpecInput && bindSpecInput.value 
-        ? bindSpecInput.value.split(',').filter(id => id).map(Number) 
-        : [];
-    
+    const checkedSpecs = Array.from(document.querySelectorAll('.specCheck:checked')).map(el => el.dataset.specId);
     const editId = $('editId') ? $('editId').value : '';
     
     const supplier = $('add_supplier') ? $('add_supplier').value : '';
@@ -5390,7 +4879,6 @@ submitForm = async function () {
                 });
                 showMsg('价格变更，临时价格已清空');
             }
-            goodsRealId = editId;
         } else {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/goods`, {
                 method: 'POST',
@@ -5400,24 +4888,17 @@ submitForm = async function () {
             const newArr = await res.json();
             goodsRealId = newArr[0]?.id;
         }
-        
         if (goodsRealId) {
             await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
                 method: 'DELETE',
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
-            
-            for (const sid of specIds) {
-                if (sid) {
-                    await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
-                        method: 'POST',
-                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            goods_id: goodsRealId, 
-                            spec_id: sid 
-                        })
-                    });
-                }
+            for (const sid of checkedSpecs) {
+                await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
+                    method: 'POST',
+                    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goods_id: goodsRealId, spec_id: sid })
+                });
             }
         }
         showMsg(editId ? '商品编辑成功' : '商品新增成功');
@@ -5443,11 +4924,6 @@ document.addEventListener('click', function (e) {
     const specList = $('specModalList');
     if (specInput && specList && !e.target.closest('#specShowName') && !e.target.closest('#specModalList')) {
         specList.style.display = 'none';
-    }
-    // 商品弹窗单位下拉
-    const goodsDropdown = document.getElementById('goodsUnitDropdown');
-    if (goodsDropdown && !e.target.closest('#addBaseUnitSearch') && !e.target.closest('#goodsUnitDropdown')) {
-        goodsDropdown.style.display = 'none';
     }
 });
 
@@ -5508,14 +4984,4 @@ window.renderUnitPagination = renderUnitPagination;
 window.showUnitBaseList = showUnitBaseList;
 window.showUnitSpecList = showUnitSpecList;
 window.showUnitRateList = showUnitRateList;
-// 新增树形下拉函数
-window.showGoodsUnitTreeDropdown = showGoodsUnitTreeDropdown;
-window.closeGoodsUnitDropdown = closeGoodsUnitDropdown;
-window.confirmGoodsUnitSelection = confirmGoodsUnitSelection;
-window.filterGoodsUnitTreeDropdown = filterGoodsUnitTreeDropdown;
-window.filterGoodsUnitTree = filterGoodsUnitTree;
-window.onGoodsUnitBaseChange = onGoodsUnitBaseChange;
-window.onGoodsUnitSpecChange = onGoodsUnitSpecChange;
-window.clearGoodsUnitSelection = clearGoodsUnitSelection;
-
 console.log('✅ 单位管理模块加载完成');
