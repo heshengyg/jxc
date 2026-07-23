@@ -4674,16 +4674,18 @@ function showGoodsUnitTreeDropdown() {
     const maxHeight = Math.min(500, Math.max(300, spaceBelow - 80));
     dropdown.style.maxHeight = maxHeight + 'px';
     
-    // 🔥 从已保存的数据加载，但不覆盖已存在的临时选择
     const baseIdInput = document.getElementById('add_base_unit_id');
     const bindSpecInput = document.getElementById('bindSpecIds');
     
-    // 如果临时选择为空，则从保存的数据加载
-    if (!tempSelectedBaseId && baseIdInput && baseIdInput.value) {
-        tempSelectedBaseId = baseIdInput.value;
-    }
+    // 🔥 关键修复：如果 tempSelectedSpecIds 已经有值，不要重新从 bindSpecIds 覆盖
+    // 只有在 tempSelectedSpecIds 为空时才从 bindSpecIds 加载
     if (tempSelectedSpecIds.size === 0 && bindSpecInput && bindSpecInput.value) {
         bindSpecInput.value.split(',').filter(id => id).forEach(id => tempSelectedSpecIds.add(id));
+    }
+    
+    // 如果 tempSelectedBaseId 为空，从已保存的数据加载
+    if (!tempSelectedBaseId && baseIdInput && baseIdInput.value) {
+        tempSelectedBaseId = baseIdInput.value;
     }
     
     // 如果没有选中一级单位但有选中的规格，自动定位
@@ -4702,6 +4704,7 @@ function showGoodsUnitTreeDropdown() {
     dropdown.style.display = 'block';
     setTimeout(() => { if (filterInput) filterInput.focus(); }, 100);
 }
+
 // 关闭商品单位树形下拉（不保存）
 function closeGoodsUnitDropdown() {
     const dropdown = document.getElementById('goodsUnitDropdown');
@@ -4765,7 +4768,7 @@ function filterGoodsUnitTree() {
     renderGoodsUnitTreeDropdown();
 }
 
-// 渲染商品单位树形下拉（带展开/收缩）
+// 渲染商品单位树形下拉（带展开/收缩，加大缩进）
 function renderGoodsUnitTreeDropdown() {
     const container = document.getElementById('goodsUnitTreeContainer');
     const filterInput = document.getElementById('goodsUnitSearchInput');
@@ -4826,9 +4829,7 @@ function renderGoodsUnitTreeDropdown() {
                 renderGoodsUnitTreeDropdown();
                 return;
             }
-            // 🔥 修复：切换一级单位选中状态
             if (tempSelectedBaseId == baseItem.id) {
-                // 点击已选中，取消选中
                 if (tempSelectedSpecIds.size > 0) {
                     if (confirm('取消选中将清空已选换算规格，确定？')) {
                         tempSelectedSpecIds.clear();
@@ -4838,7 +4839,6 @@ function renderGoodsUnitTreeDropdown() {
                     tempSelectedBaseId = null;
                 }
             } else {
-                // 点击未选中，切换过去
                 if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedSpecIds.size > 0) {
                     if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
                         renderGoodsUnitTreeDropdown();
@@ -4855,7 +4855,6 @@ function renderGoodsUnitTreeDropdown() {
             `<span class="unit-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:2px;user-select:none;">${isBaseExpanded ? '▼' : '▶'}</span>` : 
             `<span style="font-size:12px;color:#ccc;margin-right:2px;">·</span>`;
         
-        // 🔥 一级单位显示：如果有规格被选中，显示红色高亮
         const highlightColor = hasCheckedSpec ? 'color:#ff4d4f;' : (isBaseActive ? 'color:#1890ff;' : '');
         
         rowDiv.innerHTML = `
@@ -4896,9 +4895,9 @@ function renderGoodsUnitTreeDropdown() {
                 }
                 const isGroupExpanded = window._unitExpandState[groupKey] !== false;
                 
-                // 🔥 二级缩进加大到 24px
+                // 🔥 二级缩进：20px（加大层次感）
                 const groupDiv = document.createElement('div');
-                groupDiv.style.cssText = `padding-left:24px;padding:3px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
+                groupDiv.style.cssText = `padding-left:20px;padding:4px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
                 
                 const groupCheckbox = document.createElement('div');
                 groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
@@ -4927,7 +4926,6 @@ function renderGoodsUnitTreeDropdown() {
                     `<span class="group-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:2px;user-select:none;">${isGroupExpanded ? '▼' : '▶'}</span>` : 
                     `<span style="font-size:12px;color:#ccc;margin-right:2px;">·</span>`;
                 
-                // 🔥 二级名称：如果有规格被选中，红色高亮
                 const groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
                 
                 groupCheckbox.innerHTML = `
@@ -4960,15 +4958,19 @@ function renderGoodsUnitTreeDropdown() {
                 }
                 groupDiv.appendChild(groupCheckbox);
                 
-                // ===== 三级：换算关系（缩进 40px） =====
+                // ===== 三级：换算关系（缩进 36px） =====
                 if (isGroupExpanded) {
                     const specContainer = document.createElement('div');
-                    specContainer.style.cssText = `padding-left:40px;padding-bottom:2px;`;
+                    specContainer.style.cssText = `padding-left:36px;padding-bottom:2px;`;
+                    
+                    // 🔥 同一二级下的规格显示在一行
+                    const specRow = document.createElement('div');
+                    specRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 12px;padding:2px 0;';
                     
                     specs.forEach(spec => {
                         const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
                         const specDiv = document.createElement('div');
-                        specDiv.style.cssText = 'display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer;';
+                        specDiv.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;';
                         specDiv.onclick = function(e) {
                             e.stopPropagation();
                             if (e.target.tagName === 'INPUT') return;
@@ -4984,8 +4986,8 @@ function renderGoodsUnitTreeDropdown() {
                             <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
                                 ${isSpecChecked ? 'checked' : ''}
                                 ${isGroupDisabled ? 'disabled' : ''}
-                                style="width:14px;height:14px;cursor:pointer;margin-left:4px;">
-                            <span style="font-size:13px;color:#333;">
+                                style="width:14px;height:14px;cursor:pointer;">
+                            <span style="font-size:13px;color:#333;${isSpecChecked ? 'font-weight:bold;' : ''}">
                                 ${spec.convert_rate}${baseItem.unit_name}
                                 ${isSpecChecked ? '<span style="color:#ff4d4f;"> ☑</span>' : ''}
                             </span>
@@ -5003,15 +5005,16 @@ function renderGoodsUnitTreeDropdown() {
                                 renderGoodsUnitTreeDropdown();
                             };
                         }
-                        specContainer.appendChild(specDiv);
+                        specRow.appendChild(specDiv);
                     });
+                    specContainer.appendChild(specRow);
                     groupDiv.appendChild(specContainer);
                 }
                 container.appendChild(groupDiv);
             });
         } else if (childSpecs.length > 0 && !isBaseExpanded) {
             const tipDiv = document.createElement('div');
-            tipDiv.style.cssText = `padding-left:24px;color:#999;font-size:12px;padding:2px 0;`;
+            tipDiv.style.cssText = `padding-left:20px;color:#999;font-size:12px;padding:2px 0;`;
             tipDiv.textContent = `└ 点击 ▶ 展开 ${childSpecs.length} 个规格`;
             container.appendChild(tipDiv);
         }
@@ -5021,6 +5024,7 @@ function renderGoodsUnitTreeDropdown() {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
     }
 }
+
 // 一级单位变更（点击时切换选中状态）
 function onGoodsUnitBaseChange(baseId) {
     // 如果点击的是当前已选中的一级单位，取消选中
@@ -5190,21 +5194,24 @@ openEditForm = async function (goodsId) {
             const bindInput = $('bindSpecIds');
             if (search) search.value = baseItem.unit_name;
             if (hidden) hidden.value = baseItem.id;
+            
+            // 🔥 关键修复：先清空再设置，确保数据正确
             tempSelectedBaseId = baseItem.id;
+            tempSelectedSpecIds = new Set();
             
             const bindRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsId}`, {
                 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
             });
             const bindList = await bindRes.json() || [];
             const boundIds = bindList.map(b => b.spec_id);
-            tempSelectedSpecIds = new Set(boundIds.map(String));
+            boundIds.forEach(id => tempSelectedSpecIds.add(String(id)));
             if (bindInput) bindInput.value = boundIds.join(',');
             
             // 🔥 展开当前选中的一级单位和二级规格
             if (boundIds.length > 0 && tempSelectedBaseId) {
                 window._unitExpandState = window._unitExpandState || {};
                 window._unitExpandState['base_' + tempSelectedBaseId] = true;
-                // 🔥 展开所有二级规格（包括没有选中规格的二级）
+                // 展开所有二级规格
                 const childSpecs = unitSpecList.filter(s => s.base_unit_id == tempSelectedBaseId);
                 const grouped = {};
                 childSpecs.forEach(spec => {
