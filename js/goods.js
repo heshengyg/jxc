@@ -3453,7 +3453,6 @@ async function loadAllUnitSpec() {
 }
 
 // ===================== 渲染表格函数 =====================
-// 修改 renderAllUnitTable 函数
 function renderAllUnitTable() {
     // 构建扁平数据
     unitAllData = buildUnitFlatData();
@@ -3697,6 +3696,152 @@ function resetUnitSearch() {
     document.getElementById('unitFilterRate').value = '';
     filterUnitData();
 }
+
+// ===================== 单位预设搜索下拉过滤 =====================
+
+// 显示基础单位下拉列表
+function showUnitBaseList() {
+    const input = document.getElementById('unitFilterBaseName');
+    const list = document.getElementById('unitFilterBaseNameList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderUnitBaseList(kw);
+    list.style.display = 'block';
+}
+
+// 渲染基础单位下拉列表
+function renderUnitBaseList(keyword) {
+    const list = document.getElementById('unitFilterBaseNameList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    // 获取所有唯一的基础单位名称
+    let data = [...new Set(unitAllData.filter(item => item.isBase).map(item => item.baseName))].sort();
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    
+    if (data.length === 0) {
+        list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    
+    data.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
+        div.textContent = item;
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('unitFilterBaseName').value = item;
+            list.style.display = 'none';
+            filterUnitData();
+        };
+        list.appendChild(div);
+    });
+}
+
+// 显示包装单位下拉列表
+function showUnitSpecList() {
+    const input = document.getElementById('unitFilterSpecName');
+    const list = document.getElementById('unitFilterSpecNameList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderUnitSpecList(kw);
+    list.style.display = 'block';
+}
+
+// 渲染包装单位下拉列表
+function renderUnitSpecList(keyword) {
+    const list = document.getElementById('unitFilterSpecNameList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    // 获取所有唯一的包装单位名称（排除空规格行）
+    let data = [...new Set(unitAllData.filter(item => item.type === 'spec').map(item => item.specName))].sort();
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    
+    if (data.length === 0) {
+        list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    
+    data.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
+        div.textContent = item;
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('unitFilterSpecName').value = item;
+            list.style.display = 'none';
+            filterUnitData();
+        };
+        list.appendChild(div);
+    });
+}
+
+// 显示换算比例下拉列表
+function showUnitRateList() {
+    const input = document.getElementById('unitFilterRate');
+    const list = document.getElementById('unitFilterRateList');
+    if (!input || !list) return;
+    const kw = input.value.trim().toLowerCase();
+    renderUnitRateList(kw);
+    list.style.display = 'block';
+}
+
+// 渲染换算比例下拉列表
+function renderUnitRateList(keyword) {
+    const list = document.getElementById('unitFilterRateList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    // 获取所有唯一的换算比例（排除空规格行）
+    let data = [...new Set(unitAllData.filter(item => item.type === 'spec').map(item => item.rate))].sort();
+    if (keyword) {
+        data = data.filter(item => item.toLowerCase().includes(keyword));
+    }
+    
+    if (data.length === 0) {
+        list.innerHTML = '<div style="padding:6px 10px;color:#999;">无匹配</div>';
+        return;
+    }
+    
+    data.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;';
+        div.textContent = item;
+        div.onmouseover = function() { this.style.background = '#f0f0f0'; };
+        div.onmouseout = function() { this.style.background = 'transparent'; };
+        div.onclick = function() {
+            document.getElementById('unitFilterRate').value = item;
+            list.style.display = 'none';
+            filterUnitData();
+        };
+        list.appendChild(div);
+    });
+}
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    const ids = [
+        'unitFilterBaseName', 'unitFilterBaseNameList',
+        'unitFilterSpecName', 'unitFilterSpecNameList',
+        'unitFilterRate', 'unitFilterRateList'
+    ];
+    const target = e.target;
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !target.closest('#' + id)) {
+            if (id.includes('List')) {
+                el.style.display = 'none';
+            }
+        }
+    });
+});
 
 function renderBaseUnitSelectOpt() {
     const specSel = $('specBaseUnitId');
@@ -4797,4 +4942,7 @@ window.changeUnitPageSize = changeUnitPageSize;
 window.filterUnitData = filterUnitData;
 window.renderUnitTable = renderUnitTable;
 window.renderUnitPagination = renderUnitPagination;
+window.showUnitBaseList = showUnitBaseList;
+window.showUnitSpecList = showUnitSpecList;
+window.showUnitRateList = showUnitRateList;
 console.log('✅ 单位管理模块加载完成');

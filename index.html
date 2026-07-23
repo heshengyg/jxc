@@ -177,28 +177,31 @@
     <!-- 搜索栏 -->
     <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;">
         <!-- 搜索基础单位 -->
-        <div style="position:relative; display:inline-block;">
-            <input type="text" id="unitFilterBaseName" placeholder="搜索基础单位" 
-                   oninput="onUnitFilterInput()"
-                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-            <div id="unitFilterBaseNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-        </div>
-        
-        <!-- 搜索包装单位 -->
-        <div style="position:relative; display:inline-block;">
-            <input type="text" id="unitFilterSpecName" placeholder="搜索包装单位" 
-                   oninput="onUnitFilterInput()"
-                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-            <div id="unitFilterSpecNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-        </div>
-        
-        <!-- 搜索换算比例 -->
-        <div style="position:relative; display:inline-block;">
-            <input type="text" id="unitFilterRate" placeholder="搜索换算比例" 
-                   oninput="onUnitFilterInput()"
-                   style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-            <div id="unitFilterRateList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none;"></div>
-        </div>
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="unitFilterBaseName" placeholder="搜索基础单位" 
+           onfocus="showUnitBaseList()" 
+           oninput="onUnitFilterInput()"
+           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="unitFilterBaseNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+</div>
+
+<!-- 搜索包装单位 -->
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="unitFilterSpecName" placeholder="搜索包装单位" 
+           onfocus="showUnitSpecList()" 
+           oninput="onUnitFilterInput()"
+           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="unitFilterSpecNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+</div>
+
+<!-- 搜索换算比例 -->
+<div style="position:relative; display:inline-block;">
+    <input type="text" id="unitFilterRate" placeholder="搜索换算比例" 
+           onfocus="showUnitRateList()" 
+           oninput="onUnitFilterInput()"
+           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+    <div id="unitFilterRateList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+</div>
         
         <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
     </div>
