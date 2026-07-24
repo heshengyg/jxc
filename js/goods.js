@@ -4687,14 +4687,26 @@ const filterBaseFunc = function () {
     });
     const hasExist = baseUnitList.some(u => u.unit_name.toLowerCase() === kw);
     if (!hasExist) {
-        const addDiv = document.createElement('div');
-        addDiv.style.cssText = 'padding:8px;background:#e6f7ff;';
-        addDiv.innerText = `新增：${input.value}`;
-        addDiv.onclick = () => { openUnitEdit(null, 1, input.value); box.style.display = 'none'; };
-        box.appendChild(addDiv);
-    }
-    box.style.display = 'block';
-};
+    const addDiv = document.createElement('div');
+    addDiv.style.cssText = 'padding:8px;background:#e6f7ff;cursor:pointer;';
+    addDiv.innerText = `➕ 新增"${input.value}"`;
+    addDiv.onclick = function(e) {
+        e.stopPropagation();
+        const newName = input.value.trim();
+        if (!newName) {
+            showMsg('请输入单位名称');
+            return;
+        }
+        // 🔥 弹窗确认后，再打开新增单位弹窗
+        if (confirm(`是否新增最小计量单位"${newName}"？\n点击"确定"继续设置换算规格，点击"取消"放弃。`)) {
+            // 关闭下拉
+            box.style.display = 'none';
+            // 打开新增单位弹窗，并预填单位名称
+            openUnitEdit(null, 1, newName);
+        }
+    };
+    box.appendChild(addDiv);
+}
 
 function debounceFilterBase() {
     clearTimeout(baseUnitSearchTimer);
@@ -4957,18 +4969,25 @@ function renderGoodsUnitTreeDropdownContent() {
 // 🔥 关键修复：使用缓存的排序列表，保持位置不变
 let sortedBaseList;
 
-// 如果是首次打开（_shouldPinSelected === true），执行置顶排序
+// 在置顶逻辑后面添加滚动
 if (window._shouldPinSelected && tempSelectedBaseId) {
     sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
     const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
     if (selectedBase) {
         const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
         sortedBaseList = [selectedBase, ...remaining];
+        // 🔥 立即滚动到顶部
+        setTimeout(() => {
+            const container = document.getElementById('goodsUnitTreeContainer');
+            if (container) container.scrollTop = 0;
+            const dropdown = document.getElementById('goodsUnitDropdown');
+            if (dropdown) dropdown.scrollTop = 0;
+        }, 50);
     }
     window._shouldPinSelected = false;
-    // 保存当前排序
     window._cachedSortedBaseList = sortedBaseList;
-} else if (window._cachedSortedBaseList && window._cachedSortedBaseList.length > 0) {
+}
+else if (window._cachedSortedBaseList && window._cachedSortedBaseList.length > 0) {
     // 使用缓存的排序列表
     sortedBaseList = window._cachedSortedBaseList;
     // 检查是否有新增或删除的单位
@@ -5039,25 +5058,29 @@ let didPin = (window._shouldPinSelected === false && sortedBaseList[0]?.id == te
                 renderGoodsUnitTreeDropdownContent();
                 return;
             }
-            if (tempSelectedBaseId == baseItem.id) {
-                if (tempSelectedSpecIds.size > 0) {
-                    if (confirm('取消选中将清空已选换算规格，确定？')) {
-                        tempSelectedSpecIds.clear();
-                        tempSelectedBaseId = null;
-                    }
-                } else {
-                    tempSelectedBaseId = null;
-                }
-            } else {
-                if (tempSelectedBaseId !== null && tempSelectedSpecIds.size > 0) {
-                    if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-                        renderGoodsUnitTreeDropdownContent();
-                        return;
-                    }
-                    tempSelectedSpecIds.clear();
-                }
-                tempSelectedBaseId = baseItem.id;
-            }
+            // 一级行点击事件中的切换逻辑修改
+if (tempSelectedBaseId == baseItem.id) {
+    // 取消选中当前一级
+    if (tempSelectedSpecIds.size > 0) {
+        if (confirm('取消选中将清空已选换算规格，确定？')) {
+            tempSelectedSpecIds.clear();
+            tempSelectedBaseId = null;
+        }
+    } else {
+        tempSelectedBaseId = null;
+    }
+} else {
+    // 🔥 关键修复：切换到新一级时，清空之前所有选中的规格
+    // 并确保 tempSelectedBaseId 更新为当前一级
+    if (tempSelectedBaseId !== null && tempSelectedSpecIds.size > 0) {
+        if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+            renderGoodsUnitTreeDropdownContent();
+            return;
+        }
+        tempSelectedSpecIds.clear();
+    }
+    tempSelectedBaseId = baseItem.id;
+}
             window._shouldPinSelected = false;
             renderGoodsUnitTreeDropdownContent();
         };
