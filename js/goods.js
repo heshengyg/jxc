@@ -1386,7 +1386,7 @@ async function batchDelete() {
 }
 
 function downloadTemplate() {
-    let h = ["供应商", "商品名称", "规格", "销售渠道", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期时长", "保质期单位"];
+    let h = ["供应商", "商品名称", "规格", "销售渠道", "最小计量单位", "价格基准规格", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期时长", "保质期单位"];
     let ws = XLSX.utils.aoa_to_sheet([h]);
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "模板");
@@ -1398,15 +1398,27 @@ function exportExcel() {
         showMsg("暂无数据可导出");
         return;
     }
-    let header = ["供应商", "商品名称", "规格", "销售渠道", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期", "临期天数"];
+    let header = ["供应商", "商品名称", "规格", "销售渠道", "最小计量单位", "价格基准规格", "销售单价", "税率", "线上成本价", "库存预警阈值", "保质期", "临期天数"];
     let exportData = filteredGoods.map(item => {
         let shelf = item.shelf_life_num ? `${item.shelf_life_num}${item.shelf_life_unit || ''}` : "";
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
+        let baseUnitName = item.base_unit_name || '';
+        // 获取价格基准规格名称
+        let priceSpecName = '';
+        if (item.price_spec_id) {
+            const spec = unitSpecList.find(s => s.id == item.price_spec_id);
+            if (spec) {
+                const baseItem = baseUnitList.find(b => b.id == spec.base_unit_id);
+                priceSpecName = spec.show_name + '（' + spec.convert_rate + (baseItem ? baseItem.unit_name : '') + '）';
+            }
+        }
         return [
             item.supplier || "",
             item.name || "",
             item.spec || "",
             item.channel || "",
+            baseUnitName,
+            priceSpecName,
             item.sale_price || 0,
             item.tax_rate ? item.tax_rate + '%' : "",
             item.online_cost || 0,
@@ -1420,7 +1432,6 @@ function exportExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "商品列表");
     XLSX.writeFile(wb, "商品列表.xlsx");
 }
-
 // ========== 商品批量导入 ==========
 function importGoodsExcel() {
     let fileInput = document.getElementById('goodsFileInput');
@@ -1453,6 +1464,8 @@ function importGoodsExcel() {
                 let name = row['商品名称'] || row['goodsName'] || row['name'] || '';
                 let spec = row['规格'] || row['spec'] || '';
                 let channel = row['销售渠道'] || row['channel'] || row['结算方式'] || '';
+                let baseUnitName = row['最小计量单位'] || row['base_unit_name'] || '';
+                let priceSpecName = row['价格基准规格'] || row['price_spec_name'] || '';
                 let salePrice = parseFloat(row['销售单价'] || row['sale_price'] || 0);
                 let taxRate = row['税率'] || row['tax_rate'] || '';
                 let onlineCost = parseFloat(row['线上成本价'] || row['online_cost'] || 0);
@@ -1485,7 +1498,9 @@ function importGoodsExcel() {
                     online_cost: onlineCost || null,
                     warn_num: warnNum || null,
                     shelf_life_num: shelfLifeNum || null,
-                    shelf_life_unit: shelfLifeUnit || null
+                    shelf_life_unit: shelfLifeUnit || null,
+                    // 导入时 base_unit_name 作为参考，但实际绑定需要用户后续在编辑中设置
+                    base_unit_name: baseUnitName || null
                 };
 
                 try {
