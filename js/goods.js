@@ -4707,6 +4707,8 @@ const filterBaseFunc = function () {
     };
     box.appendChild(addDiv);
 }
+ box.style.display = 'block';
+};
 
 function debounceFilterBase() {
     clearTimeout(baseUnitSearchTimer);
