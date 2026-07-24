@@ -345,9 +345,8 @@ function loadInUnitSpecs(goodsId) {
 function onInUnitSpecChange() {
     const select = document.getElementById('inUnitSpec');
     const goodsId = document.getElementById('curSelectGoodsId').value;
-    const salePriceInput = document.getElementById('inSalePrice');
     
-    if (!select || !salePriceInput) return;
+    if (!select) return;
     
     const selectedSpecId = select.value;
     if (!selectedSpecId || !goodsId) {
@@ -364,6 +363,10 @@ function onInUnitSpecChange() {
     // 获取价格基准规格
     const priceSpecId = goods.price_spec_id;
     const baseSalePrice = goods.sale_price || 0;
+    
+    // 获取销售单价输入框
+    const salePriceInput = document.getElementById('inSalePrice');
+    if (!salePriceInput) return;
     
     // 如果选中的规格就是价格基准规格，直接使用销售单价
     if (selectedSpecId == priceSpecId) {
@@ -391,7 +394,6 @@ function onInUnitSpecChange() {
     salePriceInput.placeholder = '已换算';
     salePriceInput.style.color = '#1890ff';
 }
-
 // 日期互斥
 function lockExpireDate(){
     let p = document.getElementById('inProduceDate').value;
