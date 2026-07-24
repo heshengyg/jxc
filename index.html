@@ -1701,29 +1701,34 @@
             </div>
         </div>
         
-        <!-- 第三行：入库数量 + 入库单价 + 录入日期 -->
-<div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库数量：</label>
-        <input type="number" id="inNum" min="1" placeholder="必填" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库单价：</label>
-        <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">录入日期：</label>
-        <input type="date" id="inRecordDate" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
-</div>
-<!-- ✅ 入库单价提醒 -->
-<div id="inPriceReminder" style="display:none;"></div>
+        <!-- 🔥 第三行：入库规格（新增） -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库规格：</label>
+                <select id="inUnitSpec" onchange="onInUnitSpecChange()"
+                        style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px; background:#fff;">
+                    <option value="">请选择规格</option>
+                </select>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库数量：</label>
+                <input type="number" id="inNum" min="1" placeholder="必填" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库单价：</label>
+                <input type="number" id="inPrice" min="0" step="0.01" placeholder="线下必填，线上不可填" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+        </div>
         
-        <!-- 第四行：生产日期 + 到期日期 -->
-        <div style="display:flex; gap:25px; margin-bottom:22px; flex-wrap:wrap;">
+        <!-- 第四行：录入日期 -->
+        <div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">录入日期：</label>
+                <input type="date" id="inRecordDate" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
             <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">生产日期：</label>
                 <input type="date" id="inProduceDate" onchange="lockExpireDate()" 
@@ -1734,8 +1739,10 @@
                 <input type="date" id="inExpireDate" onchange="lockProduceDate()" 
                        style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
             </div>
-            <div style="flex:1;"></div> <!-- 占位保持对齐 -->
         </div>
+        
+        <!-- ✅ 入库单价提醒 -->
+        <div id="inPriceReminder" style="display:none; margin-bottom:12px;"></div>
         
         <!-- 按钮 -->
         <div style="text-align:center; padding-top:18px; border-top:1px solid #eee;">
@@ -1744,7 +1751,6 @@
         </div>
     </div>
 </div>
-
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">
     <div class="form-container" style="max-width: 900px; padding: 30px 35px; min-width: 700px;">
