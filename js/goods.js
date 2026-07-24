@@ -1062,7 +1062,7 @@ function renderGoods() {
     }
     
     if (!filteredGoods || filteredGoods.length === 0) {
-        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;">暂无数据</td></tr>';
         return;
     }
     
@@ -1071,7 +1071,7 @@ function renderGoods() {
     tb.innerHTML = '';
     
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">暂无数据</td></tr>';
+        tb.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;">暂无数据</td></tr>';
         return;
     }
 
@@ -1083,6 +1083,19 @@ function renderGoods() {
         let expire = calculateExpireDays ? calculateExpireDays(item.shelf_life_num, item.shelf_life_unit) : '';
         let onlineCost = formatMoney ? formatMoney(item.online_cost) : (item.online_cost || 0);
         let isUsed = goodsUsedCache.get(item.id) ?? false;
+        
+        // 🔥 获取最小计量单位名称
+        let baseUnitName = item.base_unit_name || '-';
+        
+        // 🔥 获取价格基准规格名称
+        let priceSpecName = '-';
+        if (item.price_spec_id) {
+            const spec = unitSpecList.find(s => s.id == item.price_spec_id);
+            if (spec) {
+                const baseItem = baseUnitList.find(b => b.id == spec.base_unit_id);
+                priceSpecName = spec.show_name + '（' + spec.convert_rate + (baseItem ? baseItem.unit_name : '') + '）';
+            }
+        }
         
         let delBtn = '';
         if (isUsed) {
@@ -1099,6 +1112,8 @@ function renderGoods() {
                 <td>${item.name || ''}</td>
                 <td>${item.spec || '-'}</td>
                 <td>${item.channel || ''}</td>
+                <td>${baseUnitName}</td>           <!-- 🔥 新增：最小计量单位 -->
+                <td>${priceSpecName}</td>           <!-- 🔥 新增：价格基准规格 -->
                 <td>${formatMoney ? formatMoney(item.sale_price) : (item.sale_price || 0)}</td>
                 <td>${onlineCost}</td>
                 <td>${item.tax_rate ? item.tax_rate + '%' : ''}</td>
