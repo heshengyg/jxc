@@ -5166,7 +5166,7 @@ groupCheckbox.onclick = function(e) {
         }
     });
     renderGoodsUnitTreeDropdownContent();
-};                
+};           
                 // 🔥 二级：▼ 表示可展开（有子项），▶ 表示已展开
                 const groupExpandIcon = hasGroupChildren ? 
                     `<span class="group-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:4px;user-select:none;display:inline-block;width:20px;text-align:center;">${isGroupExpanded ? '▶' : '▼'}</span>` : 
