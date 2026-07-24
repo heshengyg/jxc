@@ -5142,19 +5142,20 @@ groupCheckbox.onclick = function(e) {
     if (isGroupDisabled) return;
     
     // 🔥 关键修复：如果当前没有选中任何一级，自动选中当前一级
-    if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
-        tempSelectedBaseId = baseItem.id;
-    }
-    // 🔥 如果当前选中的一级不是当前一级，提示切换
-    if (tempSelectedBaseId !== baseItem.id && tempSelectedSpecIds.size > 0) {
-        if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-            return;
+    // 如果当前选中的一级不是当前一级，先清空之前的选中
+    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id) {
+        // 已经有其他一级被选中，清空之前的规格
+        if (tempSelectedSpecIds.size > 0) {
+            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+                return;
+            }
+            tempSelectedSpecIds.clear();
         }
-        tempSelectedSpecIds.clear();
         tempSelectedBaseId = baseItem.id;
-    } else if (tempSelectedBaseId !== baseItem.id) {
+    } else if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
         tempSelectedBaseId = baseItem.id;
     }
+    // 如果 tempSelectedBaseId == baseItem.id，继续执行
     
     const allChecked = specs.every(s => tempSelectedSpecIds.has(String(s.id)));
     specs.forEach(s => {
@@ -5165,8 +5166,7 @@ groupCheckbox.onclick = function(e) {
         }
     });
     renderGoodsUnitTreeDropdownContent();
-};
-                
+};                
                 // 🔥 二级：▼ 表示可展开（有子项），▶ 表示已展开
                 const groupExpandIcon = hasGroupChildren ? 
                     `<span class="group-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:4px;user-select:none;display:inline-block;width:20px;text-align:center;">${isGroupExpanded ? '▶' : '▼'}</span>` : 
@@ -5220,19 +5220,20 @@ specDiv.onclick = function(e) {
     if (isGroupDisabled) return;
     
     // 🔥 关键修复：如果当前没有选中任何一级，自动选中当前一级
-    if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
-        tempSelectedBaseId = baseItem.id;
-    }
-    // 🔥 如果当前选中的一级不是当前一级，提示切换
-    if (tempSelectedBaseId !== baseItem.id && tempSelectedSpecIds.size > 0) {
-        if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-            return;
+    // 如果当前选中的一级不是当前一级，先清空之前的选中
+    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id) {
+        // 已经有其他一级被选中，清空之前的规格
+        if (tempSelectedSpecIds.size > 0) {
+            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+                return;
+            }
+            tempSelectedSpecIds.clear();
         }
-        tempSelectedSpecIds.clear();
         tempSelectedBaseId = baseItem.id;
-    } else if (tempSelectedBaseId !== baseItem.id) {
+    } else if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
         tempSelectedBaseId = baseItem.id;
     }
+    // 如果 tempSelectedBaseId == baseItem.id，继续执行
     
     if (isSpecChecked) {
         tempSelectedSpecIds.delete(String(spec.id));
