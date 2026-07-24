@@ -5398,27 +5398,28 @@ const oldSubmitForm = submitForm;
 submitForm = async function () {
     const baseIdInput = $('add_base_unit_id');
     if (!baseIdInput) { alert('页面元素不完整'); return; }
-    const baseId = baseIdInput.value;
-    if (!baseId) { alert('请选择基准最小计量单位'); return; }
+    const baseId = baseIdInput.value;  // 🔥 允许为空，不弹窗
     
-    // 🔥 获取选中的规格ID
+    // 🔥 获取选中的规格ID（只有 baseId 存在时才处理规格）
     let specIds = [];
-    // 从 tempSelectedSpecIds 获取（树形下拉选中状态）
-    if (tempSelectedSpecIds.size > 0) {
-        specIds = Array.from(tempSelectedSpecIds);
-    }
-    // 如果 tempSelectedSpecIds 为空，从隐藏字段获取
-    if (specIds.length === 0) {
-        const bindSpecInput = $('bindSpecIds');
-        if (bindSpecInput && bindSpecInput.value) {
-            specIds = bindSpecInput.value.split(',').filter(id => id);
+    if (baseId) {
+        // 从 tempSelectedSpecIds 获取（树形下拉选中状态）
+        if (tempSelectedSpecIds.size > 0) {
+            specIds = Array.from(tempSelectedSpecIds);
         }
-    }
-    // 从 checkbox 获取
-    if (specIds.length === 0) {
-        const checkedBoxes = document.querySelectorAll('.goodsUnitSpecCheck:checked');
-        if (checkedBoxes.length > 0) {
-            specIds = Array.from(checkedBoxes).map(el => el.dataset.specId);
+        // 如果 tempSelectedSpecIds 为空，从隐藏字段获取
+        if (specIds.length === 0) {
+            const bindSpecInput = $('bindSpecIds');
+            if (bindSpecInput && bindSpecInput.value) {
+                specIds = bindSpecInput.value.split(',').filter(id => id);
+            }
+        }
+        // 从 checkbox 获取
+        if (specIds.length === 0) {
+            const checkedBoxes = document.querySelectorAll('.goodsUnitSpecCheck:checked');
+            if (checkedBoxes.length > 0) {
+                specIds = Array.from(checkedBoxes).map(el => el.dataset.specId);
+            }
         }
     }
     
@@ -5464,7 +5465,7 @@ submitForm = async function () {
         shelf_life_num: shelfNum ? +shelfNum.value || null : null,
         shelf_life_unit: shelfUnit ? shelfUnit.value || null : null,
         last_sale_price: editId ? oldSalePrice : null,
-        // 🔥 保存 base_unit_id 和 base_unit_name 到 goods 表
+        // 🔥 允许单位为空
         base_unit_id: baseId ? +baseId : null,
         base_unit_name: baseUnitName || null
     };
@@ -5517,8 +5518,8 @@ submitForm = async function () {
             }
         }
         
-        // 🔥 保存单位绑定关系到 goods_unit_bind 表（3个字段：goods_id, base_unit_id, spec_id）
-        if (goodsRealId) {
+        // 🔥 保存单位绑定关系到 goods_unit_bind 表（只有 baseId 存在时才保存）
+        if (goodsRealId && baseId) {
             // 先删除旧的绑定
             await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
                 method: 'DELETE',
@@ -5531,7 +5532,6 @@ submitForm = async function () {
                 for (const sid of specIds) {
                     if (sid) {
                         try {
-                            // 🔥 关键：同时保存 goods_id, base_unit_id, spec_id
                             const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind`, {
                                 method: 'POST',
                                 headers: { 
@@ -5541,7 +5541,7 @@ submitForm = async function () {
                                 },
                                 body: JSON.stringify({ 
                                     goods_id: goodsRealId, 
-                                    base_unit_id: baseId ? +baseId : null,  // 🔥 保存 base_unit_id
+                                    base_unit_id: baseId ? +baseId : null,
                                     spec_id: sid 
                                 })
                             });
@@ -5559,6 +5559,12 @@ submitForm = async function () {
             } else {
                 console.log('✅ 已清空所有规格绑定（无选中规格）');
             }
+        } else if (goodsRealId && !baseId) {
+            // 如果单位为空，清空所有绑定
+            await fetch(`${SUPABASE_URL}/rest/v1/goods_unit_bind?goods_id=eq.${goodsRealId}`, {
+                method: 'DELETE',
+                headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+            });
         }
         
         showMsg(editId ? '商品编辑成功' : '商品新增成功');
