@@ -4939,260 +4939,219 @@ function filterGoodsUnitTreeDropdown() {
 }
 
 // 渲染商品单位树形下拉内容（三级层级）
+// 渲染商品单位树形下拉内容（三级层级）
 function renderGoodsUnitTreeDropdownContent() {
     const container = document.getElementById('goodsUnitTreeContainer');
     const filterInput = document.getElementById('goodsUnitSearchInput');
     if (!container) return;
-    
+
     const keyword = filterInput ? filterInput.value.trim().toLowerCase() : '';
     container.innerHTML = '';
-    
+
     if (baseUnitList.length === 0) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无单位数据</div>';
         return;
     }
-    
+
     if (!window._unitExpandState) {
         window._unitExpandState = {};
     }
-    
+
     let hasMatch = false;
 
-// 🔥 关键修复：使用缓存的排序列表，保持位置不变
-let sortedBaseList;
+    // 🔥 关键修复：使用缓存的排序列表，保持位置不变
+    let sortedBaseList;
 
-// 在置顶逻辑后面添加滚动
-if (window._shouldPinSelected && tempSelectedBaseId) {
-    sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
-    const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
-    if (selectedBase) {
-        const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
-        sortedBaseList = [selectedBase, ...remaining];
-        // 🔥 立即滚动到顶部
-        setTimeout(() => {
-            const container = document.getElementById('goodsUnitTreeContainer');
-            if (container) container.scrollTop = 0;
-            const dropdown = document.getElementById('goodsUnitDropdown');
-            if (dropdown) dropdown.scrollTop = 0;
-        }, 50);
-    }
-    window._shouldPinSelected = false;
-    window._cachedSortedBaseList = sortedBaseList;
-}
-else if (window._cachedSortedBaseList && window._cachedSortedBaseList.length > 0) {
-    // 使用缓存的排序列表
-    sortedBaseList = window._cachedSortedBaseList;
-    // 检查是否有新增或删除的单位
-    const currentIds = new Set(baseUnitList.map(b => b.id));
-    const cachedIds = new Set(sortedBaseList.map(b => b.id));
-    if (currentIds.size !== cachedIds.size || 
-        ![...currentIds].every(id => cachedIds.has(id))) {
-        // 有变化，重新排序
+    // 在置顶逻辑后面添加滚动
+    if (window._shouldPinSelected && tempSelectedBaseId) {
         sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+        const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
+        if (selectedBase) {
+            const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
+            sortedBaseList = [selectedBase, ...remaining];
+            // 🔥 立即滚动到顶部
+            setTimeout(function() {
+                const containerEl = document.getElementById('goodsUnitTreeContainer');
+                if (containerEl) containerEl.scrollTop = 0;
+                const dropdownEl = document.getElementById('goodsUnitDropdown');
+                if (dropdownEl) dropdownEl.scrollTop = 0;
+            }, 50);
+        }
+        window._shouldPinSelected = false;
+        window._cachedSortedBaseList = sortedBaseList;
+    } else if (window._cachedSortedBaseList && window._cachedSortedBaseList.length > 0) {
+        sortedBaseList = window._cachedSortedBaseList;
+        const currentIds = new Set(baseUnitList.map(function(b) { return b.id; }));
+        const cachedIds = new Set(sortedBaseList.map(function(b) { return b.id; }));
+        if (currentIds.size !== cachedIds.size ||
+            !Array.from(currentIds).every(function(id) { return cachedIds.has(id); })) {
+            sortedBaseList = [...baseUnitList].sort(function(a, b) { return a.unit_name.localeCompare(b.unit_name); });
+            if (tempSelectedBaseId) {
+                const selectedBase = sortedBaseList.find(function(b) { return b.id == tempSelectedBaseId; });
+                if (selectedBase) {
+                    const remaining = sortedBaseList.filter(function(b) { return b.id != tempSelectedBaseId; });
+                    sortedBaseList = [selectedBase, ...remaining];
+                }
+            }
+            window._cachedSortedBaseList = sortedBaseList;
+        }
+    } else {
+        sortedBaseList = [...baseUnitList].sort(function(a, b) { return a.unit_name.localeCompare(b.unit_name); });
         if (tempSelectedBaseId) {
-            const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
+            const selectedBase = sortedBaseList.find(function(b) { return b.id == tempSelectedBaseId; });
             if (selectedBase) {
-                const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
+                const remaining = sortedBaseList.filter(function(b) { return b.id != tempSelectedBaseId; });
                 sortedBaseList = [selectedBase, ...remaining];
             }
         }
         window._cachedSortedBaseList = sortedBaseList;
     }
-} else {
-    // 默认排序
-    sortedBaseList = [...baseUnitList].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
-    if (tempSelectedBaseId) {
-        const selectedBase = sortedBaseList.find(b => b.id == tempSelectedBaseId);
-        if (selectedBase) {
-            const remaining = sortedBaseList.filter(b => b.id != tempSelectedBaseId);
-            sortedBaseList = [selectedBase, ...remaining];
-        }
-    }
-    window._cachedSortedBaseList = sortedBaseList;
-}
 
-let didPin = (window._shouldPinSelected === false && sortedBaseList[0]?.id == tempSelectedBaseId);
-    
-    sortedBaseList.forEach(baseItem => {
-        const childSpecs = unitSpecList.filter(s => s.base_unit_id == baseItem.id);
-        childSpecs.sort((a, b) => a.convert_rate - b.convert_rate);
-        
-        const baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
-        const specMatch = childSpecs.some(s => 
-            s.show_name.toLowerCase().includes(keyword) || 
-            String(s.convert_rate).includes(keyword)
-        );
-        const isVisible = baseMatch || specMatch;
+    var didPin = (window._shouldPinSelected === false && sortedBaseList[0] && sortedBaseList[0].id == tempSelectedBaseId);
+
+    sortedBaseList.forEach(function(baseItem) {
+        var childSpecs = unitSpecList.filter(function(s) { return s.base_unit_id == baseItem.id; });
+        childSpecs.sort(function(a, b) { return a.convert_rate - b.convert_rate; });
+
+        var baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
+        var specMatch = childSpecs.some(function(s) {
+            return s.show_name.toLowerCase().includes(keyword) ||
+                String(s.convert_rate).includes(keyword);
+        });
+        var isVisible = baseMatch || specMatch;
         if (!isVisible) return;
         hasMatch = true;
-        
-        const isBaseSelected = tempSelectedBaseId == baseItem.id;
-        const hasCheckedSpec = childSpecs.some(s => tempSelectedSpecIds.has(String(s.id)));
-        const isBaseActive = isBaseSelected || hasCheckedSpec;
-        
-        const baseKey = 'base_' + baseItem.id;
+
+        // 🔥 核心：只有手动点击选中一级，isBaseSelected 才为 true
+        var isBaseSelected = tempSelectedBaseId == baseItem.id;
+        // 🔥 二三级是否可操作：只有 isBaseSelected 为 true 时才可操作
+        var isBaseActive = isBaseSelected;
+
+        var baseKey = 'base_' + baseItem.id;
         if (keyword) {
             window._unitExpandState[baseKey] = true;
         }
-        // 🔥 展开状态：默认展开，点击切换
-        const isBaseExpanded = window._unitExpandState[baseKey] !== false;
-        const checkedCount = childSpecs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
-        
-        // ===== 🔥 一级单位行：左对齐 =====
-        const rowDiv = document.createElement('div');
+        var isBaseExpanded = window._unitExpandState[baseKey] !== false;
+        var checkedCount = childSpecs.filter(function(s) { return tempSelectedSpecIds.has(String(s.id)); }).length;
+
+        // ===== 🔥 一级单位行 =====
+        var rowDiv = document.createElement('div');
         rowDiv.style.cssText = 'padding:4px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;';
+
+        // 点击一级行切换选中状态
         rowDiv.onclick = function(e) {
             e.stopPropagation();
             if (e.target.tagName === 'INPUT') return;
-            const expandIcon = e.target.closest('.unit-expand-icon');
+            var expandIcon = e.target.closest('.unit-expand-icon');
             if (expandIcon) {
                 window._unitExpandState[baseKey] = !window._unitExpandState[baseKey];
                 renderGoodsUnitTreeDropdownContent();
                 return;
             }
-            // 一级行点击事件中的切换逻辑修改
-if (tempSelectedBaseId == baseItem.id) {
-    // 取消选中当前一级
-    if (tempSelectedSpecIds.size > 0) {
-        if (confirm('取消选中将清空已选换算规格，确定？')) {
-            tempSelectedSpecIds.clear();
-            tempSelectedBaseId = null;
-        }
-    } else {
-        tempSelectedBaseId = null;
-    }
-} else {
-    // 🔥 关键修复：切换到新一级时，清空之前所有选中的规格
-    // 并确保 tempSelectedBaseId 更新为当前一级
-    if (tempSelectedBaseId !== null && tempSelectedSpecIds.size > 0) {
-        if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-            renderGoodsUnitTreeDropdownContent();
-            return;
-        }
-        tempSelectedSpecIds.clear();
-    }
-    tempSelectedBaseId = baseItem.id;
-}
-            window._shouldPinSelected = false;
-            renderGoodsUnitTreeDropdownContent();
+            // 🔥 切换一级选中状态
+            toggleBaseUnitSelection(baseItem.id);
         };
-        
-        // 🔥 一级：▼ 表示可展开（有子项），▶ 表示已展开
-        const hasChildren = childSpecs.length > 0;
-        const expandIconHtml = hasChildren ? 
-            `<span class="unit-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:6px;user-select:none;display:inline-block;width:20px;text-align:center;">${isBaseExpanded ? '▶' : '▼'}</span>` : 
-            `<span style="font-size:14px;color:#ccc;margin-right:6px;display:inline-block;width:20px;text-align:center;">▼</span>`;
-        
-        const highlightColor = isBaseActive ? 'color:#1890ff;font-weight:bold;' : '';
-        
-        rowDiv.innerHTML = `
-            <div style="display:flex;align-items:center;gap:4px;padding:2px 0; ${isBaseActive ? 'background:#e6f7ff;border-radius:4px;' : ''}">
-                ${expandIconHtml}
-                <span style="font-size:16px; margin-right:4px;">${isBaseActive ? '✅' : '⏹️'}</span>
-                <span style="font-size:14px; ${highlightColor}">${baseItem.unit_name}</span>
-                ${isBaseSelected ? '<span style="color:#52c41a;font-size:12px;font-weight:bold;margin-left:4px;">（已选）</span>' : ''}
-                ${hasCheckedSpec && !isBaseSelected ? `<span style="color:#ff6b6b;font-size:12px;margin-left:4px;">（${checkedCount}个规格已选）</span>` : ''}
-                <span style="color:#999;font-size:12px;margin-left:4px;">(${childSpecs.length}个规格)</span>
-            </div>
-        `;
+
+        var hasChildren = childSpecs.length > 0;
+        var expandIconHtml = hasChildren ?
+            '<span class="unit-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:6px;user-select:none;display:inline-block;width:20px;text-align:center;">' + (isBaseExpanded ? '▶' : '▼') + '</span>' :
+            '<span style="font-size:14px;color:#ccc;margin-right:6px;display:inline-block;width:20px;text-align:center;">▼</span>';
+
+        var highlightColor = isBaseActive ? 'color:#1890ff;font-weight:bold;' : '';
+
+        rowDiv.innerHTML =
+            '<div style="display:flex;align-items:center;gap:4px;padding:2px 0; ' + (isBaseActive ? 'background:#e6f7ff;border-radius:4px;' : '') + '">' +
+            expandIconHtml +
+            '<span style="font-size:16px; margin-right:4px; cursor:pointer;" onclick="event.stopPropagation();toggleBaseUnitSelection(' + baseItem.id + ')">' + (isBaseActive ? '✅' : '⏹️') + '</span>' +
+            '<span style="font-size:14px; ' + highlightColor + '">' + baseItem.unit_name + '</span>' +
+            (isBaseSelected ? '<span style="color:#52c41a;font-size:12px;font-weight:bold;margin-left:4px;">（已选）</span>' : '') +
+            (hasCheckedSpec && !isBaseSelected ? '<span style="color:#ff6b6b;font-size:12px;margin-left:4px;">（' + checkedCount + '个规格已选）</span>' : '') +
+            '<span style="color:#999;font-size:12px;margin-left:4px;">(' + childSpecs.length + '个规格)</span>' +
+            '</div>';
         container.appendChild(rowDiv);
-        
+
         // ===== 二级和三级内容 =====
         if (hasChildren && isBaseExpanded) {
-            const grouped = {};
-            childSpecs.forEach(spec => {
+            var grouped = {};
+            childSpecs.forEach(function(spec) {
                 if (!grouped[spec.show_name]) {
                     grouped[spec.show_name] = [];
                 }
                 grouped[spec.show_name].push(spec);
             });
-            
-            const sortedGroupNames = Object.keys(grouped).sort();
-            
-            sortedGroupNames.forEach(groupName => {
-                const specs = grouped[groupName];
-                specs.sort((a, b) => a.convert_rate - b.convert_rate);
-                
-                const hasCheckedInGroup = specs.some(s => tempSelectedSpecIds.has(String(s.id)));
-                const isGroupDisabled = tempSelectedBaseId !== null && tempSelectedBaseId != baseItem.id;
-                
-                const groupKey = 'group_' + baseItem.id + '_' + groupName;
+
+            var sortedGroupNames = Object.keys(grouped).sort();
+
+            sortedGroupNames.forEach(function(groupName) {
+                var specs = grouped[groupName];
+                specs.sort(function(a, b) { return a.convert_rate - b.convert_rate; });
+
+                var hasCheckedInGroup = specs.some(function(s) { return tempSelectedSpecIds.has(String(s.id)); });
+                // 🔥 只有当前一级被选中时，二级才可操作
+                var isGroupDisabled = !isBaseSelected;
+
+                var groupKey = 'group_' + baseItem.id + '_' + groupName;
                 if (keyword) {
                     window._unitExpandState[groupKey] = true;
                 }
-                const isGroupExpanded = window._unitExpandState[groupKey] !== false;
-                const hasGroupChildren = specs.length > 0;
-                
-                // ===== 🔥 二级行：缩进 30px（用 margin-left） =====
-                const groupDiv = document.createElement('div');
-                groupDiv.style.cssText = `margin-left:30px;padding:3px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
-                
-                const groupCheckbox = document.createElement('div');
+                var isGroupExpanded = window._unitExpandState[groupKey] !== false;
+                var hasGroupChildren = specs.length > 0;
+
+                var groupDiv = document.createElement('div');
+                groupDiv.style.cssText = 'margin-left:30px;padding:3px 0;' + (isGroupDisabled ? 'opacity:0.4;pointer-events:none;' : '');
+
+                var groupCheckbox = document.createElement('div');
                 groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
-                // ===== 修改二级组的点击事件 =====
-groupCheckbox.onclick = function(e) {
-    e.stopPropagation();
-    if (e.target.tagName === 'INPUT') return;
-    const expandIcon = e.target.closest('.group-expand-icon');
-    if (expandIcon) {
-        window._unitExpandState[groupKey] = !window._unitExpandState[groupKey];
-        renderGoodsUnitTreeDropdownContent();
-        return;
-    }
-    if (isGroupDisabled) return;
-    
-    // 🔥 关键修复：如果当前没有选中任何一级，自动选中当前一级
-    // 如果当前选中的一级不是当前一级，先清空之前的选中
-    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id) {
-        // 已经有其他一级被选中，清空之前的规格
-        if (tempSelectedSpecIds.size > 0) {
-            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-                return;
-            }
-            tempSelectedSpecIds.clear();
-        }
-        tempSelectedBaseId = baseItem.id;
-    } else if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
-        tempSelectedBaseId = baseItem.id;
-    }
-    // 如果 tempSelectedBaseId == baseItem.id，继续执行
-    
-    const allChecked = specs.every(s => tempSelectedSpecIds.has(String(s.id)));
-    specs.forEach(s => {
-        if (allChecked) {
-            tempSelectedSpecIds.delete(String(s.id));
-        } else {
-            tempSelectedSpecIds.add(String(s.id));
-        }
-    });
-    renderGoodsUnitTreeDropdownContent();
-};           
-                // 🔥 二级：▼ 表示可展开（有子项），▶ 表示已展开
-                const groupExpandIcon = hasGroupChildren ? 
-                    `<span class="group-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:4px;user-select:none;display:inline-block;width:20px;text-align:center;">${isGroupExpanded ? '▶' : '▼'}</span>` : 
-                    `<span style="font-size:14px;color:#ccc;margin-right:4px;display:inline-block;width:20px;text-align:center;">▼</span>`;
-                
-                const groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
-                const checkedInGroupCount = specs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
-                
-                groupCheckbox.innerHTML = `
-                    ${groupExpandIcon}
-                    <input type="checkbox" class="goodsUnitGroupCheck" 
-                        ${hasCheckedInGroup ? 'checked' : ''}
-                        ${isGroupDisabled ? 'disabled' : ''}
-                        style="width:15px;height:15px;cursor:pointer;margin-right:2px;">
-                    <span style="font-size:13px;font-weight:${hasCheckedInGroup ? 'bold' : 'normal'};color:${groupNameColor};">
-                        📦 ${groupName}
-                        ${hasCheckedInGroup ? `<span style="color:#ff4d4f;"> ☑（${checkedInGroupCount}/${specs.length}）</span>` : ''}
-                    </span>
-                `;
-                const cb = groupCheckbox.querySelector('input');
+                groupCheckbox.onclick = function(e) {
+                    e.stopPropagation();
+                    if (e.target.tagName === 'INPUT') return;
+                    var expandIcon = e.target.closest('.group-expand-icon');
+                    if (expandIcon) {
+                        window._unitExpandState[groupKey] = !window._unitExpandState[groupKey];
+                        renderGoodsUnitTreeDropdownContent();
+                        return;
+                    }
+                    // 🔥 如果当前一级未被选中，不允许操作
+                    if (!isBaseSelected) {
+                        showMsg('请先点击选择"' + baseItem.unit_name + '"单位');
+                        return;
+                    }
+
+                    var allChecked = specs.every(function(s) { return tempSelectedSpecIds.has(String(s.id)); });
+                    specs.forEach(function(s) {
+                        if (allChecked) {
+                            tempSelectedSpecIds.delete(String(s.id));
+                        } else {
+                            tempSelectedSpecIds.add(String(s.id));
+                        }
+                    });
+                    renderGoodsUnitTreeDropdownContent();
+                };
+
+                var groupExpandIcon = hasGroupChildren ?
+                    '<span class="group-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:4px;user-select:none;display:inline-block;width:20px;text-align:center;">' + (isGroupExpanded ? '▶' : '▼') + '</span>' :
+                    '<span style="font-size:14px;color:#ccc;margin-right:4px;display:inline-block;width:20px;text-align:center;">▼</span>';
+
+                var groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
+                var checkedInGroupCount = specs.filter(function(s) { return tempSelectedSpecIds.has(String(s.id)); }).length;
+
+                groupCheckbox.innerHTML =
+                    groupExpandIcon +
+                    '<input type="checkbox" class="goodsUnitGroupCheck" ' +
+                    (hasCheckedInGroup ? 'checked' : '') +
+                    (isGroupDisabled ? 'disabled' : '') +
+                    ' style="width:15px;height:15px;cursor:' + (isGroupDisabled ? 'not-allowed' : 'pointer') + ';margin-right:2px;">' +
+                    '<span style="font-size:13px;' + (isGroupDisabled ? 'color:#999;' : '') + '">' +
+                    '📦 ' + groupName +
+                    (hasCheckedInGroup ? '<span style="color:#ff4d4f;"> ☑（' + checkedInGroupCount + '/' + specs.length + '）</span>' : '') +
+                    '</span>';
+                var cb = groupCheckbox.querySelector('input');
                 if (cb) {
                     cb.onchange = function(e) {
                         e.stopPropagation();
                         if (isGroupDisabled) return;
-                        const checked = this.checked;
-                        specs.forEach(s => {
+                        var checked = this.checked;
+                        specs.forEach(function(s) {
                             if (checked) {
                                 tempSelectedSpecIds.add(String(s.id));
                             } else {
@@ -5203,61 +5162,50 @@ groupCheckbox.onclick = function(e) {
                     };
                 }
                 groupDiv.appendChild(groupCheckbox);
-                
-                // ===== 🔥 三级：换算关系（缩进 30px + 24px = 54px） =====
+
+                // ===== 🔥 三级：换算关系 =====
                 if (isGroupExpanded) {
-                    const specContainer = document.createElement('div');
-                    specContainer.style.cssText = `margin-left:30px;padding-bottom:2px;`;
-                    
-                    specs.forEach(spec => {
-                        const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
-                        const specDiv = document.createElement('div');
+                    var specContainer = document.createElement('div');
+                    specContainer.style.cssText = 'margin-left:30px;padding-bottom:2px;';
+
+                    specs.forEach(function(spec) {
+                        var isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
+                        // 🔥 只有当前一级被选中时，三级才可操作
+                        var isSpecDisabled = !isBaseSelected;
+
+                        var specDiv = document.createElement('div');
                         specDiv.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;padding-left:24px;';
-                        // ===== 修改三级规格的点击事件 =====
-specDiv.onclick = function(e) {
-    e.stopPropagation();
-    if (e.target.tagName === 'INPUT') return;
-    if (isGroupDisabled) return;
-    
-    // 🔥 关键修复：如果当前没有选中任何一级，自动选中当前一级
-    // 如果当前选中的一级不是当前一级，先清空之前的选中
-    if (tempSelectedBaseId !== null && tempSelectedBaseId !== '' && tempSelectedBaseId != baseItem.id) {
-        // 已经有其他一级被选中，清空之前的规格
-        if (tempSelectedSpecIds.size > 0) {
-            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
-                return;
-            }
-            tempSelectedSpecIds.clear();
-        }
-        tempSelectedBaseId = baseItem.id;
-    } else if (tempSelectedBaseId === null || tempSelectedBaseId === '') {
-        tempSelectedBaseId = baseItem.id;
-    }
-    // 如果 tempSelectedBaseId == baseItem.id，继续执行
-    
-    if (isSpecChecked) {
-        tempSelectedSpecIds.delete(String(spec.id));
-    } else {
-        tempSelectedSpecIds.add(String(spec.id));
-    }
-    renderGoodsUnitTreeDropdownContent();
-};
-                        specDiv.innerHTML = `
-                            <span style="display:inline-block;width:20px;"></span>
-                            <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
-                                ${isSpecChecked ? 'checked' : ''}
-                                ${isGroupDisabled ? 'disabled' : ''}
-                                style="width:14px;height:14px;cursor:pointer;margin-left:4px;">
-                            <span style="font-size:13px;color:#333;${isSpecChecked ? 'font-weight:bold;color:#ff4d4f;' : ''}">
-                                ${spec.convert_rate}${baseItem.unit_name}
-                                ${isSpecChecked ? ' ☑' : ''}
-                            </span>
-                        `;
-                        const cb2 = specDiv.querySelector('input');
+                        specDiv.onclick = function(e) {
+                            e.stopPropagation();
+                            if (e.target.tagName === 'INPUT') return;
+                            // 🔥 如果当前一级未被选中，不允许操作
+                            if (!isBaseSelected) {
+                                showMsg('请先点击选择"' + baseItem.unit_name + '"单位');
+                                return;
+                            }
+
+                            if (isSpecChecked) {
+                                tempSelectedSpecIds.delete(String(spec.id));
+                            } else {
+                                tempSelectedSpecIds.add(String(spec.id));
+                            }
+                            renderGoodsUnitTreeDropdownContent();
+                        };
+                        specDiv.innerHTML =
+                            '<span style="display:inline-block;width:20px;"></span>' +
+                            '<input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="' + spec.id + '" ' +
+                            (isSpecChecked ? 'checked' : '') +
+                            (isSpecDisabled ? 'disabled' : '') +
+                            ' style="width:14px;height:14px;cursor:' + (isSpecDisabled ? 'not-allowed' : 'pointer') + ';margin-left:4px;">' +
+                            '<span style="font-size:13px;color:' + (isSpecDisabled ? '#ccc' : '#333') + ';' + (isSpecChecked ? 'font-weight:bold;color:#ff4d4f;' : '') + '">' +
+                            spec.convert_rate + baseItem.unit_name +
+                            (isSpecChecked ? ' ☑' : '') +
+                            '</span>';
+                        var cb2 = specDiv.querySelector('input');
                         if (cb2) {
                             cb2.onchange = function(e) {
                                 e.stopPropagation();
-                                if (isGroupDisabled) return;
+                                if (isSpecDisabled) return;
                                 if (this.checked) {
                                     tempSelectedSpecIds.add(String(spec.id));
                                 } else {
@@ -5272,21 +5220,46 @@ specDiv.onclick = function(e) {
                 }
                 container.appendChild(groupDiv);
             });
-        } else if (hasChildren && !isBaseExpanded) {
-            // 🔥 去掉"点击 ▶ 展开 X 个规格"的提示
-            // 不显示任何内容
         }
     });
-    
+
     if (!hasMatch) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">无匹配结果</div>';
     }
-    
+
     if (didPin) {
         container.scrollTop = 0;
-        const dropdown = document.getElementById('goodsUnitDropdown');
+        var dropdown = document.getElementById('goodsUnitDropdown');
         if (dropdown) dropdown.scrollTop = 0;
     }
+}
+
+// 🔥 新增：切换一级单位选中状态（放在 renderGoodsUnitTreeDropdownContent 函数后面）
+function toggleBaseUnitSelection(baseId) {
+    var targetId = String(baseId);
+    var currentId = tempSelectedBaseId !== null && tempSelectedBaseId !== '' ? String(tempSelectedBaseId) : null;
+
+    if (currentId === targetId) {
+        // 取消选中当前一级
+        if (tempSelectedSpecIds.size > 0) {
+            if (confirm('取消选中将清空已选换算规格，确定？')) {
+                tempSelectedSpecIds.clear();
+                tempSelectedBaseId = null;
+            }
+        } else {
+            tempSelectedBaseId = null;
+        }
+    } else {
+        // 切换到新一级
+        if (tempSelectedSpecIds.size > 0 && currentId !== null) {
+            if (!confirm('切换基础单位将清空已选换算规格，确定切换？')) {
+                return;
+            }
+            tempSelectedSpecIds.clear();
+        }
+        tempSelectedBaseId = targetId;
+    }
+    renderGoodsUnitTreeDropdownContent();
 }
 
 function onGoodsBaseUnitRadioChange(baseId) {
