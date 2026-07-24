@@ -4919,7 +4919,7 @@ function filterGoodsUnitTreeDropdown() {
     renderGoodsUnitTreeDropdownContent();
 }
 
-// 渲染商品单位树形下拉内容（三级层级）- 不含按钮// 渲染商品单位树形下拉内容（三级层级）- 不含按钮
+// 渲染商品单位树形下拉内容（三级层级）
 function renderGoodsUnitTreeDropdownContent() {
     const container = document.getElementById('goodsUnitTreeContainer');
     const filterInput = document.getElementById('goodsUnitSearchInput');
@@ -4972,11 +4972,11 @@ function renderGoodsUnitTreeDropdownContent() {
         if (keyword) {
             window._unitExpandState[baseKey] = true;
         }
+        // 🔥 展开状态：默认展开，点击切换
         const isBaseExpanded = window._unitExpandState[baseKey] !== false;
-        
         const checkedCount = childSpecs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
         
-        // ===== 🔥 一级单位行：左对齐，前面显示 ▼ =====
+        // ===== 🔥 一级单位行：左对齐 =====
         const rowDiv = document.createElement('div');
         rowDiv.style.cssText = 'padding:4px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;';
         rowDiv.onclick = function(e) {
@@ -5011,10 +5011,11 @@ function renderGoodsUnitTreeDropdownContent() {
             renderGoodsUnitTreeDropdownContent();
         };
         
-        // 🔥 一级：左对齐，显示 ▼ 图标
-        const expandIconHtml = childSpecs.length > 0 ? 
-            `<span class="unit-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:6px;user-select:none;">${isBaseExpanded ? '🔻' : '🔻'}</span>` : 
-            `<span style="font-size:12px;color:#ccc;margin-right:6px;">🔻</span>`;
+        // 🔥 一级：▼ 表示可展开（有子项），▶ 表示已展开
+        const hasChildren = childSpecs.length > 0;
+        const expandIconHtml = hasChildren ? 
+            `<span class="unit-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:6px;user-select:none;display:inline-block;width:20px;text-align:center;">${isBaseExpanded ? '▶' : '▼'}</span>` : 
+            `<span style="font-size:14px;color:#ccc;margin-right:6px;display:inline-block;width:20px;text-align:center;">▼</span>`;
         
         const highlightColor = isBaseActive ? 'color:#1890ff;font-weight:bold;' : '';
         
@@ -5031,7 +5032,7 @@ function renderGoodsUnitTreeDropdownContent() {
         container.appendChild(rowDiv);
         
         // ===== 二级和三级内容 =====
-        if (childSpecs.length > 0 && isBaseExpanded) {
+        if (hasChildren && isBaseExpanded) {
             const grouped = {};
             childSpecs.forEach(spec => {
                 if (!grouped[spec.show_name]) {
@@ -5054,10 +5055,11 @@ function renderGoodsUnitTreeDropdownContent() {
                     window._unitExpandState[groupKey] = true;
                 }
                 const isGroupExpanded = window._unitExpandState[groupKey] !== false;
+                const hasGroupChildren = specs.length > 0;
                 
-                // ===== 🔥 二级（包装单位）：缩进 28px，前面显示 ▼ =====
+                // ===== 🔥 二级行：缩进 30px（用 margin-left） =====
                 const groupDiv = document.createElement('div');
-                groupDiv.style.cssText = `padding-left:28px;padding:3px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
+                groupDiv.style.cssText = `margin-left:30px;padding:3px 0;${isGroupDisabled ? 'opacity:0.5;' : ''}`;
                 
                 const groupCheckbox = document.createElement('div');
                 groupCheckbox.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
@@ -5082,10 +5084,10 @@ function renderGoodsUnitTreeDropdownContent() {
                     renderGoodsUnitTreeDropdownContent();
                 };
                 
-                // 🔥 二级：显示 ▼ 图标（无论是否有子项）
-                const groupExpandIcon = specs.length > 0 ? 
-                    `<span class="group-expand-icon" style="cursor:pointer;font-size:12px;color:#999;margin-right:4px;user-select:none;">${isGroupExpanded ? '🔻' : '🔻'}</span>` : 
-                    `<span style="font-size:12px;color:#ccc;margin-right:4px;">🔻</span>`;
+                // 🔥 二级：▼ 表示可展开（有子项），▶ 表示已展开
+                const groupExpandIcon = hasGroupChildren ? 
+                    `<span class="group-expand-icon" style="cursor:pointer;font-size:14px;color:#333;margin-right:4px;user-select:none;display:inline-block;width:20px;text-align:center;">${isGroupExpanded ? '▶' : '▼'}</span>` : 
+                    `<span style="font-size:14px;color:#ccc;margin-right:4px;display:inline-block;width:20px;text-align:center;">▼</span>`;
                 
                 const groupNameColor = hasCheckedInGroup ? '#ff4d4f' : '#333';
                 const checkedInGroupCount = specs.filter(s => tempSelectedSpecIds.has(String(s.id))).length;
@@ -5119,10 +5121,10 @@ function renderGoodsUnitTreeDropdownContent() {
                 }
                 groupDiv.appendChild(groupCheckbox);
                 
-                // ===== 🔥 三级：换算关系（缩进 28px + 24px = 52px） =====
+                // ===== 🔥 三级：换算关系（缩进 30px + 24px = 54px） =====
                 if (isGroupExpanded) {
                     const specContainer = document.createElement('div');
-                    specContainer.style.cssText = `padding-left:28px;padding-bottom:2px;`;
+                    specContainer.style.cssText = `margin-left:30px;padding-bottom:2px;`;
                     
                     specs.forEach(spec => {
                         const isSpecChecked = tempSelectedSpecIds.has(String(spec.id));
@@ -5140,6 +5142,7 @@ function renderGoodsUnitTreeDropdownContent() {
                             renderGoodsUnitTreeDropdownContent();
                         };
                         specDiv.innerHTML = `
+                            <span style="display:inline-block;width:20px;"></span>
                             <input type="checkbox" class="goodsUnitSpecCheck" data-spec-id="${spec.id}" 
                                 ${isSpecChecked ? 'checked' : ''}
                                 ${isGroupDisabled ? 'disabled' : ''}
@@ -5168,11 +5171,9 @@ function renderGoodsUnitTreeDropdownContent() {
                 }
                 container.appendChild(groupDiv);
             });
-        } else if (childSpecs.length > 0 && !isBaseExpanded) {
-            const tipDiv = document.createElement('div');
-            tipDiv.style.cssText = `padding-left:28px;color:#999;font-size:12px;padding:2px 0;`;
-            tipDiv.textContent = `└ 点击 ▶ 展开 ${childSpecs.length} 个规格`;
-            container.appendChild(tipDiv);
+        } else if (hasChildren && !isBaseExpanded) {
+            // 🔥 去掉"点击 ▶ 展开 X 个规格"的提示
+            // 不显示任何内容
         }
     });
     
