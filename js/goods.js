@@ -4690,24 +4690,57 @@ const filterBaseFunc = function () {
     const addDiv = document.createElement('div');
     addDiv.style.cssText = 'padding:8px;background:#e6f7ff;cursor:pointer;';
     addDiv.innerText = `➕ 新增"${input.value}"`;
-    addDiv.onclick = function(e) {
+    addDiv.onclick = async function(e) {
         e.stopPropagation();
         const newName = input.value.trim();
         if (!newName) {
             showMsg('请输入单位名称');
             return;
         }
-        // 🔥 弹窗确认后，再打开新增单位弹窗
-        if (confirm(`是否新增最小计量单位"${newName}"？\n点击"确定"继续设置换算规格，点击"取消"放弃。`)) {
-            // 关闭下拉
-            box.style.display = 'none';
-            // 打开新增单位弹窗，并预填单位名称
-            openUnitEdit(null, 1, newName);
+        // 🔥 弹窗确认
+        if (!confirm(`是否新增最小计量单位"${newName}"？`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+                method: 'POST',
+                headers: {
+                    apikey: SUPABASE_KEY,
+                    Authorization: `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify({ 
+                    unit_name: newName, 
+                    is_locked: false 
+                })
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                showMsg('新增失败：' + errText);
+                return;
+            }
+            const newData = await res.json();
+            const newId = newData[0]?.id;
+            if (newId) {
+                // 刷新单位列表
+                await loadAllBaseUnit();
+                // 关闭下拉
+                box.style.display = 'none';
+                // 自动选中新单位
+                const newItem = baseUnitList.find(u => u.id == newId);
+                if (newItem) {
+                    selectGoodsBaseUnit(newItem);
+                }
+                // 🔥 去掉提示，不显示任何消息
+            }
+        } catch (e) {
+            showMsg('新增失败：' + e.message);
         }
     };
     box.appendChild(addDiv);
-}
- box.style.display = 'block';
+    }
+    box.style.display = 'block';
 };
 
 function debounceFilterBase() {
