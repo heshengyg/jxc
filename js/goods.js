@@ -4495,47 +4495,50 @@ function renderBaseUnitModalList(keyword) {
     });
     
     if (!exactMatch && keyword) {
-        const addDiv = document.createElement('div');
-        addDiv.style.cssText = 'padding:6px 10px;cursor:pointer;background:#e6f7ff;color:#1890ff;';
-        addDiv.textContent = `➕ 新增 "${keyword}"`;
-        addDiv.onclick = async function() {
-            const nameInput = $('baseUnitName');
-            const rateSpan = $('specRateUnit');
-            const baseSelect = $('specBaseUnitId');
-            const existingContainer = $('existingSpecList');
-            
-            if (nameInput) nameInput.value = keyword;
-            if (rateSpan) rateSpan.textContent = keyword;
-            if (existingContainer) existingContainer.innerHTML = '';
-            
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                    method: 'POST',
-                    headers: { 
-                        apikey: SUPABASE_KEY, 
-                        Authorization: `Bearer ${SUPABASE_KEY}`, 
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify({ unit_name: keyword, is_locked: false })
-                });
-                const newData = await res.json();
-                const newId = newData[0]?.id;
-                if (newId) {
-                    if (baseSelect) baseSelect.value = newId;
-                    currentModalBaseId = newId;
-                    await loadAllBaseUnit();
-                    renderBaseUnitModalList(keyword);
-                    // 不弹窗，静默创建
-                }
-            } catch (e) {
-                showMsg('创建一级单位失败：' + e.message);
+    const addDiv = document.createElement('div');
+    addDiv.style.cssText = 'padding:6px 10px;cursor:pointer;background:#e6f7ff;color:#1890ff;';
+    addDiv.textContent = `➕ 新增 "${keyword}"`;
+    addDiv.onclick = async function() {
+        // 🔥 弹窗确认
+        if (!confirm(`是否新增最小计量单位"${keyword}"？`)) {
+            return;
+        }
+        const nameInput = $('baseUnitName');
+        const rateSpan = $('specRateUnit');
+        const baseSelect = $('specBaseUnitId');
+        const existingContainer = $('existingSpecList');
+        
+        if (nameInput) nameInput.value = keyword;
+        if (rateSpan) rateSpan.textContent = keyword;
+        if (existingContainer) existingContainer.innerHTML = '';
+        
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
+                method: 'POST',
+                headers: { 
+                    apikey: SUPABASE_KEY, 
+                    Authorization: `Bearer ${SUPABASE_KEY}`, 
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify({ unit_name: keyword, is_locked: false })
+            });
+            const newData = await res.json();
+            const newId = newData[0]?.id;
+            if (newId) {
+                if (baseSelect) baseSelect.value = newId;
+                currentModalBaseId = newId;
+                await loadAllBaseUnit();
+                renderBaseUnitModalList(keyword);
+                // 不弹窗，静默创建
             }
-            
-            list.style.display = 'none';
-        };
-        list.appendChild(addDiv);
-    }
+        } catch (e) {
+            showMsg('创建一级单位失败：' + e.message);
+        }
+        list.style.display = 'none';
+    };
+    list.appendChild(addDiv);
+}
 }
 
 function showSpecInModal() {
@@ -4687,61 +4690,15 @@ const filterBaseFunc = function () {
     });
     const hasExist = baseUnitList.some(u => u.unit_name.toLowerCase() === kw);
     if (!hasExist) {
-    const addDiv = document.createElement('div');
-    addDiv.style.cssText = 'padding:8px;background:#e6f7ff;cursor:pointer;';
-    addDiv.innerText = `➕ 新增"${input.value}"`;
-    addDiv.onclick = async function(e) {
-        e.stopPropagation();
-        const newName = input.value.trim();
-        if (!newName) {
-            showMsg('请输入单位名称');
-            return;
-        }
-        // 🔥 弹窗确认
-        if (!confirm(`是否新增最小计量单位"${newName}"？`)) {
-            return;
-        }
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/base_unit`, {
-                method: 'POST',
-                headers: {
-                    apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
-                },
-                body: JSON.stringify({ 
-                    unit_name: newName, 
-                    is_locked: false 
-                })
-            });
-            if (!res.ok) {
-                const errText = await res.text();
-                showMsg('新增失败：' + errText);
-                return;
-            }
-            const newData = await res.json();
-            const newId = newData[0]?.id;
-            if (newId) {
-                // 刷新单位列表
-                await loadAllBaseUnit();
-                // 关闭下拉
-                box.style.display = 'none';
-                // 自动选中新单位
-                const newItem = baseUnitList.find(u => u.id == newId);
-                if (newItem) {
-                    selectGoodsBaseUnit(newItem);
-                }
-                // 🔥 去掉提示，不显示任何消息
-            }
-        } catch (e) {
-            showMsg('新增失败：' + e.message);
-        }
-    };
-    box.appendChild(addDiv);
+        const addDiv = document.createElement('div');
+        addDiv.style.cssText = 'padding:8px;background:#e6f7ff;';
+        addDiv.innerText = `新增：${input.value}`;
+        addDiv.onclick = () => { openUnitEdit(null, 1, input.value); box.style.display = 'none'; };
+        box.appendChild(addDiv);
     }
     box.style.display = 'block';
 };
+
 
 function debounceFilterBase() {
     clearTimeout(baseUnitSearchTimer);
