@@ -4790,7 +4790,11 @@ function renderGoodsUnitTree(selectedBaseId) {
     });
     
     checkBox.innerHTML = html;
+// 🔥 更新价格基准规格下拉框
+updatePriceSpecSelect();
+    
 }
+
 // ===================== 商品弹窗单位树形下拉（完整树形结构） =====================
 
 // 全局临时存储选中的单位数据（仅在单位下拉弹窗内使用）
@@ -4929,6 +4933,45 @@ function confirmGoodsUnitSelection() {
     }
     
     closeGoodsUnitDropdown();
+    // 🔥 更新价格基准规格下拉框
+    updatePriceSpecSelect();
+}
+
+// 更新价格基准规格下拉框（放在 confirmGoodsUnitSelection 函数后面）
+function updatePriceSpecSelect() {
+    var select = document.getElementById('add_price_spec_id');
+    var bindSpecInput = document.getElementById('bindSpecIds');
+    var baseIdInput = document.getElementById('add_base_unit_id');
+    if (!select || !bindSpecInput) return;
+    
+    var specIds = bindSpecInput.value.split(',').filter(function(id) { return id && id.trim() !== ''; });
+    var baseId = baseIdInput ? baseIdInput.value : '';
+    
+    select.innerHTML = '<option value="">请选择规格</option>';
+    
+    if (specIds.length === 0 || !baseId) {
+        select.disabled = true;
+        return;
+    }
+    
+    select.disabled = false;
+    var baseItem = baseUnitList.find(function(b) { return b.id == parseInt(baseId); });
+    
+    specIds.forEach(function(specId) {
+        var spec = unitSpecList.find(function(s) { return s.id == parseInt(specId); });
+        if (spec) {
+            var option = document.createElement('option');
+            option.value = spec.id;
+            option.textContent = spec.show_name + '（' + spec.convert_rate + (baseItem ? baseItem.unit_name : '') + '）';
+            select.appendChild(option);
+        }
+    });
+    
+    // 如果有已保存的 price_spec_id，自动选中
+    var savedValue = select.dataset.savedValue;
+    if (savedValue) {
+        select.value = savedValue;
+    }
 }
 
 // 过滤树形下拉 - 搜索时不要重置置顶标志
@@ -5293,6 +5336,7 @@ openAddForm = async function () {
     const checkBox = $('specCheckWrap');
     const bindInput = $('bindSpecIds');
     const dropdown = document.getElementById('goodsUnitDropdown');
+    const priceSpecSelect = document.getElementById('add_price_spec_id');  // 🔥 新增
     
     if (search) search.value = '';
     if (hidden) hidden.value = '';
@@ -5300,6 +5344,11 @@ openAddForm = async function () {
     if (checkBox) checkBox.innerHTML = '';
     if (bindInput) bindInput.value = '';
     if (dropdown) dropdown.style.display = 'none';
+    if (priceSpecSelect) {  // 🔥 新增：清空价格基准规格下拉框
+        priceSpecSelect.innerHTML = '<option value="">请选择规格</option>';
+        priceSpecSelect.disabled = true;
+        delete priceSpecSelect.dataset.savedValue;
+    }
 };
 
 // 🔥 劫持 openEditForm - 编辑商品时回显单位数据
@@ -5315,6 +5364,12 @@ openEditForm = async function (goodsId) {
     tempSelectedSpecIds = new Set();
     window._unitExpandState = {};
     window._shouldPinSelected = false;
+    
+    // 🔥 保存价格基准规格到下拉框的 data 属性
+    const priceSpecSelect = document.getElementById('add_price_spec_id');
+    if (priceSpecSelect && goodsItem.price_spec_id) {
+        priceSpecSelect.dataset.savedValue = String(goodsItem.price_spec_id);
+    }
     
     // 🔥 关键修复：只有存在 base_unit_id 时才填充
     if (goodsItem.base_unit_id) {
@@ -5367,8 +5422,16 @@ openEditForm = async function (goodsId) {
         if (bindInput) bindInput.value = '';
         if (wrap) wrap.style.display = 'none';
         if (checkBox) checkBox.innerHTML = '';
+        
+        // 🔥 新增：没有单位时，清空价格基准规格下拉框
+        if (priceSpecSelect) {
+            priceSpecSelect.innerHTML = '<option value="">请选择规格</option>';
+            priceSpecSelect.disabled = true;
+            delete priceSpecSelect.dataset.savedValue;
+        }
     }
 };
+
 const oldSubmitForm = submitForm;
 submitForm = async function () {
     const baseIdInput = $('add_base_unit_id');
@@ -5428,6 +5491,10 @@ submitForm = async function () {
     // 🔥 获取单位名称
     const baseUnitName = $('addBaseUnitSearch') ? $('addBaseUnitSearch').value : '';
     
+    // 🔥 获取价格基准规格
+    const priceSpecSelect = document.getElementById('add_price_spec_id');
+    const priceSpecId = priceSpecSelect ? priceSpecSelect.value : '';
+    
     const goodsData = {
         supplier: supplier.trim(), 
         name: name.trim(), 
@@ -5442,7 +5509,9 @@ submitForm = async function () {
         last_sale_price: editId ? oldSalePrice : null,
         // 🔥 允许单位为空
         base_unit_id: baseId ? +baseId : null,
-        base_unit_name: baseUnitName || null
+        base_unit_name: baseUnitName || null,
+        // 🔥 新增：保存价格基准规格
+        price_spec_id: priceSpecId ? parseInt(priceSpecId) : null
     };
     
     try {
@@ -5558,7 +5627,6 @@ submitForm = async function () {
         showMsg('保存失败：' + err.message); 
     }
 };
-
 // ===================== 空白点击关闭下拉 =====================
 document.addEventListener('click', function (e) {
     // 原有的关闭逻辑
@@ -5632,7 +5700,6 @@ window.createBaseUnitAndSelect = createBaseUnitAndSelect;
 window.onGoodsBaseUnitRadioChange = onGoodsBaseUnitRadioChange;
 window.renderGoodsUnitTree = renderGoodsUnitTree;
 window.renderExistingSpecs = renderExistingSpecs;
-window.updateSpecFromEdit = updateSpecFromEdit;
 window.doUpdateSpec = doUpdateSpec;
 window.resetUnitSearch = resetUnitSearch;
 window.onUnitFilterInput = onUnitFilterInput;
