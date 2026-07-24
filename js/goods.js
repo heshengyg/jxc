@@ -4938,7 +4938,7 @@ function filterGoodsUnitTreeDropdown() {
     renderGoodsUnitTreeDropdownContent();
 }
 
-// 渲染商品单位树形下拉内容（三级层级）
+
 // 渲染商品单位树形下拉内容（三级层级）
 function renderGoodsUnitTreeDropdownContent() {
     const container = document.getElementById('goodsUnitTreeContainer');
@@ -5013,7 +5013,7 @@ function renderGoodsUnitTreeDropdownContent() {
         var childSpecs = unitSpecList.filter(function(s) { return s.base_unit_id == baseItem.id; });
         childSpecs.sort(function(a, b) { return a.convert_rate - b.convert_rate; });
 
-        var baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
+                var baseMatch = !keyword || baseItem.unit_name.toLowerCase().includes(keyword);
         var specMatch = childSpecs.some(function(s) {
             return s.show_name.toLowerCase().includes(keyword) ||
                 String(s.convert_rate).includes(keyword);
@@ -5033,6 +5033,8 @@ function renderGoodsUnitTreeDropdownContent() {
         }
         var isBaseExpanded = window._unitExpandState[baseKey] !== false;
         var checkedCount = childSpecs.filter(function(s) { return tempSelectedSpecIds.has(String(s.id)); }).length;
+        // 🔥 修复：定义 hasCheckedSpec
+        var hasCheckedSpec = childSpecs.some(function(s) { return tempSelectedSpecIds.has(String(s.id)); });
 
         // ===== 🔥 一级单位行 =====
         var rowDiv = document.createElement('div');
