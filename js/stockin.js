@@ -565,23 +565,30 @@ function bindInDateEvents() {
  * @param {string} supplier - 供应商
  * @param {string} goodsName - 商品名称
  * @param {string} spec - 规格（完整名称）
+ * @param {string} unitSpecId - 单位规格ID（可选）
  */
-async function getLastInPrice(supplier, goodsName, spec) {
+async function getLastInPrice(supplier, goodsName, spec, unitSpecId) {
     try {
         const encodedSupplier = encodeURIComponent(supplier);
         const encodedGoodsName = encodeURIComponent(goodsName);
         const encodedSpec = encodeURIComponent(spec || '');
         
-        // 🔥 按规格精确匹配
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&order=record_date.desc&limit=1`,
-            {
-                headers: {
-                    apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`
-                }
+        // 🔥 构建查询URL
+        let url = `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}`;
+        
+        // 🔥 如果有单位规格ID，按单位规格精确匹配
+        if (unitSpecId) {
+            url += `&unit_spec_id=eq.${unitSpecId}`;
+        }
+        
+        url += `&order=record_date.desc&limit=1`;
+        
+        const res = await fetch(url, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
             }
-        );
+        });
         const data = await res.json();
         if (data && data.length > 0 && data[0].in_price) {
             return {
@@ -596,26 +603,31 @@ async function getLastInPrice(supplier, goodsName, spec) {
         return null;
     }
 }
-
 /**
  * 获取最近入库单价（排除自身ID，用于编辑时）
  */
-async function getLastInPriceExcludeSelf(supplier, goodsName, spec, excludeId) {
+async function getLastInPriceExcludeSelf(supplier, goodsName, spec, excludeId, unitSpecId) {
     try {
         const encodedSupplier = encodeURIComponent(supplier);
         const encodedGoodsName = encodeURIComponent(goodsName);
         const encodedSpec = encodeURIComponent(spec || '');
         
-        // 🔥 按规格精确匹配，排除自身
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&id=neq.${excludeId}&order=record_date.desc&limit=1`,
-            {
-                headers: {
-                    apikey: SUPABASE_KEY,
-                    Authorization: `Bearer ${SUPABASE_KEY}`
-                }
+        // 🔥 构建查询URL
+        let url = `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&id=neq.${excludeId}`;
+        
+        // 🔥 如果有单位规格ID，按单位规格精确匹配
+        if (unitSpecId) {
+            url += `&unit_spec_id=eq.${unitSpecId}`;
+        }
+        
+        url += `&order=record_date.desc&limit=1`;
+        
+        const res = await fetch(url, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
             }
-        );
+        });
         const data = await res.json();
         if (data && data.length > 0 && data[0].in_price) {
             return {
@@ -644,21 +656,21 @@ async function loadLastInPriceAndRemind(goods, specId) {
     if (!supplier || !goodsName) return;
     
     // 🔥 如果传入了规格ID，查找该规格的最近入库单价
-    // 否则使用默认的 spec 字段
     let querySpec = spec;
+    let unitSpecId = null;
     if (specId) {
+        unitSpecId = specId;
         // 根据规格ID获取规格名称（用于匹配入库记录中的 spec 字段）
         const specObj = unitSpecList.find(s => s.id == specId);
         if (specObj) {
-            // 入库记录中的 spec 字段存储的是规格名称，如 "包（230克）"
-            // 需要匹配 spec 字段
             querySpec = specObj.show_name + '（' + specObj.convert_rate + 
                        (baseUnitList.find(b => b.id == specObj.base_unit_id)?.unit_name || '') + '）';
         }
     }
     
     const getLastFn = editId ? getLastInPriceExcludeSelf : getLastInPrice;
-    const lastRecord = await getLastFn(supplier, goodsName, querySpec, editId);
+    // 🔥 传入 unitSpecId
+    const lastRecord = await getLastFn(supplier, goodsName, querySpec, editId, unitSpecId);
     const priceInput = document.getElementById('inPrice');
     
     if (lastRecord && lastRecord.price > 0) {
@@ -906,7 +918,10 @@ function onPriceInputChange() {
         if (supplier && goodsName) {
             const goods = currGoodsList.find(g => g.name === goodsName);
             if (goods) {
-                loadLastInPriceAndRemind(goods);
+                // 🔥 获取当前选中的单位规格ID
+                const unitSpecSelect = document.getElementById('inUnitSpec');
+                const specId = unitSpecSelect ? unitSpecSelect.value : null;
+                loadLastInPriceAndRemind(goods, specId);
             }
         }
         return;
@@ -918,8 +933,12 @@ function onPriceInputChange() {
     const editId = document.getElementById('inEditId').value;
     
     if (supplier && goodsName) {
+        // 🔥 获取当前选中的单位规格ID
+        const unitSpecSelect = document.getElementById('inUnitSpec');
+        const unitSpecId = unitSpecSelect ? unitSpecSelect.value : null;
+        
         const getLastFn = editId ? getLastInPriceExcludeSelf : getLastInPrice;
-        getLastFn(supplier, goodsName, spec, editId).then(lastRecord => {
+        getLastFn(supplier, goodsName, spec, editId, unitSpecId).then(lastRecord => {
             if (lastRecord && lastRecord.price > 0) {
                 if (Math.abs(lastRecord.price - currentPrice) < 0.01) {
                     showPriceConsistentReminder(lastRecord.price, lastRecord.recordDate);
@@ -1039,20 +1058,22 @@ if(id){
                 hideInPriceReminder();
             }else{
                 priceInput.disabled = false;
-                // 编辑时显示提醒（但不覆盖编辑值）
-                if (item.in_price) {
-                    getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
-                        if (lastRecord && lastRecord.price > 0) {
-                            if (Math.abs(lastRecord.price - parseFloat(item.in_price)) < 0.01) {
-                                showPriceConsistentReminder(lastRecord.price, lastRecord.recordDate);
-                            } else {
-                                showPriceChangedReminder(lastRecord.price, parseFloat(item.in_price), lastRecord.recordDate);
-                            }
-                        } else {
-                            showNoHistoryReminder();
-                        }
-                    });
-                }
+               // 在 openStockInForm 编辑分支中
+if (item.in_price) {
+    // 🔥 传入单位规格ID
+    const unitSpecId = item.unit_spec_id || null;
+    getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id, unitSpecId).then(lastRecord => {
+        if (lastRecord && lastRecord.price > 0) {
+            if (Math.abs(lastRecord.price - parseFloat(item.in_price)) < 0.01) {
+                showPriceConsistentReminder(lastRecord.price, lastRecord.recordDate);
+            } else {
+                showPriceChangedReminder(lastRecord.price, parseFloat(item.in_price), lastRecord.recordDate);
+            }
+        } else {
+            showNoHistoryReminder();
+        }
+    });
+}
             }
             
             // ✅ 更新销售单价（根据日期状态）
