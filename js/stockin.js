@@ -972,49 +972,90 @@ async function openStockInForm(id=null){
     document.getElementById('inEditId').value = id || '';
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
     
-    if(id){
+if(id){
     let item = allStockIn.find(x=>x.id === id);
     if(!item) return;
+    
     document.getElementById('supSearchInput').value = item.supplier;
     loadGoodsBySupplier(item.supplier);
+    
     setTimeout(()=>{
         let targetGoods = currGoodsList.find(g => g.name === item.goodsName);
         if(targetGoods){
-            // 🔥 传入选中的规格ID，避免被覆盖
-            const selectedSpecId = item.unit_spec_id || null;
-            selectInGoods(targetGoods, selectedSpecId);
+            // 🔥 先设置商品基本信息（但不触发价格加载）
+            document.getElementById('goodsSearchInput').value = targetGoods.name;
+            document.getElementById('curSelectGoodsId').value = targetGoods.id;
+            document.getElementById('inSpec').value = targetGoods.spec || '';
+            document.getElementById('inSettleType').value = targetGoods.channel || '';
             
-            document.getElementById('inNum').value = item.in_num;
-            // 🔥 关键：先设置入库单价，再执行其他操作
+            // 🔥 加载入库规格下拉
+            const selectedSpecId = item.unit_spec_id || null;
+            if (!baseUnitList || baseUnitList.length === 0 || !unitSpecList || unitSpecList.length === 0) {
+                loadAllBaseUnit().then(() => {
+                    loadAllUnitSpec().then(() => {
+                        loadInUnitSpecs(targetGoods.id, selectedSpecId);
+                        // 规格加载完成后回显
+                        if (selectedSpecId) {
+                            const unitSpecSelect = document.getElementById('inUnitSpec');
+                            if (unitSpecSelect) {
+                                setTimeout(() => {
+                                    unitSpecSelect.value = selectedSpecId;
+                                    onInUnitSpecChange();
+                                }, 50);
+                            }
+                        }
+                    });
+                });
+            } else {
+                loadInUnitSpecs(targetGoods.id, selectedSpecId);
+                if (selectedSpecId) {
+                    const unitSpecSelect = document.getElementById('inUnitSpec');
+                    if (unitSpecSelect) {
+                        setTimeout(() => {
+                            unitSpecSelect.value = selectedSpecId;
+                            onInUnitSpecChange();
+                        }, 50);
+                    }
+                }
+            }
+            
+            // 🔥 直接设置编辑数据，不依赖 selectInGoods
             document.getElementById('inPrice').value = item.in_price || '';
+            document.getElementById('inNum').value = item.in_num;
             document.getElementById('inRecordDate').value = item.record_date;
             document.getElementById('inProduceDate').value = item.produce_date || '';
             document.getElementById('inExpireDate').value = item.expire_date || '';
             
-            // 🔥 如果有保存的 unit_spec_id，确保回显
-            if (item.unit_spec_id) {
-                const unitSpecSelect = document.getElementById('inUnitSpec');
-                if (unitSpecSelect) {
-                    setTimeout(() => {
-                        unitSpecSelect.value = item.unit_spec_id;
-                        // 触发规格变更，更新销售单价
-                        onInUnitSpecChange();
-                    }, 100);
+            // 🔥 设置销售单价
+            if (targetGoods.sale_price) {
+                document.getElementById('inSalePrice').value = formatMoney(targetGoods.sale_price);
+            }
+            
+            // 根据结算方式控制入库单价
+            let priceInput = document.getElementById('inPrice');
+            if(targetGoods.channel === '线上'){
+                priceInput.disabled = true;
+                priceInput.value = '';
+                hideInPriceReminder();
+            }else{
+                priceInput.disabled = false;
+                // 编辑时显示提醒（但不覆盖编辑值）
+                if (item.in_price) {
+                    getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
+                        if (lastRecord && lastRecord.price > 0) {
+                            if (Math.abs(lastRecord.price - parseFloat(item.in_price)) < 0.01) {
+                                showPriceConsistentReminder(lastRecord.price, lastRecord.recordDate);
+                            } else {
+                                showPriceChangedReminder(lastRecord.price, parseFloat(item.in_price), lastRecord.recordDate);
+                            }
+                        } else {
+                            showNoHistoryReminder();
+                        }
+                    });
                 }
             }
             
-            // ✅ 编辑时也显示提醒（根据当前编辑的单价）
-            if (item.settleType === '线下' && item.in_price) {
-                getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
-                    if (lastRecord && lastRecord.price > 0) {
-                        showInPriceReminder(lastRecord.price, lastRecord.recordDate);
-                    } else {
-                        showNoHistoryReminder();
-                    }
-                });
-            }
-            
-            // ✅ 关键修改：加载完日期后，调用 updateInPriceByDate 匹配状态价格
+            // ✅ 更新销售单价（根据日期状态）
             setTimeout(() => {
                 updateInPriceByDate();
             }, 50);
