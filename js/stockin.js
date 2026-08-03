@@ -259,7 +259,7 @@ function renderGoodsSelectList(list){
         box.appendChild(div);
     });
 }
-function selectInGoods(goods){
+function selectInGoods(goods, selectedSpecId){
     document.getElementById('goodsSearchInput').value = goods.name;
     document.getElementById('curSelectGoodsId').value = goods.id;
     document.getElementById('inSpec').value = goods.spec || '';
@@ -270,16 +270,15 @@ function selectInGoods(goods){
     salePriceInput.placeholder = '';
     salePriceInput.style.color = '';
     
-    // 🔥 新增：加载入库规格下拉（确保数据已加载）
-    // 先确保基础数据已加载
+    // 🔥 加载入库规格下拉，传入选中的规格ID
     if (!baseUnitList || baseUnitList.length === 0 || !unitSpecList || unitSpecList.length === 0) {
         loadAllBaseUnit().then(() => {
             loadAllUnitSpec().then(() => {
-                loadInUnitSpecs(goods.id);
+                loadInUnitSpecs(goods.id, selectedSpecId);
             });
         });
     } else {
-        loadInUnitSpecs(goods.id);
+        loadInUnitSpecs(goods.id, selectedSpecId);
     }
     
     let priceInput = document.getElementById('inPrice');
@@ -293,8 +292,8 @@ function selectInGoods(goods){
     }
     updateInPriceByDate();
 }
-// 🔥 新增：加载商品绑定的规格到入库规格下拉框
-function loadInUnitSpecs(goodsId) {
+// 🔥 新增：加载商品绑定的规格到入库规格下拉框（支持传入选中值）
+function loadInUnitSpecs(goodsId, selectedSpecId) {
     const select = document.getElementById('inUnitSpec');
     if (!select) return;
     select.innerHTML = '<option value="">请选择规格</option>';
@@ -306,10 +305,9 @@ function loadInUnitSpecs(goodsId) {
     
     // 🔥 确保 baseUnitList 和 unitSpecList 已加载
     if (!baseUnitList || baseUnitList.length === 0 || !unitSpecList || unitSpecList.length === 0) {
-        // 数据未加载，先加载再执行
         loadAllBaseUnit().then(() => {
             loadAllUnitSpec().then(() => {
-                loadInUnitSpecs(goodsId);
+                loadInUnitSpecs(goodsId, selectedSpecId);
             });
         });
         return;
@@ -346,10 +344,15 @@ function loadInUnitSpecs(goodsId) {
             }
         });
         
-        // 默认选中价格基准规格
-        const goods = allGoods.find(g => g.id == goodsId);
-        if (goods && goods.price_spec_id) {
-            select.value = goods.price_spec_id;
+        // 🔥 如果传入了选中的规格ID，优先使用
+        if (selectedSpecId) {
+            select.value = selectedSpecId;
+        } else {
+            // 默认选中价格基准规格
+            const goods = allGoods.find(g => g.id == goodsId);
+            if (goods && goods.price_spec_id) {
+                select.value = goods.price_spec_id;
+            }
         }
         // 触发规格变更，更新销售单价
         onInUnitSpecChange();
@@ -954,7 +957,10 @@ async function openStockInForm(id=null){
     setTimeout(()=>{
         let targetGoods = currGoodsList.find(g => g.name === item.goodsName);
         if(targetGoods){
-            selectInGoods(targetGoods);
+            // 🔥 传入选中的规格ID，避免被覆盖
+            const selectedSpecId = item.unit_spec_id || null;
+            selectInGoods(targetGoods, selectedSpecId);
+            
             document.getElementById('inNum').value = item.in_num;
             // 🔥 关键：先设置入库单价，再执行其他操作
             document.getElementById('inPrice').value = item.in_price || '';
@@ -962,11 +968,10 @@ async function openStockInForm(id=null){
             document.getElementById('inProduceDate').value = item.produce_date || '';
             document.getElementById('inExpireDate').value = item.expire_date || '';
             
-            // 🔥 如果有保存的 unit_spec_id，回显
+            // 🔥 如果有保存的 unit_spec_id，确保回显
             if (item.unit_spec_id) {
                 const unitSpecSelect = document.getElementById('inUnitSpec');
                 if (unitSpecSelect) {
-                    // 先确保下拉框有选项，再设置值
                     setTimeout(() => {
                         unitSpecSelect.value = item.unit_spec_id;
                         // 触发规格变更，更新销售单价
