@@ -862,21 +862,14 @@ async function openStockInForm(id=null){
         unitSpecSelect.innerHTML = '<option value="">请选择规格</option>';
         unitSpecSelect.disabled = true;
     }
-    // ✅ 新增：隐藏入库单价提醒
+    // ✅ 隐藏入库单价提醒
     hideInPriceReminder();
     // 重置销售价输入框样式
     const salePriceInput = document.getElementById('inSalePrice');
-    salePriceInput.placeholder = '';
-    salePriceInput.style.color = '';
-    // 强制关闭下拉列表
-    document.getElementById('supListBox').style.display = 'none';
-    document.getElementById('goodsListBox').style.display = 'none';
-    // ✅ 新增：隐藏入库单价提醒
-    hideInPriceReminder();
-    // 重置销售价输入框样式
-    const salePriceInput = document.getElementById('inSalePrice');
-    salePriceInput.placeholder = '';
-    salePriceInput.style.color = '';
+    if (salePriceInput) {
+        salePriceInput.placeholder = '';
+        salePriceInput.style.color = '';
+    }
     // 强制关闭下拉列表
     document.getElementById('supListBox').style.display = 'none';
     document.getElementById('goodsListBox').style.display = 'none';
