@@ -223,12 +223,14 @@ function loadGoodsBySupplier(supplier){
     document.getElementById('inSpec').value = '';
     document.getElementById('inSettleType').value = '';
     document.getElementById('inSalePrice').value = '';
-    document.getElementById('inPrice').value = '';
-    document.getElementById('inPrice').disabled = false;
-    // ✅ 隐藏入库单价提醒
+    // 🔥 检查是否在编辑模式，如果是则不重置 inPrice
+    const editId = document.getElementById('inEditId').value;
+    if (!editId) {
+        document.getElementById('inPrice').value = '';
+        document.getElementById('inPrice').disabled = false;
+    }
     hideInPriceReminder();
 }
-
 // 商品下拉
 function showGoodsList(){
     renderGoodsSelectList(currGoodsList);
@@ -411,16 +413,19 @@ function lockProduceDate(){
 }
 
 // ========== 新增：根据日期更新销售价 ==========
-// ========== 新增：根据日期更新销售价 ==========
 async function updateInPriceByDate() {
     const goodsId = document.getElementById('curSelectGoodsId').value;
     const produceDate = document.getElementById('inProduceDate').value;
     const expireDate = document.getElementById('inExpireDate').value;
+    const unitSpecSelect = document.getElementById('inUnitSpec');
     
     if (!goodsId) return;
     
     const goods = allGoods.find(g => g.id == goodsId);
     if (!goods) return;
+    
+    // 🔥 获取当前选中的入库规格ID
+    const selectedSpecId = unitSpecSelect ? unitSpecSelect.value : '';
     
     if (produceDate || expireDate) {
         // 计算保质期天数对应的临期天数
@@ -428,7 +433,6 @@ async function updateInPriceByDate() {
         if (goods.shelf_life_unit === "年") unitCode = "year";
         if (goods.shelf_life_unit === "个月") unitCode = "month";
         
-        // 获取临期天数
         const expireResult = calculateExpireDays(goods.shelf_life_num, goods.shelf_life_unit);
         let warnDay = 0;
         if (typeof expireResult === 'string' && expireResult.includes('天')) {
@@ -439,7 +443,6 @@ async function updateInPriceByDate() {
             warnDay = Number(expireResult) || 0;
         }
         
-        // 调用统一的计算函数
         const bzResult = calcBzStatus(
             produceDate,
             expireDate,
@@ -449,30 +452,74 @@ async function updateInPriceByDate() {
         );
         const bzStatus = bzResult.statusText || '正常';
         
-        // ✅ 入库时：获取价格，如果为 null 则显示为空（不阻止入库）
+        // 获取状态价格
         const price = await getSalePriceByBzStatus(goodsId, bzStatus, goods.sale_price);
+        const salePriceInput = document.getElementById('inSalePrice');
+        
+        let basePrice = 0;
         if (price === null || price === undefined) {
-            // 价格未录入，显示为空
-            document.getElementById('inSalePrice').value = '';
-            // 可以添加一个视觉提示，但不阻止操作
-            const salePriceInput = document.getElementById('inSalePrice');
+            salePriceInput.value = '';
             salePriceInput.placeholder = '价格未录入';
             salePriceInput.style.color = '#ff6b6b';
+            return;
         } else {
-            document.getElementById('inSalePrice').value = formatMoney(price);
-            const salePriceInput = document.getElementById('inSalePrice');
-            salePriceInput.placeholder = '';
-            salePriceInput.style.color = '';
+            basePrice = price;
         }
+        
+        // 🔥 如果有选中的入库规格，进行换算
+        if (selectedSpecId) {
+            const selectedSpec = unitSpecList.find(s => s.id == selectedSpecId);
+            const priceSpecId = goods.price_spec_id;
+            
+            if (selectedSpec && selectedSpecId != priceSpecId) {
+                const priceSpec = unitSpecList.find(s => s.id == priceSpecId);
+                if (priceSpec) {
+                    const baseConvertRate = priceSpec.convert_rate || 1;
+                    const currentConvertRate = selectedSpec.convert_rate || 1;
+                    const calculatedPrice = (basePrice / baseConvertRate) * currentConvertRate;
+                    const finalPrice = Math.round(calculatedPrice * 10000) / 10000;
+                    salePriceInput.value = formatMoney(finalPrice);
+                    salePriceInput.placeholder = '已换算';
+                    salePriceInput.style.color = '#1890ff';
+                    return;
+                }
+            }
+        }
+        
+        // 没有规格换算，直接显示价格
+        salePriceInput.value = formatMoney(basePrice);
+        salePriceInput.placeholder = '';
+        salePriceInput.style.color = '';
     } else {
-        // 没有日期，显示正常的 sale_price
-        document.getElementById('inSalePrice').value = formatMoney(goods.sale_price);
+        // 没有日期，显示正常的 sale_price，但保留规格换算
         const salePriceInput = document.getElementById('inSalePrice');
+        let basePrice = goods.sale_price || 0;
+        
+        // 🔥 如果有选中的入库规格，进行换算
+        if (selectedSpecId) {
+            const selectedSpec = unitSpecList.find(s => s.id == selectedSpecId);
+            const priceSpecId = goods.price_spec_id;
+            
+            if (selectedSpec && selectedSpecId != priceSpecId) {
+                const priceSpec = unitSpecList.find(s => s.id == priceSpecId);
+                if (priceSpec) {
+                    const baseConvertRate = priceSpec.convert_rate || 1;
+                    const currentConvertRate = selectedSpec.convert_rate || 1;
+                    const calculatedPrice = (basePrice / baseConvertRate) * currentConvertRate;
+                    const finalPrice = Math.round(calculatedPrice * 10000) / 10000;
+                    salePriceInput.value = formatMoney(finalPrice);
+                    salePriceInput.placeholder = '已换算';
+                    salePriceInput.style.color = '#1890ff';
+                    return;
+                }
+            }
+        }
+        
+        salePriceInput.value = formatMoney(basePrice);
         salePriceInput.placeholder = '';
         salePriceInput.style.color = '';
     }
 }
-
 // ========== 新增：绑定日期事件 ==========
 function bindInDateEvents() {
     const produceInput = document.getElementById('inProduceDate');
@@ -883,39 +930,49 @@ async function openStockInForm(id=null){
     document.getElementById('stockInFormTitle').innerText = id ? '编辑入库单据' : '添加入库单据';
     
     if(id){
-        let item = allStockIn.find(x=>x.id === id);
-        if(!item) return;
-        document.getElementById('supSearchInput').value = item.supplier;
-        loadGoodsBySupplier(item.supplier);
-        setTimeout(()=>{
-            let targetGoods = currGoodsList.find(g => g.name === item.goodsName);
-            if(targetGoods){
-                selectInGoods(targetGoods);
-                document.getElementById('inNum').value = item.in_num;
-                document.getElementById('inPrice').value = item.in_price;
-                document.getElementById('inRecordDate').value = item.record_date;
-                document.getElementById('inProduceDate').value = item.produce_date || '';
-                document.getElementById('inExpireDate').value = item.expire_date || '';
-                
-                // ✅ 编辑时也显示提醒（根据当前编辑的单价）
-                if (item.settleType === '线下' && item.in_price) {
-                    // 获取最近一次入库单价（排除自身）
-                    getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
-                        if (lastRecord && lastRecord.price > 0) {
-                            showInPriceReminder(lastRecord.price, lastRecord.recordDate);
-                        } else {
-                            showNoHistoryReminder();
-                        }
-                    });
+    let item = allStockIn.find(x=>x.id === id);
+    if(!item) return;
+    document.getElementById('supSearchInput').value = item.supplier;
+    loadGoodsBySupplier(item.supplier);
+    setTimeout(()=>{
+        let targetGoods = currGoodsList.find(g => g.name === item.goodsName);
+        if(targetGoods){
+            selectInGoods(targetGoods);
+            document.getElementById('inNum').value = item.in_num;
+            // 🔥 关键：先设置入库单价，再执行其他操作
+            document.getElementById('inPrice').value = item.in_price || '';
+            document.getElementById('inRecordDate').value = item.record_date;
+            document.getElementById('inProduceDate').value = item.produce_date || '';
+            document.getElementById('inExpireDate').value = item.expire_date || '';
+            
+            // 🔥 如果有保存的 unit_spec_id，回显
+            if (item.unit_spec_id) {
+                const unitSpecSelect = document.getElementById('inUnitSpec');
+                if (unitSpecSelect) {
+                    unitSpecSelect.value = item.unit_spec_id;
+                    // 触发规格变更，更新销售单价
+                    onInUnitSpecChange();
                 }
-                
-                // ✅ 关键修改：加载完日期后，调用 updateInPriceByDate 匹配状态价格
-                setTimeout(() => {
-                    updateInPriceByDate();
-                }, 50);
             }
-        },100);
-    }
+            
+            // ✅ 编辑时也显示提醒（根据当前编辑的单价）
+            if (item.settleType === '线下' && item.in_price) {
+                getLastInPriceExcludeSelf(item.supplier, item.goodsName, item.spec || '', item.id).then(lastRecord => {
+                    if (lastRecord && lastRecord.price > 0) {
+                        showInPriceReminder(lastRecord.price, lastRecord.recordDate);
+                    } else {
+                        showNoHistoryReminder();
+                    }
+                });
+            }
+            
+            // ✅ 关键修改：加载完日期后，调用 updateInPriceByDate 匹配状态价格
+            setTimeout(() => {
+                updateInPriceByDate();
+            }, 50);
+        }
+    },100);
+}
     // ✅ 绑定日期事件
     bindInDateEvents();
     // ✅ 绑定入库单价输入事件
