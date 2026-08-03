@@ -259,7 +259,7 @@ function renderGoodsSelectList(list){
         box.appendChild(div);
     });
 }
-function selectInGoods(goods, selectedSpecId){
+function selectInGoods(goods, selectedSpecId, isEditMode){
     document.getElementById('goodsSearchInput').value = goods.name;
     document.getElementById('curSelectGoodsId').value = goods.id;
     document.getElementById('inSpec').value = goods.spec || '';
@@ -288,7 +288,12 @@ function selectInGoods(goods, selectedSpecId){
         hideInPriceReminder();
     }else{
         priceInput.disabled = false;
-        loadLastInPriceAndRemind(goods);
+        // 🔥 只有编辑模式（isEditMode = true）才跳过自动加载
+        // 新增和切换规格时，都自动加载最近入库单价
+        if (!isEditMode) {
+            // 传入当前选中的规格ID，查找该规格的最近入库单价
+            loadLastInPriceAndRemind(goods, selectedSpecId);
+        }
     }
     updateInPriceByDate();
 }
@@ -363,7 +368,7 @@ function loadInUnitSpecs(goodsId, selectedSpecId) {
         select.innerHTML = '<option value="">加载失败</option>';
     });
 }
-// 🔥 新增：入库规格变更时更新销售单价
+// 🔥 入库规格变更时更新销售单价，并重新加载入库单价
 function onInUnitSpecChange() {
     const select = document.getElementById('inUnitSpec');
     const goodsId = document.getElementById('curSelectGoodsId').value;
@@ -386,7 +391,6 @@ function onInUnitSpecChange() {
     const priceSpecId = goods.price_spec_id;
     const baseSalePrice = goods.sale_price || 0;
     
-    // 获取销售单价输入框
     const salePriceInput = document.getElementById('inSalePrice');
     if (!salePriceInput) return;
     
@@ -395,26 +399,26 @@ function onInUnitSpecChange() {
         salePriceInput.value = formatMoney(baseSalePrice);
         salePriceInput.placeholder = '';
         salePriceInput.style.color = '';
-        return;
+    } else {
+        const priceSpec = unitSpecList.find(s => s.id == priceSpecId);
+        if (priceSpec) {
+            const baseConvertRate = priceSpec.convert_rate || 1;
+            const currentConvertRate = selectedSpec.convert_rate || 1;
+            const calculatedPrice = (baseSalePrice / baseConvertRate) * currentConvertRate;
+            const finalPrice = Math.round(calculatedPrice * 10000) / 10000;
+            salePriceInput.value = formatMoney(finalPrice);
+            salePriceInput.placeholder = '已换算';
+            salePriceInput.style.color = '#1890ff';
+        } else {
+            salePriceInput.value = formatMoney(baseSalePrice);
+        }
     }
     
-    // 获取价格基准规格的换算率
-    const priceSpec = unitSpecList.find(s => s.id == priceSpecId);
-    if (!priceSpec) {
-        salePriceInput.value = formatMoney(baseSalePrice);
-        return;
+    // 🔥 切换规格时，重新加载该规格的最近入库单价（新增模式才加载）
+    const isEditMode = document.getElementById('inEditId').value ? true : false;
+    if (!isEditMode) {
+        loadLastInPriceAndRemind(goods, selectedSpecId);
     }
-    
-    // 计算：基准价格 / 基准换算率 × 当前规格换算率
-    const baseConvertRate = priceSpec.convert_rate || 1;
-    const currentConvertRate = selectedSpec.convert_rate || 1;
-    const calculatedPrice = (baseSalePrice / baseConvertRate) * currentConvertRate;
-    
-    // 保留4位小数
-    const finalPrice = Math.round(calculatedPrice * 10000) / 10000;
-    salePriceInput.value = formatMoney(finalPrice);
-    salePriceInput.placeholder = '已换算';
-    salePriceInput.style.color = '#1890ff';
 }
 // 日期互斥
 function lockExpireDate(){
@@ -558,6 +562,9 @@ function bindInDateEvents() {
 
 /**
  * 获取商品最近一次入库单价（通用）
+ * @param {string} supplier - 供应商
+ * @param {string} goodsName - 商品名称
+ * @param {string} spec - 规格（完整名称）
  */
 async function getLastInPrice(supplier, goodsName, spec) {
     try {
@@ -565,6 +572,7 @@ async function getLastInPrice(supplier, goodsName, spec) {
         const encodedGoodsName = encodeURIComponent(goodsName);
         const encodedSpec = encodeURIComponent(spec || '');
         
+        // 🔥 按规格精确匹配
         const res = await fetch(
             `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&order=record_date.desc&limit=1`,
             {
@@ -598,6 +606,7 @@ async function getLastInPriceExcludeSelf(supplier, goodsName, spec, excludeId) {
         const encodedGoodsName = encodeURIComponent(goodsName);
         const encodedSpec = encodeURIComponent(spec || '');
         
+        // 🔥 按规格精确匹配，排除自身
         const res = await fetch(
             `${SUPABASE_URL}/rest/v1/stock_in?supplier=eq.${encodedSupplier}&goodsName=eq.${encodedGoodsName}&spec=eq.${encodedSpec}&id=neq.${excludeId}&order=record_date.desc&limit=1`,
             {
@@ -621,11 +630,12 @@ async function getLastInPriceExcludeSelf(supplier, goodsName, spec, excludeId) {
         return null;
     }
 }
-
 /**
- * 加载最近入库单价并显示提醒
+ * 加载最近入库单价并显示提醒（支持按规格查询）
+ * @param {object} goods - 商品对象
+ * @param {string} specId - 规格ID（可选）
  */
-async function loadLastInPriceAndRemind(goods) {
+async function loadLastInPriceAndRemind(goods, specId) {
     const supplier = document.getElementById('supSearchInput').value.trim();
     const goodsName = goods.name;
     const spec = goods.spec || '';
@@ -633,8 +643,22 @@ async function loadLastInPriceAndRemind(goods) {
     
     if (!supplier || !goodsName) return;
     
+    // 🔥 如果传入了规格ID，查找该规格的最近入库单价
+    // 否则使用默认的 spec 字段
+    let querySpec = spec;
+    if (specId) {
+        // 根据规格ID获取规格名称（用于匹配入库记录中的 spec 字段）
+        const specObj = unitSpecList.find(s => s.id == specId);
+        if (specObj) {
+            // 入库记录中的 spec 字段存储的是规格名称，如 "包（230克）"
+            // 需要匹配 spec 字段
+            querySpec = specObj.show_name + '（' + specObj.convert_rate + 
+                       (baseUnitList.find(b => b.id == specObj.base_unit_id)?.unit_name || '') + '）';
+        }
+    }
+    
     const getLastFn = editId ? getLastInPriceExcludeSelf : getLastInPrice;
-    const lastRecord = await getLastFn(supplier, goodsName, spec, editId);
+    const lastRecord = await getLastFn(supplier, goodsName, querySpec, editId);
     const priceInput = document.getElementById('inPrice');
     
     if (lastRecord && lastRecord.price > 0) {
@@ -645,7 +669,6 @@ async function loadLastInPriceAndRemind(goods) {
         showNoHistoryReminder();
     }
 }
-
 /**
  * 显示入库单价提醒（有历史记录）
  */
