@@ -270,21 +270,27 @@ function selectInGoods(goods){
     salePriceInput.placeholder = '';
     salePriceInput.style.color = '';
     
-    // 🔥 新增：加载入库规格下拉
-    loadInUnitSpecs(goods.id);
+    // 🔥 新增：加载入库规格下拉（确保数据已加载）
+    // 先确保基础数据已加载
+    if (!baseUnitList || baseUnitList.length === 0 || !unitSpecList || unitSpecList.length === 0) {
+        loadAllBaseUnit().then(() => {
+            loadAllUnitSpec().then(() => {
+                loadInUnitSpecs(goods.id);
+            });
+        });
+    } else {
+        loadInUnitSpecs(goods.id);
+    }
     
     let priceInput = document.getElementById('inPrice');
     if(goods.channel === '线上'){
         priceInput.disabled = true;
         priceInput.value = '';
-        // ✅ 隐藏提醒
         hideInPriceReminder();
     }else{
         priceInput.disabled = false;
-        // ✅ 自动加载最近入库单价并显示提醒
         loadLastInPriceAndRemind(goods);
     }
-    // ✅ 触发日期变化事件，根据已有日期匹配价格
     updateInPriceByDate();
 }
 // 🔥 新增：加载商品绑定的规格到入库规格下拉框
@@ -295,6 +301,17 @@ function loadInUnitSpecs(goodsId) {
     
     if (!goodsId) {
         select.disabled = true;
+        return;
+    }
+    
+    // 🔥 确保 baseUnitList 和 unitSpecList 已加载
+    if (!baseUnitList || baseUnitList.length === 0 || !unitSpecList || unitSpecList.length === 0) {
+        // 数据未加载，先加载再执行
+        loadAllBaseUnit().then(() => {
+            loadAllUnitSpec().then(() => {
+                loadInUnitSpecs(goodsId);
+            });
+        });
         return;
     }
     
@@ -949,9 +966,12 @@ async function openStockInForm(id=null){
             if (item.unit_spec_id) {
                 const unitSpecSelect = document.getElementById('inUnitSpec');
                 if (unitSpecSelect) {
-                    unitSpecSelect.value = item.unit_spec_id;
-                    // 触发规格变更，更新销售单价
-                    onInUnitSpecChange();
+                    // 先确保下拉框有选项，再设置值
+                    setTimeout(() => {
+                        unitSpecSelect.value = item.unit_spec_id;
+                        // 触发规格变更，更新销售单价
+                        onInUnitSpecChange();
+                    }, 100);
                 }
             }
             
