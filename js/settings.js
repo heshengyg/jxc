@@ -219,7 +219,6 @@ window.settingsData = settingsData;
 // ===== 子版块菜单定义 =====
 const ALL_MENUS = [
     { key: 'goodsInfo', label: '商品信息', module: 'goods', moduleLabel: '商品管理' },
-    { key: 'unitSet', label: '单位预设', module: 'goods', moduleLabel: '商品管理' },
     { key: 'settleType', label: '供应商管理', module: 'goods', moduleLabel: '商品管理' },
     { key: 'dateChange', label: '后台更换日期', module: 'goods', moduleLabel: '商品管理' },
     { key: 'stockInList', label: '入库记录', module: 'stockIn', moduleLabel: '入库管理' },
@@ -251,7 +250,7 @@ const MODULE_GROUPS = {
 };
 
 const MODULE_SUB_KEYS = {
-    goods: ['goodsInfo', 'unitSet', 'settleType', 'dateChange'],
+    goods: ['goodsInfo', 'settleType', 'dateChange'],
     stockIn: ['stockInList'],
     returnGoods: ['returnList'],
     stockOut: ['stockOutList'],
@@ -476,13 +475,11 @@ function applySubTabPermissions() {
 
     var firstVisible = null;
     subBtns.forEach(function(btn) {
-    var tabKey = btn.dataset.tab;
-    // 将 sub-unitSet 映射为 unitSet（权限系统中存的是 unitSet）
-    var permKey = tabKey === 'sub-unitSet' ? 'unitSet' : tabKey;
-    var hasPerm = perms.view.includes(permKey);
-    btn.style.display = hasPerm ? '' : 'none';
-    if (hasPerm && !firstVisible) firstVisible = btn;
-});
+        var tabKey = btn.dataset.tab;
+        var hasPerm = perms.view.includes(tabKey);
+        btn.style.display = hasPerm ? '' : 'none';
+        if (hasPerm && !firstVisible) firstVisible = btn;
+    });
 
     var activeSub = document.querySelector('#' + moduleKey + ' .finance-sub-btn.active') ||
                     document.querySelector('#' + moduleKey + ' .settings-sub-btn.active');

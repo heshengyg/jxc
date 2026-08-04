@@ -76,7 +76,6 @@
         <h3>商品管理</h3>
         <div class="finance-sub-tabs" style="margin:15px 0;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="finance-sub-btn active" data-tab="goodsInfo" onclick="switchGoodsSubTab('goodsInfo')">商品信息</button>
-            <button class="finance-sub-btn" data-tab="sub-unitSet" onclick="switchGoodsSubTab('sub-unitSet')">单位预设</button>
             <button class="finance-sub-btn" data-tab="settleType" onclick="switchGoodsSubTab('settleType')">供应商管理</button>
             <button class="finance-sub-btn" data-tab="dateChange" onclick="switchGoodsSubTab('dateChange')">改日改价</button>
         </div>
@@ -134,8 +133,6 @@
                             <th class="sortable" onclick="sortTable('name')">商品名称 <span class="sort-icon"></span></th>
                             <th class="sortable" onclick="sortTable('spec')">规格 <span class="sort-icon"></span></th>
                             <th class="sortable" onclick="sortTable('channel')">销售渠道 <span class="sort-icon"></span></th>
-                            <th class="sortable" onclick="sortTable('base_unit_name')">最小计量单位 <span class="sort-icon"></span></th>  <!-- 🔥 新增 -->
-<th class="sortable" onclick="sortTable('price_spec_id')">价格基准规格 <span class="sort-icon"></span></th>  <!-- 🔥 新增 -->
                             <th class="sortable" onclick="sortTable('sale_price')">销售单价 <span class="sort-icon"></span></th>
                             <th class="sortable" onclick="sortTable('online_cost')">线上成本价 <span class="sort-icon"></span></th>
                             <th class="sortable" onclick="sortTable('tax_rate')">税率 <span class="sort-icon"></span></th>
@@ -165,92 +162,6 @@
                 </div>
             </div>
         </div>
-
-<!-- 单位预设 -->
-<div id="sub-unitSet" class="finance-sub-content" style="display:none;">
-    <h4>单位预设管理</h4>
-    <div style="margin:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="openUnitEdit(null, 1)">➕ 新增单位</button>
-        <button class="btn btn-default" onclick="loadAllBaseUnit(); loadAllUnitSpec(); renderAllUnitTable();">🔄 刷新列表</button>
-        <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
-        <span style="font-size:13px; color:#999;">提示：一级单位删除前需先删除其下所有换算规格</span>
-    </div>
-    
-    <!-- 搜索栏 -->
-    <div class="search-bar" style="flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;">
-        <!-- 搜索基础单位 -->
-<div style="position:relative; display:inline-block;">
-    <input type="text" id="unitFilterBaseName" placeholder="搜索基础单位" 
-           onfocus="showUnitBaseList()" 
-           oninput="onUnitFilterInput()"
-           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-    <div id="unitFilterBaseNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-</div>
-
-<!-- 搜索包装单位 -->
-<div style="position:relative; display:inline-block;">
-    <input type="text" id="unitFilterSpecName" placeholder="搜索包装单位" 
-           onfocus="showUnitSpecList()" 
-           oninput="onUnitFilterInput()"
-           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-    <div id="unitFilterSpecNameList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-</div>
-
-<!-- 搜索换算比例 -->
-<div style="position:relative; display:inline-block;">
-    <input type="text" id="unitFilterRate" placeholder="搜索换算比例" 
-           onfocus="showUnitRateList()" 
-           oninput="onUnitFilterInput()"
-           style="width:140px; padding:6px 10px; height:34px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
-    <div id="unitFilterRateList" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; z-index:9999; display:none; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-</div>
-        
-        <button class="btn btn-default" onclick="resetUnitSearch()">重置搜索</button>
-    </div>
-    
-    <!-- 统计信息 -->
-    <div class="stat-bar">
-        共有 <span id="unitTotalBaseCount">0</span> 条基础单位，<span id="unitTotalSpecCount">0</span> 条包装单位，
-        当前搜索结果 <span id="unitSearchBaseCount">0</span> 条基础单位，<span id="unitSearchSpecCount">0</span> 条包装单位
-    </div>
-    
-    <div class="table-container">
-        <table border="1" cellpadding="6" cellspacing="0" width="100%">
-            <thead>
-                <tr>
-                    <th style="width:60px;">序号</th>
-                    <th style="min-width:150px;">单位名称</th>
-                    <th style="min-width:120px;">换算名称</th>
-                    <th style="min-width:100px;">换算比例</th>
-                    <th style="width:80px;">状态</th>
-                    <th style="min-width:300px;">操作</th>
-                </tr>
-            </thead>
-            <tbody id="allUnitTable">
-                <tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">暂无数据，请新增单位</td></tr>
-            </tbody>
-        </table>
-    </div>
-    
-    <!-- 分页 -->
-    <div class="pagination">
-        <div class="page-info">
-            每页显示 <select id="unitPageSize" onchange="changeUnitPageSize()">
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-            </select> 条，当前第 <span id="unitCurrentPage">1</span> / <span id="unitTotalPages">1</span> 页
-        </div>
-        <div class="page-controls">
-            <button class="page-btn" onclick="unitGoToPage(1)">首页</button>
-            <button class="page-btn" onclick="unitPrevPage()">上一页</button>
-            <span id="unitPageNumbers"></span>
-            <button class="page-btn" onclick="unitNextPage()">下一页</button>
-            <button class="page-btn" onclick="unitGoToPage(unitTotalPages)">末页</button>
-        </div>
-    </div>
-</div>
 
         <div id="sub-settleType" class="finance-sub-content" style="display:none;">
     <h4>供应商管理</h4>
@@ -1494,7 +1405,7 @@
 
 <!-- 商品弹窗 -->
 <div class="form-modal" id="formModal">
-    <div class="form-container" style="max-width: 960px; max-height: 90vh; overflow-y: auto; padding: 25px 30px;">
+    <div class="form-container" style="max-width: 960px; padding: 25px 30px;">
         <h4 id="formTitle" style="margin:0 0 20px 0; text-align:center; font-size:20px;">新增商品</h4>
         <input type="hidden" id="editId">
         
@@ -1528,55 +1439,7 @@
                        style="flex:1; min-width:0; padding:8px 12px; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; font-size:15px;">
             </div>
         </div>
-<!-- 基准单位行 + 右侧新增按钮 -->
-<div style="flex:1.3; display:flex; align-items:center; gap:8px; white-space:nowrap; position:relative;">
-    <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">单位：</label>
-    <div style="position:relative; flex:1; min-width:0;">
-        <!-- 搜索输入框（点击展开下拉树形弹窗） -->
-        <input class="search-select-input" id="addBaseUnitSearch" placeholder="搜索最小计量单位"
-               onfocus="showGoodsUnitTreeDropdown()"
-               oninput="filterGoodsUnitTreeDropdown()"
-               style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:15px; cursor:pointer;">
         
-        <!-- 下拉树形弹窗 -->
-        <div id="goodsUnitDropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; min-width:380px; max-height:420px; overflow-y:auto; background:#fff; border:1px solid #ddd; border-radius:4px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:12px;">
-            <!-- 弹窗内搜索框 -->
-            <div style="margin-bottom:10px;">
-                <input type="text" id="goodsUnitSearchInput" placeholder="搜索单位、包装、换算比例..." 
-                       oninput="filterGoodsUnitTreeDropdown()"
-                       style="width:100%; padding:6px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; box-sizing:border-box;">
-            </div>
-            <!-- 树形列表容器 -->
-            <div id="goodsUnitTreeContainer" style="max-height:280px; overflow-y:auto;"></div>
-            <!-- 按钮区域 -->
-            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid #eee;">
-                <button class="btn btn-default btn-sm" onclick="closeGoodsUnitDropdown()" style="padding:4px 16px; cursor:pointer;">取消</button>
-                <button class="btn btn-primary btn-sm" onclick="confirmGoodsUnitSelection()" style="padding:4px 16px; cursor:pointer;">确定</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 右侧新增按钮，和单位预设共用弹窗 -->
-    <button type="button" class="btn btn-primary btn-sm" onclick="openUnitEdit(null, 1)">新增</button>
-    <input type="hidden" id="add_base_unit_id">
-</div>
-
-<!-- 显示已选中的换算规格（只读展示） -->
-<div id="specMultiWrap" style="margin-bottom:16px;display:none;">
-    <label style="font-weight:bold; font-size:14px;">已选换算规格：</label>
-    <div id="specCheckWrap" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:10px;"></div>
-    <input type="hidden" id="bindSpecIds" value="">
-</div>
-
-<!-- 🔥 新增：价格基准规格 -->
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-    <label style="width:120px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">价格基准规格：</label>
-    <select id="add_price_spec_id" style="flex:1; padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:14px; background:#fff;">
-        <option value="">请先选择单位规格</option>
-    </select>
-</div>
-
-       
         <div style="display:flex; gap:20px; margin-bottom:14px; flex-wrap:nowrap;">
             <div style="flex:1; display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <label style="width:80px; text-align:right; font-weight:bold; font-size:14px; flex-shrink:0;">税率：</label>
@@ -1701,14 +1564,12 @@
             </div>
         </div>
         
-        <!-- 第三行：入库规格 + 入库单价 + 入库数量 -->
-<div style="display:flex; gap:25px; margin-bottom:8px; flex-wrap:wrap;">
+        <!-- 第三行：入库数量 + 入库单价 + 录入日期 -->
+<div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
     <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库规格：</label>
-        <select id="inUnitSpec" onchange="onInUnitSpecChange()"
-                style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px; background:#fff;">
-            <option value="">请选择规格</option>
-        </select>
+        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库数量：</label>
+        <input type="number" id="inNum" min="1" placeholder="必填" 
+               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
     </div>
     <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
         <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库单价：</label>
@@ -1716,33 +1577,28 @@
                style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
     </div>
     <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">入库数量：</label>
-        <input type="number" id="inNum" min="1" placeholder="必填" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
-</div>
-
-<!-- ✅ 入库单价提醒 - 紧跟入库单价 -->
-<div id="inPriceReminder" style="display:none; margin-bottom:8px;"></div>
-
-<!-- 第四行：录入日期 -->
-<div style="display:flex; gap:25px; margin-bottom:18px; flex-wrap:wrap;">
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
         <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">录入日期：</label>
         <input type="date" id="inRecordDate" 
                style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
     </div>
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">生产日期：</label>
-        <input type="date" id="inProduceDate" onchange="lockExpireDate()" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
-    <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
-        <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">到期日期：</label>
-        <input type="date" id="inExpireDate" onchange="lockProduceDate()" 
-               style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
-    </div>
 </div>
+<!-- ✅ 入库单价提醒 -->
+<div id="inPriceReminder" style="display:none;"></div>
+        
+        <!-- 第四行：生产日期 + 到期日期 -->
+        <div style="display:flex; gap:25px; margin-bottom:22px; flex-wrap:wrap;">
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">生产日期：</label>
+                <input type="date" id="inProduceDate" onchange="lockExpireDate()" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:10px; white-space:nowrap; min-width:200px;">
+                <label style="width:80px; text-align:right; font-weight:bold; font-size:15px; flex-shrink:0;">到期日期：</label>
+                <input type="date" id="inExpireDate" onchange="lockProduceDate()" 
+                       style="flex:1; min-width:0; padding:10px 14px; border:1px solid #ddd; border-radius:4px; font-size:15px; height:44px;">
+            </div>
+            <div style="flex:1;"></div> <!-- 占位保持对齐 -->
+        </div>
         
         <!-- 按钮 -->
         <div style="text-align:center; padding-top:18px; border-top:1px solid #eee;">
@@ -1751,6 +1607,7 @@
         </div>
     </div>
 </div>
+
 <!-- 出库弹窗 -->
 <div class="form-modal" id="stockOutModal">
     <div class="form-container" style="max-width: 900px; padding: 30px 35px; min-width: 700px;">
@@ -2074,58 +1931,6 @@ document.addEventListener('DOMContentLoaded', async function(){
     await refreshGoods();
 });
 </script>
-<!-- 全局唯一单位弹窗（一级+二级共用） -->
-<div id="unitAllModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999999;align-items:center;justify-content:center;">
-    <div style="width:580px;max-width:95%;background:#fff;padding:24px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
-        <h4 id="unitModalTitle" style="margin:0 0 16px;font-size:18px;">新增最小计量单位</h4>
-        <input type="hidden" id="unitEditType" value="1">
-        <input type="hidden" id="unitEditId" value="">
-        <input type="hidden" id="specBaseUnitId" value="">
-        
-        <!-- 一级单位：搜索下拉 -->
-        <div style="margin-bottom:14px;position:relative;">
-            <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">最小计量单位 <span style="color:red;">*</span></label>
-            <input id="baseUnitName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="请输入单位名称（如：克）" oninput="filterBaseUnitInModal()" onfocus="showBaseUnitInModal()">
-            <div id="baseUnitModalList" style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:10000;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-        </div>
-        
-        <!-- 换算规格区域 -->
-        <div id="specInputWrap" style="display:block;margin-bottom:14px;border-top:1px solid #eee;padding-top:14px;">
-            <div style="margin-bottom:10px;">
-                <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:14px;">换算规格（选填）</label>
-                <span style="font-size:12px;color:#999;">可添加多个换算单位，所有换算单位都归属于当前最小计量单位</span>
-            </div>
-            
-            <!-- 新增换算规格行 -->
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-                <div style="flex:1;min-width:120px;">
-                    <input id="specShowName" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="换算单位名称（如：份）" oninput="filterSpecInModal()" onfocus="showSpecInModal()">
-                    <div id="specModalList" style="position:absolute;top:100%;left:0;width:100%;max-height:150px;overflow-y:auto;background:#fff;border:1px solid #ddd;z-index:10000;display:none;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-                </div>
-                <div style="flex:0 0 130px;">
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <input type="number" min="0.01" step="0.01" id="specRate" style="width:80px;padding:8px 8px;border:1px solid #ddd;border-radius:4px;font-size:15px;box-sizing:border-box;" placeholder="系数">
-                        <span id="specRateUnit" style="font-size:14px;font-weight:bold;min-width:30px;">克</span>
-                    </div>
-                </div>
-                <button class="btn btn-success btn-sm" onclick="addSpecToList()" style="padding:6px 16px;font-size:13px;white-space:nowrap;">➕ 添加</button>
-            </div>
-            
-            <!-- 已添加的换算规格列表 -->
-            <div id="specListContainer" style="border:1px solid #e8e8e8;border-radius:4px;padding:8px;min-height:50px;background:#fafafa;">
-                <div id="specListItems" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-                <div id="specListEmpty" style="color:#bbb;text-align:center;padding:12px 0;font-size:13px;">暂无换算规格，请在上方添加</div>
-                <!-- 已有规格列表 -->
-<div id="existingSpecList" style="margin-top:8px; padding:8px; background:#f9f9f9; border-radius:4px; min-height:20px;"></div>
-            </div>
-        </div>
-        
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-            <button class="btn btn-default" onclick="closeUnitAllModal()" style="padding:8px 30px;cursor:pointer;">取消</button>
-            <button class="btn btn-primary" onclick="submitAllUnit()" style="padding:8px 30px;cursor:pointer;">保存</button>
-        </div>
-    </div>
-</div>
 
 </body>
 </html>
